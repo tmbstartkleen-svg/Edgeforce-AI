@@ -15,15 +15,15 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>PERSISTENCE ENGINE ONLINE <b>V7</b></div></header>
-  <section className="hero"><div><div className="badge">8-DAY RADAR • STORED LINES • ADAPTIVE SIMS • LEARNING</div><h2>Scan the board. <em>Price the probability.</em></h2><p>Every market is ranked by model probability, price, expected value, model agreement, freshness, and adaptive simulation depth.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>SPORT ENGINES ONLINE <b>V8</b></div></header>
+  <section className="hero"><div><div className="badge">11 SPORT ENGINES • 8-DAY RADAR • ADAPTIVE SIMS • EV</div><h2>One market. <em>Different math by sport.</em></h2><p>Edgeforce now routes each market through a sport-specific feature engine before the Model Council prices the final probability.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
+   <div className="stat"><small>SPORT ENGINES</small><strong>11</strong><span>NFL through Golf</span></div>
    <div className="stat"><small>QUALIFIED</small><strong>{ranked.length}</strong><span>{view==='today'?'Today':'8-day horizon'}</span></div>
-   <div className="stat"><small>ELITE</small><strong>{ranked.filter(x=>x.grade==='ELITE').length}</strong><span>Best EV + agreement</span></div>
+   <div className="stat"><small>ELITE</small><strong>{ranked.filter(x=>x.grade==='ELITE').length}</strong><span>EV + agreement + sport model</span></div>
    <div className="stat"><small>MAX SIMS</small><strong>{Math.max(0,...ranked.map(x=>x.simulationRuns)).toLocaleString()}</strong><span>Adaptive per market</span></div>
-   <div className="stat"><small>AVG AGREEMENT</small><strong>{fmtPct(ranked.reduce((s,x)=>s+x.agreement,0)/Math.max(1,ranked.length))}</strong><span>9-model council</span></div>
   </section>
 
   <nav className="tabs"><button className={view==='today'?'active':''} onClick={()=>setView('today')}>TODAY TOP 30</button><button className={view==='week'?'active':''} onClick={()=>setView('week')}>WEEK TOP 30</button></nav>
@@ -33,9 +33,9 @@ export default function Dashboard(){
    <div className="card"><div className="eyebrow">PM CARD</div><h3>{pm.length} qualified legs</h3><p>{pm.slice(0,3).map(x=>x.selection).join(' • ')||'No PM legs currently qualify.'}</p></div>
   </section>
 
-  <section className="panel"><div className="panelHead"><div><div className="eyebrow">{view==='today'?"TODAY'S TOP 30":"WEEKLY TOP 30"}</div><h3>Most valuable probability discrepancies first</h3></div></div>
-   <div className="tableWrap"><table><thead><tr><th>#</th><th>Sport</th><th>Event / Selection</th><th>Odds</th><th>Market P</th><th>Sim P</th><th>Edge</th><th>EV</th><th>Fair</th><th>Sims</th><th>Fresh</th><th>Kelly</th><th>Grade</th></tr></thead>
-   <tbody>{ranked.map((x,i)=><tr key={x.id}><td>{i+1}</td><td>{x.sport}</td><td><b>{x.event}</b><small>{x.selection}</small></td><td>{fmtOdds(x.odds)}</td><td>{fmtPct(x.marketProb)}</td><td className={x.edge>.06?'orange':'lime'}>{fmtPct(x.simProbability)}</td><td className="lime">+{fmtPct(x.edge)}</td><td className="lime">{fmtPct(x.expectedValue)}</td><td>{fmtOdds(x.fairOdds)}</td><td>{x.simulationRuns.toLocaleString()}</td><td>{x.freshness}</td><td>{fmtPct(x.recommendedStake)}</td><td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td></tr>)}</tbody></table></div>
+  <section className="panel"><div className="panelHead"><div><div className="eyebrow">{view==='today'?"TODAY'S TOP 30":"WEEKLY TOP 30"}</div><h3>Market vs sport model vs ensemble probability</h3></div></div>
+   <div className="tableWrap"><table><thead><tr><th>#</th><th>Sport</th><th>Event / Selection</th><th>Odds</th><th>Market P</th><th>Sport P</th><th>Sim P</th><th>Edge</th><th>EV</th><th>Fair</th><th>Sims</th><th>Factors</th><th>Grade</th></tr></thead>
+   <tbody>{ranked.map((x,i)=><tr key={x.id}><td>{i+1}</td><td>{x.sport}</td><td><b>{x.event}</b><small>{x.selection}</small></td><td>{fmtOdds(x.odds)}</td><td>{fmtPct(x.marketProb)}</td><td className="orange">{fmtPct(x.sportModelProbability)}</td><td className="lime">{fmtPct(x.simProbability)}</td><td className="lime">+{fmtPct(x.edge)}</td><td className="lime">{fmtPct(x.expectedValue)}</td><td>{fmtOdds(x.fairOdds)}</td><td>{x.simulationRuns.toLocaleString()}</td><td><small>{x.sportFactors.join(' • ')||'Neutral'}</small></td><td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td></tr>)}</tbody></table></div>
   </section>
 
   <section className="parlayGrid">
