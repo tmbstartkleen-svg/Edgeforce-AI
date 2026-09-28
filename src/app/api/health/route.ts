@@ -1,3 +1,5 @@
+import {dbHealth} from '@/lib/db';
 export async function GET(){
- return Response.json({ok:true,app:'Edgeforce AI',version:'4.0.0',time:new Date().toISOString()});
+ const database=await dbHealth();
+ return Response.json({ok:true,app:'Edgeforce AI',version:'7.0.0',database,time:new Date().toISOString()});
 }
