@@ -2,26 +2,40 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V6
-V6 adds persistent-learning and repricing infrastructure on top of the V5 scanner:
-- Scheduled hourly scan hook
-- Scheduled daily recalibration hook
-- Odds / weather / injury ingestion endpoints
-- Injury, weather, home/away, and line-movement repricing logic
-- Settlement and CLV calculation
-- Calibration metrics: Brier score, log loss, expected calibration error
-- Learning endpoint that proposes probability adjustment only after enough samples
-- V6 database migration for ingestion runs, model weights, player features, simulation intervals, and repricing context
-- Existing 8-day scanner, Today/Week Top 30, AM/PM cards, adaptive 100–100,000 simulations, and correlation-aware parlays remain intact
+## Current build — V7
+V7 makes Edgeforce database-backed when `DATABASE_URL` is configured.
+
+### Added in V7
+- PostgreSQL client and health check
+- Persistent event and market snapshots
+- Persisted DraftKings-style odds history
+- Stored line-movement retrieval and velocity analysis
+- Database-backed Today/Week Top 30 endpoint
+- Model-run persistence for ranked opportunities
+- Player profile, game-history, and feature retrieval
+- Result ingestion and settlement storage
+- Closing-line table
+- Ranking snapshot table
+- Settlement-job tracking
+- V7 indexes for latest-line, player-history, and result lookup
+- Automatic fallback to demo data when no database is configured
+
+### Data flow
+1. Authorized odds provider -> `POST /api/ingest/odds`
+2. Market snapshots -> PostgreSQL
+3. `GET /api/scan/stored?view=today|week`
+4. Model Council + adaptive simulations + EV/Kelly ranking
+5. Ranked model runs saved for audit
+6. Result feed -> `POST /api/results/ingest`
+7. CLV/calibration/retraining layers consume settled history
 
 ## Guardrails
-- Sportsbook odds are treated as prices, not predictions.
-- Positive EV, calibration, uncertainty, and closing-line value matter more than raw hit rate.
-- The 30% daily gain is a dashboard target, not a guaranteed return or forced objective.
+- Sportsbook odds are prices, not predictions.
+- 30% daily gain is a target display, never a guaranteed or forced objective.
 - Kelly remains constrained.
 - The engine may return **NO BET**.
-- Live production feeds must be licensed/authorized.
-- API keys, cron secrets, and ingest secrets belong only in environment variables.
+- Use licensed/authorized production feeds only.
+- Never commit API keys, database credentials, or secrets.
 
 ## Run
 ```bash
@@ -29,24 +43,22 @@ npm install
 npm run dev
 ```
 
-## Core API
-- `GET /api/health`
-- `GET /api/markets`
-- `POST /api/model/run`
-- `GET /api/scan?view=today|week`
-- `GET /api/parlays?size=2|3`
-- `GET /api/players`
-- `GET /api/line-history?marketId=...`
+## Database
+Apply migrations in order:
 
-## V6 API
-- `POST /api/ingest/odds`
-- `POST /api/ingest/weather`
-- `POST /api/ingest/injuries`
-- `POST /api/reprice`
-- `POST /api/settle`
-- `POST /api/calibration`
-- `POST /api/learn`
-- `GET /api/cron/scan`
-- `GET /api/cron/recalibrate`
+```
+db/schema.sql
+db/v6.sql
+db/v7.sql
+```
 
-Apply `db/schema.sql` first, then `db/v6.sql`.
+Set `DATABASE_URL` in the environment.
+
+## V7 endpoints
+- `GET /api/db/health`
+- `GET /api/scan/stored?view=today|week`
+- `GET /api/line-history/stored?eventId=...&marketKey=...&selectionKey=...`
+- `GET /api/player/[id]`
+- `POST /api/results/ingest`
+
+Existing V6 ingestion, repricing, calibration, learning, scanner, parlay, and cron endpoints remain available.
