@@ -2,63 +2,67 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V7
-V7 makes Edgeforce database-backed when `DATABASE_URL` is configured.
+## Current build — V8
 
-### Added in V7
-- PostgreSQL client and health check
-- Persistent event and market snapshots
-- Persisted DraftKings-style odds history
-- Stored line-movement retrieval and velocity analysis
-- Database-backed Today/Week Top 30 endpoint
-- Model-run persistence for ranked opportunities
-- Player profile, game-history, and feature retrieval
-- Result ingestion and settlement storage
-- Closing-line table
-- Ranking snapshot table
-- Settlement-job tracking
-- V7 indexes for latest-line, player-history, and result lookup
-- Automatic fallback to demo data when no database is configured
+V8 introduces sport-specific modeling instead of routing every market through the same feature logic.
 
-### Data flow
-1. Authorized odds provider -> `POST /api/ingest/odds`
-2. Market snapshots -> PostgreSQL
-3. `GET /api/scan/stored?view=today|week`
-4. Model Council + adaptive simulations + EV/Kelly ranking
-5. Ranked model runs saved for audit
-6. Result feed -> `POST /api/results/ingest`
-7. CLV/calibration/retraining layers consume settled history
+### Sport engines
+- NFL
+- MLB
+- NBA
+- WNBA
+- NCAAB
+- NHL
+- NCAAF
+- Soccer
+- Tennis
+- UFC / MMA
+- Golf
 
-## Guardrails
-- Sportsbook odds are prices, not predictions.
-- 30% daily gain is a target display, never a guaranteed or forced objective.
-- Kelly remains constrained.
-- The engine may return **NO BET**.
-- Use licensed/authorized production feeds only.
-- Never commit API keys, database credentials, or secrets.
+Each sport uses its own weighted feature map. Examples include:
+- NFL: quarterback, trenches, offense-vs-defense, weather, injury, rest
+- MLB: starter, bullpen, handedness, park, lineup, weather
+- Basketball: pace, usage, rest, shooting, matchup
+- NHL: goalie, shot quality, special teams, rest
+- Soccer: xG, keeper, tactical matchup, set pieces, form
+- Tennis: surface, serve, return, fatigue, form
+- UFC: striking, grappling, takedown defense, cardio, reach, weight cut
+- Golf: course fit, approach, off-the-tee, putting, weather
 
-## Run
-```bash
-npm install
-npm run dev
-```
+### V8 architecture
+1. Licensed/authorized sportsbook data is ingested
+2. Historical context is transformed into sport-specific features
+3. Sport engine estimates an adjusted probability
+4. Sport Engine becomes a weighted member of the Model Council
+5. Council disagreement is penalized
+6. Adaptive Monte Carlo runs are selected
+7. Fair odds, EV, Kelly, confidence, and Top 30 ranking are calculated
+8. Sport features and model outputs are persisted for backtesting
 
-## Database
+### New API
+- `GET /api/sports/models`
+- `POST /api/sports/evaluate`
+
+### Database
 Apply migrations in order:
 
 ```
 db/schema.sql
 db/v6.sql
 db/v7.sql
+db/v8.sql
 ```
 
-Set `DATABASE_URL` in the environment.
+V8 adds:
+- sport feature snapshots
+- sport/market performance scorecards
+- feature importance history
 
-## V7 endpoints
-- `GET /api/db/health`
-- `GET /api/scan/stored?view=today|week`
-- `GET /api/line-history/stored?eventId=...&marketKey=...&selectionKey=...`
-- `GET /api/player/[id]`
-- `POST /api/results/ingest`
-
-Existing V6 ingestion, repricing, calibration, learning, scanner, parlay, and cron endpoints remain available.
+## Guardrails
+- Sportsbook odds are prices, not predictions.
+- The 30% daily gain figure is a dashboard goal, not a promised or forced return.
+- Kelly exposure remains capped.
+- Large model disagreement can downgrade a signal.
+- The system can return **NO BET**.
+- Production feeds should be licensed or otherwise authorized.
+- Never commit API keys, database credentials, or secrets.
