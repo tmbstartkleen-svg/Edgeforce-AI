@@ -1,0 +1,8 @@
+import type {Market} from './types';
+export const demoMarkets:Market[]=[
+{id:'nfl1',sport:'NFL',league:'NFL',event:'Eagles @ Bears',selection:'Jalen Hurts 200+ passing yards',market:'Player Prop',startTime:'2026-09-28T20:15:00-04:00',home:'Chicago Bears',away:'Philadelphia Eagles',odds:-167,marketProb:.625,modelProb:.684,confidence:.81,sourceAgeMin:3,period:'PM'},
+{id:'nfl2',sport:'NFL',league:'NFL',event:'Eagles @ Bears',selection:'DeVonta Smith 50+ receiving yards',market:'Player Prop',startTime:'2026-09-28T20:15:00-04:00',home:'Chicago Bears',away:'Philadelphia Eagles',odds:-135,marketProb:.574,modelProb:.636,confidence:.78,sourceAgeMin:3,period:'PM'},
+{id:'ten1',sport:'Tennis',league:'ATP',event:'Altmaier vs Opponent',selection:'Daniel Altmaier ML',market:'Moneyline',startTime:'2026-09-28T13:00:00-04:00',home:'Daniel Altmaier',away:'Opponent',odds:-150,marketProb:.60,modelProb:.664,confidence:.74,sourceAgeMin:8,period:'AM'},
+{id:'soc1',sport:'Soccer',league:'International',event:'France vs Belgium',selection:'France ML',market:'Moneyline',startTime:'2026-09-28T15:00:00-04:00',home:'France',away:'Belgium',odds:-115,marketProb:.535,modelProb:.596,confidence:.71,sourceAgeMin:6,period:'PM'},
+{id:'soc2',sport:'Soccer',league:'International',event:'Sweden vs Poland',selection:'Sweden ML',market:'Moneyline',startTime:'2026-09-28T14:30:00-04:00',home:'Sweden',away:'Poland',odds:105,marketProb:.488,modelProb:.556,confidence:.69,sourceAgeMin:5,period:'PM'}
+];
