@@ -39,7 +39,8 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
       coalesce((ms.raw->>'modelProb')::float,coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float) as "modelProb",
       coalesce((ms.raw->>'confidence')::float,0.6) as confidence,
       greatest(0,extract(epoch from (now()-ms.pulled_at))/60)::float as "sourceAgeMin",
-      case when extract(hour from e.start_time at time zone 'America/Chicago')<12 then 'AM' else 'PM' end as period
+      case when extract(hour from e.start_time at time zone 'America/Chicago')<12 then 'AM' else 'PM' end as period,
+      coalesce(ms.raw->'sportFeatures','{}'::jsonb) as "sportFeatures"
     from market_snapshots ms
     join events e on e.id=ms.event_id
     where e.start_time between now()-interval '2 hours' and now()+interval '8 days'
@@ -72,11 +73,18 @@ export async function recordModelRuns(rows:any[]){
         full_kelly,fractional_kelly,agreement,confidence,grade,
         simulation_probability,simulation_ci_low,simulation_ci_high,feature_snapshot
       ) values(
-        ${x.id},${x.market},${x.selection},${process.env.MODEL_VERSION||'edgeforce-v7'},${x.simulationRuns},
+        ${x.id},${x.market},${x.selection},${process.env.MODEL_VERSION||'edgeforce-v8'},${x.simulationRuns},
         ${x.marketProb},${x.modelProb},${x.fairOdds},${x.expectedValue},
         ${x.kelly},${x.recommendedStake},${x.agreement},${x.confidence},${x.grade},
         ${x.simProbability},${x.simCi?.[0]??null},${x.simCi?.[1]??null},
-        ${sql.json({freshness:x.freshness,daysOut:x.daysOut})}
+        ${sql.json({
+          freshness:x.freshness,
+          daysOut:x.daysOut,
+          sportModelProbability:x.sportModelProbability,
+          sportAdjustment:x.sportAdjustment,
+          sportFactors:x.sportFactors,
+          sportFeatures:x.sportFeatures||{}
+        })}
       )
     `;
     n++;
