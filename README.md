@@ -2,44 +2,45 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V9
+## Current build — V10
 
-V9 adds historical intelligence and adaptive validation on top of the V8 sport-specific engines.
+V10 adds portfolio and bankroll intelligence on top of V9 historical learning.
 
-### Added in V9
-- Historical prediction ingestion
-- Rolling player/stat feature generation
-- Exponentially weighted recent-form features
-- Opponent-adjusted feature helpers
-- Walk-forward train/test backtesting
-- Brier score, log loss, ROI, CLV, and max drawdown in backtests
-- Dynamic model scoring
-- Normalized model weights by sport and market
-- Historical model-weight API
-- Historical prediction database
-- Backtest-run storage
-- Learned model-weight storage
-- Rolling feature snapshot storage
+### Added in V10
+- Bankroll-aware position sizing
+- Daily and weekly risk budgets
+- Maximum position size
+- Maximum event exposure
+- Maximum sport exposure
+- Correlated-exposure cap
+- Drawdown brake that automatically cuts risk
+- Portfolio-level expected profit and ROI
+- Rejection reasons when a wager breaches risk rules
+- Cash-out offer versus modeled hold-value comparison
+- Hedge sizing helper
+- Bankroll accounts
+- Open-position storage
+- Portfolio snapshots
+- Cash-out evaluation history
+- Risk-budget history
 
-### Historical-learning loop
-1. Persist every model prediction before the event
-2. Store offered odds and later closing odds
-3. Attach the actual outcome after settlement
-4. Rebuild rolling player/team features
-5. Run walk-forward backtests chronologically
-6. Score each model by calibration, log loss, CLV, ROI, and drawdown
-7. Re-weight the Model Council by sport and market
-8. Only promote weight changes after adequate sample size
+### Portfolio logic
+Edgeforce no longer treats each positive-EV market independently.
 
-This is deliberately chronological rather than fitting on the same games being evaluated.
+A candidate can be rejected even when it has positive EV if:
+- too much bankroll is already exposed to the same event
+- the same sport is over-concentrated
+- correlated positions exceed the portfolio limit
+- the daily risk budget is exhausted
+- drawdown has triggered reduced sizing
 
-### V9 API
-- `POST /api/backtest`
-- `POST /api/model-weights`
-- `POST /api/features/rolling`
-- `POST /api/history/predictions`
-- `GET /api/history/model-weights?sport=...&market=...`
-- `POST /api/history/rolling-features`
+### V10 API
+- `POST /api/portfolio/optimize`
+- `POST /api/cashout`
+- `POST /api/hedge`
+
+### Cash-out logic
+Cash-out offers are compared with current modeled hold value rather than automatically assuming cashing out is beneficial.
 
 ### Database migrations
 Apply in order:
@@ -50,13 +51,14 @@ db/v6.sql
 db/v7.sql
 db/v8.sql
 db/v9.sql
+db/v10.sql
 ```
 
 ## Guardrails
-- Sportsbook odds are prices, not predictions.
-- Backtests use chronological train/test splits to reduce look-ahead bias.
-- Small samples do not receive aggressive model weights.
-- The 30% daily gain figure remains a dashboard target, not a guaranteed outcome.
-- Kelly exposure stays constrained.
-- Edgeforce can return **NO BET**.
+- Positive expected value does not guarantee profit.
+- Kelly sizing is capped and further constrained by portfolio limits.
+- The 30% daily gain display remains a target, not a promise or required objective.
+- Drawdown can automatically reduce exposure.
+- Correlation and concentration can cause a positive-EV wager to be rejected.
+- Edgeforce may recommend **NO BET**.
 - Production feeds should be licensed or otherwise authorized.
