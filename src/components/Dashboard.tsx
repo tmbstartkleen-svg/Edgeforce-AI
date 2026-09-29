@@ -15,8 +15,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>PORTFOLIO ENGINE ONLINE <b>V10</b></div></header>
-  <section className="hero"><div><div className="badge">11 SPORT ENGINES • PORTFOLIO OPTIMIZER • DRAWDOWN BRAKES</div><h2>Positive edge. <em>Controlled as a portfolio.</em></h2><p>Edgeforce now controls total bankroll exposure, correlated positions, event and sport concentration, drawdown brakes, and portfolio-level expected value.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>AUTONOMOUS DECISION ENGINE <b>V11</b></div></header>
+  <section className="hero"><div><div className="badge">EVENT REPRICING • DECISION JOURNAL • LIFECYCLE ENGINE</div><h2>Every change. <em>Repriced and explained.</em></h2><p>Edgeforce now reprices markets after new information, rebuilds portfolio actions, detects stale data, and records why every position is added, held, reduced, hedged, removed, or cashed out.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
