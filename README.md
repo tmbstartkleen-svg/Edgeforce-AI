@@ -2,66 +2,64 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V15
+## Current build — V16
 
-V15 replaces the single-provider placeholder with a normalized multi-provider ingestion layer.
+V16 is the hardening and verification build.
 
-### Added in V15
-- Multiple authorized odds-provider slots
-- Primary / secondary / tertiary odds failover
-- Weather provider slots
-- Injury provider slots
-- Stats, results, and prediction-market provider slots
-- Provider-specific auth-header and auth-scheme configuration
-- Per-provider timeout and priority controls
-- Generic normalized market model
-- Support for flat Edgeforce-style feeds
-- Support for common event/bookmaker/market/outcome payloads
-- Provider latency/error health tracking
-- Failover event logging
-- Stored-market fallback
-- Demo fallback only when no live or stored data is available
-- Protected provider-ingest endpoint
-- Automated database migration runner
-- V15 provider-ingestion audit tables
-- Updated health and smoke-test reporting
+### Added in V16
+- Next.js 16 `proxy.ts` security layer
+- API rate limiting
+- Security headers
+- Per-request Edgeforce request IDs
+- Structured JSON observability helper
+- Runtime diagnostics endpoint
+- Provider-failure simulation endpoint for CI/testing
+- Production-server smoke test script
+- Lightweight concurrency/load check
+- GitHub Actions production build + start + smoke + load pipeline
+- Runtime incident, performance sample, and recovery-test database tables
 
-### V15 APIs
-- `GET /api/markets` — live normalized feed with safe fallback
-- `POST /api/provider-ingest` — protected ingestion run
-- `GET /api/providers/health`
-- `GET /api/providers/configured`
-- `GET /api/deployment/smoke`
+### CI release gate
+Every push to `main` now:
+1. installs dependencies
+2. runs the optimized production build
+3. starts `next start`
+4. waits for `/api/health`
+5. verifies health, deployment smoke, diagnostics, dashboard rendering, and security headers
+6. runs a provider-failure simulation
+7. sends concurrent requests to the production server
+8. fails the workflow if any required check fails
 
-### Provider order
-Edgeforce tries providers by priority. If the primary provider fails or times out, the next configured provider is tried. Each attempt records latency and error state when a database is configured.
+### V16 APIs
+- `GET /api/diagnostics`
+- `GET /api/testing/provider-failure` when `ENABLE_TEST_ENDPOINTS=true`
+- existing `/api/health` and `/api/deployment/smoke` now report V16 hardening state
 
-### Market normalization
-All upstream provider payloads are transformed into the same internal `Market` shape before they reach simulation, Kelly, portfolio, or parlay logic. This keeps model code independent of any one vendor.
+### Security controls
+Responses receive:
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY
+- Referrer-Policy
+- Permissions-Policy
+- Cross-Origin-Opener-Policy
+- Cross-Origin-Resource-Policy
+- request correlation ID
 
-### Safe fallback order
-1. Authorized live provider
-2. Latest stored normalized market snapshots
-3. Local demo data
+The in-memory rate limiter is a per-instance protection layer. A shared distributed limiter should be added later if deployment volume requires cross-instance enforcement.
 
-### Database migrations
-Run:
-```bash
-npm run migrate
+### Database
+Apply migrations through:
+```
+db/v16.sql
 ```
 
-The migration runner applies unapplied `db/v*.sql` files in numeric order and records them in `schema_migrations`.
-
-### Production data note
-No sportsbook credentials are committed. Live production behavior requires licensed or otherwise authorized provider endpoints and credentials supplied through environment variables.
-
-## Remaining major builds
-- V16 — end-to-end tests, observability, performance/load testing, security hardening
-- V17 — release candidate, preview promotion/rollback automation, final production QA
+### Remaining major build
+- V17 — release candidate: Vercel project validation, preview smoke test, migration gate, promotion/rollback workflow, final production QA
 
 ## Guardrails
-- Low-quality or stale data can still be suppressed by the V14 quality gate.
-- Provider failover does not override data-quality rules.
+- Production test endpoints are disabled unless explicitly enabled.
+- No provider credentials are committed.
+- Low-quality or stale market data can be suppressed.
 - Positive EV does not guarantee profit.
 - The 30% daily gain display remains a target, not a promise.
 - Edgeforce may recommend **NO BET**.
