@@ -1,6 +1,6 @@
 import type {Market} from '../types';
 import type {GenericEnvelope,NormalizedOddsResult} from './types';
-import {americanToProb} from '../math';
+import {impliedProbability} from '../math';
 
 const str=(v:unknown,fallback='')=>typeof v==='string'?v:fallback;
 const num=(v:unknown,fallback=0)=>typeof v==='number'&&Number.isFinite(v)?v:fallback;
@@ -30,7 +30,7 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const event=str(row.event,home&&away?`${away} @ ${home}`:selection);
  const pulled=str(row.pulledAt,str(row.pulled_at,receivedAt));
  const sourceAgeMin=Math.max(0,(Date.now()-new Date(pulled).getTime())/60000);
- const marketProb=num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,americanToProb(odds))));
+ const marketProb=num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,impliedProbability(odds))));
  return {
   id,sport,league,event,selection,market,startTime,
   home:home||'Home',away:away||'Away',odds,
@@ -68,7 +68,7 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
     out.push({
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
-     home,away,odds,marketProb:americanToProb(odds),modelProb:americanToProb(odds),
+     home,away,odds,marketProb:impliedProbability(odds),modelProb:impliedProbability(odds),
      confidence:.6,sourceAgeMin:0,period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
