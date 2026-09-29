@@ -16,8 +16,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>LIVE OPERATING CONSOLE <b>V12</b></div></header>
-  <section className="hero"><div><div className="badge">DATABASE CONSOLE • ALERT CENTER • POSITION MANAGER • MODEL HEALTH</div><h2>Every engine. <em>Visible in one console.</em></h2><p>Edgeforce now surfaces rankings, alerts, position lifecycle, bankroll state, model health, and repricing activity in one live operating console.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>INTERACTIVE CONTROL ROOM <b>V13</b></div></header>
+  <section className="hero"><div><div className="badge">DRILL-DOWNS • MODEL VOTES • WHAT-IF SIMULATOR • ALERT ACK</div><h2>Every decision. <em>Inspectable and testable.</em></h2><p>Edgeforce now lets you drill into markets, inspect Model Council votes and line history, acknowledge alerts, view the bankroll curve, and run read-only what-if scenarios.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
