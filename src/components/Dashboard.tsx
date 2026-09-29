@@ -16,8 +16,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>PRODUCTION QUALITY GATE <b>V14</b></div></header>
-  <section className="hero"><div><div className="badge">DATA QUALITY • PROVIDER HEALTH • FAILOVER • DEPLOY TESTS</div><h2>Every signal. <em>Trusted before it ranks.</em></h2><p>Edgeforce now scores source freshness, completeness, provider agreement, lineup certainty, and duplicate risk before a market can become actionable.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>LIVE PROVIDER PIPELINE <b>V15</b></div></header>
+  <section className="hero"><div><div className="badge">NORMALIZATION • FAILOVER • PROVIDER HEALTH • SAFE FALLBACK</div><h2>Every feed. <em>One normalized market model.</em></h2><p>Edgeforce can now ingest multiple authorized odds feeds, normalize different payload shapes, fail over between providers, persist snapshots, and fall back to stored or demo data when live feeds are unavailable.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
