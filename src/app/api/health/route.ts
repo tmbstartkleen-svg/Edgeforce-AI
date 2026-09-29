@@ -10,6 +10,7 @@ export async function GET(){
   version:'18.0.0',
   releaseCandidate:true,
   postReleaseOps:true,
+  postReleaseOps:true,
   sportEngines:11,
   historicalLearning:true,
   portfolioOptimizer:true,
