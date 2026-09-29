@@ -2,56 +2,37 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V11
+## Current build — V12
 
-V11 adds the autonomous decision layer on top of V10 portfolio intelligence.
+V12 turns Edgeforce into a live operating console on top of the V11 autonomous decision engine.
 
-### Added in V11
-- Position lifecycle states: CANDIDATE, OPEN, HOLD, REDUCE, HEDGE, CASH_OUT, REMOVE, SETTLED
-- Autonomous portfolio decision engine
-- Event-driven repricing endpoint
-- Stale-line alerts
-- Edge-change alert primitives
-- Decision journal with reasons and before/after state
-- Persistent alert storage
-- Repricing event storage
-- Open-position current probability/EV tracking
-- Scheduled decision pass after market scans
-- Automatic removal when a market disappears from the active scan
-- Drawdown-aware lifecycle changes
-- Correlation-breach reductions
-- Cash-out actions integrated into lifecycle logic
+### Added in V12
+- Unified console snapshot API
+- Live alert center
+- Decision timeline
+- Open-position manager
+- Bankroll state
+- Model-health panel
+- Repricing / line-movement feed
+- 30-second console refresh in the UI
+- Database-backed console data when DATABASE_URL is configured
+- Demo / no-database status when persistence is unavailable
+- Console audit/preferences database tables
 
-### Decision philosophy
-Edgeforce does not automatically place wagers. It generates and records a recommended lifecycle action based on the latest modeled information.
+### V12 API
+- `GET /api/console`
+- `GET /api/positions`
+- `GET /api/model-health`
+- `GET /api/bankroll/history`
+- `GET /api/line-moves`
 
-Possible actions:
-- OPEN
-- HOLD
-- REDUCE
-- HEDGE
-- CASH_OUT
-- REMOVE
-- SETTLED
-
-Every action includes machine-readable reasons such as:
-- stale market data
-- positive or negative EV
-- model agreement
-- portfolio exposure limit
-- correlation breach
-- drawdown brake
-- cash-out value
-
-### V11 API
-- `POST /api/decision/run`
-- `POST /api/events/reprice`
-- `GET /api/alerts`
-- `GET /api/decision/journal`
-- `GET /api/cron/decision`
-
-### Scheduling
-Vercel cron remains the safety-net scheduler. Live odds, injury, weather, or result providers can also call event endpoints immediately when new information arrives.
+### Operating flow
+1. Odds, weather, injuries, and results enter the ingestion layer.
+2. Markets are repriced.
+3. The decision engine rebuilds lifecycle actions.
+4. Alerts and decisions are persisted.
+5. The live console reads current positions, alerts, decisions, bankroll, model health, and repricing activity.
+6. The UI refreshes the operating state every 30 seconds.
 
 ### Database migrations
 Apply in order:
@@ -64,13 +45,14 @@ db/v8.sql
 db/v9.sql
 db/v10.sql
 db/v11.sql
+db/v12.sql
 ```
 
 ## Guardrails
-- Edgeforce provides analytical decisions, not guaranteed outcomes.
-- Positive EV can disappear after repricing.
-- Stale prices are removed rather than treated as actionable.
-- Portfolio exposure and drawdown limits override individual bet attractiveness.
+- Edgeforce remains an analytical decision-support system.
+- Positive EV does not guarantee profit.
+- Stale or missing live data is surfaced instead of silently treated as current.
+- Portfolio and drawdown limits override individual market attractiveness.
 - The 30% daily gain display remains a target, not a promise.
-- The system may recommend **NO BET**.
+- Edgeforce may recommend **NO BET**.
 - Production feeds should be licensed or otherwise authorized.
