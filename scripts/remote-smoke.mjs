@@ -1,0 +1,23 @@
+const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
+if(!base)throw new Error('SMOKE_BASE_URL is required');
+
+const paths=['/api/health','/api/deployment/smoke','/api/diagnostics','/'];
+const results=[];
+
+for(const path of paths){
+ const started=Date.now();
+ const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/17'}});
+ const body=await res.text();
+ results.push({path,status:res.status,durationMs:Date.now()-started});
+ if(!res.ok)throw new Error(path+' failed with '+res.status);
+ if(path==='/api/health'){
+  const json=JSON.parse(body);
+  if(json.version!=='17.0.0'||json.ok!==true)throw new Error('health version mismatch');
+ }
+ if(path==='/api/deployment/smoke'){
+  const json=JSON.parse(body);
+  if(json.smoke!==true||json.version!=='17.0.0')throw new Error('deployment smoke mismatch');
+ }
+}
+
+console.log(JSON.stringify({ok:true,base,results}));
