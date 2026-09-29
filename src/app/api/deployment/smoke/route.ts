@@ -1,21 +1,23 @@
 import {dbHealth} from '@/lib/db';
+import {configuredProviders} from '@/lib/providers/config';
 
 export async function GET(){
  const database=await dbHealth();
- const required=['NEXT_RUNTIME'];
+ const providers=configuredProviders();
  const env={node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'};
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
   smoke:true,
-  version:'14.0.0',
+  version:'15.0.0',
   database,
   env,
   checks:{
    runtime:true,
    api:true,
-   databaseConfigured:database.configured
-  },
-  required
+   databaseConfigured:database.configured,
+   providerLayer:true,
+   configuredProviders:providers.length
+  }
  });
 }
