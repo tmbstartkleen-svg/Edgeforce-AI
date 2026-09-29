@@ -2,57 +2,51 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V12
+## Current build — V13
 
-V12 turns Edgeforce into a live operating console on top of the V11 autonomous decision engine.
+V13 turns the V12 operating console into an interactive control room.
 
-### Added in V12
-- Unified console snapshot API
-- Live alert center
-- Decision timeline
-- Open-position manager
-- Bankroll state
-- Model-health panel
-- Repricing / line-movement feed
-- 30-second console refresh in the UI
-- Database-backed console data when DATABASE_URL is configured
-- Demo / no-database status when persistence is unavailable
-- Console audit/preferences database tables
+### Added in V13
+- Click-to-inspect market/game drill-down
+- Full Model Council vote breakdown
+- Market line-history endpoint
+- Lightweight line-movement charts
+- Bankroll/equity curve
+- Alert acknowledgment
+- Read-only what-if repricing
+- Read-only portfolio scenario testing
+- Scenario-run database
+- Drill-down audit database
+- Interactive decision and position rows
 
-### V12 API
-- `GET /api/console`
-- `GET /api/positions`
-- `GET /api/model-health`
-- `GET /api/bankroll/history`
-- `GET /api/line-moves`
+### V13 API
+- `GET /api/market/[id]`
+- `GET /api/market/[id]/lines`
+- `POST /api/alerts/[id]/ack`
+- `POST /api/what-if`
+- `GET /api/bankroll/curve`
 
-### Operating flow
-1. Odds, weather, injuries, and results enter the ingestion layer.
-2. Markets are repriced.
-3. The decision engine rebuilds lifecycle actions.
-4. Alerts and decisions are persisted.
-5. The live console reads current positions, alerts, decisions, bankroll, model health, and repricing activity.
-6. The UI refreshes the operating state every 30 seconds.
+### Read-only scenario behavior
+The what-if endpoint recalculates:
+- model probability
+- scan metrics
+- expected value
+- portfolio allocation
+
+without changing historical prediction, market snapshot, or settlement records.
 
 ### Database migrations
-Apply in order:
+Apply in order through:
 
 ```
-db/schema.sql
-db/v6.sql
-db/v7.sql
-db/v8.sql
-db/v9.sql
-db/v10.sql
-db/v11.sql
-db/v12.sql
+db/v13.sql
 ```
 
 ## Guardrails
-- Edgeforce remains an analytical decision-support system.
+- What-if runs do not mutate historical records.
+- Alert acknowledgment only resolves the alert; it does not alter market data.
 - Positive EV does not guarantee profit.
-- Stale or missing live data is surfaced instead of silently treated as current.
+- Live-data freshness remains visible.
 - Portfolio and drawdown limits override individual market attractiveness.
 - The 30% daily gain display remains a target, not a promise.
 - Edgeforce may recommend **NO BET**.
-- Production feeds should be licensed or otherwise authorized.
