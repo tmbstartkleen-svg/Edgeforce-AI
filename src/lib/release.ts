@@ -7,7 +7,7 @@ export async function releaseReadiness(){
  const required={
   ingestSecret:Boolean(process.env.INGEST_SECRET),
   cronSecret:Boolean(process.env.CRON_SECRET),
-  modelVersion:process.env.MODEL_VERSION==='edgeforce-v19',
+  modelVersion:process.env.MODEL_VERSION==='edgeforce-v20',
   bankroll:Boolean(process.env.DEFAULT_BANKROLL)
  };
  const providerState={
@@ -20,7 +20,7 @@ export async function releaseReadiness(){
  const baseReady=Object.values(required).every(Boolean);
  return {
   ready:baseReady,
-  version:'19.0.0',
+  version:'20.0.0',
   required,
   database,
   providers:providerState,
