@@ -2,49 +2,46 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V18 Post-Release Operations
+## Current build — V19 Live Data Intelligence
 
-V18 extends the V17 release candidate with a live operations layer.
+### Added in V19
+- provider-by-provider confidence scoring
+- weighted provider price reconciliation
+- provider agreement / dispersion scoring
+- closing-line value calculations
+- CLV summary by sport
+- calibration map by sport, market, and probability bucket
+- provider-confidence API
+- reconciliation and closing-line persistence
+- live intelligence panel in the dashboard
+- migration gate advanced through V19
 
-### Added in V18
-- deployment/runtime status API
-- release history API
-- runtime incident API
-- 24-hour route performance API
-- live ops strip in the main dashboard
-- uptime-check persistence
-- deployment-observation persistence
-- V18 migration gate
+### V19 APIs
+- `GET /api/intelligence/clv`
+- `GET /api/intelligence/calibration-map`
+- `GET /api/intelligence/provider-confidence`
 
-### V18 APIs
-- `GET /api/ops/status`
-- `GET /api/ops/releases`
-- `GET /api/ops/incidents`
-- `GET /api/ops/performance`
+### Intelligence model
+Provider confidence blends:
+- runtime provider health
+- latency and error behavior
+- historical CLV
+- calibration
+- sample size
+- cross-provider agreement
 
-### Live operations strip
-The dashboard now shows:
-- Vercel/local deployment state
-- database health
-- configured provider count
-- process uptime
-- current app version
-- monitoring status
-
-### Deployment state
-When Edgeforce is hosted on Vercel, the ops layer reads Vercel runtime environment metadata directly from the deployment. Until the project is imported and deployed, it clearly reports `LOCAL / UNLINKED`.
+Provider prices can then be reconciled into one confidence-weighted implied probability before downstream model evaluation.
 
 ### Database
 Apply migrations through:
 ```
-db/v18.sql
+db/v19.sql
 ```
 
-### Release pipeline
-All V17 build, migration, smoke, load, promotion, and rollback safeguards remain active.
+All V17/V18 release, smoke, load, monitoring, and rollback safeguards remain active.
 
 ## Guardrails
-- Monitoring status does not imply wagering outcomes.
+- CLV and calibration are performance diagnostics, not guarantees.
 - Positive EV does not guarantee profit.
 - Low-quality market inputs can still be suppressed.
 - Portfolio and drawdown limits remain active.
