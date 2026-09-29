@@ -2,51 +2,65 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V13
+## Current build — V14
 
-V13 turns the V12 operating console into an interactive control room.
+V14 adds the production data-quality and deployment verification layer.
 
-### Added in V13
-- Click-to-inspect market/game drill-down
-- Full Model Council vote breakdown
-- Market line-history endpoint
-- Lightweight line-movement charts
-- Bankroll/equity curve
-- Alert acknowledgment
-- Read-only what-if repricing
-- Read-only portfolio scenario testing
-- Scenario-run database
-- Drill-down audit database
-- Interactive decision and position rows
+### Added in V14
+- Data-quality scoring for every market
+- Freshness scoring
+- Completeness checks
+- Cross-provider agreement checks
+- Lineup / availability certainty input
+- Duplicate observation penalty
+- Quality grades: TRUSTED, USABLE, CAUTION, SUPPRESS
+- Automatic suppression of poor-quality signals
+- Provider health registry
+- Provider capability/priority model
+- Provider failover selection logic
+- Provider health API
+- Deployment smoke-test API
+- GitHub build verification workflow
+- V14 database migration for provider health, quality snapshots, and failover history
 
-### V13 API
-- `GET /api/market/[id]`
-- `GET /api/market/[id]/lines`
-- `POST /api/alerts/[id]/ack`
-- `POST /api/what-if`
-- `GET /api/bankroll/curve`
+### V14 API
+- `POST /api/data-quality`
+- `GET /api/providers/health`
+- `GET /api/deployment/smoke`
 
-### Read-only scenario behavior
-The what-if endpoint recalculates:
-- model probability
-- scan metrics
-- expected value
-- portfolio allocation
+### Quality gate
+A positive-EV market is not enough. Edgeforce can suppress a market when:
+- source data is stale
+- provider coverage is incomplete
+- providers materially disagree
+- lineup certainty is low
+- duplicate feed observations are detected
 
-without changing historical prediction, market snapshot, or settlement records.
+### Deploy/test workflow
+1. Push code to GitHub.
+2. GitHub Actions runs `npm install` and `npm run build`.
+3. Create a Vercel preview deployment.
+4. Verify `/api/deployment/smoke`.
+5. Verify the dashboard and critical APIs.
+6. Review build/runtime errors.
+7. Promote only the tested preview to production.
 
 ### Database migrations
-Apply in order through:
+Apply migrations through:
+```
+db/v14.sql
+```
 
-```
-db/v13.sql
-```
+## Remaining major builds
+After V14, roughly three major builds remain before production release:
+- V15 — real provider adapters, failover, normalization, and database migration automation
+- V16 — end-to-end tests, observability, performance/load checks, security hardening
+- V17 — release pipeline, production environment validation, rollback/promotion workflow, final production QA
 
 ## Guardrails
-- What-if runs do not mutate historical records.
-- Alert acknowledgment only resolves the alert; it does not alter market data.
+- Data quality can override raw model attractiveness.
+- Low-quality inputs are suppressed rather than presented as strong signals.
 - Positive EV does not guarantee profit.
-- Live-data freshness remains visible.
-- Portfolio and drawdown limits override individual market attractiveness.
 - The 30% daily gain display remains a target, not a promise.
 - Edgeforce may recommend **NO BET**.
+- Production feeds should be licensed or otherwise authorized.
