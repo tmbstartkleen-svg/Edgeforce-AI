@@ -2,47 +2,47 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V19 Live Data Intelligence
+## Current build — V20 Model Calibration Intelligence
 
-### Added in V19
-- provider-by-provider confidence scoring
-- weighted provider price reconciliation
-- provider agreement / dispersion scoring
-- closing-line value calculations
-- CLV summary by sport
-- calibration map by sport, market, and probability bucket
-- provider-confidence API
-- reconciliation and closing-line persistence
-- live intelligence panel in the dashboard
-- migration gate advanced through V19
+### Added in V20
+- sport-specific model performance
+- market-type-specific performance
+- rolling model rankings
+- recency/confidence decay with a 45-day half-life
+- probability calibration buckets
+- over-confidence detection
+- under-confidence detection
+- mean absolute calibration error
+- confidence labels: HIGH, MEDIUM, LOW, INSUFFICIENT
+- model-performance API
+- calibration-profile API
+- V20 calibration/ranking tables
 
-### V19 APIs
-- `GET /api/intelligence/clv`
-- `GET /api/intelligence/calibration-map`
-- `GET /api/intelligence/provider-confidence`
+### V20 APIs
+- `GET /api/intelligence/model-performance`
+- `GET /api/intelligence/calibration-profile`
 
-### Intelligence model
-Provider confidence blends:
-- runtime provider health
-- latency and error behavior
-- historical CLV
-- calibration
-- sample size
-- cross-provider agreement
+Optional query parameters:
+- `sport`
+- `market`
+- `model` for calibration profiles
 
-Provider prices can then be reconciled into one confidence-weighted implied probability before downstream model evaluation.
+### Why V20 matters
+A model that works well in MLB moneylines should not automatically receive the same trust in NBA player props. V20 separates model evidence by sport and market, measures calibration, and reduces the influence of older performance over time.
+
+### Confidence decay
+Historical performance uses recency decay rather than treating every old prediction equally. The default half-life is 45 days.
 
 ### Database
 Apply migrations through:
 ```
-db/v19.sql
+db/v20.sql
 ```
 
-All V17/V18 release, smoke, load, monitoring, and rollback safeguards remain active.
+All existing provider, data-quality, portfolio, release, monitoring, smoke, and rollback safeguards remain active.
 
 ## Guardrails
-- CLV and calibration are performance diagnostics, not guarantees.
+- Model rankings are diagnostics, not guaranteed future performance.
+- Small samples are labeled INSUFFICIENT.
 - Positive EV does not guarantee profit.
-- Low-quality market inputs can still be suppressed.
-- Portfolio and drawdown limits remain active.
 - Edgeforce may recommend **NO BET**.
