@@ -15,8 +15,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>SPORT ENGINES ONLINE <b>V8</b></div></header>
-  <section className="hero"><div><div className="badge">11 SPORT ENGINES • 8-DAY RADAR • ADAPTIVE SIMS • EV</div><h2>One market. <em>Different math by sport.</em></h2><p>Edgeforce now routes each market through a sport-specific feature engine before the Model Council prices the final probability.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>HISTORICAL LEARNING ONLINE <b>V9</b></div></header>
+  <section className="hero"><div><div className="badge">11 SPORT ENGINES • WALK-FORWARD BACKTESTS • ADAPTIVE WEIGHTS</div><h2>One market. <em>Models that must prove themselves.</em></h2><p>Edgeforce now tracks historical predictions, validates them chronologically, and re-weights models by sport and market when enough evidence exists.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
