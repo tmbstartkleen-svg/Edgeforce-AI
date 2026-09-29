@@ -53,7 +53,7 @@ export default function LiveConsole(){
 
  return <section className="consolePanel">
   <div className="consoleHead">
-   <div><div className="eyebrow">INTERACTIVE CONTROL ROOM</div><h3>Inspect, acknowledge, and simulate</h3></div>
+   <div><div className="eyebrow">PRODUCTION CONTROL ROOM</div><h3>Inspect, acknowledge, simulate, and verify source health</h3></div>
    <div className="consoleSource">{error?error:data.source==='database'?'DATABASE LIVE':'DEMO / NO DATABASE'}</div>
   </div>
 
