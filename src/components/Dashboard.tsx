@@ -6,6 +6,7 @@ import {buildParlays} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
 import LiveConsole from '@/components/LiveConsole';
 import OpsStatus from '@/components/OpsStatus';
+import OpsStatus from '@/components/OpsStatus';
 import type {RiskProfile} from '@/lib/types';
 
 export default function Dashboard(){
