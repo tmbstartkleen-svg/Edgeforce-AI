@@ -9,7 +9,8 @@ export async function GET(){
   ok:true,
   app:'Edgeforce AI',
   smoke:true,
-  version:'16.0.0',
+  version:'17.0.0',
+  releaseCandidate:true,
   database,
   env,
   checks:{
@@ -18,6 +19,7 @@ export async function GET(){
    proxySecurity:true,
    diagnostics:true,
    providerLayer:true,
+   migrations:'v17',
    databaseConfigured:database.configured,
    configuredProviders:providers.length
   }
