@@ -1,0 +1,38 @@
+name: Edgeforce Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment:
+        description: Deployment URL or ID to roll back to
+        required: false
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Vercel credentials
+        run: |
+          test -n "$VERCEL_TOKEN"
+          test -n "$VERCEL_ORG_ID"
+          test -n "$VERCEL_PROJECT_ID"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - run: npm install --global vercel@50.1.3
+
+      - name: Roll back
+        run: |
+          if [ -n "$TARGET" ]; then
+            vercel rollback "$TARGET" --token="$VERCEL_TOKEN" --yes
+          else
+            vercel rollback --token="$VERCEL_TOKEN" --yes
+          fi
+        env:
+          TARGET: ${{ inputs.deployment }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
