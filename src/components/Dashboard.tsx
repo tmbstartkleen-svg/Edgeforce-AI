@@ -16,8 +16,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>HARDENED TEST PIPELINE <b>V16</b></div></header>
-  <section className="hero"><div><div className="badge">SECURITY HEADERS • SMOKE TESTS • LOAD CHECKS • DIAGNOSTICS</div><h2>Every release. <em>Built, started, tested, and challenged.</em></h2><p>Edgeforce V16 now verifies the production server after build, checks security headers and critical APIs, simulates provider failure, measures concurrent request performance, and exposes runtime diagnostics before release.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>RELEASE CANDIDATE <b>V17</b></div></header>
+  <section className="hero"><div><div className="badge">PREVIEW GATE • MIGRATIONS • PROMOTE • ROLLBACK</div><h2>One tested artifact. <em>Previewed, promoted, and reversible.</em></h2><p>Edgeforce V17 validates migrations and environment state, deploys a prebuilt preview artifact, smoke-tests that exact hosted build, promotes the same artifact, and provides an explicit rollback path.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
