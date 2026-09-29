@@ -2,45 +2,56 @@
 
 EV-first sports probability intelligence platform.
 
-## Current build — V10
+## Current build — V11
 
-V10 adds portfolio and bankroll intelligence on top of V9 historical learning.
+V11 adds the autonomous decision layer on top of V10 portfolio intelligence.
 
-### Added in V10
-- Bankroll-aware position sizing
-- Daily and weekly risk budgets
-- Maximum position size
-- Maximum event exposure
-- Maximum sport exposure
-- Correlated-exposure cap
-- Drawdown brake that automatically cuts risk
-- Portfolio-level expected profit and ROI
-- Rejection reasons when a wager breaches risk rules
-- Cash-out offer versus modeled hold-value comparison
-- Hedge sizing helper
-- Bankroll accounts
-- Open-position storage
-- Portfolio snapshots
-- Cash-out evaluation history
-- Risk-budget history
+### Added in V11
+- Position lifecycle states: CANDIDATE, OPEN, HOLD, REDUCE, HEDGE, CASH_OUT, REMOVE, SETTLED
+- Autonomous portfolio decision engine
+- Event-driven repricing endpoint
+- Stale-line alerts
+- Edge-change alert primitives
+- Decision journal with reasons and before/after state
+- Persistent alert storage
+- Repricing event storage
+- Open-position current probability/EV tracking
+- Scheduled decision pass after market scans
+- Automatic removal when a market disappears from the active scan
+- Drawdown-aware lifecycle changes
+- Correlation-breach reductions
+- Cash-out actions integrated into lifecycle logic
 
-### Portfolio logic
-Edgeforce no longer treats each positive-EV market independently.
+### Decision philosophy
+Edgeforce does not automatically place wagers. It generates and records a recommended lifecycle action based on the latest modeled information.
 
-A candidate can be rejected even when it has positive EV if:
-- too much bankroll is already exposed to the same event
-- the same sport is over-concentrated
-- correlated positions exceed the portfolio limit
-- the daily risk budget is exhausted
-- drawdown has triggered reduced sizing
+Possible actions:
+- OPEN
+- HOLD
+- REDUCE
+- HEDGE
+- CASH_OUT
+- REMOVE
+- SETTLED
 
-### V10 API
-- `POST /api/portfolio/optimize`
-- `POST /api/cashout`
-- `POST /api/hedge`
+Every action includes machine-readable reasons such as:
+- stale market data
+- positive or negative EV
+- model agreement
+- portfolio exposure limit
+- correlation breach
+- drawdown brake
+- cash-out value
 
-### Cash-out logic
-Cash-out offers are compared with current modeled hold value rather than automatically assuming cashing out is beneficial.
+### V11 API
+- `POST /api/decision/run`
+- `POST /api/events/reprice`
+- `GET /api/alerts`
+- `GET /api/decision/journal`
+- `GET /api/cron/decision`
+
+### Scheduling
+Vercel cron remains the safety-net scheduler. Live odds, injury, weather, or result providers can also call event endpoints immediately when new information arrives.
 
 ### Database migrations
 Apply in order:
@@ -52,13 +63,14 @@ db/v7.sql
 db/v8.sql
 db/v9.sql
 db/v10.sql
+db/v11.sql
 ```
 
 ## Guardrails
-- Positive expected value does not guarantee profit.
-- Kelly sizing is capped and further constrained by portfolio limits.
-- The 30% daily gain display remains a target, not a promise or required objective.
-- Drawdown can automatically reduce exposure.
-- Correlation and concentration can cause a positive-EV wager to be rejected.
-- Edgeforce may recommend **NO BET**.
+- Edgeforce provides analytical decisions, not guaranteed outcomes.
+- Positive EV can disappear after repricing.
+- Stale prices are removed rather than treated as actionable.
+- Portfolio exposure and drawdown limits override individual bet attractiveness.
+- The 30% daily gain display remains a target, not a promise.
+- The system may recommend **NO BET**.
 - Production feeds should be licensed or otherwise authorized.
