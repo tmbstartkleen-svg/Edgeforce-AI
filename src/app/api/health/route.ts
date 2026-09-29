@@ -14,7 +14,6 @@ export async function GET(){
   providerReconciliation:true,
   clvAnalytics:true,
   calibrationMap:true,
-  postReleaseOps:true,
   sportEngines:11,
   historicalLearning:true,
   portfolioOptimizer:true,
