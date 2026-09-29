@@ -4,6 +4,7 @@ import {demoMarkets} from '@/lib/demo';
 import {todayTop30,weekTop30} from '@/lib/scanner';
 import {buildParlays} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
+import LiveConsole from '@/components/LiveConsole';
 import type {RiskProfile} from '@/lib/types';
 
 export default function Dashboard(){
@@ -15,8 +16,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>AUTONOMOUS DECISION ENGINE <b>V11</b></div></header>
-  <section className="hero"><div><div className="badge">EVENT REPRICING • DECISION JOURNAL • LIFECYCLE ENGINE</div><h2>Every change. <em>Repriced and explained.</em></h2><p>Edgeforce now reprices markets after new information, rebuilds portfolio actions, detects stale data, and records why every position is added, held, reduced, hedged, removed, or cashed out.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>LIVE OPERATING CONSOLE <b>V12</b></div></header>
+  <section className="hero"><div><div className="badge">DATABASE CONSOLE • ALERT CENTER • POSITION MANAGER • MODEL HEALTH</div><h2>Every engine. <em>Visible in one console.</em></h2><p>Edgeforce now surfaces rankings, alerts, position lifecycle, bankroll state, model health, and repricing activity in one live operating console.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <section className="stats">
@@ -25,6 +26,8 @@ export default function Dashboard(){
    <div className="stat"><small>ELITE</small><strong>{ranked.filter(x=>x.grade==='ELITE').length}</strong><span>EV + agreement + sport model</span></div>
    <div className="stat"><small>MAX SIMS</small><strong>{Math.max(0,...ranked.map(x=>x.simulationRuns)).toLocaleString()}</strong><span>Adaptive per market</span></div>
   </section>
+
+  <LiveConsole/>
 
   <nav className="tabs"><button className={view==='today'?'active':''} onClick={()=>setView('today')}>TODAY TOP 30</button><button className={view==='week'?'active':''} onClick={()=>setView('week')}>WEEK TOP 30</button></nav>
 
