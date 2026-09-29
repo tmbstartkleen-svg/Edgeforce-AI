@@ -7,7 +7,8 @@ export async function GET(){
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
-  version:'16.0.0',
+  version:'17.0.0',
+  releaseCandidate:true,
   sportEngines:11,
   historicalLearning:true,
   portfolioOptimizer:true,
@@ -17,9 +18,10 @@ export async function GET(){
   providerNormalization:true,
   providerFailover:true,
   securityHardening:true,
-  structuredObservability:true,
   productionSmokeTests:true,
-  loadChecks:true,
+  hostedPreviewGate:true,
+  promotionWorkflow:true,
+  rollbackWorkflow:true,
   configuredProviderCount:providers.length,
   database,
   time:new Date().toISOString()
