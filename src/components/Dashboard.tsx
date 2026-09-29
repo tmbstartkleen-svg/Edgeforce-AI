@@ -7,7 +7,6 @@ import {fmtOdds,fmtPct} from '@/lib/math';
 import LiveConsole from '@/components/LiveConsole';
 import OpsStatus from '@/components/OpsStatus';
 import IntelligencePanel from '@/components/IntelligencePanel';
-import OpsStatus from '@/components/OpsStatus';
 import type {RiskProfile} from '@/lib/types';
 
 export default function Dashboard(){
