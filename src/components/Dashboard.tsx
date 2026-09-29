@@ -18,8 +18,8 @@ export default function Dashboard(){
  const p2=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),2),[risk]);
  const p3=useMemo(()=>buildParlays(weekTop30(demoMarkets,risk),3),[risk]);
  return <main>
-  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>LIVE DATA INTELLIGENCE <b>V19</b></div></header>
-  <section className="hero"><div><div className="badge">PROVIDER RECONCILIATION • CLV • CALIBRATION • CONFIDENCE</div><h2>Every price. <em>Measured against the close.</em></h2><p>Edgeforce V19 reconciles multiple providers, scores provider confidence, tracks closing-line value, and maps calibration by sport and market.</p></div>
+  <header className="topbar"><div><div className="eyebrow">EDGEFORCE AI</div><h1>Sports Probability Intelligence Terminal</h1></div><div className="live"><span/>MODEL CALIBRATION <b>V20</b></div></header>
+  <section className="hero"><div><div className="badge">SPORT/MARKET CALIBRATION • ROLLING RANKINGS • CONFIDENCE DECAY</div><h2>Every model. <em>Measured where it is actually strong.</em></h2><p>Edgeforce V20 tracks sport- and market-specific model performance, detects over/under-confidence, and decays stale historical confidence before it influences rankings.</p></div>
    <aside className="goal"><small>DAILY GAIN GOAL</small><strong>30%</strong><label>Risk profile <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}><option>Conservative</option><option>Moderate</option><option>Aggressive</option></select></label><p>Moderate remains the default. This is a target, not a forced return.</p></aside>
   </section>
   <OpsStatus/>
