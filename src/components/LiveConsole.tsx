@@ -1,5 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
+import MarketDrilldown from './MarketDrilldown';
+import Sparkline from './Sparkline';
 
 type ConsoleSnapshot={
  source:string;
@@ -16,21 +18,27 @@ const empty:ConsoleSnapshot={source:'loading',alerts:[],decisions:[],positions:[
 export default function LiveConsole(){
  const [data,setData]=useState<ConsoleSnapshot>(empty);
  const [error,setError]=useState('');
+ const [selected,setSelected]=useState<string|null>(null);
+ const [curve,setCurve]=useState<any[]>([]);
+
+ const load=async()=>{
+  try{
+   const [consoleRes,curveRes]=await Promise.all([
+    fetch('/api/console',{cache:'no-store'}),
+    fetch('/api/bankroll/curve',{cache:'no-store'})
+   ]);
+   if(!consoleRes.ok)throw new Error('console unavailable');
+   setData(await consoleRes.json());
+   setCurve(curveRes.ok?(await curveRes.json()).points||[]:[]);
+   setError('');
+  }catch(e){setError(e instanceof Error?e.message:'console unavailable')}
+ };
 
  useEffect(()=>{
   let active=true;
-  const load=async()=>{
-   try{
-    const res=await fetch('/api/console',{cache:'no-store'});
-    if(!res.ok)throw new Error('console unavailable');
-    const json=await res.json();
-    if(active){setData(json);setError('');}
-   }catch(e){
-    if(active)setError(e instanceof Error?e.message:'console unavailable');
-   }
-  };
-  load();
-  const id=setInterval(load,30000);
+  const run=async()=>{if(active)await load()};
+  run();
+  const id=setInterval(run,30000);
   return()=>{active=false;clearInterval(id)};
  },[]);
 
@@ -38,9 +46,14 @@ export default function LiveConsole(){
  const openRisk=(data.positions||[]).reduce((s:number,p:any)=>s+Number(p.stake||0),0);
  const actionCount=(action:string)=>(data.decisions||[]).filter((d:any)=>d.action===action).length;
 
+ const ack=async(id:number)=>{
+  await fetch('/api/alerts/'+id+'/ack',{method:'POST'});
+  await load();
+ };
+
  return <section className="consolePanel">
   <div className="consoleHead">
-   <div><div className="eyebrow">LIVE OPERATING CONSOLE</div><h3>Autonomous engine state</h3></div>
+   <div><div className="eyebrow">INTERACTIVE CONTROL ROOM</div><h3>Inspect, acknowledge, and simulate</h3></div>
    <div className="consoleSource">{error?error:data.source==='database'?'DATABASE LIVE':'DEMO / NO DATABASE'}</div>
   </div>
 
@@ -52,13 +65,18 @@ export default function LiveConsole(){
    <div><small>BANKROLL</small><strong>{bankroll?'$'+Number(bankroll.currentBankroll).toFixed(0):'—'}</strong></div>
   </div>
 
+  <div className="equityPanel">
+   <div className="eyebrow">BANKROLL / EQUITY CURVE</div>
+   <Sparkline label="Bankroll" values={curve.map((x:any)=>Number(x.bankroll||0))}/>
+  </div>
+
   <div className="consoleGrid">
    <div className="consoleCard">
     <div className="eyebrow">DECISION TIMELINE</div>
-    {(data.decisions||[]).slice(0,8).map((d:any)=><div className="consoleRow" key={d.id}>
+    {(data.decisions||[]).slice(0,8).map((d:any)=><button className="consoleRow rowButton" key={d.id} onClick={()=>d.marketId&&setSelected(d.marketId)}>
      <span className={'action action-'+String(d.action).toLowerCase()}>{d.action}</span>
      <div><b>{d.marketId||'portfolio'}</b><small>{Array.isArray(d.reasons)?d.reasons.join(' • '):'Decision recorded'}</small></div>
-    </div>)}
+    </button>)}
     {!data.decisions?.length&&<p className="emptyState">No recorded decisions yet.</p>}
    </div>
 
@@ -66,17 +84,18 @@ export default function LiveConsole(){
     <div className="eyebrow">ALERT CENTER</div>
     {(data.alerts||[]).slice(0,8).map((a:any)=><div className="consoleRow" key={a.id}>
      <span className={'severity severity-'+String(a.severity).toLowerCase()}>{a.severity}</span>
-     <div><b>{a.type}</b><small>{a.message}</small></div>
+     <div className="grow"><b>{a.type}</b><small>{a.message}</small></div>
+     <button className="ackBtn" onClick={()=>ack(Number(a.id))}>ACK</button>
     </div>)}
     {!data.alerts?.length&&<p className="emptyState">No unresolved alerts.</p>}
    </div>
 
    <div className="consoleCard">
     <div className="eyebrow">OPEN POSITION MANAGER</div>
-    {(data.positions||[]).slice(0,8).map((p:any)=><div className="consoleRow" key={p.id}>
+    {(data.positions||[]).slice(0,8).map((p:any)=><button className="consoleRow rowButton" key={p.id} onClick={()=>p.eventId&&setSelected(p.eventId)}>
      <span className={'action action-'+String(p.state||'open').toLowerCase()}>{p.state||'OPEN'}</span>
      <div><b>{p.selectionKey||p.marketKey}</b><small>{p.sport+' • $'+Number(p.stake||0).toFixed(2)+' • EV '+Number((p.currentExpectedValue??p.expectedValue??0)*100).toFixed(1)+'%'}</small></div>
-    </div>)}
+    </button>)}
     {!data.positions?.length&&<p className="emptyState">No open database positions.</p>}
    </div>
 
@@ -93,5 +112,6 @@ export default function LiveConsole(){
   <div className="consoleFooter">
    <span>{'OPEN '+actionCount('OPEN')}</span><span>{'HOLD '+actionCount('HOLD')}</span><span>{'REDUCE '+actionCount('REDUCE')}</span><span>{'HEDGE '+actionCount('HEDGE')}</span><span>{'REMOVE '+actionCount('REMOVE')}</span>
   </div>
+  {selected&&<MarketDrilldown marketId={selected} onClose={()=>setSelected(null)}/>}
  </section>
 }
