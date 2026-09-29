@@ -1,12 +1,14 @@
 {
   "name": "edgeforce-ai",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "migrate": "node scripts/migrate.mjs",
+    "verify": "npm run build"
   },
   "dependencies": {
     "next": "16.3.6",
