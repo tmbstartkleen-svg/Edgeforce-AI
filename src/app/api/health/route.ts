@@ -4,14 +4,14 @@ export async function GET(){
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
-  version:'11.0.0',
+  version:'12.0.0',
   sportEngines:11,
   historicalLearning:true,
-  walkForwardBacktesting:true,
   portfolioOptimizer:true,
   autonomousDecisionEngine:true,
-  eventDrivenRepricing:true,
-  decisionJournal:true,
+  liveOperatingConsole:true,
+  alertCenter:true,
+  modelHealth:true,
   database,
   time:new Date().toISOString()
  });
