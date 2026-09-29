@@ -7,8 +7,9 @@ export async function GET(){
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
-  version:'17.0.0',
+  version:'18.0.0',
   releaseCandidate:true,
+  postReleaseOps:true,
   sportEngines:11,
   historicalLearning:true,
   portfolioOptimizer:true,
