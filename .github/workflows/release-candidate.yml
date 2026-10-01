@@ -49,7 +49,7 @@ jobs:
         env:
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          MODEL_VERSION: edgeforce-v17
+          MODEL_VERSION: edgeforce-v21
           DEFAULT_BANKROLL: ${{ vars.DEFAULT_BANKROLL || '1000' }}
 
       - name: Build Vercel preview
