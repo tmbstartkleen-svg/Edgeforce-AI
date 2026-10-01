@@ -1,48 +1,74 @@
 # Edgeforce AI
 
-EV-first sports probability intelligence platform.
+Live sports probability intelligence workspace.
 
-## Current build — V20 Model Calibration Intelligence
+## Current build — V21 Live Board + History Intelligence
 
-### Added in V20
-- sport-specific model performance
-- market-type-specific performance
-- rolling model rankings
-- recency/confidence decay with a 45-day half-life
-- probability calibration buckets
-- over-confidence detection
-- under-confidence detection
-- mean absolute calibration error
-- confidence labels: HIGH, MEDIUM, LOW, INSUFFICIENT
-- model-performance API
-- calibration-profile API
-- V20 calibration/ranking tables
+V21 turns the project into a daily-use dashboard instead of a spreadsheet.
 
-### V20 APIs
-- `GET /api/intelligence/model-performance`
-- `GET /api/intelligence/calibration-profile`
+### V21 workspace
+- today board with Top 30 or Top 50 legs
+- AM / PM filtering
+- sport and market filters
+- American-odds range filter
+- simulation probability filter
+- 7-day board that distributes rows across the week
+- 2 through 20 leg probability-set selector
+- cross-sport set view
+- simulation vs market-implied probability comparison
+- anomaly signal panel
+- generic prediction-market provider adapter
+- screenshot-derived result history
+- observed performance by sport, leg count, and known market type
+- athlete / player-stat / market-snapshot / model-run database counters
+- 1-second UI refresh with a short upstream source cache
 
-Optional query parameters:
-- `sport`
-- `market`
-- `model` for calibration profiles
+### Live data
+The dashboard is provider-driven. It does not scrape DraftKings directly.
 
-### Why V20 matters
-A model that works well in MLB moneylines should not automatically receive the same trust in NBA player props. V20 separates model evidence by sport and market, measures calibration, and reduces the influence of older performance over time.
+Configure an authorized odds provider that returns DraftKings markets through:
+- `ODDS_PROVIDER_PRIMARY_URL`
+- `ODDS_PROVIDER_PRIMARY_KEY`
 
-### Confidence decay
-Historical performance uses recency decay rather than treating every old prediction equally. The default half-life is 45 days.
+Additional failover providers are already supported.
+
+Prediction-market data uses:
+- `PREDICTION_PROVIDER_PRIMARY_URL`
+- `PREDICTION_PROVIDER_PRIMARY_KEY`
+
+If providers are not configured, the dashboard explicitly shows DEMO FALLBACK rather than presenting sample data as live.
+
+### Core APIs
+- `GET /api/live-board?view=today&limit=30&risk=Moderate`
+- `GET /api/live-board?view=week&limit=50&risk=Moderate`
+- `GET /api/db/stats`
+- `GET /api/health`
+- `POST /api/cashout`
 
 ### Database
 Apply migrations through:
 ```
-db/v20.sql
+db/v21.sql
 ```
 
-All existing provider, data-quality, portfolio, release, monitoring, smoke, and rollback safeguards remain active.
+V21 adds tables for parsed bet slips, bet legs, prediction-market snapshots, and anomaly signals. Existing athlete, event, player-stat, market-snapshot, model-run, result, calibration, provider, release, and monitoring tables remain intact.
+
+### Result-history rules
+Uploaded screenshots are used only when information is clearly visible. Hidden losing legs are stored as unknown rather than guessed. Historical hit rates are descriptive and sample-size dependent; they are not guarantees of future outcomes.
+
+### Release
+The repository includes:
+- build verification
+- migration checks
+- smoke tests
+- concurrency checks
+- preview deployment workflow
+- hosted smoke tests
+- production promotion
+- rollback workflow
 
 ## Guardrails
-- Model rankings are diagnostics, not guaranteed future performance.
-- Small samples are labeled INSUFFICIENT.
-- Positive EV does not guarantee profit.
-- Edgeforce may recommend **NO BET**.
+- Simulation percentages are model outputs, not certainties.
+- Correlated legs reduce combined probability.
+- Small historical samples can look much stronger or weaker than they really are.
+- Prediction-market and sportsbook prices can move quickly.
