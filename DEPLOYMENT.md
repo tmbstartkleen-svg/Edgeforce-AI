@@ -1,4 +1,4 @@
-# Edgeforce AI V17 deployment
+# Edgeforce AI V21 deployment
 
 ## Release strategy
 verify -> migration check -> preview build -> hosted smoke test -> promote exact artifact -> observe -> rollback if needed
@@ -12,16 +12,21 @@ verify -> migration check -> preview build -> hosted smoke test -> promote exact
    - `VERCEL_TOKEN`
    - `VERCEL_ORG_ID`
    - `VERCEL_PROJECT_ID`
-6. Apply database migrations through V17.
+6. Add an authorized odds provider with DraftKings bookmaker coverage.
+7. Add a prediction-market provider if that panel will be used.
+8. Apply database migrations through V21.
+
+## Live refresh design
+The browser refreshes the unified board every second. The server keeps a short odds-source cache so the interface feels live without sending one upstream provider request every second.
 
 ## Side-screen testing
-After the Vercel project exists, use the preview deployment URL as the live Edgeforce testing surface. The same preview URL is what the release workflow smoke-tests before promotion.
+After the Vercel project exists, use the preview deployment URL as the live Edgeforce testing surface. The same preview URL is used by the hosted smoke test before promotion.
 
 ## Pre-release gates
 - `npm run build`
 - `npm run check-migrations`
-- V16 production-server smoke suite
-- V16 concurrency check
+- production-server smoke suite
+- concurrency check
 - Vercel preview deploy
 - hosted `/api/health`
 - hosted `/api/deployment/smoke`

@@ -8,7 +8,7 @@ export async function GET(){
  }));
  return Response.json({
   ok:true,
-  version:'16.0.0',
+  version:'21.0.0',
   uptimeSeconds:Math.round(process.uptime()),
   memory:process.memoryUsage(),
   database,
