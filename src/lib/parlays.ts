@@ -81,3 +81,26 @@ export function buildProbabilitySet(rows:Scanned[],size:number):Parlay|null{
 export function buildSportProbabilitySet(rows:Scanned[],sport:string,size:number){
  return buildProbabilitySet(rows.filter(x=>x.sport===sport),size);
 }
+
+
+export function buildMixedSportProbabilitySet(rows:Scanned[],size:number):Parlay|null{
+ const target=Math.max(2,Math.min(20,Math.round(size)));
+ const bySport=new Map<string,Scanned[]>();
+ for(const row of rows.filter(x=>x.grade!=='PASS').sort((a,b)=>b.simProbability-a.simProbability)){
+  bySport.set(row.sport,[...(bySport.get(row.sport)||[]),row]);
+ }
+ const sports=[...bySport.keys()];
+ if(!sports.length)return null;
+ const seed:Scanned[]=[];
+ let cursor=0;
+ while(seed.length<target&&cursor<target*10){
+  const sport=sports[cursor%sports.length];
+  const bucket=bySport.get(sport)||[];
+  const candidate=bucket.find(x=>!seed.some(s=>s.id===x.id));
+  if(candidate)seed.push(candidate);
+  cursor++;
+  if(seed.length>=rows.length)break;
+ }
+ if(seed.length<target)return buildProbabilitySet(rows,target);
+ return summarize(seed.slice(0,target),target+'-LEG MULTI-SPORT SET');
+}
