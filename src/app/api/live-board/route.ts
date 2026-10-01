@@ -1,5 +1,6 @@
 import {ingestOdds} from '@/lib/providers/ingest';
 import {scanMarkets} from '@/lib/scanner';
+import {rankDaily,rankWeekly} from '@/lib/boardScoring';
 import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
 import {uploadedBetHistory} from '@/lib/betHistory';
 import {analyzeHistory} from '@/lib/historyAnalytics';
@@ -32,11 +33,7 @@ export async function GET(req:Request){
   ]);
 
   const scanned=scanMarkets(ingestion.markets,risk);
-  const horizon=view==='today'
-    ? scanned.filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS')
-    : scanned.filter(x=>x.grade!=='PASS');
-
-  const rows=horizon.slice(0,limit);
+  const rows=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
 
   return Response.json({
