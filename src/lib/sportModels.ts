@@ -39,7 +39,15 @@ const WEIGHTS:Record<string,SportFeatureMap>={
  Soccer:{home:.10,xg:.22,injury:.11,keeper:.10,rest:.08,travel:.06,form:.12,tactical:.11,setPieces:.10},
  Tennis:{surface:.22,serve:.18,return:.18,form:.15,fatigue:.10,injury:.10,headToHead:.07},
  UFC:{striking:.15,grappling:.17,takedownDefense:.13,cardio:.13,reach:.08,ageCurve:.08,form:.10,finishRisk:.08,weightCut:.08},
- Golf:{courseFit:.20,approach:.18,offTee:.13,putting:.10,recentForm:.13,weather:.11,fieldStrength:.08,travel:.07}
+ Golf:{courseFit:.20,approach:.18,offTee:.13,putting:.10,recentForm:.13,weather:.11,fieldStrength:.08,travel:.07},
+ 'Table Tennis':{serve:.18,return:.20,form:.20,matchup:.14,fatigue:.10,style:.10,travel:.08},
+ Boxing:{striking:.22,defense:.18,reach:.10,cardio:.14,form:.12,ageCurve:.08,weightCut:.08,finishRisk:.08},
+ Motorsports:{trackFit:.22,qualifying:.18,teamPace:.18,reliability:.14,weather:.10,recentForm:.10,grid:.08},
+ Cricket:{batting:.20,bowling:.20,venue:.12,weather:.10,form:.12,lineup:.10,toss:.08,travel:.08},
+ Rugby:{home:.10,injury:.14,form:.16,pack:.16,kicking:.10,discipline:.10,rest:.12,travel:.12},
+ Volleyball:{serve:.15,receive:.15,attack:.18,block:.14,form:.14,injury:.10,home:.07,travel:.07},
+ Lacrosse:{home:.08,goalie:.16,faceoff:.14,offenseDefense:.18,form:.14,injury:.10,rest:.10,pace:.10},
+ Esports:{mapPool:.20,form:.18,roster:.18,matchup:.16,patch:.10,travel:.04,experience:.14}
 };
 
 function canonicalSport(sport:string){
@@ -55,6 +63,14 @@ function canonicalSport(sport:string){
  if(s.includes('TENNIS')||s.includes('ATP')||s.includes('WTA'))return 'Tennis';
  if(s.includes('UFC')||s.includes('MMA'))return 'UFC';
  if(s.includes('GOLF')||s.includes('PGA'))return 'Golf';
+ if(s.includes('TABLE TENNIS')||s.includes('PING PONG'))return 'Table Tennis';
+ if(s.includes('BOXING'))return 'Boxing';
+ if(s.includes('NASCAR')||s.includes('FORMULA')||s.includes('MOTORSPORT'))return 'Motorsports';
+ if(s.includes('CRICKET'))return 'Cricket';
+ if(s.includes('RUGBY'))return 'Rugby';
+ if(s.includes('VOLLEYBALL'))return 'Volleyball';
+ if(s.includes('LACROSSE'))return 'Lacrosse';
+ if(s.includes('ESPORT')||s.includes('LEAGUE OF LEGENDS')||s.includes('COUNTER-STRIKE')||s.includes('DOTA'))return 'Esports';
  return sport;
 }
 
