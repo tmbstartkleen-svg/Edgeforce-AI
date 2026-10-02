@@ -173,8 +173,12 @@ function simulateCombat(m:Market,runs:SimulationTier){
 function simulateProp(m:Market,runs:SimulationTier){
  const text=lower(`${m.market} ${m.selection}`);
  if(!(text.includes('player')||text.includes('prop')||rawFeature(m,'propMean')!==undefined||rawFeature(m,'projection')!==undefined))return null;
- const mean=rawFeature(m,'propMean')??rawFeature(m,'projection');
- const sd=rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
+ const player=m.playerContext;
+ const baseMean=player?.projection??rawFeature(m,'propMean')??rawFeature(m,'projection');
+ const availability=player?.availability??1;
+ const starterScale=player?.starter===false?.72:1;
+ const mean=baseMean===undefined?undefined:baseMean*availability*starterScale;
+ const sd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
  const sigma=Math.max(.1,Math.abs(sd??mean*.18));
@@ -186,7 +190,7 @@ function simulateProp(m:Market,runs:SimulationTier){
   const hit=direction==='UNDER'?value<Math.abs(line):value>Math.abs(line);
   if(hit)hits++;
  }
- return finalize(runs,hits,'PLAYER_STAT_MONTE_CARLO',{selectionMean:mean,line:Math.abs(line),unit:'stat'},sigma);
+ return finalize(runs,hits,'PLAYER_STAT_MONTE_CARLO',{selectionMean:mean,line:Math.abs(line),unit:player?.statKey||'stat'},sigma);
 }
 
 export function runSportOutcomeSimulation(m:Market,runs:SimulationTier,fallback:(m:Market,runs:SimulationTier)=>SimulationResult):SportOutcomeSimulationResult{
