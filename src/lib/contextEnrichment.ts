@@ -7,6 +7,16 @@ const num=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v:typeof v==='str
 const str=(v:unknown)=>typeof v==='string'?v:'';
 const norm=(v:string)=>v.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const clip=(x:number)=>Math.max(-1,Math.min(1,x));
+const flag=(v:unknown)=>{
+ if(typeof v==='boolean')return v?1:0;
+ if(typeof v==='number'&&Number.isFinite(v))return v?1:0;
+ if(typeof v==='string'){
+  const x=v.trim().toLowerCase();
+  if(['true','yes','confirmed','active','starting','available'].includes(x))return 1;
+  if(['false','no','unconfirmed','inactive','out','unavailable'].includes(x))return 0;
+ }
+ return undefined;
+};
 
 function rows(payload:unknown):Record<string,unknown>[] {
  if(Array.isArray(payload))return payload.map(obj);
@@ -32,6 +42,20 @@ function injuryImpact(r:Record<string,unknown>|undefined){
  const out=num(r.out_count??r.out)??0,questionable=num(r.questionable_count??r.questionable)??0,doubtful=num(r.doubtful_count??r.doubtful)??0;
  return clip((out*.12+doubtful*.08+questionable*.035));
 }
+function statusFeatures(r:Record<string,unknown>|undefined){
+ if(!r)return {} as Record<string,number>;
+ const out:Record<string,number>={};
+ const lineup=flag(r.lineup_confirmed??r.lineupConfirmed??r.confirmed_lineup);
+ const starter=flag(r.starter_confirmed??r.starterConfirmed??r.confirmed_starter);
+ const changed=flag(r.starter_changed??r.starterChanged??r.qb_changed??r.goalie_changed??r.pitcher_changed);
+ const availability=num(r.availability_shock??r.availabilityShock??r.lineup_change_impact??r.lineupChangeImpact);
+ if(lineup!==undefined)out.lineupConfirmed=lineup;
+ if(starter!==undefined)out.starterConfirmed=starter;
+ if(changed!==undefined)out.starterChanged=changed;
+ if(availability!==undefined)out.availabilityShock=clip(availability);
+ return out;
+}
+
 function statsContext(r:Record<string,unknown>|undefined):HistoricalContext{
  if(!r)return {};
  return {
@@ -49,12 +73,14 @@ export async function enrichMarketContext(markets:Market[]):Promise<{markets:Mar
  ]);
  const wIndex=index(weather.ok?weather.data:undefined),iIndex=index(injuries.ok?injuries.data:undefined),sIndex=index(stats.ok?stats.data:undefined);
  const enriched=markets.map(m=>{
-  const s=statsContext(lookup(sIndex,m));
+  const statsRow=lookup(sIndex,m);
+  const s=statsContext(statsRow);
   const w=weatherSeverity(lookup(wIndex,m));if(w!==undefined)s.weatherSeverity=w;
   const inj=injuryImpact(lookup(iIndex,m));if(inj!==undefined)s.injuryImpact=inj;
   const engineered=engineerFeatures(m,s);
-  const contextCount=[lookup(wIndex,m),lookup(iIndex,m),lookup(sIndex,m)].filter(Boolean).length;
-  return {...m,sportFeatures:{...engineered,...(m.sportFeatures||{})},dataQuality:Math.max(.35,Math.min(1,(m.dataQuality??.7)+contextCount*.08))};
+  const liveStatus=statusFeatures(statsRow);
+  const contextCount=[lookup(wIndex,m),lookup(iIndex,m),statsRow].filter(Boolean).length;
+  return {...m,sportFeatures:{...engineered,...(m.sportFeatures||{}),...liveStatus},dataQuality:Math.max(.35,Math.min(1,(m.dataQuality??.7)+contextCount*.08))};
  });
  return {markets:enriched,status:{weather:Boolean(weather.ok),injuries:Boolean(injuries.ok),stats:Boolean(stats.ok)}};
 }
