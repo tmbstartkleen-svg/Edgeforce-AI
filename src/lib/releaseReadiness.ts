@@ -28,8 +28,8 @@ export type ReleaseReadiness={
   };
 };
 
-const expectedMigration=29;
-const expectedModel='edgeforce-v29';
+const expectedMigration=30;
+const expectedModel='edgeforce-v30';
 
 export async function getReleaseReadiness():Promise<ReleaseReadiness>{
   const environment=process.env.VERCEL_ENV||process.env.NODE_ENV||'local';
@@ -80,7 +80,7 @@ export async function getReleaseReadiness():Promise<ReleaseReadiness>{
   if(!database.configured)blockers.push('DATABASE_URL is not configured');
   else if(!database.ok)blockers.push('Database is configured but unreachable');
   if(latestMigration<expectedMigration)blockers.push('Database migrations are behind V29');
-  if(!modelVersionMatches)blockers.push('MODEL_VERSION must be edgeforce-v29');
+  if(!modelVersionMatches)blockers.push('MODEL_VERSION must be edgeforce-v30');
   if(!ingestSecretConfigured)blockers.push('INGEST_SECRET is not configured');
   if(!cronSecretConfigured)blockers.push('CRON_SECRET is not configured');
   if(!liveOddsConfigured)blockers.push('No live odds provider is configured');
@@ -95,7 +95,7 @@ export async function getReleaseReadiness():Promise<ReleaseReadiness>{
   const readyForProduction=readyForPreview&&officialFeedEligible&&providerHealth.counts.healthy>=1;
 
   return {
-    version:'29.0.0',
+    version:'30.0.0',
     environment,
     gitSha,
     readyForPreview,
