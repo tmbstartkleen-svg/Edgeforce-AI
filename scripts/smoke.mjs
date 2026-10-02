@@ -23,6 +23,11 @@ assert(smoke.res.ok&&smoke.body?.smoke===true,'deployment smoke failed');
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
 
+const manifest=await get('/api/release-manifest');
+assert(manifest.res.ok,'release manifest failed');
+assert(manifest.body?.release==='30.0.0','release manifest version mismatch');
+assert(manifest.body?.expectedMigration===30,'release manifest migration mismatch');
+
 const failure=await get('/api/testing/provider-failure');
 assert(failure.res.ok,'provider failure simulation unavailable');
 assert(failure.body?.selected==='secondary','provider health selection did not prefer healthy secondary');
@@ -33,4 +38,4 @@ assert(home.res.headers.get('x-content-type-options')==='nosniff','security head
 assert(home.res.headers.get('x-frame-options')==='DENY','frame protection missing');
 assert(Boolean(home.res.headers.get('x-edgeforce-request-id')),'request id missing');
 
-console.log(JSON.stringify({ok:true,base,checks:['health','smoke','diagnostics','provider-failure','dashboard-security']}));
+console.log(JSON.stringify({ok:true,base,checks:['health','smoke','diagnostics','release-manifest','provider-failure','dashboard-security']}));
