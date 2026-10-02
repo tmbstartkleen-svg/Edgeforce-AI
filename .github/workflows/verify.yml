@@ -14,11 +14,12 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - run: npm run lint
       - run: npm run build
       - run: npm run check-migrations
       - name: Start production server
         run: |
-          ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
+          MODEL_VERSION=edgeforce-v30 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
           echo $! > /tmp/edgeforce.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
@@ -32,6 +33,9 @@ jobs:
         env:
           ENABLE_TEST_ENDPOINTS: "true"
       - run: npm run load-check
+        env:
+          LOAD_REQUESTS: "60"
+          LOAD_MAX_P95_MS: "3000"
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/edgeforce.log || true

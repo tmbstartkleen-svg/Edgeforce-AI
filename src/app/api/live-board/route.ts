@@ -9,6 +9,7 @@ import type {RiskProfile} from '@/lib/types';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 import {fusePredictionMarkets} from '@/lib/crossMarket';
+import {recordPerformance} from '@/lib/ops';
 
 export const dynamic='force-dynamic';
 
@@ -26,6 +27,7 @@ async function cachedOdds(){
 }
 
 export async function GET(req:Request){
+  const started=Date.now();
   const {searchParams}=new URL(req.url);
   const view=searchParams.get('view')==='week'?'week':'today';
   const limit=searchParams.get('limit')==='50'?50:30;
@@ -53,6 +55,7 @@ export async function GET(req:Request){
     unmatched:rows.filter(x=>x.predictionMarketStatus==='NO_MATCH').length
   };
 
+  await recordPerformance('/api/live-board',Date.now()-started,200,ingestion.providerId);
   return Response.json({
     generatedAt:new Date().toISOString(),
     uiRefreshMs:1000,

@@ -295,9 +295,7 @@ export default function Dashboard(){
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[]);
 
-  useEffect(()=>{
-    if(sport!=='ALL'&&!board.sports.includes(sport))setSport('ALL');
-  },[board.sports,sport]);
+  const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
 
   useEffect(()=>{
     let cancelled=false;
@@ -321,13 +319,13 @@ export default function Dashboard(){
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
 
   const filtered=useMemo(()=>board.rows.filter(x=>{
-    if(sport!=='ALL'&&x.sport!==sport)return false;
+    if(effectiveSport!=='ALL'&&x.sport!==effectiveSport)return false;
     if(period!=='ALL'&&x.period!==period)return false;
     if(market!=='ALL'&&x.market!==market)return false;
     if(x.simProbability<minSim/100)return false;
     if(x.odds<minOdds||x.odds>maxOdds)return false;
     return true;
-  }),[board.rows,sport,period,market,minSim,minOdds,maxOdds]);
+  }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize),[filtered,parlaySize]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize),[board.rows,parlaySize,minSim,minOdds,maxOdds]);
@@ -340,9 +338,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V29</div>
-        <h1>Historical Calibration + Model Optimization</h1>
-        <p>Settled outcomes now drive walk-forward calibration, out-of-sample model checks and controlled Model Council weight updates while V28 provider resilience remains active.</p>
+        <div className="eyebrow">EDGEFORCE AI • V30</div>
+        <h1>Production-Hardened Intelligence Platform</h1>
+        <p>Production readiness, observability, provider resilience, calibrated model learning, automated settlement and cross-market simulation are unified behind one release-hardened control surface.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -409,7 +407,7 @@ export default function Dashboard(){
       </div>
       <div className="controlGroup">
         <label>Sport</label>
-        <select value={sport} onChange={e=>setSport(e.target.value)}>
+        <select value={effectiveSport} onChange={e=>setSport(e.target.value)}>
           <option value="ALL">All sports</option>
           {board.sports.map(x=><option key={x}>{x}</option>)}
         </select>

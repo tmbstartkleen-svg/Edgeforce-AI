@@ -1,27 +1,30 @@
-import {dbHealth} from '@/lib/db';
-import {configuredProviders} from '@/lib/providers/config';
+import {evaluateReadiness} from '@/lib/readiness';
+import {RELEASE} from '@/lib/releaseManifest';
+
+export const dynamic='force-dynamic';
 
 export async function GET(){
- const database=await dbHealth();
- const providers=configuredProviders();
- const env={node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'};
+ const readiness=await evaluateReadiness();
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
   smoke:true,
-  version:'25.0.0',
+  build:RELEASE.build,
+  version:RELEASE.appVersion,
+  modelVersion:RELEASE.modelVersion,
   releaseCandidate:true,
-  database,
-  env,
+  readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict},
+  env:{node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'},
   checks:{
    runtime:true,
    api:true,
    proxySecurity:true,
    diagnostics:true,
    providerLayer:true,
-   migrations:'v25',
-   databaseConfigured:database.configured,
-   configuredProviders:providers.length
+   calibration:true,
+   ledger:true,
+   readinessEndpoint:true,
+   migrations:`v${RELEASE.migrationVersion}`
   }
- });
+ },{headers:{'Cache-Control':'no-store'}});
 }

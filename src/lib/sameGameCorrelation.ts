@@ -50,7 +50,7 @@ export function correlationExposure(a:Scanned,b:Scanned){
 }
 
 export function correlationAdjustedJoint(legs:Scanned[]){
- let joint=legs.reduce((p,x)=>p*x.simProbability,1);
+ const joint=legs.reduce((p,x)=>p*x.simProbability,1);
  let adjustment=0;
  for(let i=0;i<legs.length;i++){
   for(let j=i+1;j<legs.length;j++){

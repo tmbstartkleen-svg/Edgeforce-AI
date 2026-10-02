@@ -32,8 +32,6 @@ export type PortfolioResult={
  rejected:{id:string;reason:string}[];
 };
 
-const sameEvent=(a:Scanned,b:Scanned)=>a.event===b.event;
-const sameSport=(a:Scanned,b:Scanned)=>a.sport===b.sport;
 
 function correlation(a:Scanned,b:Scanned){return correlationExposure(a,b)}
 

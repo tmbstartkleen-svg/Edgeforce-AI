@@ -61,7 +61,6 @@ function groupRows(rows:HistoricalPrediction[]){
 function evaluateGroup(modelName:string,sport:string,marketKey:string,rows:HistoricalPrediction[],options:RecalibrationOptions):RecalibrationGroup{
  const sorted=[...rows].sort((a,b)=>new Date(a.occurredAt).getTime()-new Date(b.occurredAt).getTime());
  const holdoutSize=Math.max(options.minHoldout,Math.floor(sorted.length*.25));
- const train=sorted.slice(0,Math.max(0,sorted.length-holdoutSize));
  const holdout=sorted.slice(Math.max(0,sorted.length-holdoutSize));
  const allSummary=summarizeBacktest(sorted);
  const holdoutSummary=summarizeBacktest(holdout);
