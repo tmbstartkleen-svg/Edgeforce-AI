@@ -84,7 +84,9 @@ export async function recordModelRuns(rows:any[]){
           sportAdjustment:x.sportAdjustment,
           sportFactors:x.sportFactors,
           sportFeatures:x.sportFeatures||{},
-          contextSources:x.contextSources||[]
+          contextSources:x.contextSources||[],
+          simEngine:x.simEngine,
+          simProjection:x.simProjection||{}
         })}
       )
     `;
