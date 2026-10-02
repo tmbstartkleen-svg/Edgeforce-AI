@@ -1,6 +1,7 @@
 import {ingestOdds} from '@/lib/providers/ingest';
 import {weekTop30} from '@/lib/scanner';
 import {defaultLimits,optimizePortfolio} from '@/lib/portfolio';
+import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 
 export async function POST(req:Request){
  const body=await req.json().catch(()=>({}));
@@ -10,9 +11,9 @@ export async function POST(req:Request){
  let rows=Array.isArray(body?.rows)&&body.rows.length?body.rows:null;
 
  if(!rows){
-  const ingestion=await ingestOdds();
+  const [ingestion,learnedWeights]=await Promise.all([ingestOdds(),loadLearnedWeightMultipliers()]);
   source=ingestion.source;
-  rows=weekTop30(ingestion.markets,body?.risk||'Moderate');
+  rows=weekTop30(ingestion.markets,body?.risk||'Moderate',new Date(),learnedWeights);
  }
 
  return Response.json({
