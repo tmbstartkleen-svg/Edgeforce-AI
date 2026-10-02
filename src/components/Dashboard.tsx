@@ -48,6 +48,11 @@ type LiveBoardResponse={
   providerMode:string;
   providerName?:string;
   warnings?:string[];
+  contextDiagnostics?:{
+    matchedRows:number;
+    totalRows:number;
+    providers:Array<{kind:string;ok:boolean;providerId?:string;rowCount:number}>;
+  };
   rows:BoardRow[];
   sports:string[];
   predictions:{
@@ -252,9 +257,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V22</div>
-        <h1>Adaptive Sports Probability Intelligence</h1>
-        <p>Live/stored markets, learned historical model weights, scenario-volatility simulation, portfolio risk, prediction markets, history and anomaly signals in one view.</p>
+        <div className="eyebrow">EDGEFORCE AI • V23</div>
+        <h1>Context-Fused Sports Probability Intelligence</h1>
+        <p>Live/stored markets fused with provider weather, injuries and stats context, learned historical weights, scenario simulation, portfolio risk and history.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -357,7 +362,7 @@ export default function Dashboard(){
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG MARKET</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.marketProb,0)/filtered.length):'—'}</strong><span>implied probability</span></div>
-      <div><small>DATABASE</small><strong>{dbStats.ok?'ONLINE':dbStats.configured?'CHECK':'LOCAL'}</strong><span>{dbStats.counts?.athletes||0} athletes • {dbStats.counts?.player_game_stats||0} stat rows</span></div>
+      <div><small>CONTEXT FUSION</small><strong>{board.contextDiagnostics?.matchedRows||0}/{board.contextDiagnostics?.totalRows||0}</strong><span>{(board.contextDiagnostics?.providers||[]).filter(x=>x.ok).length} context providers active</span></div>
     </section>
 
     <section className="v21Panel">
