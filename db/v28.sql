@@ -29,5 +29,10 @@ create index if not exists recalibration_runs_recent_idx
 create index if not exists learned_weight_promoted_idx
   on learned_model_weight_snapshots(promoted,model_name,sport,market_key,as_of desc);
 
+alter table historical_predictions add column if not exists source_key text;
+create unique index if not exists historical_predictions_source_key_idx
+  on historical_predictions(source_key)
+  where source_key is not null;
+
 create index if not exists historical_predictions_model_lookup_idx
   on historical_predictions(model_name,sport,market_key,occurred_at desc);
