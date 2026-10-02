@@ -75,6 +75,13 @@ function evaluateGroup(modelName:string,sport:string,marketKey:string,rows:Histo
  let reason='Promoted after minimum-sample and holdout checks';
  if(sorted.length<options.minSample){promoted=false;reason=`Held: ${sorted.length} samples < ${options.minSample} minimum`;}
  else if(holdout.length<options.minHoldout){promoted=false;reason=`Held: ${holdout.length} holdout samples < ${options.minHoldout} minimum`;}
+ else if(holdoutSummary.brierScore>.32||holdoutSummary.logLoss>.85){
+  promoted=false;
+  reason=`Held: holdout quality failed (Brier ${holdoutSummary.brierScore.toFixed(3)}, log loss ${holdoutSummary.logLoss.toFixed(3)})`;
+ }else if(folds.length&&avgFoldBrier>.32){
+  promoted=false;
+  reason=`Held: walk-forward Brier ${avgFoldBrier.toFixed(3)} exceeded 0.320`;
+ }
 
  const decayedScore=perf?.decayedScore??0;
  const avgClv=perf?.avgClv??0;
