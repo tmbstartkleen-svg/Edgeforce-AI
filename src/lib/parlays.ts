@@ -51,7 +51,7 @@ function monteCarloJoint(picks:Scanned[],hitVectors?:Map<string,Uint8Array>){
  return {hits,runs,probability:hits/runs};
 }
 
-function summarize(picks:Scanned[],label:string,hitVectors?:Map<string,Uint8Array>):Parlay{
+export function summarizeParlay(picks:Scanned[],label:string,hitVectors?:Map<string,Uint8Array>):Parlay{
  const independent=picks.reduce((p,x)=>p*x.simProbability,1);
  const joint=monteCarloJoint(picks,hitVectors);
  let penalty=0;
@@ -90,7 +90,7 @@ export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbabi
     const days=new Set(picks.map(x=>new Date(x.startTime).toISOString().slice(0,10)));
     if(days.size<picks.length)return;
    }
-   const p=summarize(picks,size===2?'2-LEG':'3-LEG',options.hitVectors);
+   const p=summarizeParlay(picks,size===2?'2-LEG':'3-LEG',options.hitVectors);
    if(p.combinedProbability>=minJoint)all.push(p);
    return;
   }
@@ -128,7 +128,7 @@ export function buildProbabilitySet(rows:Scanned[],size:number):Parlay|null{
   }
   if(!best)break;picks.push(best);used.add(best.id);
  }
- return picks.length===target?summarize(picks,target+'-LEG PROBABILITY SET'):null;
+ return picks.length===target?summarizeParlay(picks,target+'-LEG PROBABILITY SET'):null;
 }
 
 export function buildSportProbabilitySet(rows:Scanned[],sport:string,size:number){return buildProbabilitySet(rows.filter(x=>x.sport===sport),size)}
