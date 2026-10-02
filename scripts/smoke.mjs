@@ -70,6 +70,9 @@ assert(recalibration.body?.good?.promoted===true,'qualified model was not promot
 assert(recalibration.body?.bad?.promoted===false,'poor holdout model was promoted');
 assert(recalibration.body?.small?.promoted===false,'small-sample model was promoted');
 
+const contextChanges=await get('/api/context-changes');
+assert(contextChanges.res.ok,'context change audit endpoint failed');
+
 const calibrationStatus=await get('/api/intelligence/calibration');
 assert(calibrationStatus.res.ok,'calibration status endpoint failed');
 
@@ -84,5 +87,5 @@ assert(Boolean(home.res.headers.get('x-edgeforce-request-id')),'request id missi
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','recalibration','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','recalibration','context-changes','calibration-status','backtest','dashboard-security'
 ]}));
