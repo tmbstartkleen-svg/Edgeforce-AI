@@ -14,6 +14,7 @@ const requiredFiles=[
   'src/app/api/health/route.ts',
   'src/app/api/live-board/route.ts',
   'src/app/api/release-readiness/route.ts',
+  'src/app/api/release-manifest/route.ts',
   'src/app/api/provider-health/route.ts',
   '.github/workflows/verify.yml',
   '.github/workflows/release-candidate.yml',
