@@ -21,13 +21,18 @@ const missingProduction=(env.REQUIRE_PRODUCTION_ENV==='true'?requiredProduction:
 const configuredOdds=providerGroups.filter(group=>group.some(k=>Boolean(env[k])));
 const incompleteOdds=configuredOdds.filter(group=>group.some(k=>!env[k]));
 
+const expectedModelVersion=env.EXPECTED_MODEL_VERSION||null;
+const modelVersionMatches=!expectedModelVersion||env.MODEL_VERSION===expectedModelVersion;
+
 const report={
- ok:missingBase.length===0&&missingProduction.length===0&&incompleteOdds.length===0,
+ ok:missingBase.length===0&&missingProduction.length===0&&incompleteOdds.length===0&&modelVersionMatches,
  missingBase,
  missingProduction,
  incompleteOdds,
  configuredOddsProviders:configuredOdds.length,
  modelVersion:env.MODEL_VERSION||null,
+ expectedModelVersion,
+ modelVersionMatches,
  vercelEnvironment:env.VERCEL_ENV||null
 };
 
