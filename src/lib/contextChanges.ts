@@ -33,8 +33,8 @@ const textChanged=(a:unknown,b:unknown)=>{
  const y=String(b??'').trim().toLowerCase();
  return x!==y;
 };
-const key=(m:Market)=>[m.id,m.market,m.selection].join('|');
-const eventId=(m:Market,type:ContextChangeType,reason:string)=>`${key(m)}|${type}|${reason}`;
+export const contextMarketKey=(m:Market)=>[m.id,m.market,m.selection].join('|');
+const eventId=(m:Market,type:ContextChangeType,reason:string)=>`${contextMarketKey(m)}|${type}|${reason}`;
 
 function push(out:ContextChangeEvent[],m:Market,type:ContextChangeType,severity:ContextChangeEvent['severity'],reason:string,before?:unknown,after?:unknown){
  out.push({
@@ -46,11 +46,11 @@ function push(out:ContextChangeEvent[],m:Market,type:ContextChangeType,severity:
 
 export function detectMaterialContextChanges(previous:Market[],current:Market[]):ContextChangeEvent[]{
  if(!previous.length||!current.length)return [];
- const prior=new Map(previous.map(m=>[key(m),m]));
+ const prior=new Map(previous.map(m=>[contextMarketKey(m),m]));
  const out:ContextChangeEvent[]=[];
 
  for(const m of current){
-  const p=prior.get(key(m));
+  const p=prior.get(contextMarketKey(m));
   if(!p)continue;
 
   const marketDelta=Math.abs((m.marketProb??0)-(p.marketProb??0));
