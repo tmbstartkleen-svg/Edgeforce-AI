@@ -27,6 +27,7 @@ export function rankMarkets(rows:Market[],profile:RiskProfile='Moderate',learned
    sportModelProbability:c.sport.adjustedProbability,
    sportAdjustment:c.sport.adjustment,
    sportFactors:c.sport.factors,
+   modelVotes:c.votes.map(v=>({name:v.name,prob:v.prob,baseWeight:v.baseWeight,learnedMultiplier:v.learnedMultiplier,weight:v.weight})),
    grade
   };
  }).sort((a,b)=>b.expectedValue-a.expectedValue||b.edge-a.edge)
