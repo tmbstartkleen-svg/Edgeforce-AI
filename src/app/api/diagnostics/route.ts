@@ -21,10 +21,12 @@ export async function GET(){
  });
  return Response.json({
   ok:true,
-  version:'28.0.0',
+  version:'29.0.0',
   providerHardening:true,
   circuitBreaker:true,
   payloadFreshnessGate:true,
+  walkForwardCalibration:true,
+  controlledWeightPromotion:true,
   uptimeSeconds:Math.round(process.uptime()),
   memory:process.memoryUsage(),
   database,

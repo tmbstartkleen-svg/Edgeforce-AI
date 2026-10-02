@@ -36,6 +36,14 @@ export type Market={
  playerContext?:PlayerContext;
 };
 
+export type ModelVoteSnapshot={
+ name:string;
+ prob:number;
+ baseWeight:number;
+ learnedMultiplier:number;
+ weight:number;
+};
+
 export type Ranked=Market & {
  fairOdds:number;
  edge:number;
@@ -46,5 +54,6 @@ export type Ranked=Market & {
  sportModelProbability:number;
  sportAdjustment:number;
  sportFactors:string[];
+ modelVotes?:ModelVoteSnapshot[];
  grade:'ELITE'|'STRONG'|'WATCH'|'PASS';
 };

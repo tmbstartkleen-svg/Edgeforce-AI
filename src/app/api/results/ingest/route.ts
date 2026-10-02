@@ -1,5 +1,6 @@
 import {db} from '@/lib/db';
 import {reconcileLedgerResults} from '@/lib/ledger';
+import {recordPredictionFeedback} from '@/lib/predictionFeedback';
 
 export async function POST(req:Request){
   const auth=req.headers.get('authorization');
@@ -23,6 +24,9 @@ export async function POST(req:Request){
     `;
     written++;
   }
-  const reconciliation=await reconcileLedgerResults(results);
-  return Response.json({ok:true,mode:'database',written,reconciliation});
+  const [reconciliation,feedback]=await Promise.all([
+    reconcileLedgerResults(results),
+    recordPredictionFeedback(results)
+  ]);
+  return Response.json({ok:true,mode:'database',written,reconciliation,feedback});
 }
