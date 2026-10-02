@@ -79,7 +79,7 @@ export async function recordModelRuns(rows:any[]){
         event_id,market_key,selection_key,model_version,run_count,market_probability,model_probability,fair_american_odds,expected_value,
         full_kelly,fractional_kelly,agreement,confidence,grade,simulation_probability,simulation_ci_low,simulation_ci_high,simulation_mode,prediction_probability,feature_snapshot
       ) values(
-        ${x.eventId||x.id},${x.marketKey||x.market},${x.selection},${process.env.MODEL_VERSION||'edgeforce-v28'},${x.simulationRuns},
+        ${x.eventId||x.id},${x.marketKey||x.market},${x.selection},${process.env.MODEL_VERSION||'edgeforce-v29'},${x.simulationRuns},
         ${x.marketProb},${x.modelProb},${x.fairOdds},${x.expectedValue},${x.kelly},${x.quarterKelly},${x.agreement},${x.confidence},${x.grade},
         ${x.simProbability},${x.simCi?.[0]??null},${x.simCi?.[1]??null},${x.simulationMode||null},${x.predictionProb??null},
         ${sql.json({freshness:x.freshness,daysOut:x.daysOut,sportModelProbability:x.sportModelProbability,sportAdjustment:x.sportAdjustment,sportFactors:x.sportFactors,sportFeatures:x.sportFeatures||{},projectionMean:x.projectionMean,projectionStdDev:x.projectionStdDev,provider:x.provider,bookmaker:x.bookmaker,market:x.market,point:x.point,offeredOdds:x.odds,home:x.home,away:x.away,player:x.player,prop:x.prop})}
