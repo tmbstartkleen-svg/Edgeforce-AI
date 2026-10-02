@@ -76,8 +76,13 @@ type WeeklyDraft={
     locked:boolean;
     needsReview:boolean;
     changeSummary:string[];
+    decisionStatus:'KEEP'|'WATCH'|'REPLACE_CANDIDATE';
+    decisionScore:number;
+    decisionReasons:string[];
+    decisionUpdatedAt:string|null;
   }>;
   combinedProbability:number|null;
+  decisionCounts?:{KEEP:number;WATCH:number;REPLACE_CANDIDATE:number};
 };
 
 type LiveBoardResponse={
@@ -348,7 +353,7 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V25</div>
+        <div className="eyebrow">EDGEFORCE AI • V26</div>
         <h1>Live Sports Probability Intelligence</h1>
         <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder. <a href="/pregame">Open V25 Pregame Monitor</a></p>
       </div>
@@ -523,15 +528,15 @@ export default function Dashboard(){
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">WEEKLY PARLAY BUILDER</div><h3>Build the week gradually and lock legs you want to preserve</h3></div>
-        <div className="panelMeta"><span>{weekly.week||'current week'}</span><span>{weekly.combinedProbability!==null?pct(weekly.combinedProbability):'—'} joint</span></div>
+        <div className="panelMeta"><span>{weekly.week||'current week'}</span><span>{weekly.combinedProbability!==null?pct(weekly.combinedProbability):'—'} joint</span><span>{weekly.decisionCounts?.KEEP||0} keep • {weekly.decisionCounts?.WATCH||0} watch • {weekly.decisionCounts?.REPLACE_CANDIDATE||0} replace cand.</span></div>
       </div>
       {weeklyMessage&&<div className="historyNote">{weeklyMessage}</div>}
       <div className="weeklyBuilder">
         {weekly.legs.map((x,i)=><div className="weeklyLeg" key={x.marketId}>
           <span className="rankCell">{i+1}</span>
-          <div><b>{x.selection}</b><small>{x.sport} • {x.event} • {x.market} • saved {fmtOdds(x.odds)} / {pct(x.simProbability)} • current {fmtOdds(x.currentOdds)} / {pct(x.currentSimProbability)}</small>{x.needsReview&&<small className="negative">{x.changeSummary.length?x.changeSummary.join(' • '):'Current simulation fell below the saved threshold'}</small>}</div>
+          <div><b>{x.selection}</b><small>{x.sport} • {x.event} • {x.market} • saved {fmtOdds(x.originalOdds)} / {pct(x.originalSimProbability)} • current {fmtOdds(x.currentOdds)} / {pct(x.currentSimProbability)}</small>{x.decisionReasons?.length>0&&<small className={x.decisionStatus==='KEEP'?'lime':x.decisionStatus==='WATCH'?'orange':'negative'}>{x.decisionReasons.join(' • ')}</small>}</div>
           <div className="weeklyActions">
-            {x.needsReview&&<span className="signal high">REVIEW</span>}<span className={x.locked?'locked':'unlocked'}>{x.locked?'LOCKED':'OPEN'}</span>
+            <span className={x.decisionStatus==='KEEP'?'lime':x.decisionStatus==='WATCH'?'orange':'negative'}>{x.decisionStatus?.replace('_',' ')||'KEEP'} {typeof x.decisionScore==='number'?'• '+x.decisionScore+'/100':''}</span><span className={x.locked?'locked':'unlocked'}>{x.locked?'LOCKED':'OPEN'}</span>
             <button onClick={()=>void updateWeeklyLeg(x.marketId,x.locked?'unlock':'lock')}>{x.locked?'Unlock':'Lock'}</button>
             <button disabled={x.locked} onClick={()=>void updateWeeklyLeg(x.marketId,'remove')}>Remove</button>
           </div>
