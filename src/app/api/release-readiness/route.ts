@@ -8,7 +8,7 @@ export async function GET(){
     return Response.json(readiness,{headers:{'Cache-Control':'no-store'}});
   }catch(error){
     return Response.json({
-      version:'29.0.0',
+      version:'30.0.0',
       environment:process.env.VERCEL_ENV||process.env.NODE_ENV||'local',
       gitSha:process.env.VERCEL_GIT_COMMIT_SHA||process.env.GITHUB_SHA||null,
       readyForPreview:false,
