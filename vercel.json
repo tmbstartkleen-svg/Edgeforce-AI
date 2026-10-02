@@ -3,10 +3,7 @@
   "framework":"nextjs",
   "buildCommand":"npm run build",
   "git":{
-    "deploymentEnabled":{
-      "v22-auto-sim":false,
-      "main":true
-    }
+    "deploymentEnabled":false
   },
   "crons":[
     {"path":"/api/cron/scan","schedule":"0 6 * * *"},
