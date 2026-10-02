@@ -2,8 +2,8 @@ import './globals.css';
 import './v21.css';
 
 export const metadata={
- title:'Edgeforce AI',
- description:'Live sports probability, simulation, history and prediction-market intelligence'
+ title:'Edgeforce AI V22',
+ description:'Automated DraftKings and prediction-market simulation intelligence'
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
