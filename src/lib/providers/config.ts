@@ -6,6 +6,17 @@ const int=(v:string|undefined,fallback:number)=>{
  return Number.isFinite(n)?n:fallback;
 };
 
+function defaultMaxAge(capability:ProviderCapability){
+ switch(capability){
+  case 'ODDS': return 20;
+  case 'WEATHER': return 90;
+  case 'INJURIES': return 180;
+  case 'STATS': return 360;
+  case 'RESULTS': return 1440;
+  case 'PREDICTION_MARKETS': return 30;
+ }
+}
+
 function provider(prefix:string,name:string,capability:ProviderCapability,priority:number):ProviderConfig|null{
  const url=process.env[`${prefix}_URL`];
  if(!url)return null;
@@ -20,7 +31,10 @@ function provider(prefix:string,name:string,capability:ProviderCapability,priori
   priority:int(process.env[`${prefix}_PRIORITY`],priority),
   timeoutMs:int(process.env[`${prefix}_TIMEOUT_MS`],8000),
   enabled:process.env[`${prefix}_ENABLED`]!=='false',
-  bookmaker:process.env[`${prefix}_BOOKMAKER`]||'DraftKings'
+  bookmaker:process.env[`${prefix}_BOOKMAKER`]||'DraftKings',
+  maxAgeMin:int(process.env[`${prefix}_MAX_AGE_MIN`],defaultMaxAge(capability)),
+  failureThreshold:Math.max(1,int(process.env[`${prefix}_FAILURE_THRESHOLD`],int(process.env.PROVIDER_FAILURE_THRESHOLD,3))),
+  quarantineMin:Math.max(1,int(process.env[`${prefix}_QUARANTINE_MIN`],int(process.env.PROVIDER_QUARANTINE_MIN,5)))
  };
 }
 

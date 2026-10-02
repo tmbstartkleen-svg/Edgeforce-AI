@@ -15,9 +15,11 @@ function assert(condition,message){
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='27.0.0','unexpected health version');
+assert(health.body?.version==='28.0.0','unexpected health version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
+assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
+assert(health.body?.providerPayloadFreshnessGate===true,'payload freshness gate flag missing');
 
 const smoke=await get('/api/deployment/smoke');
 assert(smoke.res.ok&&smoke.body?.smoke===true,'deployment smoke failed');
@@ -31,7 +33,13 @@ assert(ledger.body?.analytics?.overall?.net!==undefined,'ledger analytics missin
 
 const failure=await get('/api/testing/provider-failure');
 assert(failure.res.ok,'provider failure simulation unavailable');
-assert(failure.body?.selected==='secondary','provider health selection did not prefer healthy secondary');
+assert(failure.body?.selected==='secondary','provider circuit breaker did not skip quarantined primary');
+
+const payloadQuality=await get('/api/testing/payload-quality');
+assert(payloadQuality.res.ok&&payloadQuality.body?.ok===true,'payload quality gate simulation failed');
+assert(payloadQuality.body?.fresh?.ok===true,'fresh payload was rejected');
+assert(payloadQuality.body?.stale?.ok===false,'stale payload was not rejected');
+assert(payloadQuality.body?.empty?.ok===false,'empty odds payload was not rejected');
 
 const home=await get('/');
 assert(home.res.ok,'dashboard failed');
@@ -39,4 +47,4 @@ assert(home.res.headers.get('x-content-type-options')==='nosniff','security head
 assert(home.res.headers.get('x-frame-options')==='DENY','frame protection missing');
 assert(Boolean(home.res.headers.get('x-edgeforce-request-id')),'request id missing');
 
-console.log(JSON.stringify({ok:true,base,checks:['health','smoke','diagnostics','ledger','provider-failure','dashboard-security']}));
+console.log(JSON.stringify({ok:true,base,checks:['health','smoke','diagnostics','ledger','provider-failure','payload-quality','dashboard-security']}));

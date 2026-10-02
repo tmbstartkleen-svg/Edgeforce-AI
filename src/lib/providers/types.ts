@@ -13,6 +13,9 @@ export type ProviderConfig={
  timeoutMs:number;
  enabled:boolean;
  bookmaker?:string;
+ maxAgeMin:number;
+ failureThreshold:number;
+ quarantineMin:number;
 };
 
 export type ProviderFetchResult<T>={

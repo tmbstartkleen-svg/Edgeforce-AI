@@ -9,16 +9,26 @@ export type OddsIngestionResult={
  markets:Market[];
  rawCount:number;
  warnings:string[];
- attempts:Array<{providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number}>;
+ attempts:Array<{
+  providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number;
+  skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;rowCount?:number;payloadAgeMin?:number
+ }>;
+ quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number};
+ degraded:boolean;
  error?:string;
 };
 
 export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
- const result=await fetchWithFailover('ODDS');
+ const result=await fetchWithFailover('ODDS',(payload)=>{
+  const normalized=normalizeOddsPayload(payload);
+  return normalized.markets.length
+   ?{ok:true}
+   :{ok:false,error:'Odds payload produced zero normalized markets'};
+ });
  if(!result.ok){
   return {
    mode:result.attempts.length?'failed':'unconfigured',
-   markets:[],rawCount:0,warnings:[],attempts:result.attempts,error:result.error
+   markets:[],rawCount:0,warnings:[],attempts:result.attempts,degraded:true,error:result.error
   };
  }
  const normalized=normalizeOddsPayload(result.data);
@@ -29,6 +39,13 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
   markets:normalized.markets,
   rawCount:normalized.rawCount,
   warnings:normalized.warnings,
-  attempts:result.attempts
+  attempts:result.attempts,
+  quality:result.quality?{
+   grade:result.quality.grade,
+   qualityScore:result.quality.qualityScore,
+   rowCount:result.quality.rowCount,
+   payloadAgeMin:result.quality.payloadAgeMin
+  }:undefined,
+  degraded:result.degraded
  };
 }
