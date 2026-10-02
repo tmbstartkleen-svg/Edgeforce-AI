@@ -50,7 +50,7 @@ export function normalizePredictionMarkets(payload:unknown,source='prediction-pr
 
 async function fetchSharpBook(book:string){
  const key=process.env.SHARP_API_KEY;if(!key)return [] as PredictionContract[];
- const base=process.env.SHARP_API_URL||'https://api.sharpapi.io/api/v1/odds';const url=new URL(base);url.searchParams.set('sportsbook',book);url.searchParams.set('is_live','false');url.searchParams.set('limit',process.env.SHARP_API_LIMIT||'1000');
+ const base=process.env.SHARP_API_URL||'https://api.sharpapi.io/api/v1/odds';const url=new URL(base);url.searchParams.set('sportsbook',book);url.searchParams.set('live','false');url.searchParams.set('limit','200');
  const headers:Record<string,string>={Accept:'application/json'};const authHeader=process.env.SHARP_API_AUTH_HEADER||'X-API-Key';headers[authHeader]=authHeader.toLowerCase()==='authorization'?`Bearer ${key}`:key;
  const res=await fetch(url,{headers,cache:'no-store'});if(!res.ok)throw new Error(`SharpAPI ${book} HTTP ${res.status}`);return normalizePredictionMarkets(await res.json(),`SharpAPI:${book}`);
 }
