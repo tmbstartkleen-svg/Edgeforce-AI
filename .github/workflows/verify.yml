@@ -17,6 +17,7 @@ jobs:
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-gate
+      - run: npm run final-qa
       - name: Start production server
         run: |
           ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
