@@ -2,11 +2,6 @@ name: Migrate Edgeforce V22 Preview
 
 on:
   workflow_dispatch:
-  push:
-    branches: [v22-auto-sim]
-    paths:
-      - db/v22.sql
-      - .github/workflows/migrate-v22-preview.yml
 
 jobs:
   migrate-preview:
