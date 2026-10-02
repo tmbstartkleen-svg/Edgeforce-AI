@@ -340,9 +340,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V29</div>
-        <h1>Historical Calibration + Model Optimization</h1>
-        <p>Settled outcomes now drive walk-forward calibration, out-of-sample model checks and controlled Model Council weight updates while V28 provider resilience remains active.</p>
+        <div className="eyebrow">EDGEFORCE AI • V30</div>
+        <h1>Production-Hardened Intelligence Platform</h1>
+        <p>Production readiness, observability, provider resilience, calibrated model learning, automated settlement and cross-market simulation are unified behind one release-hardened control surface.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
