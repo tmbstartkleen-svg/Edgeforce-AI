@@ -15,16 +15,14 @@ const version=String(pkg.version||'');
 const major=Number(version.split('.')[1]||version.split('.')[0]||0);
 const apiVersion=version.replace(/^0\./,'')+'.0';
 const expectedMigration=Number((migrationCheck.match(/const expected=(\d+);/)||[])[1]||0);
-const devDeployRule=vercel?.git?.deploymentEnabled?.['v22-auto-sim'];
-const mainDeployRule=vercel?.git?.deploymentEnabled?.main;
+const gitAutoDeployDisabled=vercel?.git?.deploymentEnabled===false;
 
 const checks={
   packageVersion:Boolean(version),
   healthVersion:health.includes("version:'"+apiVersion+"'"),
   deploymentSmokeVersion:deploymentSmoke.includes("version:'"+apiVersion+"'"),
   migrationMatchesVersion:expectedMigration===major,
-  developmentBranchAutoDeployDisabled:devDeployRule===false,
-  mainAutoDeployEnabled:mainDeployRule===true,
+  allAutomaticVercelGitDeploymentsDisabled:gitAutoDeployDisabled,
   releaseCandidateFlag:health.includes('releaseCandidate:true'),
   failClosedBoard:health.includes('failClosedOfficialBoard:true')
 };
