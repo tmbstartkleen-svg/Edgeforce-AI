@@ -15,7 +15,7 @@ function assert(condition,message){
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='22.0.0','unexpected health version');
+assert(health.body?.version==='23.0.0','unexpected health version');
 
 const smoke=await get('/api/deployment/smoke');
 assert(smoke.res.ok&&smoke.body?.smoke===true,'deployment smoke failed');
