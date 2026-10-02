@@ -60,6 +60,9 @@ type LiveBoardResponse={
   source:string;
   providerMode:string;
   providerName?:string;
+  providerDegraded?:boolean;
+  providerQuality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}|null;
+  providerAttempts?:Array<{providerId:string;ok:boolean;skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;error?:string}>;
   warnings?:string[];
   contextDiagnostics?:{
     matchedRows:number;
@@ -285,9 +288,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V27</div>
-        <h1>Automated Settlement + Bankroll Ledger</h1>
-        <p>Cross-market simulation intelligence now feeds a persistent wager ledger with settlement reconciliation, bankroll performance, ROI, hit-rate and model-probability tracking.</p>
+        <div className="eyebrow">EDGEFORCE AI • V28</div>
+        <h1>Provider Resilience + Data Quality Control</h1>
+        <p>Provider health scoring, payload freshness gates, circuit-breaker failover and degraded-mode safeguards protect the simulation board from stale or structurally bad data.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -307,6 +310,7 @@ export default function Dashboard(){
     </header>
 
     {lastError&&<div className="v21Alert">{lastError}</div>}
+    {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
 
     <section className="v21Hero">
       <div>
@@ -323,6 +327,7 @@ export default function Dashboard(){
           <div><small>PM</small><b>{pmCount}</b></div>
           <div><small>Sports</small><b>{board.sports.length}</b></div>
           <div><small>History</small><b>{board.history.sampleSize}</b></div>
+          <div><small>Feed</small><b>{board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'READY'}</b></div>
         </div>
       </div>
     </section>
