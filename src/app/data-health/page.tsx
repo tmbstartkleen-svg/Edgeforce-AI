@@ -127,7 +127,7 @@ export default function DataHealthPage(){
         <div className="panelMeta"><span>{data.providers.counts.healthy} healthy</span><span>{data.providers.counts.degraded} degraded/stale</span><span>{data.providers.counts.unhealthy} unhealthy</span></div>
       </div>
       <div className="weeklyBuilder">
-        {data.providers.rows.map(row=><div className="weeklyLeg" key={row.id}>
+        {data.providers.rows.map(row=><div className="weeklyLeg noRank" key={row.id}>
           <div>
             <b>{row.name}</b>
             <small>{row.capability} • priority {row.priority}</small>
