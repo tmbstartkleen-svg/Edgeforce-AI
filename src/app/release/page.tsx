@@ -98,7 +98,7 @@ export default function ReleasePage(){
         <div><div className="eyebrow">CHECK MATRIX</div><h3>Release prerequisites</h3></div>
       </div>
       <div className="weeklyBuilder">
-        {Object.entries(data.checks).map(([k,v])=><div className="weeklyLeg" key={k}>
+        {Object.entries(data.checks).map(([k,v])=><div className="weeklyLeg noRank" key={k}>
           <div><b>{label(k)}</b><small>{typeof v==='boolean'?(v?'pass':'not ready'):String(v??'—')}</small></div>
           <div className="weeklyActions"><span className={typeof v==='boolean'?(v?'lime':'negative'):'unlocked'}>{typeof v==='boolean'?(v?'PASS':'BLOCK'):'INFO'}</span></div>
         </div>)}
