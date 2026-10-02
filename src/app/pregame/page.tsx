@@ -80,7 +80,7 @@ export default function PregamePage(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V29</div>
+        <div className="eyebrow">EDGEFORCE AI • V30</div>
         <h1>Pregame Confidence Monitor</h1>
         <p>Compares each saved weekly leg with the latest 10,000-run simulation and marks it KEEP, WATCH, or REPLACE CANDIDATE from objective change rules.</p>
       </div>
@@ -146,7 +146,7 @@ export default function PregamePage(){
             <small>{pct(x.previousSimulationProbability)} → {pct(x.currentSimulationProbability)} • {new Date(x.detectedAt).toLocaleString()}</small>
           </div>
         </div>)}
-        {!data.changes.length&&<div className="connectState"><b>No meaningful changes detected yet.</b><p>The monitor populates after the V26 migration and subsequent model scans.</p></div>}
+        {!data.changes.length&&<div className="connectState"><b>No meaningful changes detected yet.</b><p>The monitor populates after the V30 migration and subsequent model scans.</p></div>}
       </div>
     </section>
   </main>;
