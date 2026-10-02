@@ -38,3 +38,6 @@ The hourly heartbeat records readiness when a database is configured. `/api/ops/
 - `LOAD_MAX_P95_MS=3000`
 
 These can be tightened after observing real production traffic.
+
+## Hobby cron compatibility
+Vercel Hobby accepts cron schedules that run at most once per day. The Vercel cron configuration therefore runs settlement and heartbeat once daily for deploy compatibility. Hourly settlement and heartbeat are preserved through `.github/workflows/hourly-ops.yml`, which calls the production endpoints when the GitHub variable `EDGEFORCE_PRODUCTION_URL` and secret `CRON_SECRET` are configured.
