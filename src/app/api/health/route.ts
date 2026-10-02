@@ -7,7 +7,7 @@ export async function GET(){
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
-  version:'24.0.0',
+  version:'25.0.0',
   releaseCandidate:true,
   postReleaseOps:true,
   liveDataIntelligence:true,
@@ -26,6 +26,9 @@ export async function GET(){
   setMatchMonteCarlo:true,
   combatOutcomeMonteCarlo:true,
   playerStatMonteCarlo:true,
+  playerProjectionContext:true,
+  lineupAvailability:true,
+  sameGameCorrelation:true,
   liveProbabilityBoard:true,
   predictionMarketAdapter:true,
   screenshotHistoryAnalytics:true,
