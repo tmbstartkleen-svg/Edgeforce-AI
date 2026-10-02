@@ -15,7 +15,9 @@ function assert(condition,message){
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='25.0.0','unexpected health version');
+assert(health.body?.version==='27.0.0','unexpected health version');
+assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
+assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 
 const smoke=await get('/api/deployment/smoke');
 assert(smoke.res.ok&&smoke.body?.smoke===true,'deployment smoke failed');
