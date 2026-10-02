@@ -1,4 +1,4 @@
-name: Migrate Edgeforce V23 Preview
+name: Migrate Edgeforce V24 Preview
 
 on:
   workflow_dispatch:
@@ -34,5 +34,5 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Apply migrations through V23
+      - name: Apply migrations through V24
         run: node --env-file=.env.preview.local scripts/migrate.mjs
