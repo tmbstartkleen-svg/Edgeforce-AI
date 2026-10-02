@@ -2,7 +2,7 @@ import './globals.css';
 import './v21.css';
 
 export const metadata={
- title:'Edgeforce AI V24',
+ title:'Edgeforce AI V25',
  description:'Automated DraftKings and prediction-market simulation intelligence'
 };
 
