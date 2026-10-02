@@ -17,7 +17,8 @@ export async function POST(req:Request){
  if(!authorized(req))return Response.json({ok:false,error:'Unauthorized'},{status:401});
  const sql=db();if(!sql)return Response.json({ok:false,error:'Database is not configured'},{status:503});
  const body=await req.json().catch(()=>({})) as {occurredAt?:string;platform?:string;transactionType?:'deposit'|'withdrawal'|'fee'|'adjustment';amount?:number;paymentMethod?:string;fee?:number;sourceReference?:string;notes?:string};
- if(!body.transactionType||!Number.isFinite(body.amount)||Number(body.amount)<=0)return Response.json({ok:false,error:'transactionType and positive amount are required'},{status:400});
- const [row]=await sql`insert into cash_transactions(occurred_at,platform,transaction_type,amount,payment_method,fee,source_reference,notes) values(${body.occurredAt||new Date().toISOString()},${body.platform||'DraftKings'},${body.transactionType},${body.amount},${body.paymentMethod||null},${body.fee||0},${body.sourceReference||null},${body.notes||null}) returning id`;
+ const amount=Number(body.amount);
+ if(!body.transactionType||!Number.isFinite(amount)||amount<=0)return Response.json({ok:false,error:'transactionType and positive amount are required'},{status:400});
+ const [row]=await sql`insert into cash_transactions(occurred_at,platform,transaction_type,amount,payment_method,fee,source_reference,notes) values(${body.occurredAt||new Date().toISOString()},${body.platform||'DraftKings'},${body.transactionType},${amount},${body.paymentMethod||null},${body.fee||0},${body.sourceReference||null},${body.notes||null}) returning id`;
  return Response.json({ok:true,id:row.id});
 }
