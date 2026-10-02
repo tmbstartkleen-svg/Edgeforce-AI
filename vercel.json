@@ -1,6 +1,13 @@
 {
+  "$schema":"https://openapi.vercel.sh/vercel.json",
   "framework":"nextjs",
   "buildCommand":"npm run build",
+  "git":{
+    "deploymentEnabled":{
+      "v22-auto-sim":false,
+      "main":true
+    }
+  },
   "crons":[
     {"path":"/api/cron/scan","schedule":"0 6 * * *"},
     {"path":"/api/cron/decision","schedule":"10 6 * * *"},
