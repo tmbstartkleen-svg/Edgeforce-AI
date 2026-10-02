@@ -1,7 +1,7 @@
 import {db} from './db';
 import type {Market} from './types';
 
-export async function saveMarketSnapshots(markets:Market[],provider='authorized-provider',bookmaker='DraftKings'){
+export async function saveMarketSnapshots(markets:Market[],provider='authorized-provider',bookmaker='DraftKings',integrityStatus='UNASSESSED'){
   const sql=db();
   if(!sql)return {written:0,mode:'memory' as const};
   let written=0;
@@ -15,10 +15,10 @@ export async function saveMarketSnapshots(markets:Market[],provider='authorized-
     await sql`
       insert into market_snapshots(
         event_id,provider,bookmaker,market_key,selection_key,american_odds,point,
-        raw_implied_probability,implied_probability,no_vig_probability,source_age_seconds,source_timestamp,data_quality,raw
+        raw_implied_probability,implied_probability,no_vig_probability,source_age_seconds,source_timestamp,data_quality,integrity_status,integrity_checked_at,raw
       ) values(
         ${eventId},${m.provider||provider},${m.bookmaker||bookmaker},${m.marketKey||m.market},${m.selection},${m.odds},${m.point??null},
-        ${m.rawImpliedProb??m.marketProb},${m.rawImpliedProb??m.marketProb},${m.noVigProb??m.marketProb},${Math.round(m.sourceAgeMin*60)},${m.sourceTimestamp||null},${m.dataQuality??1},${sql.json(m as any)}
+        ${m.rawImpliedProb??m.marketProb},${m.rawImpliedProb??m.marketProb},${m.noVigProb??m.marketProb},${Math.round(m.sourceAgeMin*60)},${m.sourceTimestamp||null},${m.dataQuality??1},${integrityStatus},now(),${sql.json(m as any)}
       )
     `;
     written++;
