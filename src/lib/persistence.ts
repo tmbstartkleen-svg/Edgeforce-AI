@@ -83,7 +83,8 @@ export async function recordModelRuns(rows:any[]){
           sportModelProbability:x.sportModelProbability,
           sportAdjustment:x.sportAdjustment,
           sportFactors:x.sportFactors,
-          sportFeatures:x.sportFeatures||{}
+          sportFeatures:x.sportFeatures||{},
+          contextSources:x.contextSources||[]
         })}
       )
     `;
