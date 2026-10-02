@@ -8,18 +8,40 @@ import {applyQualityGate} from '@/lib/qualityGate';
 import {recordModelRuns} from '@/lib/persistence';
 import {detectPregameChanges} from '@/lib/pregameChange';
 import {syncWeeklyDraftFromResimulation} from '@/lib/weeklyBuilder';
+import {recordFeedIntegrity} from '@/lib/feedIntegrityStore';
+import {officialScannedEligible} from '@/lib/feedIntegrity';
 
 export async function GET(req:Request){
  const auth=req.headers.get('authorization');
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false},{status:401});
- const [ingestion,predictions]=await Promise.all([ingestOdds(),fetchPredictionMarkets().catch(()=>({contracts:[]} as any))]);
+
+ const ingestion=await ingestOdds();
+ await recordFeedIntegrity(ingestion.integrity).catch(()=>undefined);
+
+ if(!ingestion.integrity.officialEligible){
+  return Response.json({
+   ok:true,ranAt:new Date().toISOString(),officialBoard:false,
+   source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId,
+   attempts:ingestion.attempts,feedIntegrity:ingestion.integrity,
+   qualified:0,recorded:0,top:[]
+  });
+ }
+
+ const predictions=await fetchPredictionMarkets().catch(()=>({contracts:[]} as any));
  const contextual=await enrichMarketContext(ingestion.markets);
  const linked=attachPredictionProbabilities(contextual.markets,predictions.contracts||[]);
  const projected=await hydratePlayerProjections(linked);
- const scanned=weekTop30(projected);
+ const scanned=officialScannedEligible(weekTop30(projected));
  const rows=applyQualityGate(scanned);
+
  const pregame=await detectPregameChanges(scanned).catch(()=>({configured:false,changes:[],detected:0,resimulated:0}));
  const weeklySync=await syncWeeklyDraftFromResimulation(scanned,pregame.changes).catch(()=>({configured:false,updated:0,review:0}));
  const recorded=await recordModelRuns(rows).catch(()=>0);
- return Response.json({ok:true,ranAt:new Date().toISOString(),source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId,attempts:ingestion.attempts,qualified:rows.length,recorded,contextStatus:contextual.status,pregame,weeklySync,top:rows.slice(0,10)});
+
+ return Response.json({
+  ok:true,ranAt:new Date().toISOString(),officialBoard:true,
+  source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId,attempts:ingestion.attempts,
+  feedIntegrity:ingestion.integrity,qualified:rows.length,recorded,contextStatus:contextual.status,
+  pregame,weeklySync,top:rows.slice(0,10)
+ });
 }
