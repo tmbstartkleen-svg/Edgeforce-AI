@@ -2,7 +2,7 @@ const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'30.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
-const paths=['/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/'];
+const paths=['/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
 
 for(const path of paths){
@@ -11,7 +11,7 @@ for(const path of paths){
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
- if(path==='/api/health/live'||path==='/api/health'||path==='/api/deployment/smoke'){
+ if(path==='/api/health/live'||path==='/api/health'||path==='/api/deployment/smoke'||path==='/api/ops/status'){
   const json=JSON.parse(body);
   if(json.version!==expected)throw new Error(path+' version mismatch');
  }
