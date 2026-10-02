@@ -37,7 +37,7 @@ export async function runAutomatedLearning(){
   const overall=summarizeBacktest(rows),overallCalibration=calibrationSummary(rows);
   const inserted=await sql`
     insert into model_learning_runs(model_version,status,sample_size,brier_score,log_loss,calibration_error,roi,avg_clv,period_start,period_end,notes)
-    values(${process.env.MODEL_VERSION||'edgeforce-v27'},'completed',${rows.length},${overall.brierScore},${overall.logLoss},${overallCalibration.meanAbsoluteCalibrationError},
+    values(${process.env.MODEL_VERSION||'edgeforce-v28'},'completed',${rows.length},${overall.brierScore},${overall.logLoss},${overallCalibration.meanAbsoluteCalibrationError},
       ${overall.roi},${overall.avgClv},${start},${end},${sql.json({lookbackDays,officialFloor:.65} as any)}) returning id
   ` as unknown as Array<{id:number}>;
   const runId=inserted[0]?.id??null,asOf=now.toISOString();
@@ -49,7 +49,7 @@ export async function runAutomatedLearning(){
     for(const b of bandMetrics(group)){
       await sql`
         insert into calibration_band_metrics(learning_run_id,model_version,sport,market_key,band_label,min_probability,max_probability,sample_size,predicted_average,hit_rate,brier_score,roi,avg_clv,period_start,period_end,as_of)
-        values(${runId},${process.env.MODEL_VERSION||'edgeforce-v27'},${sport},${marketKey},${b.label},${b.min},${b.max},${b.sampleSize},${b.predictedAvg},${b.hitRate},${b.brierScore},${b.roi},${b.avgClv},${start},${end},${asOf})
+        values(${runId},${process.env.MODEL_VERSION||'edgeforce-v28'},${sport},${marketKey},${b.label},${b.min},${b.max},${b.sampleSize},${b.predictedAvg},${b.hitRate},${b.brierScore},${b.roi},${b.avgClv},${start},${end},${asOf})
       `;bandRows++;
     }
   }
@@ -65,7 +65,7 @@ export async function runAutomatedLearning(){
     const predictedAverage=group.reduce((s,x)=>s+x.predicted,0)/Math.max(1,group.length);
     await sql`
       insert into prop_performance_metrics(model_version,sport,prop_type,sample_size,predicted_average,hit_rate,brier_score,roi,avg_clv,calibration_error,as_of)
-      values(${process.env.MODEL_VERSION||'edgeforce-v27'},${sport},${propType},${group.length},${predictedAverage},${summary.hitRate},${summary.brierScore},${summary.roi},${summary.avgClv},${cal.meanAbsoluteCalibrationError},${asOf})
+      values(${process.env.MODEL_VERSION||'edgeforce-v28'},${sport},${propType},${group.length},${predictedAverage},${summary.hitRate},${summary.brierScore},${summary.roi},${summary.avgClv},${cal.meanAbsoluteCalibrationError},${asOf})
     `;
     propMetrics++;
   }
