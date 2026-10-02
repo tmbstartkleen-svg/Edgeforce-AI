@@ -30,7 +30,10 @@ export type FailoverResult<T>={
  degraded:boolean;
 };
 
-export async function fetchWithFailover<T=unknown>(capability:ProviderCapability):Promise<FailoverResult<T>>{
+export async function fetchWithFailover<T=unknown>(
+ capability:ProviderCapability,
+ validate?:(data:T)=>{ok:boolean;error?:string}
+):Promise<FailoverResult<T>>{
  const configured=configuredProviders(capability);
  if(!configured.length)return {ok:false,capability,attempts:[],error:`No ${capability} providers configured`,degraded:true};
 
@@ -74,6 +77,11 @@ export async function fetchWithFailover<T=unknown>(capability:ProviderCapability
    quality=inspectProviderPayload(raw.data,capability,config.maxAgeMin);
    accepted=quality.ok;
    if(!accepted)error=`Payload rejected: ${quality.reasons.join('; ')}`;
+   if(accepted&&validate&&raw.data!==undefined){
+    const validation=validate(raw.data);
+    accepted=validation.ok;
+    if(!accepted)error=validation.error||'Payload failed capability validation';
+   }
   }
 
   const recorded={...raw,ok:accepted,error} as typeof raw;
