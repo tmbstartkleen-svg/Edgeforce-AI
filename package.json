@@ -1,6 +1,6 @@
 {
   "name": "edgeforce-ai",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
     "check-migrations": "node scripts/check-migrations.mjs",
+    "release-gate": "node scripts/release-gate.mjs",
     "remote-smoke": "node scripts/remote-smoke.mjs"
   },
   "dependencies": {
