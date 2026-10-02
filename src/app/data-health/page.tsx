@@ -95,7 +95,7 @@ export default function DataHealthPage(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V29</div>
+        <div className="eyebrow">EDGEFORCE AI • V30</div>
         <h1>Production Data Health</h1>
         <p>Shows provider health, feed freshness, reconciliation coverage, rejected markets and whether the official betting board is allowed to publish.</p>
       </div>
@@ -112,7 +112,7 @@ export default function DataHealthPage(){
       <div>
         <div className="badge">FAIL CLOSED • STALE-LINE REJECTION • CROSS-PROVIDER RECONCILIATION</div>
         <h2>Edgeforce only publishes official picks when the <em>live feed passes production checks.</em></h2>
-        <p>Stored snapshots and demo data can still exist for diagnostics, but V28 prevents them from appearing as official Daily Top 30 or weekly parlay recommendations.</p>
+        <p>Stored snapshots and demo data can still exist for diagnostics, but V30 prevents them from appearing as official Daily Top 30 or weekly parlay recommendations.</p>
       </div>
       <div className="v21HeroCard">
         <small>LATEST INTEGRITY</small>
@@ -156,7 +156,7 @@ export default function DataHealthPage(){
             <small>Rejected: {x.rejectedStale} stale • {x.rejectedInvalid} invalid • {x.rejectedConflicts} provider conflicts</small>
           </div>
         </div>)}
-        {!data.integrityHistory.length&&<div className="connectState"><b>No feed-integrity snapshots yet.</b><p>The scheduled scan records them after V28 migration is applied.</p></div>}
+        {!data.integrityHistory.length&&<div className="connectState"><b>No feed-integrity snapshots yet.</b><p>The scheduled scan records them after V30 migration is applied.</p></div>}
       </div>
     </section>
   </main>;
