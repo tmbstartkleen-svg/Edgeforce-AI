@@ -5,8 +5,8 @@ export async function GET(){
  const database=await dbHealth();
  const providers=configuredProviders();
  return Response.json({
-  ok:true,app:'Edgeforce AI',version:'24.0.0',releaseCandidate:true,
-  v22AutoSimulation:true,v23AutomatedSettlement:true,v24PlayerPropSettlement:true,trueEventMonteCarlo:true,
+  ok:true,app:'Edgeforce AI',version:'25.0.0',releaseCandidate:true,
+  v22AutoSimulation:true,v23AutomatedSettlement:true,v24PlayerPropSettlement:true,v25PregameResimulation:true,meaningfulChangeDetection:true,trueEventMonteCarlo:true,
   probabilityBandCalibration:true,automaticModelLearning:true,propSpecificCalibration:true,
   sharpApiPrimary:true,theOddsApiFallback:true,noVigNormalization:true,weeklyParlayBuilder:true,cashLedger:true,postReleaseOps:true,
   liveDataIntelligence:true,providerReconciliation:true,clvAnalytics:true,calibrationMap:true,rollingModelRankings:true,liveProbabilityBoard:true,
