@@ -19,7 +19,13 @@ export type WeeklyDraftLeg={
   startTime:string;
   odds:number;
   simProbability:number;
+  originalOdds:number;
+  originalSimProbability:number;
+  currentOdds:number;
+  currentSimProbability:number;
   locked:boolean;
+  needsReview:boolean;
+  changeSummary:string[];
 };
 
 export async function getWeeklyDraft(){
@@ -28,18 +34,24 @@ export async function getWeeklyDraft(){
   if(!sql)return {configured:false,week,legs:[] as WeeklyDraftLeg[],combinedProbability:null};
   const rows=await sql`
     select market_id as "marketId",sport,event,selection,market,start_time as "startTime",odds,
-      sim_probability::float as "simProbability",locked
+      sim_probability::float as "simProbability",
+      coalesce(original_odds,odds) as "originalOdds",
+      coalesce(original_sim_probability,sim_probability)::float as "originalSimProbability",
+      coalesce(current_odds,odds) as "currentOdds",
+      coalesce(current_sim_probability,sim_probability)::float as "currentSimProbability",
+      locked,coalesce(needs_review,false) as "needsReview",coalesce(change_summary,'[]'::jsonb) as "changeSummary"
     from weekly_parlay_legs where week_start=${week}
     order by created_at asc
   ` as unknown as WeeklyDraftLeg[];
+
   const pseudo=rows.map((r,i)=>({
     id:r.marketId,sport:r.sport,league:r.sport,event:r.event,selection:r.selection,market:r.market,startTime:r.startTime,
-    home:'',away:'',odds:r.odds,marketProb:r.simProbability,modelProb:r.simProbability,confidence:.7,sourceAgeMin:0,period:'PM' as const,
-    fairOdds:0,edge:0,expectedValue:0,kelly:0,quarterKelly:0,recommendedStake:0,agreement:.8,sportModelProbability:r.simProbability,sportAdjustment:0,sportFactors:[],grade:'STRONG' as const,
-    simulationRuns:10000,simProbability:r.simProbability,simCi:[r.simProbability,r.simProbability] as [number,number],daysOut:i,bucket:'WEEK' as const,freshness:'FRESH' as const,simulationMode:'event-monte-carlo' as const
+    home:'',away:'',odds:r.currentOdds,marketProb:r.currentSimProbability,modelProb:r.currentSimProbability,confidence:.7,sourceAgeMin:0,period:'PM' as const,
+    fairOdds:0,edge:0,expectedValue:0,kelly:0,quarterKelly:0,recommendedStake:0,agreement:.8,sportModelProbability:r.currentSimProbability,sportAdjustment:0,sportFactors:[],grade:'STRONG' as const,
+    simulationRuns:10000,simProbability:r.currentSimProbability,simCi:[r.currentSimProbability,r.currentSimProbability] as [number,number],daysOut:i,bucket:'WEEK' as const,freshness:'FRESH' as const,simulationMode:'event-monte-carlo' as const
   }));
   const summary=pseudo.length>=2?buildProbabilitySet(pseudo,pseudo.length):null;
-  return {configured:true,week,legs:rows,combinedProbability:summary?.combinedProbability??(rows.length===1?rows[0].simProbability:null)};
+  return {configured:true,week,legs:rows,combinedProbability:summary?.combinedProbability??(rows.length===1?rows[0].currentSimProbability:null)};
 }
 
 export async function addWeeklyLeg(row:Scanned){
@@ -47,10 +59,22 @@ export async function addWeeklyLeg(row:Scanned){
   const sql=db();
   if(!sql)return {ok:false,error:'Database is not configured'};
   const week=weekStart();
+
   await sql`
-    insert into weekly_parlay_legs(week_start,market_id,sport,event,selection,market,start_time,odds,sim_probability,locked,raw)
-    values(${week},${row.id},${row.sport},${row.event},${row.selection},${row.market},${row.startTime},${row.odds},${row.simProbability},false,${sql.json(row as any)})
-    on conflict (week_start,market_id) do update set odds=excluded.odds,sim_probability=excluded.sim_probability,raw=excluded.raw
+    insert into weekly_parlay_legs(
+      week_start,market_id,sport,event,selection,market,start_time,odds,sim_probability,locked,raw,
+      original_odds,original_sim_probability,current_odds,current_sim_probability,needs_review,change_summary
+    ) values(
+      ${week},${row.id},${row.sport},${row.event},${row.selection},${row.market},${row.startTime},${row.odds},${row.simProbability},false,${sql.json(row as any)},
+      ${row.odds},${row.simProbability},${row.odds},${row.simProbability},false,'[]'::jsonb
+    )
+    on conflict (week_start,market_id) do update set
+      current_odds=excluded.current_odds,
+      current_sim_probability=excluded.current_sim_probability,
+      odds=case when weekly_parlay_legs.locked then weekly_parlay_legs.odds else excluded.odds end,
+      sim_probability=case when weekly_parlay_legs.locked then weekly_parlay_legs.sim_probability else excluded.sim_probability end,
+      raw=excluded.raw,
+      updated_at=now()
   `;
   return {ok:true};
 }
@@ -59,7 +83,52 @@ export async function updateWeeklyLeg(marketId:string,action:'remove'|'lock'|'un
   const sql=db();
   if(!sql)return {ok:false,error:'Database is not configured'};
   const week=weekStart();
-  if(action==='remove')await sql`delete from weekly_parlay_legs where week_start=${week} and market_id=${marketId} and locked=false`;
-  else await sql`update weekly_parlay_legs set locked=${action==='lock'} where week_start=${week} and market_id=${marketId}`;
+  if(action==='remove'){
+    await sql`delete from weekly_parlay_legs where week_start=${week} and market_id=${marketId} and locked=false`;
+  }else if(action==='lock'){
+    await sql`update weekly_parlay_legs set locked=true,updated_at=now() where week_start=${week} and market_id=${marketId}`;
+  }else{
+    await sql`
+      update weekly_parlay_legs set
+        locked=false,
+        odds=coalesce(current_odds,odds),
+        sim_probability=coalesce(current_sim_probability,sim_probability),
+        needs_review=false,
+        change_summary='[]'::jsonb,
+        updated_at=now()
+      where week_start=${week} and market_id=${marketId}
+    `;
+  }
   return {ok:true};
+}
+
+export async function syncWeeklyDraftFromResimulation(rows:Scanned[],changes:Array<{marketId:string;reasons:string[]}>=[]){
+  const sql=db();
+  if(!sql)return {configured:false,updated:0,review:0};
+  const week=weekStart();
+  const changeMap=new Map(changes.map(x=>[x.marketId,x.reasons]));
+  let updated=0,review=0;
+
+  for(const row of rows){
+    const reasons=changeMap.get(row.id)||[];
+    const needsReview=reasons.length>0||row.simProbability<.65;
+    const result=await sql`
+      update weekly_parlay_legs set
+        current_odds=${row.odds},
+        current_sim_probability=${row.simProbability},
+        odds=case when locked then odds else ${row.odds} end,
+        sim_probability=case when locked then sim_probability else ${row.simProbability} end,
+        raw=${sql.json(row as any)},
+        needs_review=${needsReview},
+        change_summary=${sql.json(reasons as any)},
+        updated_at=now()
+      where week_start=${week} and market_id=${row.id}
+      returning locked
+    `;
+    if(result.length){
+      updated++;
+      if(needsReview)review++;
+    }
+  }
+  return {configured:true,updated,review};
 }
