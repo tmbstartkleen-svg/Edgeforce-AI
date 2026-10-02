@@ -46,5 +46,6 @@ export type Ranked=Market & {
  sportModelProbability:number;
  sportAdjustment:number;
  sportFactors:string[];
+ modelVotes?:ModelVoteSnapshot[];
  grade:'ELITE'|'STRONG'|'WATCH'|'PASS';
 };
