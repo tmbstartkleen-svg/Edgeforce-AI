@@ -50,11 +50,13 @@ type Payload={
   providerMode:string;
   weeklyConfigured:boolean;
   weeklyJointProbability:number|null;
+  officialBoard?:boolean;
+  feedIntegrity?:{status:string;reasons:string[]};
   flaggedLegs:number;
   groups:Group[];
 };
 
-const empty:Payload={generatedAt:'',source:'loading',providerMode:'loading',weeklyConfigured:false,weeklyJointProbability:null,flaggedLegs:0,groups:[]};
+const empty:Payload={generatedAt:'',source:'loading',providerMode:'loading',weeklyConfigured:false,weeklyJointProbability:null,officialBoard:false,feedIntegrity:{status:'BLOCKED',reasons:[]},flaggedLegs:0,groups:[]};
 const pct=(v:number|null)=>v===null?'—':(v*100).toFixed(1)+'%';
 const odds=(v:number)=>v>0?'+'+Math.round(v):String(Math.round(v));
 
@@ -94,6 +96,7 @@ export default function ReplacementsPage(){
     </header>
 
     {error&&<div className="v21Alert">{error}</div>}
+    {data.officialBoard===false&&data.feedIntegrity&&<div className="v21Alert"><b>Replacement comparisons are fail-closed.</b> {data.feedIntegrity.reasons.join(' • ')} <a href="/data-health">Open data health</a></div>}
 
     <section className="v21Hero">
       <div>
@@ -103,7 +106,7 @@ export default function ReplacementsPage(){
       </div>
       <div className="v21HeroCard">
         <small>STATUS</small>
-        <strong>{data.weeklyConfigured?'READY':'WAITING'}</strong>
+        <strong>{data.officialBoard===false?'BLOCKED':data.weeklyConfigured?'READY':'WAITING'}</strong>
         <span>{data.groups.length} flagged-leg comparison groups</span>
       </div>
     </section>
