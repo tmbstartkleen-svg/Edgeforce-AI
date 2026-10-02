@@ -34,13 +34,14 @@ const textChanged=(a:unknown,b:unknown)=>{
  return x!==y;
 };
 export const contextMarketKey=(m:Market)=>[m.id,m.market,m.selection].join('|');
-const eventId=(m:Market,type:ContextChangeType,reason:string)=>`${contextMarketKey(m)}|${type}|${reason}`;
+const eventId=(m:Market,type:ContextChangeType,detectedAt:string)=>`${contextMarketKey(m)}|${type}|${detectedAt}`;
 
 function push(out:ContextChangeEvent[],m:Market,type:ContextChangeType,severity:ContextChangeEvent['severity'],reason:string,before?:unknown,after?:unknown){
+ const detectedAt=new Date().toISOString();
  out.push({
-  id:eventId(m,type,reason),
+  id:eventId(m,type,detectedAt),
   marketId:m.id,event:m.event,selection:m.selection,sport:m.sport,type,severity,reason,before,after,
-  detectedAt:new Date().toISOString(),requiresResimulation:true
+  detectedAt,requiresResimulation:true
  });
 }
 
