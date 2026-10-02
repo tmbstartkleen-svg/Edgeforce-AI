@@ -1,0 +1,12 @@
+export async function GET(){
+ return Response.json({
+  version:'24.0.0',
+  engines:[
+   {id:'TEAM_SCORE_MONTE_CARLO',sports:['MLB','NFL','NCAAF','NBA','WNBA','NCAAB','NHL','Soccer','Rugby','Lacrosse','Cricket'],outputs:['home score','away score','total','margin']},
+   {id:'SET_MATCH_MONTE_CARLO',sports:['Tennis','Table Tennis','Volleyball'],outputs:['match winner','sets']},
+   {id:'COMBAT_OUTCOME_MONTE_CARLO',sports:['UFC','MMA','Boxing'],outputs:['winner','rounds','finish state']},
+   {id:'PLAYER_STAT_MONTE_CARLO',sports:['provider-supported player props'],outputs:['stat distribution','over/under result']},
+   {id:'PROBABILITY_STATE_FALLBACK',sports:['unsupported or insufficient-context markets'],outputs:['probability state']}
+  ]
+ });
+}
