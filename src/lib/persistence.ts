@@ -1,5 +1,6 @@
 import {db} from './db';
 import type {Market} from './types';
+import type {ContextChangeEvent} from './contextChanges';
 
 export async function saveMarketSnapshots(markets:Market[],provider='authorized-provider',bookmaker='DraftKings'){
   const sql=db();
@@ -95,4 +96,29 @@ export async function recordModelRuns(rows:any[]){
     n++;
   }
   return n;
+}
+
+
+export async function recordContextChanges(changes:ContextChangeEvent[]){
+ const sql=db();
+ if(!sql||!changes.length)return 0;
+ let written=0;
+ for(const change of changes){
+  await sql`
+   insert into context_change_events(
+    change_key,market_id,event_name,selection,sport,change_type,severity,reason,before_value,after_value,requires_resimulation,detected_at
+   ) values(
+    ${change.id},${change.marketId},${change.event},${change.selection},${change.sport},${change.type},${change.severity},${change.reason},
+    ${sql.json(change.before as any)},${sql.json(change.after as any)},${change.requiresResimulation},${change.detectedAt}
+   )
+   on conflict (change_key) do update set
+    severity=excluded.severity,
+    reason=excluded.reason,
+    before_value=excluded.before_value,
+    after_value=excluded.after_value,
+    detected_at=excluded.detected_at
+  `;
+  written++;
+ }
+ return written;
 }
