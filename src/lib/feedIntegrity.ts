@@ -17,6 +17,7 @@ export type FeedIntegrity={
   conflictRate:number;
   validationCompared:number;
   validationConflicts:number;
+  reconciliationCoverage:number;
   reasons:string[];
 };
 
@@ -56,6 +57,7 @@ export function assessFeedIntegrity(
   const maxConflictRate=envNum('MAX_PROVIDER_CONFLICT_RATE',.20);
   const minimumMarkets=Math.max(1,Math.round(envNum('MIN_OFFICIAL_MARKETS',2)));
   const strictReconciliation=process.env.STRICT_PROVIDER_RECONCILIATION!=='false';
+  const minReconciliationCoverage=Math.max(0,Math.min(1,envNum('MIN_RECONCILIATION_COVERAGE',.10)));
   const maxAge=source==='live'?liveMaxAge:storedMaxAge;
 
   let rejectedStale=0,rejectedInvalid=0,rejectedConflicts=0;
@@ -73,6 +75,7 @@ export function assessFeedIntegrity(
   const compared=validation?.compared||0;
   const conflicts=validation?.conflicts||0;
   const conflictRate=compared>0?conflicts/compared:0;
+  const reconciliationCoverage=markets.length?compared/markets.length:0;
   const maxSourceAgeMin=accepted.length?Math.max(...accepted.map(x=>x.sourceAgeMin)):0;
   const reasons:string[]=[];
 
@@ -81,13 +84,16 @@ export function assessFeedIntegrity(
   if(rejectedInvalid)reasons.push(rejectedInvalid+' invalid market'+(rejectedInvalid===1?' was':'s were')+' rejected');
   if(rejectedConflicts)reasons.push(rejectedConflicts+' provider-conflict market'+(rejectedConflicts===1?' was':'s were')+' rejected');
   if(compared>0&&conflictRate>maxConflictRate)reasons.push('Cross-provider conflict rate exceeded the production threshold');
+  if(strictReconciliation&&validation?.enabled&&compared===0)reasons.push('Cross-provider validation was enabled but produced no comparable lines');
+  if(strictReconciliation&&validation?.enabled&&reconciliationCoverage<minReconciliationCoverage)reasons.push('Cross-provider reconciliation coverage is below the production threshold');
   if(accepted.length<minimumMarkets)reasons.push('Too few fresh valid markets remain for the official board');
   if(!reasons.length)reasons.push('Live feed passed freshness, validity and reconciliation checks');
 
   const officialEligible=
     source==='live'&&mode==='live'&&
     accepted.length>=minimumMarkets&&
-    (compared===0||conflictRate<=maxConflictRate);
+    (compared===0||conflictRate<=maxConflictRate)&&
+    (!strictReconciliation||!validation?.enabled||(compared>0&&reconciliationCoverage>=minReconciliationCoverage));
 
   const status:FeedIntegrityStatus=officialEligible
     ?((rejectedStale||rejectedInvalid||rejectedConflicts||conflictRate>0)?'DEGRADED':'TRUSTED')
@@ -98,7 +104,7 @@ export function assessFeedIntegrity(
     integrity:{
       status,officialEligible,source,mode,totalMarkets:markets.length,acceptedMarkets:accepted.length,
       rejectedMarkets:markets.length-accepted.length,rejectedStale,rejectedInvalid,rejectedConflicts,
-      maxSourceAgeMin,conflictRate,validationCompared:compared,validationConflicts:conflicts,reasons
+      maxSourceAgeMin,conflictRate,validationCompared:compared,validationConflicts:conflicts,reconciliationCoverage,reasons
     }
   };
 }
