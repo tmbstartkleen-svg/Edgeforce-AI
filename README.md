@@ -16,7 +16,7 @@ V30 is the final planned major build in the V26–V30 release sequence. It centr
 - readiness failures can create runtime incidents
 - sampled live-board latency telemetry
 - unified operations status with heartbeats, release attestations, incidents and 24-hour performance
-- release attestation endpoint for tested preview artifacts
+- release attestation endpoint for tested preview artifacts; build, smoke, and load flags must be explicitly true
 - local and hosted smoke suites validate V30 version/migration identity
 - load gate enforces zero request failures and a configurable p95 ceiling
 - Vercel CLI pinned in preview, release and rollback workflows
