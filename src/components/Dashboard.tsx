@@ -257,9 +257,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V24</div>
-        <h1>Sport Outcome Simulation Intelligence</h1>
-        <p>Sport-specific Monte Carlo for scores, runs, goals, sets, rounds and supported player stats, layered on V23 live context fusion and learned weights.</p>
+        <div className="eyebrow">EDGEFORCE AI • V25</div>
+        <h1>Player + SGP Correlation Intelligence</h1>
+        <p>Player-level projections, lineup availability and same-game correlation layered on sport-specific Monte Carlo, live context fusion and learned historical weights.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -393,7 +393,7 @@ export default function Dashboard(){
               <td className="orange">{fmtPct(x.sportModelProbability)}</td>
               <td className="lime">{fmtPct(x.simProbability)}</td>
               <td className={x.probabilityGap>=0?'lime':'negative'}>{x.probabilityGap>=0?'+':''}{fmtPct(x.probabilityGap)}</td>
-              <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''}</small></td>
+              <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:'')}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
             </tr>)}
