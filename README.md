@@ -1,41 +1,38 @@
 # Edgeforce AI
 
-Player-aware sports probability and outcome simulation workspace.
+Cross-market sports probability, simulation, parlay and bankroll intelligence workspace.
 
-## Current build — V25 Player + SGP Correlation Intelligence
+## Current build — V26 Cross-Market Consensus Intelligence
 
-V25 adds player-level context and shared same-game correlation modeling on top of V24 sport-specific outcome Monte Carlo.
+V26 turns the sportsbook and prediction-market feeds into one auditable probability board instead of displaying them as separate sources.
 
-### V25 player intelligence
-- provider player projection mean and standard deviation remain in real stat units
-- player status and starting designation are retained separately from normalized sport features
-- availability probability can scale a player projection
-- confirmed non-starters receive a conservative projection reduction
-- player context is matched to the market selection before it can affect a prop
-- player context is persisted in model-run audit snapshots
+### V26 probability stack
+- preserves the posted American odds and raw implied sportsbook probability
+- de-vigs complete 2-way and 3-way sportsbook markets before comparing the model to the book
+- matches prediction contracts to sportsbook selections conservatively
+- requires a configurable prediction-market volume threshold before using that probability for edge
+- marks unmatched, illiquid, and unknown-liquidity prediction data instead of inventing a comparison
+- shows sport-engine probability, Monte Carlo probability, sportsbook edge, prediction-market edge, fair price and conservative quarter-Kelly
+- caps displayed quarter-Kelly at 5% of bankroll for risk control
 
-### Same-game correlation
-The same correlation engine is now shared by:
-- parlay / probability-set calculations
-- portfolio correlation exposure
+### Prediction-market liquidity
+Set `PREDICTION_MIN_VOLUME` to the minimum reported contract volume required for a prediction-market probability to be treated as usable. The default is `1000`.
 
-It considers:
-- same event
-- same player
-- same team
-- over / under direction
-- player prop vs team market interaction
-- spread / moneyline relationship
-- same-sport background dependence
+Statuses exposed on each board row:
+- `MATCHED`
+- `ILLIQUID`
+- `UNKNOWN_LIQUIDITY`
+- `NO_MATCH`
 
-Correlation-adjusted parlay probability is explicitly separated from the independent-leg product.
-
-### V24 simulation engines retained
-- team-score Monte Carlo
-- set / match Monte Carlo
-- combat outcome Monte Carlo
-- player-stat Monte Carlo
-- labeled probability-state fallback
+### Existing V25 intelligence retained
+- player projection and availability context
+- same-game correlation engine
+- sport-specific outcome Monte Carlo
+- Model Council ensemble
+- historical backtesting and learned model weights
+- portfolio risk and bankroll controls
+- daily and weekly probability boards
+- result-history analytics
 
 ### APIs
 - `GET /api/live-board`
@@ -45,11 +42,8 @@ Correlation-adjusted parlay probability is explicitly separated from the indepen
 - `POST /api/portfolio/optimize`
 - `GET /api/health`
 
-### Database
-Apply migrations through `db/v25.sql`.
-
 ### Guardrails
-- Player projections are used only when a provider supplies a matching player identity and projection.
-- Missing player data is not invented.
-- Same-game correlation is an approximation used for model risk control; it is not a sportsbook pricing feed.
-- Simulation and parlay probabilities remain estimates, not guarantees.
+- Missing sportsbook, lineup, player, weather, or prediction-market data is not fabricated.
+- Prediction-market edge is only calculated for a confidently matched contract above the configured volume threshold.
+- De-vig probability is only recomputed when a complete 2-way or 3-way market is present.
+- Simulation, edge, Kelly sizing and parlay probabilities are estimates, not guarantees.
