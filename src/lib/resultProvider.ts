@@ -1,5 +1,6 @@
 import {fetchResultsContext} from './providers/context';
 import {reconcileLedgerResults} from './ledger';
+import {recordPredictionFeedback} from './predictionFeedback';
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const str=(v:unknown)=>typeof v==='string'?v:'';
@@ -39,7 +40,10 @@ export async function runAutomaticSettlement(){
  }
  const raw=rows(provider.data);
  const normalized=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
- const reconciliation=await reconcileLedgerResults(normalized);
+ const [reconciliation,feedback]=await Promise.all([
+  reconcileLedgerResults(normalized),
+  recordPredictionFeedback(normalized)
+ ]);
  return {
   ok:true,
   mode:'live',
@@ -47,6 +51,8 @@ export async function runAutomaticSettlement(){
   received:raw.length,
   normalized:normalized.length,
   matchedLegs:reconciliation.matchedLegs,
-  settledSlips:reconciliation.settledSlips
+  settledSlips:reconciliation.settledSlips,
+  predictionFeedbackWritten:feedback.written,
+  predictionRunsMatched:feedback.matchedRuns
  };
 }
