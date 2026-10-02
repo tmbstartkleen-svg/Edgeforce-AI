@@ -9,6 +9,18 @@ type ContextRow={
  away?:string;
  sport?:string;
  features:Record<string,number>;
+ player?:{
+  name:string;
+  team?:string;
+  status?:string;
+  starter?:boolean;
+  availability?:number;
+  projection?:number;
+  stdDev?:number;
+  minutes?:number;
+  usage?:number;
+  statKey?:string;
+ };
 };
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
@@ -21,6 +33,16 @@ const arr=(payload:unknown):unknown[]=>{
  return [];
 };
 const str=(v:unknown)=>typeof v==='string'?v:'';
+const rawNum=(v:unknown)=>{
+ const n=typeof v==='number'?v:Number(v);
+ return Number.isFinite(n)?n:undefined;
+};
+const bool=(v:unknown)=>{
+ if(typeof v==='boolean')return v;
+ if(typeof v==='number')return v!==0;
+ if(typeof v==='string')return ['true','yes','1','starter','starting','active'].includes(v.toLowerCase());
+ return undefined;
+};
 const num=(v:unknown)=>{
  const n=typeof v==='number'?v:Number(v);
  return Number.isFinite(n)?Math.max(-1,Math.min(1,n)):0;
@@ -53,15 +75,34 @@ function normalizeRows(payload:unknown,kind:ContextKind):ContextRow[]{
    const impact=num(r.impact||r.weatherImpact||r.weather_impact);
    if(impact)features.weather=impact;
   }
+  const playerName=str(r.playerName||r.player_name||r.athleteName||r.athlete_name||r.player||r.athlete);
+  const projection=rawNum(r.projection??r.projectionMean??r.projection_mean??r.propMean??r.prop_mean);
+  const stdDev=rawNum(r.stdDev??r.std_dev??r.projectionStd??r.projection_std??r.propStd??r.prop_std);
+  const minutes=rawNum(r.minutes??r.projectedMinutes??r.projected_minutes);
+  const usage=rawNum(r.usage??r.usageRate??r.usage_rate);
+  const availabilityRaw=rawNum(r.availability??r.availabilityProbability??r.availability_probability);
+  const player=playerName?{
+   name:playerName,
+   team:str(r.team||r.teamName||r.team_name)||undefined,
+   status:str(r.status||r.injuryStatus||r.injury_status)||undefined,
+   starter:bool(r.starter??r.isStarter??r.is_starter??r.starting),
+   availability:availabilityRaw===undefined?undefined:Math.max(0,Math.min(1,availabilityRaw)),
+   projection,
+   stdDev,
+   minutes,
+   usage,
+   statKey:str(r.statKey||r.stat_key||r.marketKey||r.market_key)||undefined
+  }:undefined;
   return {
    eventId:str(r.eventId||r.event_id||r.id),
    event:str(r.event||r.eventName||r.event_name),
    home:str(r.home||r.homeTeam||r.home_team),
    away:str(r.away||r.awayTeam||r.away_team),
    sport:str(r.sport||r.league),
-   features
+   features,
+   player
   };
- }).filter(x=>Object.keys(x.features).length>0);
+ }).filter(x=>Object.keys(x.features).length>0||Boolean(x.player));
 }
 
 function match(m:Market,r:ContextRow){
@@ -93,17 +134,24 @@ export async function enrichMarketsWithContext(markets:Market[]){
  const enriched=markets.map(m=>{
   const sportFeatures={...(m.sportFeatures||{})};
   const matchedKinds:string[]=[];
+  let playerContext=m.playerContext;
   for(const source of normalized){
    let matched=false;
    for(const row of source.rows){
     if(!match(m,row))continue;
+    if(row.player){
+     const name=row.player.name.toLowerCase();
+     const selection=m.selection.toLowerCase();
+     if(!selection.includes(name))continue;
+     playerContext={...playerContext,...row.player,name:row.player.name};
+    }
     Object.assign(sportFeatures,row.features);
     matched=true;
    }
    if(matched)matchedKinds.push(source.kind);
   }
   if(matchedKinds.length)matchedRows++;
-  return {...m,sportFeatures,contextSources:matchedKinds};
+  return {...m,sportFeatures,contextSources:matchedKinds,playerContext};
  });
  return {
   markets:enriched,
