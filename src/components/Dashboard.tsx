@@ -151,6 +151,42 @@ type DbStats={
   };
 };
 
+type CalibrationResponse={
+  source:string;
+  latestRun?:{
+    id:number;
+    modelVersion:string;
+    status:string;
+    predictionRows:number;
+    groupsEvaluated:number;
+    groupsPromoted:number;
+    groupsHeld:number;
+    completedAt?:string;
+  }|null;
+  weights:Array<{
+    modelName:string;
+    sport:string;
+    marketKey:string;
+    multiplier:number;
+    sampleSize:number;
+    holdoutSampleSize?:number;
+    calibrationError?:number;
+    brierScore?:number;
+    promoted:boolean;
+    reason?:string;
+  }>;
+  models:Array<{
+    modelName:string;
+    sport:string;
+    marketKey:string;
+    sampleSize:number;
+    decayedScore:number;
+    confidenceLabel:string;
+    calibrationError?:number;
+    brierScore?:number;
+  }>;
+};
+
 const emptyBoard:LiveBoardResponse={
   generatedAt:'',
   uiRefreshMs:1000,
@@ -194,6 +230,7 @@ export default function Dashboard(){
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
+  const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -244,6 +281,21 @@ export default function Dashboard(){
   },[]);
 
   useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/intelligence/calibration',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as CalibrationResponse;
+        if(mounted)setCalibration(json);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
+  useEffect(()=>{
     if(sport!=='ALL'&&!board.sports.includes(sport))setSport('ALL');
   },[board.sports,sport]);
 
@@ -288,9 +340,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V28</div>
-        <h1>Provider Resilience + Data Quality Control</h1>
-        <p>Provider health scoring, payload freshness gates, circuit-breaker failover and degraded-mode safeguards protect the simulation board from stale or structurally bad data.</p>
+        <div className="eyebrow">EDGEFORCE AI • V29</div>
+        <h1>Historical Calibration + Model Optimization</h1>
+        <p>Settled outcomes now drive walk-forward calibration, out-of-sample model checks and controlled Model Council weight updates while V28 provider resilience remains active.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -549,6 +601,32 @@ export default function Dashboard(){
         <b>Prediction-market adapter is ready.</b>
         <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. Matched contracts above the configured volume threshold are eligible for model-vs-market edge.</p>
       </div>}
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">MODEL CALIBRATION</div><h3>Walk-forward validation + controlled weight promotion</h3></div>
+        <span className="miniBadge">{calibration.latestRun?.status||'awaiting history'}</span>
+      </div>
+      <div className="v21Stats">
+        <div><small>PREDICTION ROWS</small><strong>{calibration.latestRun?.predictionRows||0}</strong><span>settled model forecasts</span></div>
+        <div><small>GROUPS TESTED</small><strong>{calibration.latestRun?.groupsEvaluated||0}</strong><span>model × sport × market</span></div>
+        <div><small>PROMOTED</small><strong>{calibration.latestRun?.groupsPromoted||0}</strong><span>{calibration.latestRun?.groupsHeld||0} held neutral</span></div>
+        <div><small>ACTIVE WEIGHTS</small><strong>{calibration.weights.filter(x=>x.promoted).length}</strong><span>latest qualified snapshots</span></div>
+      </div>
+      <div className="historyNote">Weights change only after minimum-sample, holdout and walk-forward checks. Insufficient or unstable groups remain at a neutral 1.00 multiplier.</div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Largest promoted adjustments</h4>
+          {calibration.weights.filter(x=>x.promoted).sort((a,b)=>Math.abs(b.multiplier-1)-Math.abs(a.multiplier-1)).slice(0,8).map(x=><div className="historyRow" key={x.modelName+x.sport+x.marketKey}><span>{x.modelName} • {x.sport}</span><b>{x.multiplier.toFixed(3)}×</b><small>{x.marketKey} • n={x.sampleSize}</small></div>)}
+          {!calibration.weights.some(x=>x.promoted)&&<div className="historyRow"><span>No promoted weights yet</span><b>1.000×</b><small>neutral until enough settled history exists</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Model calibration leaders</h4>
+          {[...calibration.models].sort((a,b)=>b.decayedScore-a.decayedScore).slice(0,8).map(x=><div className="historyRow" key={x.modelName+x.sport+x.marketKey}><span>{x.modelName} • {x.sport}</span><b>{pct(x.decayedScore)}</b><small>{x.confidenceLabel} • n={x.sampleSize}{x.calibrationError!==undefined?` • cal ${pct(x.calibrationError)}`:''}</small></div>)}
+          {!calibration.models.length&&<div className="historyRow"><span>Calibration history</span><b>—</b><small>settled model predictions will populate this automatically</small></div>}
+        </div>
+      </div>
     </section>
 
     <section className="v21Panel">
