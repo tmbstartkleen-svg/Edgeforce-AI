@@ -26,7 +26,6 @@ export type FeedIntegrityResult={
   markets:Market[];
 };
 
-const finite=(v:number|undefined)=>typeof v==='number'&&Number.isFinite(v);
 const envNum=(name:string,fallback:number)=>{
   const n=Number(process.env[name]);
   return Number.isFinite(n)?n:fallback;
@@ -39,7 +38,7 @@ function validMarket(m:Market,now:number){
   if(start<now-2*3600000)return false;
   if(!Number.isFinite(m.odds)||m.odds===0)return false;
   if(!m.selection||!m.event||!m.sport)return false;
-  if(!finite(probability)||probability<=0||probability>=1)return false;
+  if(typeof probability!=='number'||!Number.isFinite(probability)||probability<=0||probability>=1)return false;
   if(m.bookmaker&&m.bookmaker.toLowerCase()!=='draftkings')return false;
   return true;
 }
