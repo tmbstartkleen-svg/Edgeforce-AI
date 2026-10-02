@@ -17,6 +17,7 @@ export type Market={
  sourceAgeMin:number;
  period:'AM'|'PM';
  sportFeatures?:Record<string,number>;
+ contextSources?:string[];
 };
 
 export type Ranked=Market & {
