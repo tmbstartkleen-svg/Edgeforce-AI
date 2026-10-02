@@ -24,6 +24,8 @@ export type Market={
  home:string;
  away:string;
  odds:number;
+ rawImpliedProb?:number;
+ sourceBook?:string;
  marketProb:number;
  modelProb:number;
  confidence:number;
