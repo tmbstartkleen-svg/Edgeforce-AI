@@ -8,6 +8,7 @@ import {detectAnomalies} from '@/lib/anomaly';
 import type {RiskProfile} from '@/lib/types';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
+import {fusePredictionMarkets} from '@/lib/crossMarket';
 
 export const dynamic='force-dynamic';
 
@@ -30,6 +31,7 @@ export async function GET(req:Request){
   const limit=searchParams.get('limit')==='50'?50:30;
   const requestedRisk=searchParams.get('risk')||'Moderate';
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
+  const minPredictionVolume=Math.max(0,Number(process.env.PREDICTION_MIN_VOLUME||1000));
 
   const [cached,predictions,learnedWeights]=await Promise.all([
     cachedOdds(),
@@ -39,8 +41,16 @@ export async function GET(req:Request){
 
   const ingestion=cached.ingestion;
   const scanned=scanMarkets(ingestion.markets,risk,new Date(),learnedWeights);
-  const rows=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
+  const ranked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
+  const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume);
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
+  const predictionCoverage={
+    minimumVolume:minPredictionVolume,
+    matched:rows.filter(x=>x.predictionMarketStatus==='MATCHED').length,
+    illiquid:rows.filter(x=>x.predictionMarketStatus==='ILLIQUID').length,
+    unknownLiquidity:rows.filter(x=>x.predictionMarketStatus==='UNKNOWN_LIQUIDITY').length,
+    unmatched:rows.filter(x=>x.predictionMarketStatus==='NO_MATCH').length
+  };
 
   return Response.json({
     generatedAt:new Date().toISOString(),
@@ -59,6 +69,7 @@ export async function GET(req:Request){
     rows,
     sports,
     predictions,
+    predictionCoverage,
     history:analyzeHistory(uploadedBetHistory),
     historicalBets:uploadedBetHistory,
     anomalies:detectAnomalies(rows).slice(0,20)

@@ -11,6 +11,16 @@ type BoardRow=Scanned & {
   weeklyScore:number;
   probabilityGap:number;
   calendarDay:string;
+  rawImpliedProbability:number;
+  noVigProbability:number;
+  sportsbookEdge:number;
+  quarterKelly:number;
+  predictionMarketProbability?:number;
+  predictionMarketVolume?:number;
+  predictionMarketSource?:string;
+  predictionMarketTitle?:string;
+  predictionMarketStatus:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
+  predictionEdge?:number;
 };
 
 type PredictionContract={
@@ -60,6 +70,13 @@ type LiveBoardResponse={
     source:string|null;
     contracts:PredictionContract[];
     error?:string;
+  };
+  predictionCoverage?:{
+    minimumVolume:number;
+    matched:number;
+    illiquid:number;
+    unknownLiquidity:number;
+    unmatched:number;
   };
   history:{
     overall:SummaryRow;
@@ -257,9 +274,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V25</div>
-        <h1>Player + SGP Correlation Intelligence</h1>
-        <p>Player-level projections, lineup availability and same-game correlation layered on sport-specific Monte Carlo, live context fusion and learned historical weights.</p>
+        <div className="eyebrow">EDGEFORCE AI • V26</div>
+        <h1>Cross-Market Consensus Intelligence</h1>
+        <p>DraftKings raw and no-vig probability, liquid prediction-market consensus, sport-specific Monte Carlo, context fusion and conservative quarter-Kelly on one auditable board.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -361,8 +378,8 @@ export default function Dashboard(){
     <section className="v21Stats">
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
-      <div><small>AVG MARKET</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.marketProb,0)/filtered.length):'—'}</strong><span>implied probability</span></div>
-      <div><small>CONTEXT FUSION</small><strong>{board.contextDiagnostics?.matchedRows||0}/{board.contextDiagnostics?.totalRows||0}</strong><span>{(board.contextDiagnostics?.providers||[]).filter(x=>x.ok).length} context providers active</span></div>
+      <div><small>AVG NO-VIG</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>sportsbook consensus baseline</span></div>
+      <div><small>PM MATCHES</small><strong>{board.predictionCoverage?.matched||0}</strong><span>{board.predictionCoverage?.illiquid||0} illiquid • min volume {board.predictionCoverage?.minimumVolume?.toLocaleString()||'—'}</span></div>
     </section>
 
     <section className="v21Panel">
@@ -379,7 +396,7 @@ export default function Dashboard(){
       <div className="tableWrap">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Market %</th><th>Sport %</th><th>Sim %</th><th>Gap</th><th>Engine</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>No-vig %</th><th>PM %</th><th>Sim %</th><th>DK Edge</th><th>PM Edge</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
             {filtered.map((x,i)=><tr key={x.id}>
@@ -389,15 +406,18 @@ export default function Dashboard(){
               <td><b>{x.period}</b><small>{dateLabel(x.startTime)}</small></td>
               <td>{x.market}</td>
               <td>{fmtOdds(x.odds)}</td>
-              <td>{fmtPct(x.marketProb)}</td>
-              <td className="orange">{fmtPct(x.sportModelProbability)}</td>
+              <td>{fmtPct(x.rawImpliedProbability)}</td>
+              <td>{fmtPct(x.noVigProbability)}</td>
+              <td><b>{x.predictionMarketProbability!==undefined?fmtPct(x.predictionMarketProbability):'—'}</b><small>{x.predictionMarketStatus==='MATCHED'?(x.predictionMarketVolume!==undefined?`vol ${Math.round(x.predictionMarketVolume).toLocaleString()}`:'matched'):x.predictionMarketStatus.replaceAll('_',' ')}</small></td>
               <td className="lime">{fmtPct(x.simProbability)}</td>
-              <td className={x.probabilityGap>=0?'lime':'negative'}>{x.probabilityGap>=0?'+':''}{fmtPct(x.probabilityGap)}</td>
+              <td className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</td>
+              <td className={(x.predictionEdge??0)>=0?'lime':'negative'}>{x.predictionEdge===undefined?'—':`${x.predictionEdge>=0?'+':''}${fmtPct(x.predictionEdge)}`}</td>
+              <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:'')}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
             </tr>)}
-            {!filtered.length&&<tr><td colSpan={13} className="emptyRow">No rows match the current filters.</td></tr>}
+            {!filtered.length&&<tr><td colSpan={16} className="emptyRow">No rows match the current filters.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -497,7 +517,7 @@ export default function Dashboard(){
 
     <section className="v21Panel">
       <div className="v21PanelHead">
-        <div><div className="eyebrow">PREDICTION MARKETS</div><h3>Separate probability source, side-by-side with sports markets</h3></div>
+        <div><div className="eyebrow">PREDICTION MARKETS</div><h3>Liquid contracts fused into matching sportsbook rows</h3></div>
         <span className="miniBadge">{board.predictions.mode==='live'?(board.predictions.source||'live'):'provider not connected'}</span>
       </div>
       {predictions.length?<div className="predictionGrid">
@@ -511,7 +531,7 @@ export default function Dashboard(){
         </div>)}
       </div>:<div className="connectState">
         <b>Prediction-market adapter is ready.</b>
-        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section with a supported provider feed.</p>
+        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. V26 only uses matched contracts above the configured volume threshold for model-vs-market edge.</p>
       </div>}
     </section>
 
