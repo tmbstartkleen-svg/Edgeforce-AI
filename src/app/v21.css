@@ -87,3 +87,10 @@
   .signalList p{font-size:9px}
   .connectState{padding:20px 14px}
 }
+
+.weeklyLeg.noRank{grid-template-columns:minmax(0,1fr) auto}
+.weeklyLeg.noRank .weeklyActions{grid-column:auto}
+@media(max-width:650px){
+  .weeklyLeg.noRank{grid-template-columns:minmax(0,1fr)}
+  .weeklyLeg.noRank .weeklyActions{grid-column:1;justify-content:flex-start}
+}
