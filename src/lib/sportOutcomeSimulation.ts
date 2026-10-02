@@ -171,18 +171,19 @@ function simulateCombat(m:Market,runs:SimulationTier){
 }
 
 function simulateProp(m:Market,runs:SimulationTier){
- if(marketKind(m)!=='PROP')return null;
+ const text=lower(`${m.market} ${m.selection}`);
+ if(!(text.includes('player')||text.includes('prop')||rawFeature(m,'propMean')!==undefined||rawFeature(m,'projection')!==undefined))return null;
  const mean=rawFeature(m,'propMean')??rawFeature(m,'projection');
  const sd=rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
  const sigma=Math.max(.1,Math.abs(sd??mean*.18));
  const rng=seeded(`prop|${m.id}|${m.startTime}`);
- const kind=marketKind(m);
+ const direction=text.includes('under')?'UNDER':'OVER';
  let hits=0;
  for(let i=0;i<runs;i++){
   const value=Math.max(0,mean+rng.normal()*sigma);
-  const hit=kind==='UNDER'?value<Math.abs(line):value>Math.abs(line);
+  const hit=direction==='UNDER'?value<Math.abs(line):value>Math.abs(line);
   if(hit)hits++;
  }
  return finalize(runs,hits,'PLAYER_STAT_MONTE_CARLO',{selectionMean:mean,line:Math.abs(line),unit:'stat'},sigma);
