@@ -34,11 +34,12 @@ function timestampCandidates(value:unknown,depth=0):number[]{
  for(const key of ['pulledAt','pulled_at','updatedAt','updated_at','timestamp','asOf','as_of','lastUpdated','last_updated','generatedAt','generated_at']){
   const raw=record[key];
   if(typeof raw==='string'||typeof raw==='number'){
-   const ms=new Date(raw).getTime();
+   const normalized=typeof raw==='number'&&raw>0&&raw<1e12?raw*1000:raw;
+   const ms=new Date(normalized).getTime();
    if(Number.isFinite(ms))out.push(ms);
   }
  }
- for(const key of ['meta','metadata','source','provider']){
+ for(const key of ['meta','metadata','source','provider','markets','events','results','data','rows','contracts','injuries','weather','stats']){
   if(record[key])out.push(...timestampCandidates(record[key],depth+1));
  }
  return out;
