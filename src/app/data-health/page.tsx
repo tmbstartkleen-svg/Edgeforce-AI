@@ -95,7 +95,7 @@ export default function DataHealthPage(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V28</div>
+        <div className="eyebrow">EDGEFORCE AI • V29</div>
         <h1>Production Data Health</h1>
         <p>Shows provider health, feed freshness, reconciliation coverage, rejected markets and whether the official betting board is allowed to publish.</p>
       </div>
