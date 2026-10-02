@@ -1,45 +1,40 @@
-# Edgeforce AI V21 deployment
+# Edgeforce AI V30 deployment
 
 ## Release strategy
-verify -> migration check -> preview build -> hosted smoke test -> promote exact artifact -> observe -> rollback if needed
+lint → build → migration continuity → local production server → smoke → load gate → Vercel prebuilt preview → hosted smoke → release attestation → optional exact-artifact promotion → observe → rollback if needed.
 
-## One-time Vercel setup
-1. Import `tmbstartkleen-svg/Edgeforce-AI` into the connected Vercel team.
-2. Use the repository root as the project root.
-3. Framework: Next.js.
-4. Add runtime environment variables from `.env.example`.
-5. Add GitHub Actions secrets:
-   - `VERCEL_TOKEN`
-   - `VERCEL_ORG_ID`
-   - `VERCEL_PROJECT_ID`
-6. Add an authorized odds provider with DraftKings bookmaker coverage.
-7. Add a prediction-market provider if that panel will be used.
-8. Apply database migrations through V21.
+## Required production configuration
+Configure `DATABASE_URL`, `INGEST_SECRET`, `CRON_SECRET`, `MODEL_VERSION=edgeforce-v30`, a positive `DEFAULT_BANKROLL`, and at least one authorized odds provider. Apply database migrations through `v29`.
 
-## Live refresh design
-The browser refreshes the unified board every second. The server keeps a short odds-source cache so the interface feels live without sending one upstream provider request every second.
+GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 
-## Side-screen testing
-After the Vercel project exists, use the preview deployment URL as the live Edgeforce testing surface. The same preview URL is used by the hosted smoke test before promotion.
+## Health model
+- `/api/health/live`: process liveness only.
+- `/api/health/ready`: environment-aware service readiness.
+- `/api/release/readiness`: release/dependency details without secret values.
+- In production, readiness requires database connectivity, migration v29, secrets, bankroll configuration and an operational odds provider.
 
 ## Pre-release gates
+- `npm run lint`
 - `npm run build`
 - `npm run check-migrations`
-- production-server smoke suite
-- concurrency check
-- Vercel preview deploy
-- hosted `/api/health`
-- hosted `/api/deployment/smoke`
-- hosted `/api/diagnostics`
-- hosted dashboard request
+- local production-server smoke suite
+- load check with zero failures and configured p95 ceiling
+- hosted preview liveness/readiness/diagnostics/ops-status/dashboard checks
+- V30 version and migration identity checks
 
-## Promotion
-Use the manual **Edgeforce Release Candidate** workflow with `promote=true`.
+## Preview and promotion
+Use **Edgeforce Release Candidate**. It builds a Vercel preview with pinned CLI tooling, smoke-tests the exact prebuilt artifact, records a release attestation, and promotes that same artifact only when `promote=true`.
 
 ## Rollback
-Use the manual **Edgeforce Rollback** workflow.
+Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V30 release toolchain.
 
-## Release readiness endpoint
-`GET /api/release/readiness`
+## Observability
+The hourly heartbeat records readiness when a database is configured. `/api/ops/status` surfaces recent heartbeats, release attestations, unresolved incidents and route performance. Live-board performance sampling is controlled with `PERFORMANCE_SAMPLE_RATE`.
 
-This reports configured secret presence, provider counts, database health, Vercel environment, deployment URL, and commit metadata without exposing secret values.
+## Performance defaults
+- `PERFORMANCE_SAMPLE_RATE=0.10`
+- `LOAD_REQUESTS=60`
+- `LOAD_MAX_P95_MS=3000`
+
+These can be tightened after observing real production traffic.
