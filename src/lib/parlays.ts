@@ -141,5 +141,5 @@ export function buildMixedSportProbabilitySet(rows:Scanned[],size:number):Parlay
  const seed:Scanned[]=[];let cursor=0;
  while(seed.length<target&&cursor<target*10){const sport=sports[cursor%sports.length],bucket=bySport.get(sport)||[],candidate=bucket.find(x=>!seed.some(s=>s.id===x.id));if(candidate)seed.push(candidate);cursor++;if(seed.length>=rows.length)break}
  if(seed.length<target)return buildProbabilitySet(rows,target);
- return summarize(seed.slice(0,target),target+'-LEG MULTI-SPORT SET');
+ return summarizeParlay(seed.slice(0,target),target+'-LEG MULTI-SPORT SET');
 }
