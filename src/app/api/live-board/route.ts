@@ -2,7 +2,7 @@ import {ingestOdds} from '@/lib/providers/ingest';
 import {scanMarkets} from '@/lib/scanner';
 import {rankDaily,rankWeekly} from '@/lib/boardScoring';
 import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
-import {uploadedBetHistory} from '@/lib/betHistory';
+import {loadLedgerHistory} from '@/lib/ledger';
 import {analyzeHistory} from '@/lib/historyAnalytics';
 import {detectAnomalies} from '@/lib/anomaly';
 import type {RiskProfile} from '@/lib/types';
@@ -33,10 +33,11 @@ export async function GET(req:Request){
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
   const minPredictionVolume=Math.max(0,Number(process.env.PREDICTION_MIN_VOLUME||1000));
 
-  const [cached,predictions,learnedWeights]=await Promise.all([
+  const [cached,predictions,learnedWeights,ledgerHistory]=await Promise.all([
     cachedOdds(),
     fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
-    loadLearnedWeightMultipliers()
+    loadLearnedWeightMultipliers(),
+    loadLedgerHistory()
   ]);
 
   const ingestion=cached.ingestion;
@@ -70,8 +71,8 @@ export async function GET(req:Request){
     sports,
     predictions,
     predictionCoverage,
-    history:analyzeHistory(uploadedBetHistory),
-    historicalBets:uploadedBetHistory,
+    history:analyzeHistory(ledgerHistory),
+    historicalBets:ledgerHistory,
     anomalies:detectAnomalies(rows).slice(0,20)
   },{
     headers:{'Cache-Control':'no-store, max-age=0'}

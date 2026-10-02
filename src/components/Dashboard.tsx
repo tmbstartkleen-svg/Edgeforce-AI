@@ -41,10 +41,13 @@ type SummaryRow={
   count:number;
   hits:number;
   misses:number;
+  pushes?:number;
+  pending?:number;
   hitRate:number;
   staked?:number;
   returned?:number;
   net?:number;
+  roi?:number;
 };
 
 type LiveBoardResponse={
@@ -83,7 +86,15 @@ type LiveBoardResponse={
     sports:SummaryRow[];
     legCounts:SummaryRow[];
     markets:SummaryRow[];
+    legSports?:SummaryRow[];
+    probabilityBands?:SummaryRow[];
     sampleSize:number;
+    settledCount?:number;
+    pendingCount?:number;
+    avgModelWinner?:number;
+    avgModelLoser?:number;
+    bestSport?:string;
+    bestParlaySize?:string;
   };
   historicalBets:Array<{
     id:string;
@@ -92,7 +103,7 @@ type LiveBoardResponse={
     legCount:number;
     stake:number;
     paid:number;
-    result:'win'|'loss';
+    result:'win'|'loss'|'push'|'open';
   }>;
   anomalies:Array<{
     id:string;
@@ -274,9 +285,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V26</div>
-        <h1>Cross-Market Consensus Intelligence</h1>
-        <p>DraftKings raw and no-vig probability, liquid prediction-market consensus, sport-specific Monte Carlo, context fusion and conservative quarter-Kelly on one auditable board.</p>
+        <div className="eyebrow">EDGEFORCE AI • V27</div>
+        <h1>Automated Settlement + Bankroll Ledger</h1>
+        <p>Cross-market simulation intelligence now feeds a persistent wager ledger with settlement reconciliation, bankroll performance, ROI, hit-rate and model-probability tracking.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -531,28 +542,47 @@ export default function Dashboard(){
         </div>)}
       </div>:<div className="connectState">
         <b>Prediction-market adapter is ready.</b>
-        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. V26 only uses matched contracts above the configured volume threshold for model-vs-market edge.</p>
+        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. Matched contracts above the configured volume threshold are eligible for model-vs-market edge.</p>
       </div>}
     </section>
 
     <section className="v21Panel">
       <div className="v21PanelHead">
-        <div><div className="eyebrow">UPLOADED RESULT HISTORY</div><h3>Observed performance by sport, leg count and market type</h3></div>
-        <span className="miniBadge">{board.history.sampleSize} visible slips parsed</span>
+        <div><div className="eyebrow">BANKROLL + PERFORMANCE LEDGER</div><h3>Persistent settled-wager analytics</h3></div>
+        <span className="miniBadge">{board.history.settledCount||0} settled • {board.history.pendingCount||0} open</span>
       </div>
-      <div className="historyNote">This section reports only what is visible in the uploaded screenshots. Hidden losing legs stay unknown instead of being guessed, so small samples should not be treated as a forecast.</div>
+      <div className="v21Stats">
+        <div><small>CUMULATIVE STAKE</small><strong>{money(board.history.overall.staked)}</strong><span>{board.history.sampleSize} total recorded slips</span></div>
+        <div><small>CUMULATIVE RETURN</small><strong>{money(board.history.overall.returned)}</strong><span>settled wagers only</span></div>
+        <div><small>NET P/L</small><strong>{money(board.history.overall.net)}</strong><span>ROI {pct(board.history.overall.roi||0)}</span></div>
+        <div><small>MODEL WIN / LOSS AVG</small><strong>{board.history.avgModelWinner!==undefined?pct(board.history.avgModelWinner):'—'}</strong><span>losers {board.history.avgModelLoser!==undefined?pct(board.history.avgModelLoser):'—'}</span></div>
+      </div>
+      <div className="historyNote">Open wagers are excluded from settled ROI and hit-rate calculations. Unknown hidden leg outcomes stay unknown rather than being guessed.</div>
       <div className="historyGrid">
         <div className="historyBox">
-          <h4>By sport</h4>
-          {board.history.sports.map(x=><div className="historyRow" key={x.key}><span>{x.key}</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} • net {money(x.net)}</small></div>)}
+          <h4>Parlay performance by sport</h4>
+          {board.history.sports.map(x=><div className="historyRow" key={x.key}><span>{x.key}</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} • ROI {pct(x.roi||0)} • net {money(x.net)}</small></div>)}
         </div>
         <div className="historyBox">
           <h4>By parlay size</h4>
-          {board.history.legCounts.map(x=><div className="historyRow" key={x.key}><span>{x.key} legs</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} • net {money(x.net)}</small></div>)}
+          {board.history.legCounts.map(x=><div className="historyRow" key={x.key}><span>{x.key} legs</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} • ROI {pct(x.roi||0)} • net {money(x.net)}</small></div>)}
         </div>
         <div className="historyBox">
-          <h4>Known leg outcomes by market</h4>
+          <h4>Individual leg hit rate by sport</h4>
+          {(board.history.legSports||[]).map(x=><div className="historyRow" key={x.key}><span>{x.key}</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} known legs</small></div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Market-type hit rate</h4>
           {board.history.markets.map(x=><div className="historyRow" key={x.key}><span>{x.key}</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} known legs</small></div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Model probability bands</h4>
+          {(board.history.probabilityBands||[]).map(x=><div className="historyRow" key={x.key}><span>{x.key}</span><b>{pct(x.hitRate)}</b><small>{x.hits}-{x.misses} known outcomes</small></div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Current leaders</h4>
+          <div className="historyRow"><span>Best sport</span><b>{board.history.bestSport||'—'}</b><small>minimum two settled decisions</small></div>
+          <div className="historyRow"><span>Best parlay size</span><b>{board.history.bestParlaySize?board.history.bestParlaySize+' legs':'—'}</b><small>ranked by ROI, then hit rate</small></div>
         </div>
       </div>
     </section>
