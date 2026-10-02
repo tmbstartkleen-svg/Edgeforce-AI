@@ -9,7 +9,12 @@ export type OddsIngestionResult={
  markets:Market[];
  rawCount:number;
  warnings:string[];
- attempts:Array<{providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number}>;
+ attempts:Array<{
+  providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number;
+  skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;rowCount?:number;payloadAgeMin?:number
+ }>;
+ quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number};
+ degraded:boolean;
  error?:string;
 };
 
