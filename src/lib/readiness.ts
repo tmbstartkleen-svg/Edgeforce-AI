@@ -1,4 +1,4 @@
-import {dbHealth} from './db';
+import {db,dbHealth} from './db';
 import {configuredProviders} from './providers/config';
 import {loadProviderHealthStates} from './providers/healthStore';
 import {providerHealth} from './providerRegistry';
@@ -15,6 +15,16 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
  const environment=process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
  const [database,states]=await Promise.all([dbHealth(),loadProviderHealthStates()]);
+ const sql=db();
+ let migrationApplied=!database.configured;
+ if(sql&&database.ok){
+  try{
+   const rows=await sql`select version from schema_migrations where version=${'v'+RELEASE.migrationVersion} limit 1`;
+   migrationApplied=rows.length>0;
+  }catch{
+   migrationApplied=false;
+  }
+ }
  const providers=configuredProviders();
  const odds=providers.filter(p=>p.capability==='ODDS');
  const operationalOdds=odds.filter(p=>{
@@ -32,6 +42,11 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    ok:database.configured?database.ok:!strict,
    required:strict,
    detail:database.configured?(database.ok?'connected':database.error||'unhealthy'):'not configured'
+  },
+  migration:{
+   ok:migrationApplied||!strict,
+   required:strict,
+   detail:migrationApplied?`v${RELEASE.migrationVersion} applied`:`v${RELEASE.migrationVersion} not detected`
   },
   ingestSecret:{
    ok:Boolean(process.env.INGEST_SECRET)||!strict,
