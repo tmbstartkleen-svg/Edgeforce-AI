@@ -12,7 +12,7 @@ import {fusePredictionMarkets} from '@/lib/crossMarket';
 import {recordPerformance} from '@/lib/ops';
 import type {Market} from '@/lib/types';
 import {detectMaterialContextChanges,contextRevision} from '@/lib/contextChanges';
-import {loadContextMarketStates,recordContextChanges,saveContextMarketStates} from '@/lib/persistence';
+import {loadContextMarketStates,recordContextChanges,saveContextMarketStates,recordModelRuns} from '@/lib/persistence';
 
 export const dynamic='force-dynamic';
 
@@ -75,7 +75,9 @@ export async function GET(req:Request){
   const ingestion=cached.ingestion;
   const scanned=scanMarkets(ingestion.markets,risk,new Date(),learnedWeights);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
-  const resimulationResults=scanned.filter(x=>triggeredIds.has(x.id)).map(x=>({
+  const resimulatedRows=scanned.filter(x=>triggeredIds.has(x.id));
+  if(resimulatedRows.length)await recordModelRuns(resimulatedRows).catch(()=>0);
+  const resimulationResults=resimulatedRows.map(x=>({
     marketId:x.id,
     selection:x.selection,
     simProbability:x.simProbability,
