@@ -96,6 +96,25 @@ type LiveBoardResponse={
   providerMode:string;
   providerName?:string;
   warnings?:string[];
+  officialBoard:boolean;
+  feedIntegrity:{
+    status:'TRUSTED'|'DEGRADED'|'BLOCKED';
+    officialEligible:boolean;
+    source:string;
+    mode:string;
+    totalMarkets:number;
+    acceptedMarkets:number;
+    rejectedMarkets:number;
+    rejectedStale:number;
+    rejectedInvalid:number;
+    rejectedConflicts:number;
+    maxSourceAgeMin:number;
+    conflictRate:number;
+    validationCompared:number;
+    validationConflicts:number;
+    reconciliationCoverage:number;
+    reasons:string[];
+  };
   minJoint:number;
   minLeg:number;
   rows:BoardRow[];
@@ -107,6 +126,9 @@ type LiveBoardResponse={
   };
   coverage:{
     markets:number;
+    inputMarkets:number;
+    acceptedFeedMarkets:number;
+    rejectedFeedMarkets:number;
     noVigComplete:number;
     predictionMatched:number;
     projectedProps:number;
@@ -178,12 +200,14 @@ const emptyBoard:LiveBoardResponse={
   risk:'Moderate',
   source:'loading',
   providerMode:'loading',
+  officialBoard:false,
+  feedIntegrity:{status:'BLOCKED',officialEligible:false,source:'loading',mode:'loading',totalMarkets:0,acceptedMarkets:0,rejectedMarkets:0,rejectedStale:0,rejectedInvalid:0,rejectedConflicts:0,maxSourceAgeMin:0,conflictRate:0,validationCompared:0,validationConflicts:0,reconciliationCoverage:0,reasons:[]},
   minJoint:.52,
   minLeg:.65,
   rows:[],
   sports:[],
   parlays:{topTwoLeg:[],topThreeLeg:[],valueTwoLeg:[]},
-  coverage:{markets:0,noVigComplete:0,predictionMatched:0,projectedProps:0,fallbackSims:0,jointMonteCarloParlays:0},
+  coverage:{markets:0,inputMarkets:0,acceptedFeedMarkets:0,rejectedFeedMarkets:0,noVigComplete:0,predictionMatched:0,projectedProps:0,fallbackSims:0,jointMonteCarloParlays:0},
   predictions:{mode:'loading',source:null,contracts:[]},
   history:{
     overall:{key:'Overall',count:0,hits:0,misses:0,hitRate:0},
@@ -353,15 +377,15 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V27</div>
+        <div className="eyebrow">EDGEFORCE AI • V28</div>
         <h1>Live Sports Probability Intelligence</h1>
-        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder. <a href="/replacements">Compare Replacements</a></p>
+        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder. <a href="/replacements">Compare Replacements</a> • <a href="/data-health">Data Health</a></p>
       </div>
       <div className="v21Status">
-        <span className={board.source==='live'?'dot liveDot':'dot'}/>
+        <span className={board.officialBoard?'dot liveDot':'dot'}/>
         <div>
-          <small>{sourceLabel(board.source,board.providerMode)}</small>
-          <b>{board.providerName||'Edgeforce feed'}</b>
+          <small>{board.officialBoard?'OFFICIAL LIVE BOARD':'BOARD BLOCKED'}</small>
+          <b>{board.officialBoard?(board.providerName||'Edgeforce feed'):board.feedIntegrity.status}</b>
         </div>
         <div>
           <small>UI REFRESH</small>
@@ -375,12 +399,13 @@ export default function Dashboard(){
     </header>
 
     {lastError&&<div className="v21Alert">{lastError}</div>}
+    {!board.officialBoard&&board.feedIntegrity.reasons.length>0&&<div className="v21Alert"><b>Official picks are fail-closed.</b> {board.feedIntegrity.reasons.join(' • ')} <a href="/data-health">Open data health</a></div>}
 
     <section className="v21Hero">
       <div>
-        <div className="badge">TOP 30 PICKS • 30 TWO-LEG PARLAYS • 65%+ LEGS • 52%+ JOINT • 10K MONTE CARLO</div>
+        <div className="badge">{board.officialBoard?'TOP 30 PICKS • 30 TWO-LEG PARLAYS • 65%+ LEGS • 52%+ JOINT • 10K MONTE CARLO':'OFFICIAL BOARD BLOCKED • FEED INTEGRITY CHECK REQUIRED'}</div>
         <h2>Daily and weekly <em>65%+ simulation legs with 52%+ combined tickets.</em></h2>
-        <p>Each board shows up to 30 qualified legs. Every official parlay uses the same 10,000 simulated outcomes behind its legs to measure the actual joint hit rate. Weekly tickets spread legs across different calendar days, and probability-fallback legs are excluded.</p>
+        <p>{board.officialBoard?'Each board shows up to 30 qualified legs. Every official parlay uses the same 10,000 simulated outcomes behind its legs to measure the actual joint hit rate. Weekly tickets spread legs across different calendar days, and probability-fallback legs are excluded.':'V28 will not publish Daily Top 30 picks or parlays from stored, demo, stale, invalid, or materially conflicting market data.'}</p>
       </div>
       <div className="v21HeroCard">
         <small>CURRENT BOARD</small>
@@ -390,7 +415,7 @@ export default function Dashboard(){
           <div><small>AM</small><b>{amCount}</b></div>
           <div><small>PM</small><b>{pmCount}</b></div>
           <div><small>Sports</small><b>{board.sports.length}</b></div>
-          <div><small>Pred matched</small><b>{board.coverage.predictionMatched}</b></div>
+          <div><small>Feed accepted</small><b>{board.coverage.acceptedFeedMarkets}</b></div>
         </div>
       </div>
     </section>
