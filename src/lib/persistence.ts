@@ -1,6 +1,7 @@
 import {db} from './db';
 import type {Market} from './types';
 import type {ContextChangeEvent} from './contextChanges';
+import {contextMarketKey} from './contextChanges';
 
 export async function saveMarketSnapshots(markets:Market[],provider='authorized-provider',bookmaker='DraftKings'){
   const sql=db();
@@ -109,7 +110,7 @@ export async function recordContextChanges(changes:ContextChangeEvent[]){
     change_key,market_id,event_name,selection,sport,change_type,severity,reason,before_value,after_value,requires_resimulation,detected_at
    ) values(
     ${change.id},${change.marketId},${change.event},${change.selection},${change.sport},${change.type},${change.severity},${change.reason},
-    ${sql.json(change.before as any)},${sql.json(change.after as any)},${change.requiresResimulation},${change.detectedAt}
+    ${sql.json((change.before??null) as any)},${sql.json((change.after??null) as any)},${change.requiresResimulation},${change.detectedAt}
    )
    on conflict (change_key) do update set
     severity=excluded.severity,
@@ -117,6 +118,39 @@ export async function recordContextChanges(changes:ContextChangeEvent[]){
     before_value=excluded.before_value,
     after_value=excluded.after_value,
     detected_at=excluded.detected_at
+  `;
+  written++;
+ }
+ return written;
+}
+
+
+export async function loadContextMarketStates():Promise<Market[]>{
+ const sql=db();
+ if(!sql)return [];
+ const rows=await sql`
+  select snapshot
+  from context_market_states
+  order by updated_at desc
+  limit 1000
+ `;
+ return rows.map((r:any)=>r.snapshot as Market);
+}
+
+export async function saveContextMarketStates(markets:Market[],revision:string){
+ const sql=db();
+ if(!sql||!markets.length)return 0;
+ let written=0;
+ for(const market of markets){
+  const identity=contextMarketKey(market);
+  await sql`
+   insert into context_market_states(market_identity,market_id,snapshot,revision,updated_at)
+   values(${identity},${market.id},${sql.json(market as any)},${revision},now())
+   on conflict (market_identity) do update set
+    market_id=excluded.market_id,
+    snapshot=excluded.snapshot,
+    revision=excluded.revision,
+    updated_at=excluded.updated_at
   `;
   written++;
  }
