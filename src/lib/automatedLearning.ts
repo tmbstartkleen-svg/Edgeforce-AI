@@ -4,7 +4,7 @@ import {summarizeBacktest} from './backtest';
 import {calibrationSummary} from './modelCalibration';
 import {rollingModelPerformance} from './modelPerformance';
 
-type LearningRow=HistoricalPrediction & {resultId:number};
+type LearningRow=HistoricalPrediction & {resultId:number;propType?:string|null;playerName?:string|null};
 const bands=[
   {label:'65-69',min:.65,max:.70},{label:'70-74',min:.70,max:.75},{label:'75-79',min:.75,max:.80},
   {label:'80-84',min:.80,max:.85},{label:'85-89',min:.85,max:.90},{label:'90+',min:.90,max:1.001}
@@ -21,7 +21,7 @@ export async function loadLearningRows(lookbackDays=Math.max(30,Number(process.e
   const rows=await sql`
     select br.id as "resultId",br.settled_at as "occurredAt",e.sport,mr.market_key as "marketKey",mr.model_version as "modelName",
       coalesce(br.simulation_probability,mr.simulation_probability,mr.model_probability)::float as predicted,
-      coalesce(br.offered_odds,0) as odds,case when br.result='win' then 1 else 0 end as outcome,br.closing_odds as "closingOdds"
+      coalesce(br.offered_odds,0) as odds,case when br.result='win' then 1 else 0 end as outcome,br.closing_odds as "closingOdds",br.prop_type as "propType",br.player_name as "playerName"
     from bet_results br join model_runs mr on mr.id=br.model_run_id join events e on e.id=mr.event_id
     where br.result in ('win','loss') and br.settled_at >= now()-make_interval(days => ${lookbackDays})
       and coalesce(br.simulation_probability,mr.simulation_probability,mr.model_probability) >= .65 and coalesce(br.offered_odds,0) <> 0
@@ -53,6 +53,23 @@ export async function runAutomatedLearning(){
       `;bandRows++;
     }
   }
+  const propGroups=new Map<string,LearningRow[]>();
+  for(const row of rows.filter(x=>x.propType)){
+    const key=[row.sport,row.propType].join('|');
+    const list=propGroups.get(key)||[];list.push(row);propGroups.set(key,list);
+  }
+  let propMetrics=0;
+  for(const [key,group] of propGroups){
+    const [sport,propType]=key.split('|');
+    const summary=summarizeBacktest(group),cal=calibrationSummary(group);
+    const predictedAverage=group.reduce((s,x)=>s+x.predicted,0)/Math.max(1,group.length);
+    await sql`
+      insert into prop_performance_metrics(model_version,sport,prop_type,sample_size,predicted_average,hit_rate,brier_score,roi,avg_clv,calibration_error,as_of)
+      values(${process.env.MODEL_VERSION||'edgeforce-v24'},${sport},${propType},${group.length},${predictedAverage},${summary.hitRate},${summary.brierScore},${summary.roi},${summary.avgClv},${cal.meanAbsoluteCalibrationError},${asOf})
+    `;
+    propMetrics++;
+  }
+
   const performance=rollingModelPerformance(rows,now);
   for(const p of performance)await sql`
     insert into rolling_model_rankings(model_name,sport,market_key,sample_size,decayed_score,confidence_label,brier_score,log_loss,roi,avg_clv,calibration_error,as_of)
@@ -70,17 +87,17 @@ export async function runAutomatedLearning(){
       `;
     }
   }
-  return {configured:true,runId,sampleSize:rows.length,bandRows,rankings:performance.length,overall,calibration:overallCalibration};
+  return {configured:true,runId,sampleSize:rows.length,bandRows,propMetrics,rankings:performance.length,overall,calibration:overallCalibration};
 }
 export async function getLearningDashboard(){
-  const sql=db();if(!sql)return {configured:false,latestRun:null,bands:[],rankings:[]};
+  const sql=db();if(!sql)return {configured:false,latestRun:null,bands:[],rankings:[],props:[]};
   const runs=await sql`
     select id,model_version as "modelVersion",status,sample_size as "sampleSize",brier_score::float as "brierScore",log_loss::float as "logLoss",
       calibration_error::float as "calibrationError",roi::float,avg_clv::float as "avgClv",period_start as "periodStart",period_end as "periodEnd",created_at as "createdAt"
     from model_learning_runs order by created_at desc limit 1
   `;
   const latestRun=(runs as unknown as Array<Record<string,unknown>>)[0]||null;
-  if(!latestRun)return {configured:true,latestRun:null,bands:[],rankings:[]};
+  if(!latestRun)return {configured:true,latestRun:null,bands:[],rankings:[],props:[]};
   const runId=Number(latestRun.id);
   const bandRows=await sql`
     select band_label as "bandLabel",min_probability::float as "minProbability",max_probability::float as "maxProbability",sample_size as "sampleSize",
@@ -92,5 +109,13 @@ export async function getLearningDashboard(){
       confidence_label as "confidenceLabel",brier_score::float as "brierScore",roi::float,avg_clv::float as "avgClv",calibration_error::float as "calibrationError"
     from rolling_model_rankings where as_of=(select max(as_of) from rolling_model_rankings) order by decayed_score desc limit 12
   `;
-  return {configured:true,latestRun,bands:bandRows,rankings:rankingRows};
+  const propRows=await sql`
+    select sport,prop_type as "propType",sample_size as "sampleSize",predicted_average::float as "predictedAverage",
+      hit_rate::float as "hitRate",brier_score::float as "brierScore",roi::float,avg_clv::float as "avgClv",
+      calibration_error::float as "calibrationError"
+    from prop_performance_metrics
+    where as_of=(select max(as_of) from prop_performance_metrics)
+    order by sample_size desc,hit_rate desc limit 20
+  `;
+  return {configured:true,latestRun,bands:bandRows,rankings:rankingRows,props:propRows};
 }

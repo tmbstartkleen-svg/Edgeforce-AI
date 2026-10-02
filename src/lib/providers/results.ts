@@ -150,3 +150,114 @@ export async function fetchCompletedResults():Promise<ResultFetch>{
   if(odds.ok)return {mode:'live',source:odds.source,results:odds.results,attempts};
   return {mode:'unavailable',source:null,results:[],attempts};
 }
+
+
+export type PlayerStatResult={
+  providerEventId:string;
+  sport:string;
+  commenceTime:string;
+  player:string;
+  team?:string;
+  stats:Record<string,number>;
+  provider:string;
+  sourceTimestamp:string;
+  raw:unknown;
+};
+
+export type PlayerStatFetch={
+  mode:'live'|'unavailable';
+  source:string|null;
+  results:PlayerStatResult[];
+  error?:string;
+};
+
+function numericStats(value:unknown){
+  const source=obj(value);
+  const out:Record<string,number>={};
+  for(const [k,v] of Object.entries(source)){
+    const n=num(v);
+    if(Number.isFinite(n))out[k]=n;
+  }
+  return out;
+}
+
+function playerRows(payload:unknown){
+  const found:Array<{row:Record<string,unknown>;parent:Record<string,unknown>}>=[];
+
+  const walk=(value:unknown,parent:Record<string,unknown>,depth:number)=>{
+    if(depth>4)return;
+    if(Array.isArray(value)){for(const item of value)walk(item,parent,depth+1);return}
+    const row=obj(value);
+    if(!Object.keys(row).length)return;
+
+    const nestedPlayer=obj(row.player);
+    const playerName=str(row.player_name,str(row.full_name,str(row.athlete_name,str(row.participant,str(nestedPlayer.name,str(row.name,''))))));
+    const statsObj=obj(row.stats);
+    const statisticsObj=obj(row.statistics);
+    const playerStatsObj=obj(row.player_stats);
+    const boxObj=obj(row.box_score);
+    const hasStats=Object.keys(statsObj).length||Object.keys(statisticsObj).length||Object.keys(playerStatsObj).length||Object.keys(boxObj).length;
+    if(playerName&&hasStats)found.push({row,parent});
+
+    for(const key of ['players','athletes','participants','boxscore','box_score','player_stats','statistics','data','results','events','games']){
+      if(row[key]!==undefined)walk(row[key],row,depth+1);
+    }
+  };
+
+  walk(payload,{},0);
+  return found;
+}
+
+export function normalizePlayerStatPayload(payload:unknown,provider='player-results-provider'):PlayerStatResult[]{
+  const out:PlayerStatResult[]=[];
+  for(const {row,parent} of playerRows(payload)){
+    const nestedPlayer=obj(row.player);
+    const player=str(row.player_name,str(row.full_name,str(row.athlete_name,str(row.participant,str(nestedPlayer.name,str(row.name,''))))));
+    const statsSource=Object.keys(obj(row.stats)).length?row.stats:
+      Object.keys(obj(row.statistics)).length?row.statistics:
+      Object.keys(obj(row.player_stats)).length?row.player_stats:row.box_score;
+    const stats=numericStats(statsSource);
+    if(!player||!Object.keys(stats).length)continue;
+
+    const providerEventId=str(row.event_id,str(row.eventId,str(row.game_id,str(parent.event_id,str(parent.eventId,str(parent.game_id,str(parent.id,'')))))));
+    const sport=str(row.sport,str(parent.sport,str(parent.sport_title,str(parent.league,''))));
+    const commenceTime=str(row.commence_time,str(row.start_time,str(row.startTime,str(parent.commence_time,str(parent.start_time,str(parent.startTime,''))))));
+    const team=str(row.team_name,str(row.team,str(parent.team_name,str(parent.team,''))));
+    out.push({
+      providerEventId,
+      sport,
+      commenceTime,
+      player,
+      team:team||undefined,
+      stats,
+      provider,
+      sourceTimestamp:str(row.updated_at,str(row.last_update,str(parent.updated_at,str(parent.last_update,new Date().toISOString())))),
+      raw:row
+    });
+  }
+  return out;
+}
+
+export async function fetchCompletedPlayerStats():Promise<PlayerStatFetch>{
+  const url=process.env.PLAYER_RESULTS_PROVIDER_URL||process.env.STATS_PROVIDER_PRIMARY_URL;
+  if(!url)return {mode:'unavailable',source:null,results:[],error:'Player result provider not configured'};
+
+  const key=process.env.PLAYER_RESULTS_PROVIDER_KEY||process.env.STATS_PROVIDER_PRIMARY_KEY;
+  const authHeader=process.env.PLAYER_RESULTS_PROVIDER_AUTH_HEADER||'Authorization';
+  const scheme=process.env.PLAYER_RESULTS_PROVIDER_AUTH_SCHEME||'Bearer';
+  const headers:Record<string,string>={Accept:'application/json'};
+  if(key)headers[authHeader]=scheme?scheme+' '+key:key;
+
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),Number(process.env.PLAYER_RESULTS_PROVIDER_TIMEOUT_MS)||15000);
+  try{
+    const res=await fetch(url,{headers,cache:'no-store',signal:controller.signal});
+    if(!res.ok)return {mode:'unavailable',source:'Player results',results:[],error:'HTTP '+res.status};
+    const normalized=normalizePlayerStatPayload(await res.json(),'Player results');
+    return normalized.length
+      ?{mode:'live',source:'Player results',results:normalized}
+      :{mode:'unavailable',source:'Player results',results:[],error:'No player stat rows returned'};
+  }catch(error){
+    return {mode:'unavailable',source:'Player results',results:[],error:error instanceof Error?error.message:'Player result request failed'};
+  }finally{clearTimeout(timer)}
+}
