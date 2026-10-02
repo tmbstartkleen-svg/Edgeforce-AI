@@ -252,9 +252,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V21</div>
-        <h1>Live Sports Probability Intelligence</h1>
-        <p>Daily legs, weekly schedule, simulation comparison, prediction markets, historical results and anomaly signals in one view.</p>
+        <div className="eyebrow">EDGEFORCE AI • V22</div>
+        <h1>Adaptive Sports Probability Intelligence</h1>
+        <p>Live/stored markets, learned historical model weights, scenario-volatility simulation, portfolio risk, prediction markets, history and anomaly signals in one view.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
