@@ -2,63 +2,64 @@
 
 Cross-market sports probability, simulation, parlay and bankroll intelligence workspace.
 
-## Current build — V28 Provider Resilience + Data Quality Control
+## Current build — V29 Historical Calibration + Model Optimization
 
-V28 hardens every external provider path so a successful HTTP response is no longer enough to contaminate the model. Providers are scored on reliability and payload quality, stale or unusable feeds are rejected, repeated failures open a circuit breaker, and the board clearly identifies fallback/degraded mode.
+V29 closes the learning loop between model forecasts and settled outcomes. Each Model Council vote can be persisted with a model run, matching results feed those forecasts into historical prediction data, and the scheduled recalibration engine performs controlled walk-forward validation before any learned weight is promoted.
 
-### V28 provider hardening
-- payload-quality inspection before provider acceptance
-- capability-specific freshness limits
-- empty/unusable odds, stats and prediction-market payload rejection
-- odds-specific normalization validation before a provider is accepted
-- provider health score combines error rate, latency, freshness and payload quality
-- configurable consecutive-failure circuit breaker
-- configurable provider quarantine/cooldown window
-- expired circuits re-enter through a half-open probe
-- persistent failure reason, quality grade and payload-age audit data
-- provider health API exposes circuit state and quarantine status
-- stale stored odds are rejected after a configurable grace period
-- explicit degraded-mode disclosure when live data cannot be trusted
+### V29 learning pipeline
+- persists individual Model Council vote probabilities with scheduled model runs
+- matching settled results create deduplicated historical prediction records
+- supports both manual/API result ingestion and scheduled results-provider settlement
+- calculates calibration buckets, Brier score, log loss, ROI and closing-line value
+- runs holdout checks and walk-forward backtests by model × sport × market
+- keeps insufficient samples at a neutral 1.00 multiplier
+- blocks promotion when recent holdout or walk-forward quality is poor
+- shrinks learned adjustments toward neutral until sample size grows
+- caps automatic learned-weight adjustment to a configurable range
+- stores versioned recalibration runs, calibration profiles, model rankings and weight snapshots
+- live Model Council prefers only promoted calibrated snapshots
+- falls back to legacy bootstrap learning until the first qualified V29 snapshots exist
 
-### Default resilience controls
-- `PROVIDER_FAILURE_THRESHOLD=3`
-- `PROVIDER_QUARANTINE_MIN=5`
-- `ODDS_STORED_MAX_AGE_MIN=90`
-- odds payload freshness limit: 20 minutes by default
+### Default calibration controls
+- `CALIBRATION_MIN_SAMPLE=50`
+- `CALIBRATION_MIN_HOLDOUT=20`
+- `CALIBRATION_SHRINKAGE_SAMPLES=100`
+- `CALIBRATION_MAX_WEIGHT_ADJUSTMENT=0.25`
+- `CALIBRATION_LOOKBACK_ROWS=20000`
+- `CALIBRATION_WALK_FORWARD_TRAIN=100`
+- `CALIBRATION_WALK_FORWARD_TEST=25`
 
-Each provider can override its own freshness, failure and quarantine settings with:
-- `<PROVIDER>_MAX_AGE_MIN`
-- `<PROVIDER>_FAILURE_THRESHOLD`
-- `<PROVIDER>_QUARANTINE_MIN`
+### Validation behavior
+A model group must have enough total and holdout samples before it can change its weight. It is held at 1.00 when:
+- the total sample is below the configured minimum
+- the holdout sample is too small
+- holdout Brier score exceeds 0.320
+- holdout log loss exceeds 0.850
+- walk-forward Brier score exceeds 0.320
 
-### Data-quality rules
-- Live odds must normalize into at least one valid market.
-- Payload timestamps are inspected at the envelope and row level.
-- Timestamps supplied as Unix seconds or milliseconds are supported.
-- Stale feeds fail over instead of silently entering simulations.
-- When every live provider is rejected, only sufficiently recent stored odds may be used.
-- If stored odds are also stale, the interface identifies demo/degraded mode instead of presenting them as live.
+Qualified weights are shrinkage-adjusted and capped before they enter the Model Council.
+
+### APIs
+- `GET /api/intelligence/calibration` — latest recalibration run, promoted weights and rolling model metrics
+- `GET /api/intelligence/backtest` — filtered historical summary and walk-forward folds
+- `GET /api/intelligence/learned-weights`
+- `POST /api/history/predictions`
+- `GET /api/cron/recalibrate`
+- `POST /api/results/ingest`
 
 ### Existing intelligence retained
-- V27 automated wager settlement and persistent bankroll ledger
+- V28 provider resilience, quality gates and circuit breaker
+- V27 automated settlement and bankroll ledger
 - V26 cross-market sportsbook/prediction-market consensus
-- sport-specific Monte Carlo engines
-- Model Council and learned model weights
+- sport-specific Monte Carlo and Model Council
 - player/lineup context and SGP correlation
-- bankroll controls and performance analytics
-
-### Relevant APIs
-- `GET /api/live-board`
-- `GET /api/providers/health`
-- `GET /api/diagnostics`
-- `GET /api/health`
-- `GET /api/testing/provider-failure` when test endpoints are enabled
-- `GET /api/testing/payload-quality` when test endpoints are enabled
+- bankroll and portfolio risk controls
 
 ### Guardrails
-- HTTP 200 responses can still be rejected when data quality fails.
-- Quarantined providers are not used until their cooldown expires.
-- Empty or stale critical feeds are not treated as trustworthy live data.
-- Fallback data is explicitly labeled.
-- Missing provider data is not fabricated.
-- Simulation probabilities remain estimates, not guarantees.
+- No weight change is allowed from a small sample.
+- Poor out-of-sample performance blocks weight promotion.
+- Learned multipliers are shrunk toward 1.00 and capped.
+- Duplicate settled predictions are ignored by source key.
+- Pushes do not train win/loss calibration.
+- Missing model-run matches are skipped rather than guessed.
+- Historical performance and simulations do not guarantee future outcomes.
