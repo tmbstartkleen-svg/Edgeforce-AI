@@ -7,7 +7,7 @@ export async function GET(){
  return Response.json({
   ok:true,
   app:'Edgeforce AI',
-  version:'25.0.0',
+  version:'27.0.0',
   releaseCandidate:true,
   postReleaseOps:true,
   liveDataIntelligence:true,
@@ -32,6 +32,9 @@ export async function GET(){
   liveProbabilityBoard:true,
   predictionMarketAdapter:true,
   screenshotHistoryAnalytics:true,
+  persistentWagerLedger:true,
+  automaticSettlement:true,
+  bankrollPerformanceAnalytics:true,
   anomalySignals:true,
   confidenceDecay:true,
   overUnderConfidenceDetection:true,
