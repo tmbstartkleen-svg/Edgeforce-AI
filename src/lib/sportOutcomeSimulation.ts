@@ -129,6 +129,7 @@ function simulateSetSport(m:Market,runs:SimulationTier){
  const bestOf=s.includes('VOLLEYBALL')?5:3;
  const target=Math.floor(bestOf/2)+1;
  const setP=clamp(.5+(matchP-.5)*.72);
+ const line=parseLine(m);
  let hits=0,totalSets=0;
  for(let i=0;i<runs;i++){
   let a=0,b=0,sets=0;
@@ -140,7 +141,6 @@ function simulateSetSport(m:Market,runs:SimulationTier){
   const selectionAway=isAwaySelection(m);
   const win=selectionAway?b>a:a>b;
   const kind=marketKind(m);
-  const line=parseLine(m);
   let hit=win;
   if((kind==='OVER'||kind==='UNDER')&&line!==undefined)hit=kind==='OVER'?sets>Math.abs(line):sets<Math.abs(line);
   if(hit)hits++;
