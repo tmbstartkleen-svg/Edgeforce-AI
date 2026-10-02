@@ -134,6 +134,17 @@ type LiveBoardResponse={
   }>;
 };
 
+type LearningDashboard={
+  configured:boolean;
+  latestRun:null|{
+    id:number;modelVersion:string;status:string;sampleSize:number;brierScore:number;logLoss:number;
+    calibrationError:number;roi:number;avgClv:number;periodStart:string;periodEnd:string;createdAt:string;
+  };
+  bands:Array<{bandLabel:string;minProbability:number;maxProbability:number;sampleSize:number;predictedAverage:number;hitRate:number;brierScore:number;roi:number;avgClv:number}>;
+  rankings:Array<{modelName:string;sport:string;marketKey:string;sampleSize:number;decayedScore:number;confidenceLabel:string;brierScore:number;roi:number;avgClv:number;calibrationError:number}>;
+  error?:string;
+};
+
 type DbStats={
   configured:boolean;
   ok:boolean;
@@ -193,6 +204,7 @@ export default function Dashboard(){
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
+  const [learning,setLearning]=useState<LearningDashboard>({configured:false,latestRun:null,bands:[],rankings:[]});
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -239,6 +251,21 @@ export default function Dashboard(){
     };
     void load();
     const timer=window.setInterval(()=>void load(),30000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
+  useEffect(()=>{
+    let mounted=true;
+    const loadLearning=async()=>{
+      try{
+        const res=await fetch('/api/learning',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as LearningDashboard;
+        if(mounted)setLearning(json);
+      }catch{}
+    };
+    void loadLearning();
+    const timer=window.setInterval(()=>void loadLearning(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[]);
 
@@ -314,7 +341,7 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V22</div>
+        <div className="eyebrow">EDGEFORCE AI • V23</div>
         <h1>Live Sports Probability Intelligence</h1>
         <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder.</p>
       </div>
@@ -573,6 +600,30 @@ export default function Dashboard(){
         <b>Prediction-market adapter is ready.</b>
         <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section with a supported provider feed.</p>
       </div>}
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">AUTOMATED MODEL LEARNING</div><h3>How the 65%+ simulation bands perform after settlement</h3></div>
+        <div className="panelMeta"><span>{learning.latestRun?learning.latestRun.sampleSize+' settled samples':'Awaiting settled samples'}</span><span>{learning.latestRun?dateLabel(learning.latestRun.createdAt):'—'}</span></div>
+      </div>
+      {learning.latestRun?<div>
+        <div className="v21Stats">
+          <div><small>BRIER SCORE</small><strong>{learning.latestRun.brierScore.toFixed(3)}</strong><span>lower is better</span></div>
+          <div><small>CALIBRATION ERROR</small><strong>{pct(learning.latestRun.calibrationError)}</strong><span>predicted vs actual</span></div>
+          <div><small>UNIT ROI</small><strong>{learning.latestRun.roi>=0?'+':''}{pct(learning.latestRun.roi)}</strong><span>model-run backtest</span></div>
+          <div><small>AVG CLV</small><strong>{learning.latestRun.avgClv>=0?'+':''}{pct(learning.latestRun.avgClv)}</strong><span>closing-line movement</span></div>
+        </div>
+        <div className="historyGrid">
+          <div className="historyBox"><h4>Probability-band calibration</h4>
+            {learning.bands.map(x=><div className="historyRow" key={x.bandLabel}><span>{x.bandLabel}%</span><b>{x.sampleSize?pct(x.hitRate):'—'}</b><small>{x.sampleSize} samples • predicted {x.sampleSize?pct(x.predictedAverage):'—'} • ROI {x.sampleSize?pct(x.roi):'—'}</small></div>)}
+          </div>
+          <div className="historyBox"><h4>Rolling model confidence</h4>
+            {learning.rankings.slice(0,8).map(x=><div className="historyRow" key={x.modelName+'|'+x.sport+'|'+x.marketKey}><span>{x.sport} • {x.marketKey}</span><b>{x.confidenceLabel}</b><small>{x.sampleSize} samples • score {pct(x.decayedScore)} • cal error {pct(x.calibrationError)}</small></div>)}
+            {!learning.rankings.length&&<p className="muted">Rankings will populate as settled model runs accumulate.</p>}
+          </div>
+        </div>
+      </div>:<div className="connectState"><b>Automatic settlement and calibration are ready.</b><p>After the V23 database migration is applied and completed-event results are available, Edgeforce will grade runs and measure the 65–69%, 70–74%, 75–79%, 80–84%, 85–89% and 90%+ probability bands automatically.</p></div>}
     </section>
 
     <section className="v21Panel">

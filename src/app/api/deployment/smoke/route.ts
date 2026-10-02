@@ -5,23 +5,5 @@ export async function GET(){
  const database=await dbHealth();
  const providers=configuredProviders();
  const env={node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'};
- return Response.json({
-  ok:true,
-  app:'Edgeforce AI',
-  smoke:true,
-  version:'22.0.0',
-  releaseCandidate:true,
-  database,
-  env,
-  checks:{
-   runtime:true,
-   api:true,
-   proxySecurity:true,
-   diagnostics:true,
-   providerLayer:true,
-   migrations:'v22',
-   databaseConfigured:database.configured,
-   configuredProviders:providers.length
-  }
- });
+ return Response.json({ok:true,app:'Edgeforce AI',smoke:true,version:'23.0.0',releaseCandidate:true,database,env,checks:{runtime:true,api:true,proxySecurity:true,diagnostics:true,providerLayer:true,migrations:'v23',databaseConfigured:database.configured,configuredProviders:providers.length}});
 }
