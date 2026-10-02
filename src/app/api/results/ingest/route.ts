@@ -1,4 +1,5 @@
 import {db} from '@/lib/db';
+import {reconcileLedgerResults} from '@/lib/ledger';
 
 export async function POST(req:Request){
   const auth=req.headers.get('authorization');
@@ -6,7 +7,10 @@ export async function POST(req:Request){
   const body=await req.json();
   const results=Array.isArray(body)?body:Array.isArray(body?.results)?body.results:[];
   const sql=db();
-  if(!sql)return Response.json({ok:true,mode:'dry-run',received:results.length});
+  if(!sql){
+    const reconciliation=await reconcileLedgerResults(results);
+    return Response.json({ok:true,mode:'dry-run',received:results.length,reconciliation});
+  }
   let written=0;
   for(const r of results){
     await sql`
@@ -19,5 +23,6 @@ export async function POST(req:Request){
     `;
     written++;
   }
-  return Response.json({ok:true,mode:'database',written});
+  const reconciliation=await reconcileLedgerResults(results);
+  return Response.json({ok:true,mode:'database',written,reconciliation});
 }
