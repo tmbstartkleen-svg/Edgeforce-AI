@@ -82,6 +82,27 @@ type LiveBoardResponse={
   }>;
 };
 
+type PortfolioApiResponse={
+  source:string;
+  result:{
+    totalStake:number;
+    totalStakePct:number;
+    expectedProfit:number;
+    expectedRoi:number;
+    positions:Array<{
+      id:string;
+      stake:number;
+      stakePct:number;
+      marginalEv:number;
+      eventExposurePct:number;
+      sportExposurePct:number;
+      correlationExposurePct:number;
+      leg:Scanned;
+    }>;
+    rejected:Array<{id:string;reason:string}>;
+  };
+};
+
 type DbStats={
   configured:boolean;
   ok:boolean;
@@ -145,6 +166,9 @@ export default function Dashboard(){
   const [maxOdds,setMaxOdds]=useState(1000);
   const [parlaySize,setParlaySize]=useState(2);
   const [lastError,setLastError]=useState('');
+  const [bankroll,setBankroll]=useState(1000);
+  const [drawdownPct,setDrawdownPct]=useState(0);
+  const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
   const busy=useRef(false);
 
   useEffect(()=>{
@@ -186,6 +210,25 @@ export default function Dashboard(){
   useEffect(()=>{
     if(sport!=='ALL'&&!board.sports.includes(sport))setSport('ALL');
   },[board.sports,sport]);
+
+  useEffect(()=>{
+    let cancelled=false;
+    const load=async()=>{
+      if(!board.rows.length){setPortfolio(null);return;}
+      try{
+        const res=await fetch('/api/portfolio/optimize',{
+          method:'POST',
+          headers:{'content-type':'application/json'},
+          body:JSON.stringify({bankroll,drawdownPct,risk,rows:board.rows})
+        });
+        if(!res.ok)return;
+        const json=await res.json() as PortfolioApiResponse;
+        if(!cancelled)setPortfolio(json);
+      }catch{}
+    };
+    void load();
+    return ()=>{cancelled=true};
+  },[board.rows,bankroll,drawdownPct,risk]);
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
 
@@ -402,6 +445,49 @@ export default function Dashboard(){
           {!board.anomalies.length&&<p className="muted">No material anomaly signals in the current board.</p>}
         </div>
       </div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">PORTFOLIO RISK INTELLIGENCE</div><h3>Exposure-aware sizing with correlation and drawdown brakes</h3></div>
+        <span className="miniBadge">{portfolio?.source?sourceLabel(portfolio.source,portfolio.source):'waiting for board'}</span>
+      </div>
+      <div className="v21ControlPanel">
+        <div className="controlGroup">
+          <label>Bankroll</label>
+          <input type="number" min="1" value={bankroll} onChange={e=>setBankroll(Math.max(1,Number(e.target.value)||1))}/>
+        </div>
+        <div className="controlGroup">
+          <label>Current drawdown %</label>
+          <input type="number" min="0" max="100" step="0.5" value={drawdownPct*100} onChange={e=>setDrawdownPct(Math.max(0,Math.min(1,(Number(e.target.value)||0)/100)))}/>
+        </div>
+      </div>
+      <div className="v21Stats">
+        <div><small>ALLOCATED</small><strong>{portfolio?money(portfolio.result.totalStake):'—'}</strong><span>{portfolio?pct(portfolio.result.totalStakePct):'—'} of bankroll</span></div>
+        <div><small>MODEL EXPECTED PROFIT</small><strong>{portfolio?money(portfolio.result.expectedProfit):'—'}</strong><span>estimate, not guaranteed</span></div>
+        <div><small>MODEL EXPECTED ROI</small><strong>{portfolio?pct(portfolio.result.expectedRoi):'—'}</strong><span>based on current board inputs</span></div>
+        <div><small>POSITIONS</small><strong>{portfolio?.result.positions.length||0}</strong><span>{portfolio?.result.rejected.length||0} rejected by risk limits</span></div>
+      </div>
+      <div className="tableWrap">
+        <table className="v21Table">
+          <thead><tr><th>#</th><th>Sport</th><th>Selection</th><th>Stake</th><th>Stake %</th><th>Event Exposure</th><th>Sport Exposure</th><th>Correlation</th><th>Action</th></tr></thead>
+          <tbody>
+            {(portfolio?.result.positions||[]).slice(0,12).map((p,i)=><tr key={p.id}>
+              <td className="rankCell">{i+1}</td>
+              <td><span className="sportPill">{p.leg.sport}</span></td>
+              <td><b>{p.leg.selection}</b><small>{p.leg.market} • sim {fmtPct(p.leg.simProbability)}</small></td>
+              <td>{money(p.stake)}</td>
+              <td>{pct(p.stakePct)}</td>
+              <td>{pct(p.eventExposurePct)}</td>
+              <td>{pct(p.sportExposurePct)}</td>
+              <td>{pct(p.correlationExposurePct)}</td>
+              <td><span className="grade strong">{drawdownPct>=0.12?'REDUCE':p.correlationExposurePct>=0.04?'REDUCE':'HOLD'}</span></td>
+            </tr>)}
+            {!portfolio?.result.positions.length&&<tr><td colSpan={9} className="emptyRow">No qualified positions under the current risk limits.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <div className="historyNote">Risk tags are sizing guidance from the current model and limits. They do not guarantee profit or prevent losses.</div>
     </section>
 
     <section className="v21Panel">
