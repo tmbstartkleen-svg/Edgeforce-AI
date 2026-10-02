@@ -3,13 +3,35 @@ name: Edgeforce Rollback
 on:
   workflow_dispatch:
     inputs:
+      confirm:
+        description: Confirm production rollback
+        required: true
+        default: false
+        type: boolean
       deployment:
-        description: Deployment URL or ID to roll back to
+        description: Deployment URL or ID to roll back to. Leave blank for the previous production deployment.
         required: false
         type: string
 
+concurrency:
+  group: edgeforce-production-rollback
+  cancel-in-progress: false
+
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run release-gate
+      - run: npm run final-qa
+
   rollback:
+    needs: verify
+    if: ${{ inputs.confirm }}
     runs-on: ubuntu-latest
     steps:
       - name: Verify Vercel credentials
@@ -22,9 +44,9 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - run: npm install --global vercel@50.1.3
+      - run: npm install --global vercel@62.1.0
 
-      - name: Roll back
+      - name: Roll back production
         run: |
           if [ -n "$TARGET" ]; then
             vercel rollback "$TARGET" --token="$VERCEL_TOKEN" --yes
