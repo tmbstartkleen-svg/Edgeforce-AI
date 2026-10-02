@@ -46,6 +46,10 @@ const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
 assert(diagnostics.body?.version==='30.0.0','diagnostics version mismatch');
 
+const ops=await get('/api/ops/status');
+assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
+assert(ops.body?.version==='30.0.0','ops status version mismatch');
+
 const ledger=await get('/api/ledger/wagers');
 assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
 assert(ledger.body?.analytics?.overall?.net!==undefined,'ledger analytics missing');
@@ -79,6 +83,6 @@ assert(home.res.headers.get('x-frame-options')==='DENY','frame protection missin
 assert(Boolean(home.res.headers.get('x-edgeforce-request-id')),'request id missing');
 
 console.log(JSON.stringify({ok:true,base,checks:[
- 'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ledger',
+ 'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
  'provider-failure','payload-quality','recalibration','calibration-status','backtest','dashboard-security'
 ]}));
