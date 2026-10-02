@@ -10,18 +10,44 @@ import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 import {fusePredictionMarkets} from '@/lib/crossMarket';
 import {recordPerformance} from '@/lib/ops';
+import type {Market} from '@/lib/types';
+import {detectMaterialContextChanges,contextRevision} from '@/lib/contextChanges';
+import {loadContextMarketStates,recordContextChanges,saveContextMarketStates} from '@/lib/persistence';
 
 export const dynamic='force-dynamic';
 
-let oddsCache:{at:number;value:{ingestion:Awaited<ReturnType<typeof ingestOdds>>;context:Awaited<ReturnType<typeof enrichMarketsWithContext>>}}|null=null;
+let oddsCache:{at:number;value:{
+  ingestion:Awaited<ReturnType<typeof ingestOdds>>;
+  context:Awaited<ReturnType<typeof enrichMarketsWithContext>>;
+  contextChanges:ReturnType<typeof detectMaterialContextChanges>;
+  contextRevision:string;
+}}|null=null;
+let lastContextMarkets:Market[]=[];
 const SOURCE_TTL_MS=10000;
 
-async function cachedOdds(){
+async function cachedOdds(force=false){
   const now=Date.now();
-  if(oddsCache&&now-oddsCache.at<SOURCE_TTL_MS)return oddsCache.value;
+  if(!force&&oddsCache&&now-oddsCache.at<SOURCE_TTL_MS)return oddsCache.value;
+
   const ingestion=await ingestOdds();
   const context=await enrichMarketsWithContext(ingestion.markets);
-  const value={ingestion:{...ingestion,markets:context.markets},context};
+  const previousStored=await loadContextMarketStates().catch(()=>[]);
+  const previous=previousStored.length?previousStored:lastContextMarkets;
+  const contextChanges=detectMaterialContextChanges(previous,context.markets);
+  const revision=contextRevision(context.markets);
+
+  await Promise.all([
+    recordContextChanges(contextChanges).catch(()=>0),
+    saveContextMarketStates(context.markets,revision).catch(()=>0)
+  ]);
+  lastContextMarkets=context.markets;
+
+  const value={
+    ingestion:{...ingestion,markets:context.markets},
+    context,
+    contextChanges,
+    contextRevision:revision
+  };
   oddsCache={at:now,value};
   return value;
 }
@@ -34,9 +60,10 @@ export async function GET(req:Request){
   const requestedRisk=searchParams.get('risk')||'Moderate';
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
   const minPredictionVolume=Math.max(0,Number(process.env.PREDICTION_MIN_VOLUME||1000));
+  const forceRefresh=searchParams.get('force')==='1';
 
   const [cached,predictions,learnedWeights,ledgerHistory]=await Promise.all([
-    cachedOdds(),
+    cachedOdds(forceRefresh),
     fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
     loadLearnedWeightMultipliers(),
     loadLedgerHistory()
@@ -72,6 +99,10 @@ export async function GET(req:Request){
     providerAttempts:ingestion.attempts,
     learnedWeightCount:Object.keys(learnedWeights).length,
     contextDiagnostics:cached.context.diagnostics,
+    contextRevision:cached.contextRevision,
+    contextChanges:cached.contextChanges,
+    resimulationTriggered:cached.contextChanges.length>0,
+    resimulatedMarketIds:[...new Set(cached.contextChanges.map(x=>x.marketId))],
     warnings:ingestion.warnings,
     rows,
     sports,
