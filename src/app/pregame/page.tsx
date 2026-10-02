@@ -80,7 +80,7 @@ export default function PregamePage(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V26</div>
+        <div className="eyebrow">EDGEFORCE AI • V27</div>
         <h1>Pregame Confidence Monitor</h1>
         <p>Compares each saved weekly leg with the latest 10,000-run simulation and marks it KEEP, WATCH, or REPLACE CANDIDATE from objective change rules.</p>
       </div>
