@@ -66,7 +66,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Validate preview environment
-        run: REQUIRE_PRODUCTION_ENV=true node --env-file=.env.preview.local scripts/validate-env.mjs
+        run: REQUIRE_PRODUCTION_ENV=true EXPECTED_MODEL_VERSION=edgeforce-v29 node --env-file=.env.preview.local scripts/validate-env.mjs
 
       - name: Build exact preview artifact
         run: vercel build --token="$VERCEL_TOKEN"
