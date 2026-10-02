@@ -1,5 +1,18 @@
 export type RiskProfile='Conservative'|'Moderate'|'Aggressive';
 
+export type PlayerContext={
+ name:string;
+ team?:string;
+ status?:string;
+ starter?:boolean;
+ availability?:number;
+ projection?:number;
+ stdDev?:number;
+ minutes?:number;
+ usage?:number;
+ statKey?:string;
+};
+
 export type Market={
  id:string;
  sport:string;
@@ -18,6 +31,7 @@ export type Market={
  period:'AM'|'PM';
  sportFeatures?:Record<string,number>;
  contextSources?:string[];
+ playerContext?:PlayerContext;
 };
 
 export type Ranked=Market & {
