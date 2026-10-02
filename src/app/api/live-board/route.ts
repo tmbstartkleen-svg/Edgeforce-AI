@@ -61,6 +61,9 @@ export async function GET(req:Request){
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
   const minPredictionVolume=Math.max(0,Number(process.env.PREDICTION_MIN_VOLUME||1000));
   const forceRefresh=searchParams.get('force')==='1';
+  if(forceRefresh&&process.env.INGEST_SECRET&&req.headers.get('authorization')!==`Bearer ${process.env.INGEST_SECRET}`){
+    return Response.json({ok:false,error:'unauthorized forced refresh'},{status:401});
+  }
 
   const [cached,predictions,learnedWeights,ledgerHistory]=await Promise.all([
     cachedOdds(forceRefresh),
@@ -71,6 +74,16 @@ export async function GET(req:Request){
 
   const ingestion=cached.ingestion;
   const scanned=scanMarkets(ingestion.markets,risk,new Date(),learnedWeights);
+  const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
+  const resimulationResults=scanned.filter(x=>triggeredIds.has(x.id)).map(x=>({
+    marketId:x.id,
+    selection:x.selection,
+    simProbability:x.simProbability,
+    modelProbability:x.modelProb,
+    expectedValue:x.expectedValue,
+    grade:x.grade,
+    simEngine:x.simEngine
+  }));
   const ranked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume);
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
@@ -102,7 +115,8 @@ export async function GET(req:Request){
     contextRevision:cached.contextRevision,
     contextChanges:cached.contextChanges,
     resimulationTriggered:cached.contextChanges.length>0,
-    resimulatedMarketIds:[...new Set(cached.contextChanges.map(x=>x.marketId))],
+    resimulatedMarketIds:[...triggeredIds],
+    resimulationResults,
     warnings:ingestion.warnings,
     rows,
     sports,
