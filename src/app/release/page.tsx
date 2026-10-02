@@ -14,7 +14,7 @@ type Readiness={
 };
 
 const empty:Readiness={
-  version:'29.0.0',environment:'loading',gitSha:null,readyForPreview:false,readyForProduction:false,blockers:[],warnings:[],checks:{}
+  version:'30.0.0',environment:'loading',gitSha:null,readyForPreview:false,readyForProduction:false,blockers:[],warnings:[],checks:{}
 };
 
 function label(k:string){
@@ -45,7 +45,7 @@ export default function ReleasePage(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V29</div>
+        <div className="eyebrow">EDGEFORCE AI • V30</div>
         <h1>Release Readiness</h1>
         <p>Checks the database migration level, environment configuration, provider readiness and production feed gate before a Vercel preview or production promotion is allowed.</p>
       </div>
