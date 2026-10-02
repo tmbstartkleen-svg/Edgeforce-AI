@@ -5,18 +5,26 @@ export type HistoricalLeg={
   sport:string;
   marketType:string;
   result:LegResult;
+  offeredOdds?:number;
+  closingOdds?:number;
+  eventId?:string;
+  event?:string;
+  modelProbability?:number;
 };
 
 export type HistoricalBet={
   id:string;
   placedAt:string;
-  source:'uploaded-screenshot'|'manual'|'api';
+  source:'uploaded-screenshot'|'manual'|'api'|'baseline';
   confidence:'confirmed'|'partial';
   sport:string;
   legCount:number;
   stake:number;
   paid:number;
-  result:'win'|'loss';
+  result:'win'|'loss'|'push'|'open';
+  combinedOdds?:number;
+  modelProbability?:number;
+  settledAt?:string;
   legs:HistoricalLeg[];
   notes?:string;
 };
@@ -24,6 +32,20 @@ export type HistoricalBet={
 // Parsed only from clearly visible information in the uploaded DraftKings screenshots.
 // Losing slips with hidden legs are deliberately marked "unknown" rather than guessed.
 export const uploadedBetHistory:HistoricalBet[]=[
+  {
+    id:'baseline-2026-09-29',
+    placedAt:'2026-09-29T12:00:00-04:00',
+    source:'baseline',
+    confidence:'confirmed',
+    sport:'All',
+    legCount:0,
+    stake:25,
+    paid:32,
+    result:'win',
+    settledAt:'2026-09-29T23:59:59-04:00',
+    legs:[],
+    notes:'Correct starting baseline supplied by user: $25 staked, $32 returned, +$7 net profit, +28% ROI.'
+  },
   {
     id:'2026-09-30-tennis-djokovic-gea',
     placedAt:'2026-09-30T03:24:41-04:00',
