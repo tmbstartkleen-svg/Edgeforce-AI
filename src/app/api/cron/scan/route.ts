@@ -18,8 +18,8 @@ export async function GET(req:Request){
  const projected=await hydratePlayerProjections(linked);
  const scanned=weekTop30(projected);
  const rows=applyQualityGate(scanned);
- const pregame=await detectPregameChanges(rows).catch(()=>({configured:false,changes:[],detected:0,resimulated:0}));
- const weeklySync=await syncWeeklyDraftFromResimulation(rows,pregame.changes).catch(()=>({configured:false,updated:0,review:0}));
+ const pregame=await detectPregameChanges(scanned).catch(()=>({configured:false,changes:[],detected:0,resimulated:0}));
+ const weeklySync=await syncWeeklyDraftFromResimulation(scanned,pregame.changes).catch(()=>({configured:false,updated:0,review:0}));
  const recorded=await recordModelRuns(rows).catch(()=>0);
  return Response.json({ok:true,ranAt:new Date().toISOString(),source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId,attempts:ingestion.attempts,qualified:rows.length,recorded,contextStatus:contextual.status,pregame,weeklySync,top:rows.slice(0,10)});
 }
