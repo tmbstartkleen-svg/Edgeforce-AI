@@ -25,6 +25,10 @@ assert(smoke.res.ok&&smoke.body?.smoke===true,'deployment smoke failed');
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
 
+const ledger=await get('/api/ledger/wagers');
+assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
+assert(ledger.body?.analytics?.overall?.net!==undefined,'ledger analytics missing');
+
 const failure=await get('/api/testing/provider-failure');
 assert(failure.res.ok,'provider failure simulation unavailable');
 assert(failure.body?.selected==='secondary','provider health selection did not prefer healthy secondary');
@@ -35,4 +39,4 @@ assert(home.res.headers.get('x-content-type-options')==='nosniff','security head
 assert(home.res.headers.get('x-frame-options')==='DENY','frame protection missing');
 assert(Boolean(home.res.headers.get('x-edgeforce-request-id')),'request id missing');
 
-console.log(JSON.stringify({ok:true,base,checks:['health','smoke','diagnostics','provider-failure','dashboard-security']}));
+console.log(JSON.stringify({ok:true,base,checks:['health','smoke','diagnostics','ledger','provider-failure','dashboard-security']}));
