@@ -76,6 +76,16 @@ jobs:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
           EXPECTED_APP_VERSION: "30.0.0"
 
+      - name: Record release attestation
+        run: |
+          curl -fsS -X POST "${PREVIEW_URL}/api/release/attest" \
+            -H "Authorization: Bearer ${INGEST_SECRET}" \
+            -H "Content-Type: application/json" \
+            --data '{"source":"release-candidate","buildPassed":true,"smokePassed":true,"loadPassed":true}'
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+
       - name: Promote exact tested preview
         if: ${{ inputs.promote }}
         run: vercel promote "${{ steps.deploy.outputs.preview_url }}" --token="$VERCEL_TOKEN" --yes
