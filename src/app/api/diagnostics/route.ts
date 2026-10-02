@@ -2,11 +2,15 @@ import {dbHealth} from '@/lib/db';
 import {configuredProviders} from '@/lib/providers/config';
 import {loadProviderHealthStates} from '@/lib/providers/healthStore';
 import {providerHealth} from '@/lib/providerRegistry';
+import {evaluateReadiness} from '@/lib/readiness';
+import {RELEASE} from '@/lib/releaseManifest';
 
 export const dynamic='force-dynamic';
 
 export async function GET(){
- const [database,states]=await Promise.all([dbHealth(),loadProviderHealthStates()]);
+ const [database,states,readiness]=await Promise.all([
+  dbHealth(),loadProviderHealthStates(),evaluateReadiness()
+ ]);
  const providers=configuredProviders().map(p=>{
   const state=states.get(p.id);
   return {
@@ -19,19 +23,25 @@ export async function GET(){
    quarantinedUntil:state?.quarantinedUntil||null
   };
  });
+ const memory=process.memoryUsage();
  return Response.json({
   ok:true,
-  version:'29.0.0',
+  build:RELEASE.build,
+  version:RELEASE.appVersion,
+  modelVersion:RELEASE.modelVersion,
+  migrationVersion:RELEASE.migrationVersion,
   providerHardening:true,
   circuitBreaker:true,
   payloadFreshnessGate:true,
   walkForwardCalibration:true,
   controlledWeightPromotion:true,
+  readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict,requiredFailures:readiness.requiredFailures,warnings:readiness.warnings},
   uptimeSeconds:Math.round(process.uptime()),
-  memory:process.memoryUsage(),
+  memory:{rss:memory.rss,heapTotal:memory.heapTotal,heapUsed:memory.heapUsed,external:memory.external},
   database,
   providers,
   runtime:{node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'},
+  deployment:{url:process.env.VERCEL_URL||null,commit:process.env.VERCEL_GIT_COMMIT_SHA||null},
   time:new Date().toISOString()
  },{headers:{'Cache-Control':'no-store'}});
 }
