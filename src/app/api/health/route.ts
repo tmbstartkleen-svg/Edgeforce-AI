@@ -5,8 +5,8 @@ export async function GET(){
  const database=await dbHealth();
  const providers=configuredProviders();
  return Response.json({
-  ok:true,app:'Edgeforce AI',version:'29.0.0',releaseCandidate:true,
-  v22AutoSimulation:true,v23AutomatedSettlement:true,v24PlayerPropSettlement:true,v25PregameResimulation:true,v26ConfidenceChangeEngine:true,v27ReplacementComparison:true,v28ProductionFeedIntegrity:true,v29ReleaseReadiness:true,manualDeploymentGate:true,failClosedOfficialBoard:true,providerHealthDashboard:true,meaningfulChangeDetection:true,weeklyLegDecisionStatuses:true,trueEventMonteCarlo:true,
+  ok:true,app:'Edgeforce AI',version:'30.0.0',releaseCandidate:true,
+  v22AutoSimulation:true,v23AutomatedSettlement:true,v24PlayerPropSettlement:true,v25PregameResimulation:true,v26ConfidenceChangeEngine:true,v27ReplacementComparison:true,v28ProductionFeedIntegrity:true,v29ReleaseReadiness:true,v30FinalRelease:true,finalQaGate:true,manualDeploymentGate:true,failClosedOfficialBoard:true,providerHealthDashboard:true,meaningfulChangeDetection:true,weeklyLegDecisionStatuses:true,trueEventMonteCarlo:true,
   probabilityBandCalibration:true,automaticModelLearning:true,propSpecificCalibration:true,
   sharpApiPrimary:true,theOddsApiFallback:true,noVigNormalization:true,weeklyParlayBuilder:true,cashLedger:true,postReleaseOps:true,
   liveDataIntelligence:true,providerReconciliation:true,clvAnalytics:true,calibrationMap:true,rollingModelRankings:true,liveProbabilityBoard:true,
