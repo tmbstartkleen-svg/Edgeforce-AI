@@ -1,11 +1,12 @@
 import type {Market,Ranked,RiskProfile} from './types';
 import {ev,fairAmerican,kelly} from './math';
 import {modelCouncil} from './modelCouncil';
+import type {LearnedWeightMap} from './learnedWeights';
 
-export function rankMarkets(rows:Market[],profile:RiskProfile='Moderate'):Ranked[]{
+export function rankMarkets(rows:Market[],profile:RiskProfile='Moderate',learnedWeights?:LearnedWeightMap):Ranked[]{
  const frac=profile==='Conservative'?.2:profile==='Moderate'?.35:.5;
  return rows.map(m=>{
-  const c=modelCouncil(m);
+  const c=modelCouncil(m,learnedWeights);
   const p=c.ensemble;
   const edge=p-m.marketProb;
   const expectedValue=ev(p,m.odds);
@@ -31,6 +32,6 @@ export function rankMarkets(rows:Market[],profile:RiskProfile='Moderate'):Ranked
  }).sort((a,b)=>b.expectedValue-a.expectedValue||b.edge-a.edge)
 }
 
-export function top30(rows:Market[],profile:RiskProfile='Moderate'){
- return rankMarkets(rows,profile).filter(x=>x.grade!=='PASS').slice(0,30);
+export function top30(rows:Market[],profile:RiskProfile='Moderate',learnedWeights?:LearnedWeightMap){
+ return rankMarkets(rows,profile,learnedWeights).filter(x=>x.grade!=='PASS').slice(0,30);
 }
