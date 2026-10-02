@@ -8,7 +8,7 @@ export async function ingestOdds(){
  if(live.mode==='live'&&live.markets.length){
   const assessed=assessFeedIntegrity(live.markets,'live',live.mode,live.validation);
   if(assessed.markets.length){
-   await saveMarketSnapshots(assessed.markets,live.providerId||'authorized-provider','DraftKings').catch(()=>undefined);
+   await saveMarketSnapshots(assessed.markets,live.providerId||'authorized-provider','DraftKings',assessed.integrity.status).catch(()=>undefined);
   }
   if(assessed.integrity.officialEligible){
    return {...live,source:'live' as const,markets:assessed.markets,integrity:assessed.integrity};
