@@ -6,6 +6,7 @@ import {uploadedBetHistory} from '@/lib/betHistory';
 import {analyzeHistory} from '@/lib/historyAnalytics';
 import {detectAnomalies} from '@/lib/anomaly';
 import type {RiskProfile} from '@/lib/types';
+import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 
 export const dynamic='force-dynamic';
 
@@ -27,12 +28,13 @@ export async function GET(req:Request){
   const requestedRisk=searchParams.get('risk')||'Moderate';
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
 
-  const [ingestion,predictions]=await Promise.all([
+  const [ingestion,predictions,learnedWeights]=await Promise.all([
     cachedOdds(),
-    fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'}))
+    fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
+    loadLearnedWeightMultipliers()
   ]);
 
-  const scanned=scanMarkets(ingestion.markets,risk);
+  const scanned=scanMarkets(ingestion.markets,risk,new Date(),learnedWeights);
   const rows=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
 
@@ -47,6 +49,7 @@ export async function GET(req:Request){
     providerId:ingestion.providerId,
     providerName:ingestion.providerName,
     providerMode:ingestion.mode,
+    learnedWeightCount:Object.keys(learnedWeights).length,
     warnings:ingestion.warnings,
     rows,
     sports,
