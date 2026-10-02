@@ -1,4 +1,5 @@
 import type {Scanned} from './scanner';
+import {correlationExposure} from './sameGameCorrelation';
 
 export type PortfolioLimits={
  bankroll:number;
@@ -34,14 +35,7 @@ export type PortfolioResult={
 const sameEvent=(a:Scanned,b:Scanned)=>a.event===b.event;
 const sameSport=(a:Scanned,b:Scanned)=>a.sport===b.sport;
 
-function correlation(a:Scanned,b:Scanned){
- let c=0;
- if(sameEvent(a,b))c+=.16;
- if(sameSport(a,b))c+=.025;
- if(a.market==='Player Prop'&&b.market==='Player Prop'&&sameEvent(a,b))c+=.05;
- if(a.selection.includes(a.home)&&b.selection.includes(b.home)&&sameEvent(a,b))c+=.03;
- return Math.min(.30,c);
-}
+function correlation(a:Scanned,b:Scanned){return correlationExposure(a,b)}
 
 export function defaultLimits(bankroll=1000):PortfolioLimits{
  return {bankroll,dailyRiskPct:.08,weeklyRiskPct:.18,maxEventPct:.035,maxSportPct:.06,maxPositionPct:.025,maxCorrelatedPct:.045,drawdownBrakePct:.12};
