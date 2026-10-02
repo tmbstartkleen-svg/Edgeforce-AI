@@ -19,6 +19,7 @@ const requiredFiles=[
   '.github/workflows/release-candidate.yml',
   '.github/workflows/deploy-preview.yml',
   '.github/workflows/rollback.yml',
+  '.github/workflows/migrate-v22-preview.yml',
   'db/v30.sql'
 ];
 
@@ -31,6 +32,8 @@ const migrationCheck=await read('scripts/check-migrations.mjs');
 const verify=await read('.github/workflows/verify.yml');
 const releaseWorkflow=await read('.github/workflows/release-candidate.yml');
 const previewWorkflow=await read('.github/workflows/deploy-preview.yml');
+const rollbackWorkflow=await read('.github/workflows/rollback.yml');
+const migrationWorkflow=await read('.github/workflows/migrate-v22-preview.yml');
 
 const expectedVersion='0.30.0';
 const apiVersion='30.0.0';
@@ -50,7 +53,44 @@ const checks={
   previewWorkflowManualOnly:previewWorkflow.includes('workflow_dispatch:')&&!previewWorkflow.includes('\n  push:')&&!previewWorkflow.includes('\n  pull_request:'),
   prebuiltReleaseDeployment:releaseWorkflow.includes('vercel deploy --prebuilt'),
   failClosedBoard:health.includes('failClosedOfficialBoard:true'),
-  rollbackWorkflowPresent:requiredFileChecks['.github/workflows/rollback.yml']===true
+  rollbackWorkflowPresent:requiredFileChecks['.github/workflows/rollback.yml']===true,
+  rollbackWorkflowManualOnly:rollbackWorkflow.includes('workflow_dispatch:')&&!rollbackWorkflow.includes('\n  push:')&&!rollbackWorkflow.includes('\n  pull_request:'),
+  rollbackRequiresConfirmation:rollbackWorkflow.includes('confirm:')&&rollbackWorkflow.includes('if: 
+};
+
+const failures=Object.entries(checks).filter(([,ok])=>!ok).map(([name])=>name);
+const report={
+  ok:failures.length===0,
+  expectedVersion,
+  apiVersion,
+  expectedMigration,
+  checks,
+  missingFiles:Object.entries(requiredFileChecks).filter(([,ok])=>!ok).map(([p])=>p),
+  failures
+};
+
+console.log(JSON.stringify(report));
+if(!report.ok)process.exit(1);
++'{{ inputs.confirm }}'),
+  rollbackCommandPresent:rollbackWorkflow.includes('vercel rollback'),
+  migrationWorkflowManualOnly:migrationWorkflow.includes('workflow_dispatch:')&&!migrationWorkflow.includes('\n  push:')&&!migrationWorkflow.includes('\n  pull_request:'),
+  migrationRequiresConfirmation:migrationWorkflow.includes('apply:')&&migrationWorkflow.includes('if: 
+};
+
+const failures=Object.entries(checks).filter(([,ok])=>!ok).map(([name])=>name);
+const report={
+  ok:failures.length===0,
+  expectedVersion,
+  apiVersion,
+  expectedMigration,
+  checks,
+  missingFiles:Object.entries(requiredFileChecks).filter(([,ok])=>!ok).map(([p])=>p),
+  failures
+};
+
+console.log(JSON.stringify(report));
+if(!report.ok)process.exit(1);
++'{{ inputs.apply }}')
 };
 
 const failures=Object.entries(checks).filter(([,ok])=>!ok).map(([name])=>name);
