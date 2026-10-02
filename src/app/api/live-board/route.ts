@@ -36,17 +36,19 @@ async function cachedCore(risk:RiskProfile){
 export async function GET(req:Request){
   const {searchParams}=new URL(req.url);
   const view=searchParams.get('view')==='week'?'week':'today';
-  const limit=searchParams.get('limit')==='50'?50:30;
+  const limit=30;
   const requestedRisk=searchParams.get('risk')||'Moderate';
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
-  const minJoint=Math.max(.01,Math.min(.99,Number(searchParams.get('minJoint')||.52)));
+  const minJoint=Math.max(.52,Math.min(.99,Number(searchParams.get('minJoint')||.52)));
+  const minLeg=.65;
   const core=await cachedCore(risk);
   const {ingestion,predictions,scanned}=core;
   const rows=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
-  const candidates=view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned;
-  const topTwoLeg=buildTopParlays(candidates,2,{minJointProbability:minJoint,maxResults:10,maxLegUses:2});
-  const topThreeLeg=buildTopParlays(candidates,3,{minJointProbability:minJoint,maxResults:10,maxLegUses:2});
-  const valueTwoLeg=buildTopParlays(candidates,2,{minJointProbability:minJoint,maxResults:10,maxLegUses:2,sortBy:'edge'});
+  const candidates=(view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned).filter(x=>x.simProbability>=minLeg);
+  const weeklySpread=view==='week';
+  const topTwoLeg=buildTopParlays(candidates,2,{minJointProbability:minJoint,minLegProbability:minLeg,maxResults:30,maxLegUses:2,requireDifferentDays:weeklySpread});
+  const topThreeLeg=buildTopParlays(candidates,3,{minJointProbability:minJoint,minLegProbability:minLeg,maxResults:30,maxLegUses:2,requireDifferentDays:weeklySpread});
+  const valueTwoLeg=buildTopParlays(candidates,2,{minJointProbability:minJoint,minLegProbability:minLeg,maxResults:30,maxLegUses:2,sortBy:'edge',requireDifferentDays:weeklySpread});
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
   const noVigComplete=scanned.filter(x=>x.vigStatus==='complete').length;
   const predictionMatched=scanned.filter(x=>typeof x.predictionProb==='number').length;
@@ -54,7 +56,7 @@ export async function GET(req:Request){
   const fallbackSims=scanned.filter(x=>x.simulationMode==='probability-fallback').length;
 
   return Response.json({
-    generatedAt:new Date().toISOString(),uiRefreshMs:5000,sourceRefreshMs:SOURCE_TTL_MS,view,limit,risk,minJoint,
+    generatedAt:new Date().toISOString(),uiRefreshMs:5000,sourceRefreshMs:SOURCE_TTL_MS,view,limit,risk,minJoint,minLeg,
     source:ingestion.source,providerId:ingestion.providerId,providerName:ingestion.providerName,providerMode:ingestion.mode,
     validation:ingestion.validation,warnings:ingestion.warnings,rows,sports,predictions,
     parlays:{topTwoLeg,topThreeLeg,valueTwoLeg},

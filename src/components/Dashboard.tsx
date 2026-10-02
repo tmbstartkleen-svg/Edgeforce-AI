@@ -44,6 +44,7 @@ type ParlayRow={
   independentProbability:number;
   correlationPenalty:number;
   estimatedAmericanOdds:number;
+  simFairAmericanOdds:number;
   priceVerified:boolean;
   sportsbookImpliedProbability:number;
   edge:number;
@@ -81,6 +82,7 @@ type LiveBoardResponse={
   providerName?:string;
   warnings?:string[];
   minJoint:number;
+  minLeg:number;
   rows:BoardRow[];
   sports:string[];
   parlays:{
@@ -149,6 +151,7 @@ const emptyBoard:LiveBoardResponse={
   source:'loading',
   providerMode:'loading',
   minJoint:.52,
+  minLeg:.65,
   rows:[],
   sports:[],
   parlays:{topTwoLeg:[],topThreeLeg:[],valueTwoLeg:[]},
@@ -181,14 +184,14 @@ function dateLabel(value:string){
 
 export default function Dashboard(){
   const [view,setView]=useState<'today'|'week'>('today');
-  const [limit,setLimit]=useState<30|50>(30);
+  const limit:30=30;
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
-  const [minSim,setMinSim]=useState(0);
+  const [minSim,setMinSim]=useState(65);
   const [minJoint,setMinJoint]=useState(52);
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
@@ -204,7 +207,7 @@ export default function Dashboard(){
       if(busy.current)return;
       busy.current=true;
       try{
-        const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk+'&minJoint='+(minJoint/100),{cache:'no-store'});
+        const res=await fetch('/api/live-board?view='+view+'&risk='+risk+'&minJoint='+(minJoint/100),{cache:'no-store'});
         if(!res.ok)throw new Error('Board request failed');
         const json=await res.json() as LiveBoardResponse;
         if(mounted){setBoard(json);setLastError('')}
@@ -217,7 +220,7 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),5000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[view,limit,risk,minJoint]);
+  },[view,risk,minJoint]);
 
   useEffect(()=>{
     let mounted=true;
@@ -331,9 +334,9 @@ export default function Dashboard(){
 
     <section className="v21Hero">
       <div>
-        <div className="badge">TOP 30 / 50 • 10K SIMS • TOP 10 TWO-LEG • WEEKLY BUILDER • LIVE DATA</div>
-        <h2>One board for <em>probability, simulation and history.</em></h2>
-        <p>The board refreshes automatically, de-vigs complete markets, cross-checks prediction markets when liquid, and rebuilds qualifying parlays without forcing a pick.</p>
+        <div className="badge">TOP 30 PICKS • 30 TWO-LEG PARLAYS • 65%+ LEGS • 52%+ JOINT • 10K MONTE CARLO</div>
+        <h2>Daily and weekly <em>65%+ simulation legs with 52%+ combined tickets.</em></h2>
+        <p>Each board shows up to 30 qualified legs. Daily two-leg parlays return up to 30 tickets, while the weekly view spreads legs across different calendar days. Nothing below the 65% leg floor or 52% joint floor is forced into the list.</p>
       </div>
       <div className="v21HeroCard">
         <small>CURRENT BOARD</small>
@@ -354,13 +357,6 @@ export default function Dashboard(){
         <div className="segmented">
           <button className={view==='today'?'active':''} onClick={()=>setView('today')}>Today</button>
           <button className={view==='week'?'active':''} onClick={()=>setView('week')}>7-Day</button>
-        </div>
-      </div>
-      <div className="controlGroup">
-        <label>Rows</label>
-        <div className="segmented">
-          <button className={limit===30?'active':''} onClick={()=>setLimit(30)}>30</button>
-          <button className={limit===50?'active':''} onClick={()=>setLimit(50)}>50</button>
         </div>
       </div>
       <div className="controlGroup">
@@ -394,12 +390,12 @@ export default function Dashboard(){
         </select>
       </div>
       <div className="controlGroup">
-        <label>Minimum sim %</label>
-        <input type="number" min="0" max="99" value={minSim} onChange={e=>setMinSim(Math.max(0,Math.min(99,Number(e.target.value)||0)))}/>
+        <label>Minimum leg sim %</label>
+        <input type="number" min="65" max="99" value={minSim} onChange={e=>setMinSim(Math.max(65,Math.min(99,Number(e.target.value)||65)))}/>
       </div>
       <div className="controlGroup">
         <label>Minimum joint %</label>
-        <input type="number" min="1" max="99" value={minJoint} onChange={e=>setMinJoint(Math.max(1,Math.min(99,Number(e.target.value)||52)))}/>
+        <input type="number" min="52" max="99" value={minJoint} onChange={e=>setMinJoint(Math.max(52,Math.min(99,Number(e.target.value)||52)))}/>
       </div>
       <div className="controlGroup double">
         <label>American odds range</label>
@@ -462,24 +458,24 @@ export default function Dashboard(){
 
     <section className="v21Panel">
       <div className="v21PanelHead">
-        <div><div className="eyebrow">TODAY'S PARLAY ENGINE</div><h3>Top two-leg and three-leg tickets above the joint-probability floor</h3></div>
-        <div className="panelMeta"><span>Min joint {minJoint}%</span><span>Max leg reuse 2×</span></div>
+        <div><div className="eyebrow">{view==='today'?'DAILY PARLAY ENGINE':'WEEKLY STRETCHED PARLAYS'}</div><h3>{view==='today'?'Up to 30 two-leg tickets from 65%+ Monte Carlo legs':'Up to 30 two-leg tickets using legs on different days'}</h3></div>
+        <div className="panelMeta"><span>Legs 65%+</span><span>Joint {minJoint}%+</span><span>Max leg reuse 2×</span></div>
       </div>
       <div className="parlayCards">
         {board.parlays.topTwoLeg.map((p,i)=><div className="parlayCard" key={p.id}>
           <div className="parlayCardTop"><span>#{i+1} • 2-LEG</span><strong>{pct(p.combinedProbability)}</strong></div>
           <div className="parlayLegs">{p.legs.map((x,n)=><div key={x.id}><b>{n+1}. {x.selection}</b><small>{x.sport} • {x.market} • {fmtOdds(x.odds)} • sim {fmtPct(x.simProbability)}</small></div>)}</div>
-          <div className="parlayMeta"><span>Est. {fmtOdds(p.estimatedAmericanOdds)}</span><span>Edge {p.edge>=0?'+':''}{pct(p.edge)}</span><span>¼ Kelly {pct(p.quarterKelly)}</span><span>Corr -{pct(p.correlationPenalty)}</span></div>
+          <div className="parlayMeta"><span>Sim fair {fmtOdds(p.simFairAmericanOdds)}</span><span>Calc. book {fmtOdds(p.estimatedAmericanOdds)}</span><span>Edge {p.edge>=0?'+':''}{pct(p.edge)}</span><span>¼ Kelly {pct(p.quarterKelly)}</span><span>Corr -{pct(p.correlationPenalty)}</span></div>
         </div>)}
-        {!board.parlays.topTwoLeg.length&&<div className="connectState"><b>No qualifying two-leg parlays.</b><p>The engine will not force a ticket below the selected joint-probability threshold.</p></div>}
+        {!board.parlays.topTwoLeg.length&&<div className="connectState"><b>No qualifying two-leg parlays.</b><p>No ticket is forced below 65% per leg and the selected 52%+ joint-probability floor.</p></div>}
       </div>
       <div className="v22ParlaySplit">
         <div>
-          <div className="subHead">VALUE TWO-LEG</div>
+          <div className="subHead">VALUE TWO-LEG • 65%+ EACH</div>
           {board.parlays.valueTwoLeg.slice(0,5).map(p=><div className="miniParlay" key={'v-'+p.id}><b>{p.legs.map(x=>x.selection).join(' + ')}</b><span>{pct(p.combinedProbability)} joint • {p.edge>=0?'+':''}{pct(p.edge)} edge</span></div>)}
         </div>
         <div>
-          <div className="subHead">QUALIFYING THREE-LEG</div>
+          <div className="subHead">QUALIFYING THREE-LEG • 52%+ JOINT</div>
           {board.parlays.topThreeLeg.slice(0,5).map(p=><div className="miniParlay" key={'t-'+p.id}><b>{p.legs.map(x=>x.selection).join(' + ')}</b><span>{pct(p.combinedProbability)} joint • ¼ Kelly {pct(p.quarterKelly)}</span></div>)}
         </div>
       </div>

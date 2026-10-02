@@ -8,6 +8,7 @@ export type Parlay={
  independentProbability:number;
  correlationPenalty:number;
  estimatedAmericanOdds:number;
+ simFairAmericanOdds:number;
  priceVerified:boolean;
  sportsbookImpliedProbability:number;
  edge:number;
@@ -40,6 +41,7 @@ function summarize(picks:Scanned[],label:string):Parlay{
  const sportsbookImpliedProbability=1/decimal;
  const edge=adjusted-sportsbookImpliedProbability;
  const american=fairAmerican(sportsbookImpliedProbability);
+ const simFairAmericanOdds=fairAmerican(adjusted);
  const fullKelly=kelly(adjusted,american);
  const quarterKelly=Math.max(0,Math.min(.05,fullKelly*.25));
  const agreement=picks.reduce((s,x)=>s+x.agreement,0)/Math.max(1,picks.length);
@@ -47,18 +49,27 @@ function summarize(picks:Scanned[],label:string):Parlay{
  const score=adjusted*.58+Math.max(-.15,Math.min(.15,edge))*.25+agreement*.10+freshness*.07;
  return {
   id:picks.map(x=>x.id).join('-'),legs:[...picks],combinedProbability:adjusted,independentProbability:independent,
-  correlationPenalty:cappedPenalty,estimatedAmericanOdds:american,priceVerified:false,sportsbookImpliedProbability,edge,quarterKelly,score,label
+  correlationPenalty:cappedPenalty,estimatedAmericanOdds:american,simFairAmericanOdds,priceVerified:false,sportsbookImpliedProbability,edge,quarterKelly,score,label
  };
 }
 
-export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbability?:number;maxResults?:number;maxLegUses?:number;sortBy?:'probability'|'edge'}={}):Parlay[]{
- const minJoint=options.minJointProbability??.52;
- const maxResults=options.maxResults??10;
+export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbability?:number;minLegProbability?:number;maxResults?:number;maxLegUses?:number;sortBy?:'probability'|'edge';requireDifferentDays?:boolean}={}):Parlay[]{
+ const minJoint=Math.max(.52,options.minJointProbability??.52);
+ const minLeg=Math.max(.65,options.minLegProbability??.65);
+ const maxResults=options.maxResults??30;
  const maxLegUses=options.maxLegUses??2;
- const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simProbability>.5).sort((a,b)=>b.simProbability-a.simProbability||b.edge-a.edge).slice(0,size===2?36:28);
+ const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simProbability>=minLeg).sort((a,b)=>b.simProbability-a.simProbability||b.edge-a.edge).slice(0,size===2?80:50);
  const all:Parlay[]=[];
  const visit=(start:number,picks:Scanned[])=>{
-  if(picks.length===size){const p=summarize(picks,size===2?'2-LEG':'3-LEG');if(p.combinedProbability>=minJoint)all.push(p);return}
+  if(picks.length===size){
+   if(options.requireDifferentDays){
+    const days=new Set(picks.map(x=>new Date(x.startTime).toISOString().slice(0,10)));
+    if(days.size<picks.length)return;
+   }
+   const p=summarize(picks,size===2?'2-LEG':'3-LEG');
+   if(p.combinedProbability>=minJoint)all.push(p);
+   return;
+  }
   for(let i=start;i<pool.length;i++)visit(i+1,[...picks,pool[i]]);
  };
  visit(0,[]);
@@ -74,12 +85,12 @@ export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbabi
 }
 
 export function buildParlays(rows:Scanned[],size:2|3):Parlay[]{
- return buildTopParlays(rows,size,{minJointProbability:0,maxResults:10,maxLegUses:3});
+ return buildTopParlays(rows,size,{minJointProbability:.52,minLegProbability:.65,maxResults:30,maxLegUses:3});
 }
 
 export function buildProbabilitySet(rows:Scanned[],size:number):Parlay|null{
  const target=Math.max(2,Math.min(20,Math.round(size)));
- const pool=[...rows].filter(x=>x.grade!=='PASS').sort((a,b)=>b.simProbability-a.simProbability||b.agreement-a.agreement).slice(0,60);
+ const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simProbability>=.65).sort((a,b)=>b.simProbability-a.simProbability||b.agreement-a.agreement).slice(0,60);
  if(pool.length<target)return null;
  const picks:Scanned[]=[];const used=new Set<string>();
  while(picks.length<target){
@@ -101,7 +112,7 @@ export function buildSportProbabilitySet(rows:Scanned[],sport:string,size:number
 export function buildMixedSportProbabilitySet(rows:Scanned[],size:number):Parlay|null{
  const target=Math.max(2,Math.min(20,Math.round(size)));
  const bySport=new Map<string,Scanned[]>();
- for(const row of rows.filter(x=>x.grade!=='PASS').sort((a,b)=>b.simProbability-a.simProbability))bySport.set(row.sport,[...(bySport.get(row.sport)||[]),row]);
+ for(const row of rows.filter(x=>x.grade!=='PASS'&&x.simProbability>=.65).sort((a,b)=>b.simProbability-a.simProbability))bySport.set(row.sport,[...(bySport.get(row.sport)||[]),row]);
  const sports=[...bySport.keys()];if(!sports.length)return null;
  const seed:Scanned[]=[];let cursor=0;
  while(seed.length<target&&cursor<target*10){const sport=sports[cursor%sports.length],bucket=bySport.get(sport)||[],candidate=bucket.find(x=>!seed.some(s=>s.id===x.id));if(candidate)seed.push(candidate);cursor++;if(seed.length>=rows.length)break}

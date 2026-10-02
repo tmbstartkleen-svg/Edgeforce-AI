@@ -20,14 +20,14 @@ export function scoreBoardRows(rows:Scanned[]):BoardRow[]{
 
 export function rankDaily(rows:Scanned[],limit=30){
   return scoreBoardRows(rows)
-    .filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS')
+    .filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS'&&x.simProbability>=.65)
     .sort((a,b)=>b.dailyScore-a.dailyScore||b.agreement-a.agreement)
     .slice(0,limit);
 }
 
 export function rankWeekly(rows:Scanned[],limit=30){
   const ranked=scoreBoardRows(rows)
-    .filter(x=>x.grade!=='PASS')
+    .filter(x=>x.grade!=='PASS'&&x.simProbability>=.65)
     .sort((a,b)=>b.weeklyScore-a.weeklyScore||b.dailyScore-a.dailyScore);
 
   const days=[...new Set(ranked.map(x=>x.calendarDay))].slice(0,8);

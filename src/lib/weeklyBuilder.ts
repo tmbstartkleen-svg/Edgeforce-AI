@@ -43,6 +43,7 @@ export async function getWeeklyDraft(){
 }
 
 export async function addWeeklyLeg(row:Scanned){
+  if(row.simProbability<.65)return {ok:false,error:'Weekly legs must be at least 65% in the 10,000-run simulation'};
   const sql=db();
   if(!sql)return {ok:false,error:'Database is not configured'};
   const week=weekStart();
