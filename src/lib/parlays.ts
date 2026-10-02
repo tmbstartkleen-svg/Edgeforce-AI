@@ -1,22 +1,17 @@
 import type {Scanned} from './scanner';
+import {correlationAdjustedJoint,correlationExposure} from './sameGameCorrelation';
 
 export type Parlay={id:string;legs:Scanned[];combinedProbability:number;independentProbability:number;correlationPenalty:number;score:number;label:string};
 
-function correlation(a:Scanned,b:Scanned){
- let c=0;
- if(a.event===b.event)c+=.14;
- if(a.selection.includes(a.home)&&b.selection.includes(b.home))c+=.04;
- if(a.sport===b.sport)c+=.015;
- if(a.market==='Player Prop'&&b.market==='Player Prop'&&a.event===b.event)c+=.04;
- return Math.min(.22,c);
-}
+function correlation(a:Scanned,b:Scanned){return correlationExposure(a,b)}
 
 function summarize(picks:Scanned[],label:string):Parlay{
- const independent=picks.reduce((p,x)=>p*x.simProbability,1);
+ const joint=correlationAdjustedJoint(picks);
+ const independent=joint.independent;
+ const adjusted=joint.adjusted;
  let penalty=0;
  for(let i=0;i<picks.length;i++)for(let j=i+1;j<picks.length;j++)penalty+=correlation(picks[i],picks[j]);
  const cappedPenalty=Math.min(.55,penalty);
- const adjusted=Math.max(.000001,Math.min(.999999,independent*(1-cappedPenalty)));
  const agreement=picks.reduce((s,x)=>s+x.agreement,0)/Math.max(1,picks.length);
  const freshness=picks.reduce((s,x)=>s+(x.freshness==='FRESH'?1:x.freshness==='AGING'?.7:.35),0)/Math.max(1,picks.length);
  const score=adjusted*.72+agreement*.18+freshness*.10;
