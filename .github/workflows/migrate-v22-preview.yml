@@ -2,9 +2,19 @@ name: Migrate Edgeforce V29 Preview
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply database migrations through V29
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: edgeforce-preview-migration
+  cancel-in-progress: false
 
 jobs:
-  migrate-preview:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,7 +22,21 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm install --global vercel@latest
+      - run: npm run check-migrations
+      - run: npm run release-gate
+
+  migrate-preview:
+    needs: verify
+    if: ${{ inputs.apply }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm install --global vercel@62.1.0
+
       - name: Verify Vercel secrets
         run: |
           test -n "$VERCEL_TOKEN"
@@ -22,17 +46,18 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Link preview project
-        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+
+      - name: Pull preview project and environment
+        run: |
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel env pull .env.preview.local --yes --environment=preview --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Pull preview environment
-        run: vercel env pull .env.preview.local --yes --environment=preview --token="$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Validate preview environment
+        run: REQUIRE_PRODUCTION_ENV=true EXPECTED_MODEL_VERSION=edgeforce-v29 node --env-file=.env.preview.local scripts/validate-env.mjs
+
       - name: Apply migrations through V29
         run: node --env-file=.env.preview.local scripts/migrate.mjs
