@@ -353,9 +353,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V26</div>
+        <div className="eyebrow">EDGEFORCE AI • V27</div>
         <h1>Live Sports Probability Intelligence</h1>
-        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder. <a href="/pregame">Open V25 Pregame Monitor</a></p>
+        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder. <a href="/replacements">Compare Replacements</a></p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
