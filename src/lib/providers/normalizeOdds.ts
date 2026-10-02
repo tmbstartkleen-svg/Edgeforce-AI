@@ -30,12 +30,15 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const event=str(row.event,home&&away?`${away} @ ${home}`:selection);
  const pulled=str(row.pulledAt,str(row.pulled_at,receivedAt));
  const sourceAgeMin=Math.max(0,(Date.now()-new Date(pulled).getTime())/60000);
- const marketProb=num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,impliedProbability(odds))));
+ const rawImpliedProb=impliedProbability(odds);
+ const suppliedNoVig=num(row.noVigProbability,num(row.no_vig_probability,num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,rawImpliedProb)))));
+ const sourceBook=str(row.bookmaker,str(row.book,str(row.sportsbook,'')))||undefined;
  return {
   id,sport,league,event,selection,market,startTime,
   home:home||'Home',away:away||'Away',odds,
-  marketProb,
-  modelProb:num(row.modelProb,marketProb),
+  rawImpliedProb,sourceBook,
+  marketProb:suppliedNoVig,
+  modelProb:num(row.modelProb,suppliedNoVig),
   confidence:num(row.confidence,.6),
   sourceAgeMin:Number.isFinite(sourceAgeMin)?sourceAgeMin:0,
   period:new Date(startTime).getHours()<12?'AM':'PM',
@@ -65,16 +68,39 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
     const odds=num(outcome.price,0);
     const selection=str(outcome.name,'');
     if(!odds||!selection||!startTime)continue;
+    const rawImpliedProb=impliedProbability(odds);
     out.push({
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
-     home,away,odds,marketProb:impliedProbability(odds),modelProb:impliedProbability(odds),
+     home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
      confidence:.6,sourceAgeMin:0,period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
   }
  }
  return out;
+}
+
+function deVigCompleteMarkets(markets:Market[]){
+ const groups=new Map<string,Market[]>();
+ for(const row of markets){
+  const key=[row.sport,row.event,row.market,row.startTime,row.sourceBook||'provider'].join('|').toLowerCase();
+  const group=groups.get(key)||[];
+  group.push(row);
+  groups.set(key,group);
+ }
+ for(const group of groups.values()){
+  if(group.length<2||group.length>3)continue;
+  const raw=group.map(x=>x.rawImpliedProb??impliedProbability(x.odds));
+  const sum=raw.reduce((s,p)=>s+p,0);
+  if(sum<.95||sum>1.35)continue;
+  group.forEach((row,i)=>{
+   row.rawImpliedProb=raw[i];
+   row.marketProb=raw[i]/sum;
+   if(Math.abs(row.modelProb-(row.rawImpliedProb??row.marketProb))<.000001)row.modelProb=row.marketProb;
+  });
+ }
+ return markets;
 }
 
 export function normalizeOddsPayload(payload:unknown,receivedAt=new Date().toISOString()):NormalizedOddsResult{
@@ -91,5 +117,5 @@ export function normalizeOddsPayload(payload:unknown,receivedAt=new Date().toISO
   if(normalized)markets.push(normalized);
   else warnings.push(`row ${index} could not be normalized`);
  });
- return {markets,rawCount:rows.length,warnings};
+ return {markets:deVigCompleteMarkets(markets),rawCount:rows.length,warnings};
 }
