@@ -43,6 +43,10 @@ type ParlayRow={
   combinedProbability:number;
   independentProbability:number;
   correlationPenalty:number;
+  correlationDelta:number;
+  jointHits:number;
+  jointRuns:number;
+  jointMode:'shared-monte-carlo'|'estimated';
   estimatedAmericanOdds:number;
   simFairAmericanOdds:number;
   priceVerified:boolean;
@@ -96,6 +100,7 @@ type LiveBoardResponse={
     predictionMatched:number;
     projectedProps:number;
     fallbackSims:number;
+    jointMonteCarloParlays:number;
   };
   predictions:{
     mode:string;
@@ -155,7 +160,7 @@ const emptyBoard:LiveBoardResponse={
   rows:[],
   sports:[],
   parlays:{topTwoLeg:[],topThreeLeg:[],valueTwoLeg:[]},
-  coverage:{markets:0,noVigComplete:0,predictionMatched:0,projectedProps:0,fallbackSims:0},
+  coverage:{markets:0,noVigComplete:0,predictionMatched:0,projectedProps:0,fallbackSims:0,jointMonteCarloParlays:0},
   predictions:{mode:'loading',source:null,contracts:[]},
   history:{
     overall:{key:'Overall',count:0,hits:0,misses:0,hitRate:0},
@@ -311,7 +316,7 @@ export default function Dashboard(){
       <div>
         <div className="eyebrow">EDGEFORCE AI • V22</div>
         <h1>Live Sports Probability Intelligence</h1>
-        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, 10,000-run simulations, daily parlays and a persistent weekly builder.</p>
+        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -336,7 +341,7 @@ export default function Dashboard(){
       <div>
         <div className="badge">TOP 30 PICKS • 30 TWO-LEG PARLAYS • 65%+ LEGS • 52%+ JOINT • 10K MONTE CARLO</div>
         <h2>Daily and weekly <em>65%+ simulation legs with 52%+ combined tickets.</em></h2>
-        <p>Each board shows up to 30 qualified legs. Daily two-leg parlays return up to 30 tickets, while the weekly view spreads legs across different calendar days. Nothing below the 65% leg floor or 52% joint floor is forced into the list.</p>
+        <p>Each board shows up to 30 qualified legs. Every official parlay uses the same 10,000 simulated outcomes behind its legs to measure the actual joint hit rate. Weekly tickets spread legs across different calendar days, and probability-fallback legs are excluded.</p>
       </div>
       <div className="v21HeroCard">
         <small>CURRENT BOARD</small>
@@ -410,7 +415,7 @@ export default function Dashboard(){
     <section className="v21Stats">
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
-      <div><small>NO-VIG COMPLETE</small><strong>{board.coverage.noVigComplete}</strong><span>{board.coverage.markets} modeled markets</span></div>
+      <div><small>TRUE JOINT MC</small><strong>{board.coverage.jointMonteCarloParlays}</strong><span>qualifying two-leg tickets • 10,000 trials</span></div>
       <div><small>DATABASE</small><strong>{dbStats.ok?'ONLINE':dbStats.configured?'CHECK':'LOCAL'}</strong><span>{dbStats.counts?.athletes||0} athletes • {dbStats.counts?.player_game_stats||0} stat rows</span></div>
     </section>
 
@@ -463,9 +468,9 @@ export default function Dashboard(){
       </div>
       <div className="parlayCards">
         {board.parlays.topTwoLeg.map((p,i)=><div className="parlayCard" key={p.id}>
-          <div className="parlayCardTop"><span>#{i+1} • 2-LEG</span><strong>{pct(p.combinedProbability)}</strong></div>
+          <div className="parlayCardTop"><span>#{i+1} • 2-LEG • {p.jointMode==='shared-monte-carlo'?'TRUE JOINT MC':'ESTIMATED'}</span><strong>{pct(p.combinedProbability)}</strong></div>
           <div className="parlayLegs">{p.legs.map((x,n)=><div key={x.id}><b>{n+1}. {x.selection}</b><small>{x.sport} • {x.market} • {fmtOdds(x.odds)} • sim {fmtPct(x.simProbability)}</small></div>)}</div>
-          <div className="parlayMeta"><span>Sim fair {fmtOdds(p.simFairAmericanOdds)}</span><span>Calc. book {fmtOdds(p.estimatedAmericanOdds)}</span><span>Edge {p.edge>=0?'+':''}{pct(p.edge)}</span><span>¼ Kelly {pct(p.quarterKelly)}</span><span>Corr -{pct(p.correlationPenalty)}</span></div>
+          <div className="parlayMeta"><span>Joint sims {p.jointHits.toLocaleString()}/{p.jointRuns.toLocaleString()}</span><span>Sim fair {fmtOdds(p.simFairAmericanOdds)}</span><span>Calc. book {fmtOdds(p.estimatedAmericanOdds)}</span><span>Edge {p.edge>=0?'+':''}{pct(p.edge)}</span><span>¼ Kelly {pct(p.quarterKelly)}</span><span>Corr Δ {p.correlationDelta>=0?'+':''}{pct(p.correlationDelta)}</span></div>
         </div>)}
         {!board.parlays.topTwoLeg.length&&<div className="connectState"><b>No qualifying two-leg parlays.</b><p>No ticket is forced below 65% per leg and the selected 52%+ joint-probability floor.</p></div>}
       </div>
@@ -510,7 +515,7 @@ export default function Dashboard(){
           </select>
         </div>
         {probabilitySet?<div className="setBody">
-          <div className="setScore"><small>COMBINED MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>correlation adjusted</span></div>
+          <div className="setScore"><small>COMBINED MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>{probabilitySet.jointMode==='shared-monte-carlo'?'shared Monte Carlo':'estimated set'}</span></div>
           <div className="legList">{probabilitySet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
         </div>:<p className="muted">Not enough qualified rows for this leg count under the current filters.</p>}
       </div>

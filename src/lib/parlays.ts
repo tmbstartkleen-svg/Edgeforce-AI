@@ -7,6 +7,10 @@ export type Parlay={
  combinedProbability:number;
  independentProbability:number;
  correlationPenalty:number;
+ correlationDelta:number;
+ jointHits:number;
+ jointRuns:number;
+ jointMode:'shared-monte-carlo'|'estimated';
  estimatedAmericanOdds:number;
  simFairAmericanOdds:number;
  priceVerified:boolean;
@@ -31,12 +35,32 @@ function correlation(a:Scanned,b:Scanned){
  return Math.min(.20,c);
 }
 
-function summarize(picks:Scanned[],label:string):Parlay{
+function monteCarloJoint(picks:Scanned[],hitVectors?:Map<string,Uint8Array>){
+ if(!hitVectors)return null;
+ const vectors=picks.map(x=>hitVectors.get(x.id));
+ if(vectors.some(x=>!x))return null;
+ const resolved=vectors as Uint8Array[];
+ const runs=Math.min(...resolved.map(x=>x.length));
+ if(!Number.isFinite(runs)||runs<=0)return null;
+ let hits=0;
+ for(let i=0;i<runs;i++){
+  let all=true;
+  for(const vector of resolved)if(vector[i]!==1){all=false;break}
+  if(all)hits++;
+ }
+ return {hits,runs,probability:hits/runs};
+}
+
+function summarize(picks:Scanned[],label:string,hitVectors?:Map<string,Uint8Array>):Parlay{
  const independent=picks.reduce((p,x)=>p*x.simProbability,1);
+ const joint=monteCarloJoint(picks,hitVectors);
  let penalty=0;
  for(let i=0;i<picks.length;i++)for(let j=i+1;j<picks.length;j++)penalty+=correlation(picks[i],picks[j]);
  const cappedPenalty=Math.min(.45,penalty);
- const adjusted=Math.max(.000001,Math.min(.999999,independent*(1-cappedPenalty)));
+ const estimated=Math.max(.000001,Math.min(.999999,independent*(1-cappedPenalty)));
+ const adjusted=Math.max(.000001,Math.min(.999999,joint?.probability??estimated));
+ const correlationDelta=adjusted-independent;
+ const correlationPenalty=Math.max(0,independent-adjusted);
  const decimal=picks.reduce((p,x)=>p*decimalOdds(x.odds),1);
  const sportsbookImpliedProbability=1/decimal;
  const edge=adjusted-sportsbookImpliedProbability;
@@ -49,16 +73,16 @@ function summarize(picks:Scanned[],label:string):Parlay{
  const score=adjusted*.58+Math.max(-.15,Math.min(.15,edge))*.25+agreement*.10+freshness*.07;
  return {
   id:picks.map(x=>x.id).join('-'),legs:[...picks],combinedProbability:adjusted,independentProbability:independent,
-  correlationPenalty:cappedPenalty,estimatedAmericanOdds:american,simFairAmericanOdds,priceVerified:false,sportsbookImpliedProbability,edge,quarterKelly,score,label
+  correlationPenalty,correlationDelta,jointHits:joint?.hits??Math.round(adjusted*10000),jointRuns:joint?.runs??10000,jointMode:joint?'shared-monte-carlo':'estimated',estimatedAmericanOdds:american,simFairAmericanOdds,priceVerified:false,sportsbookImpliedProbability,edge,quarterKelly,score,label
  };
 }
 
-export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbability?:number;minLegProbability?:number;maxResults?:number;maxLegUses?:number;sortBy?:'probability'|'edge';requireDifferentDays?:boolean}={}):Parlay[]{
+export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbability?:number;minLegProbability?:number;maxResults?:number;maxLegUses?:number;sortBy?:'probability'|'edge';requireDifferentDays?:boolean;hitVectors?:Map<string,Uint8Array>}={}):Parlay[]{
  const minJoint=Math.max(.52,options.minJointProbability??.52);
  const minLeg=Math.max(.65,options.minLegProbability??.65);
  const maxResults=options.maxResults??30;
  const maxLegUses=options.maxLegUses??2;
- const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simProbability>=minLeg).sort((a,b)=>b.simProbability-a.simProbability||b.edge-a.edge).slice(0,size===2?80:50);
+ const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simulationMode!=='probability-fallback'&&x.simProbability>=minLeg).sort((a,b)=>b.simProbability-a.simProbability||b.edge-a.edge).slice(0,size===2?80:50);
  const all:Parlay[]=[];
  const visit=(start:number,picks:Scanned[])=>{
   if(picks.length===size){
@@ -66,7 +90,7 @@ export function buildTopParlays(rows:Scanned[],size:2|3,options:{minJointProbabi
     const days=new Set(picks.map(x=>new Date(x.startTime).toISOString().slice(0,10)));
     if(days.size<picks.length)return;
    }
-   const p=summarize(picks,size===2?'2-LEG':'3-LEG');
+   const p=summarize(picks,size===2?'2-LEG':'3-LEG',options.hitVectors);
    if(p.combinedProbability>=minJoint)all.push(p);
    return;
   }
@@ -90,7 +114,7 @@ export function buildParlays(rows:Scanned[],size:2|3):Parlay[]{
 
 export function buildProbabilitySet(rows:Scanned[],size:number):Parlay|null{
  const target=Math.max(2,Math.min(20,Math.round(size)));
- const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simProbability>=.65).sort((a,b)=>b.simProbability-a.simProbability||b.agreement-a.agreement).slice(0,60);
+ const pool=[...rows].filter(x=>x.grade!=='PASS'&&x.simulationMode!=='probability-fallback'&&x.simProbability>=.65).sort((a,b)=>b.simProbability-a.simProbability||b.agreement-a.agreement).slice(0,60);
  if(pool.length<target)return null;
  const picks:Scanned[]=[];const used=new Set<string>();
  while(picks.length<target){
@@ -112,7 +136,7 @@ export function buildSportProbabilitySet(rows:Scanned[],sport:string,size:number
 export function buildMixedSportProbabilitySet(rows:Scanned[],size:number):Parlay|null{
  const target=Math.max(2,Math.min(20,Math.round(size)));
  const bySport=new Map<string,Scanned[]>();
- for(const row of rows.filter(x=>x.grade!=='PASS'&&x.simProbability>=.65).sort((a,b)=>b.simProbability-a.simProbability))bySport.set(row.sport,[...(bySport.get(row.sport)||[]),row]);
+ for(const row of rows.filter(x=>x.grade!=='PASS'&&x.simulationMode!=='probability-fallback'&&x.simProbability>=.65).sort((a,b)=>b.simProbability-a.simProbability))bySport.set(row.sport,[...(bySport.get(row.sport)||[]),row]);
  const sports=[...bySport.keys()];if(!sports.length)return null;
  const seed:Scanned[]=[];let cursor=0;
  while(seed.length<target&&cursor<target*10){const sport=sports[cursor%sports.length],bucket=bySport.get(sport)||[],candidate=bucket.find(x=>!seed.some(s=>s.id===x.id));if(candidate)seed.push(candidate);cursor++;if(seed.length>=rows.length)break}
