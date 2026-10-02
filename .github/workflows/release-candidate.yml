@@ -3,14 +3,37 @@ name: Edgeforce Release Candidate
 on:
   workflow_dispatch:
     inputs:
+      deploy_preview:
+        description: Create one Vercel preview deployment after verification
+        required: true
+        default: false
+        type: boolean
       promote:
-        description: Promote validated preview to production
+        description: Promote the exact tested preview to production
         required: true
         default: false
         type: boolean
 
+concurrency:
+  group: edgeforce-release-candidate
+  cancel-in-progress: false
+
 jobs:
   verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+      - run: npm run check-migrations
+      - run: npm run release-gate
+
+  deploy:
+    needs: verify
+    if: ${{ inputs.deploy_preview }}
     runs-on: ubuntu-latest
     outputs:
       preview_url: ${{ steps.deploy.outputs.preview_url }}
@@ -20,11 +43,7 @@ jobs:
         with:
           node-version: 22
 
-      - run: npm install
-      - run: npm run build
-      - run: npm run check-migrations
-
-      - name: Validate Vercel secrets
+      - name: Verify Vercel credentials
         run: |
           test -n "$VERCEL_TOKEN"
           test -n "$VERCEL_ORG_ID"
@@ -34,35 +53,32 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Install pinned Vercel CLI
-        run: npm install --global vercel@50.1.3
+      - run: npm install
+      - run: npm install --global vercel@62.1.0
 
-      - name: Pull preview environment
-        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - name: Pull preview project and environment
+        run: |
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel env pull .env.preview.local --yes --environment=preview --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Validate preview environment
-        run: npm run validate-env
-        env:
-          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          MODEL_VERSION: edgeforce-v21
-          DEFAULT_BANKROLL: ${{ vars.DEFAULT_BANKROLL || '1000' }}
+        run: REQUIRE_PRODUCTION_ENV=true node --env-file=.env.preview.local scripts/validate-env.mjs
 
-      - name: Build Vercel preview
+      - name: Build exact preview artifact
         run: vercel build --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Deploy exact prebuilt artifact
+      - name: Deploy one prebuilt preview
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          URL=$(vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN")
           echo "preview_url=$URL" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -73,6 +89,13 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
+
+      - name: Require production readiness before promotion
+        if: ${{ inputs.promote }}
+        run: npm run remote-smoke
+        env:
+          SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
+          REQUIRE_PRODUCTION_READY: "true"
 
       - name: Promote exact tested preview
         if: ${{ inputs.promote }}
