@@ -3,7 +3,7 @@ name: Verify Edgeforce
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, v22-auto-sim]
 
 jobs:
   build-and-smoke:

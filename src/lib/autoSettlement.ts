@@ -107,6 +107,15 @@ export async function settleCompletedModelRuns(results:CompletedEventResult[]){
   const sql=db();
   if(!sql)return {configured:false,matchedEvents:0,settled:0,pushes:0,skipped:0};
   if(!results.length)return {configured:true,matchedEvents:0,settled:0,pushes:0,skipped:0};
+  for(const result of results){
+    await sql`
+      insert into event_results(event_id,provider_event_id,sport,home_team,away_team,home_score,away_score,completed,provider,source_timestamp,raw)
+      values(${null},${result.providerEventId},${result.sport},${result.home},${result.away},${result.homeScore},${result.awayScore},${result.completed},${result.provider},${result.sourceTimestamp},${sql.json(result.raw as any)})
+      on conflict (provider,provider_event_id) do update set
+        home_score=excluded.home_score,away_score=excluded.away_score,completed=excluded.completed,
+        source_timestamp=excluded.source_timestamp,raw=excluded.raw,recorded_at=now()
+    `;
+  }
   const rows=await sql`
     select mr.id as "modelRunId",mr.event_id as "eventId",mr.market_key as "marketKey",mr.selection_key as "selectionKey",
       mr.model_version as "modelVersion",mr.model_probability::float as "modelProbability",

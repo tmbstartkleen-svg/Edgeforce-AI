@@ -9,7 +9,7 @@ alter table bet_results add column if not exists result_source text;
 alter table bet_results add column if not exists source_event_id text;
 alter table bet_results add column if not exists raw jsonb default '{}'::jsonb;
 
-create unique index if not exists bet_results_model_run_unique on bet_results(model_run_id) where model_run_id is not null;
+create unique index if not exists bet_results_model_run_unique on bet_results(model_run_id);
 
 create table if not exists event_results (
   id bigserial primary key,

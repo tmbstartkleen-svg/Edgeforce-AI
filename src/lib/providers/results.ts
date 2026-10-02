@@ -44,7 +44,7 @@ function scoreFromList(list:unknown,team:string){
   for(const value of list){
     const row=obj(value);
     const name=str(row.name,str(row.team,str(row.team_name,''))).toLowerCase().trim();
-    if(name===target)return num(row.score,row.points);
+    if(name===target)return num(row.score,num(row.points));
   }
   return NaN;
 }
