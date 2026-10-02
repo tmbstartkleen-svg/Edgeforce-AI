@@ -57,12 +57,31 @@ export async function getProductionProviderHealth(){
   });
 
   const direct=[
-    {id:'sharpapi',name:'SharpAPI',capability:'ODDS',configured:Boolean(process.env.SHARP_API_KEY)},
-    {id:'the-odds-api',name:'The Odds API',capability:'ODDS',configured:Boolean(process.env.THE_ODDS_API_KEY)}
-  ].filter(x=>x.configured&&!rows.some(r=>r.id===x.id)).map(x=>({
-    ...x,priority:x.id==='sharpapi'?120:70,enabled:true,lastSuccessAt:null,lastFailureAt:null,latencyMs:null,errorRate:null,
-    healthScore:null,status:'UNKNOWN' as const,stale:true
-  }));
+    {id:'sharpapi',name:'SharpAPI',capability:'ODDS',configured:Boolean(process.env.SHARP_API_KEY),priority:120},
+    {id:'the-odds-api',name:'The Odds API',capability:'ODDS',configured:Boolean(process.env.THE_ODDS_API_KEY),priority:70}
+  ].filter(x=>x.configured&&!rows.some(r=>r.id===x.id)).map(x=>{
+    const stored=byId.get(x.id);
+    const state:ProviderState={
+      id:x.id,name:x.name,priority:x.priority,capabilities:['ODDS'],enabled:true,
+      lastSuccessAt:stored?.lastSuccessAt?String(stored.lastSuccessAt):undefined,
+      lastFailureAt:stored?.lastFailureAt?String(stored.lastFailureAt):undefined,
+      latencyMs:typeof stored?.latencyMs==='number'?stored.latencyMs:undefined,
+      errorRate:typeof stored?.errorRate==='number'?stored.errorRate:undefined
+    };
+    const assessed=stored?providerHealth(state):null;
+    const successMs=stored?.lastSuccessAt?new Date(stored.lastSuccessAt).getTime():NaN;
+    const stale=!Number.isFinite(successMs)||now-successMs>staleAfterMs();
+    return {
+      ...x,enabled:true,
+      lastSuccessAt:stored?.lastSuccessAt?new Date(stored.lastSuccessAt).toISOString():null,
+      lastFailureAt:stored?.lastFailureAt?new Date(stored.lastFailureAt).toISOString():null,
+      latencyMs:typeof stored?.latencyMs==='number'?stored.latencyMs:null,
+      errorRate:typeof stored?.errorRate==='number'?stored.errorRate:null,
+      healthScore:assessed?.score??null,
+      status:stored?(assessed!.status as 'HEALTHY'|'DEGRADED'|'UNHEALTHY'):'UNKNOWN' as const,
+      stale
+    };
+  });
 
   const combined=[...rows,...direct];
   const counts={
