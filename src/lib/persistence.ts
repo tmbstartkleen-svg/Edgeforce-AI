@@ -43,7 +43,7 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
       coalesce(ms.raw->'sportFeatures','{}'::jsonb) as "sportFeatures"
     from market_snapshots ms
     join events e on e.id=ms.event_id
-    where e.start_time between now()-interval '2 hours' and now()+interval '8 days'
+    where e.start_time >= now() and e.start_time <= now()+interval '8 days'
     order by ms.event_id,ms.market_key,ms.selection_key,ms.pulled_at desc
     limit ${limit}
   `;
