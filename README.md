@@ -1,68 +1,69 @@
 # Edgeforce AI
 
-Production-hardened cross-market sports probability, simulation, parlay, bankroll and model-learning workspace.
+Production-hardened sports probability, simulation, repricing, parlay, bankroll and model-learning workspace.
 
-## Current build — V30 Production Hardening
+## Current build — V31 Automatic Context Repricing
 
-V30 is the final planned major build in the V26–V30 release sequence. It centralizes release identity, separates liveness from readiness, records operational health, hardens hosted preview verification, and adds an auditable release-attestation path.
+V31 extends the V30 production-hardened platform with automatic material-change detection and auditable re-simulation. Fresh provider pulls are compared with the prior persisted market/context state. Material changes trigger a new scan immediately and retain the post-change model run.
 
-### V30 production controls
-- one central release manifest: app `30.0.0`, model `edgeforce-v30`, migration `v29`
-- dedicated liveness: `GET /api/health/live`
-- dedicated readiness: `GET /api/health/ready`
-- release readiness: `GET /api/release/readiness`
-- strict production checks for database, migration state, required secrets, bankroll configuration and operational odds providers
-- hourly operational heartbeat persisted when a database is configured
-- readiness failures can create runtime incidents
-- sampled live-board latency telemetry
-- unified operations status with heartbeats, release attestations, incidents and 24-hour performance
-- release attestation endpoint for tested preview artifacts; build, smoke, and load flags must be explicitly true
-- local and hosted smoke suites validate V30 version/migration identity
-- load gate enforces zero request failures and a configurable p95 ceiling
-- Vercel CLI pinned in preview, release and rollback workflows
-- exact prebuilt preview artifact is smoke-tested before optional promotion
+### V31 automatic triggers
+- sportsbook line / implied-probability movement
+- injury context changes
+- lineup changes
+- starter designation changes
+- goalie changes
+- quarterback changes
+- material weather changes
+- player status changes
+- player availability changes of at least 5 percentage points
+- player projection changes of at least 0.5 units or 3%
 
-### Release endpoints
+### Re-simulation and repricing flow
+1. Pull the latest live/stored market feed.
+2. Fuse weather, injuries, stats and player context.
+3. Load the prior context state from Postgres when available.
+4. Detect material changes.
+5. Persist each change event.
+6. Persist the new current context state for serverless continuity.
+7. Re-run sport-specific simulation and model scoring for affected markets.
+8. Persist triggered model-run snapshots.
+9. Surface the changed markets, fresh probabilities, EV, grade and simulation engine on the live-board response.
+
+The normal provider refresh cadence remains 10 seconds. `GET /api/live-board?force=1` can bypass the cache only when authorized with the configured ingest secret.
+
+### V31 endpoints
+- `GET /api/live-board`
+- `GET /api/context-changes`
+- `POST /api/reprice`
+- `POST /api/events/reprice`
 - `GET /api/health/live`
 - `GET /api/health`
 - `GET /api/health/ready`
 - `GET /api/release/readiness`
-- `POST /api/release/attest`
-- `GET /api/diagnostics`
-- `GET /api/ops/status`
-- `GET /api/ops/performance`
-- `GET /api/ops/incidents`
-- `GET /api/providers/health`
 
-### V29 retained
-- settled-outcome feedback into Model Council predictions
-- calibration buckets, Brier score, log loss, ROI and CLV
-- holdout and walk-forward validation
-- shrinkage-capped promoted model weights
-- calibration/backtest APIs and dashboard
+The reprice endpoints now resolve markets from the current live/stored provider pipeline rather than defaulting to demo markets.
 
-### V28 retained
-- provider health scoring, payload quality gates and circuit breaker
-- normalization-aware failover
-- stale live/stored data rejection
-- degraded-mode disclosure
+### Release identity
+- build: `V31`
+- app: `31.0.0`
+- package: `0.31.0`
+- model: `edgeforce-v31`
+- migration: `v30`
 
-### V27 retained
-- persistent wager/leg ledger
-- automatic result reconciliation and settlement
-- bankroll, ROI, hit-rate and probability-band analytics
+### V30 retained
+- dedicated liveness and readiness
+- production readiness gates
+- operational heartbeat and incident tracking
+- release attestations
+- provider resilience and payload freshness gates
+- calibrated model learning
+- persistent wager ledger and settlement
+- hosted preview smoke testing and promotion workflows
 
-### V26 retained
-- sportsbook raw/de-vig probability
-- prediction-market liquidity matching
-- model-vs-book/model-vs-market edge
-- conservative quarter-Kelly
-
-### Production guardrails
-- Liveness does not imply readiness.
-- Production readiness fails closed when required dependencies are missing.
-- The expected database migration must be present when production readiness is strict.
-- Stale/invalid provider data is not silently treated as live.
-- Small or unstable historical samples cannot automatically move model weights.
-- Missing outcomes, payouts or prediction-market data are not fabricated.
-- Model probabilities and historical performance do not guarantee future results.
+### Guardrails
+- Missing provider context is not fabricated.
+- A context change only triggers when it crosses a defined materiality threshold.
+- Re-simulation outputs remain estimates, not guarantees.
+- Forced cache bypass is protected when an ingest secret is configured.
+- Provider degraded/stored/demo modes remain explicitly disclosed.
+- Repricing history and post-change model runs are retained for audit when a database is configured.
