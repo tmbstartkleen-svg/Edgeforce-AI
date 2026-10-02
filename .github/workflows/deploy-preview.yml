@@ -2,15 +2,40 @@ name: Deploy Edgeforce Preview
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: Create one Vercel preview deployment
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: edgeforce-preview-deploy
+  cancel-in-progress: false
 
 jobs:
-  preview:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm install
+      - run: npm run build
+      - run: npm run check-migrations
+      - run: npm run release-gate
+
+  preview:
+    needs: verify
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Verify required Vercel secrets
         run: |
           test -n "$VERCEL_TOKEN"
@@ -20,24 +45,40 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
       - run: npm install
-      - run: npm run build
-      - run: npm install --global vercel@latest
-      - name: Pull preview environment
-        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - run: npm install --global vercel@62.1.0
+
+      - name: Pull preview project and environment
+        run: |
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel env pull .env.preview.local --yes --environment=preview --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Build preview
+
+      - name: Validate preview environment
+        run: REQUIRE_PRODUCTION_ENV=true node --env-file=.env.preview.local scripts/validate-env.mjs
+
+      - name: Build preview outside the Vercel build queue
         run: vercel build --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      - name: Deploy preview
-        run: vercel deploy --prebuilt --token="$VERCEL_TOKEN"
+
+      - name: Deploy one prebuilt preview
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN")
+          echo "preview_url=$URL" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test hosted preview
+        run: npm run remote-smoke
+        env:
+          SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
