@@ -86,7 +86,8 @@ export async function recordModelRuns(rows:any[]){
           sportFeatures:x.sportFeatures||{},
           contextSources:x.contextSources||[],
           simEngine:x.simEngine,
-          simProjection:x.simProjection||{}
+          simProjection:x.simProjection||{},
+          playerContext:x.playerContext||null
         })}
       )
     `;
