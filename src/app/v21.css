@@ -42,3 +42,48 @@
 .weeklyBuilder{padding:10px 18px 18px}.weeklyLeg{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #201c14}.weeklyLeg b{display:block;font-size:11px}.weeklyLeg small{display:block;color:var(--muted);font-size:9px;margin-top:4px;line-height:1.4}.weeklyActions{display:flex;align-items:center;gap:7px}.weeklyActions span{font-size:8px;font-weight:900;border-radius:999px;padding:5px 7px}.weeklyActions .locked{background:#2e260f;color:var(--gold2)}.weeklyActions .unlocked{background:#17230d;color:var(--lime)}.weeklyActions button{background:#151515;color:var(--text);border:1px solid #3a3426;border-radius:8px;padding:6px 8px;font-size:8px;font-weight:900;cursor:pointer}.weeklyActions button:disabled{opacity:.35;cursor:not-allowed}
 @media(max-width:1400px){.parlayCards{grid-template-columns:repeat(3,minmax(210px,1fr))}}
 @media(max-width:900px){.parlayCards{grid-template-columns:1fr}.v22ParlaySplit{grid-template-columns:1fr}.weeklyLeg{grid-template-columns:28px 1fr}.weeklyActions{grid-column:2;flex-wrap:wrap}.miniParlay{flex-direction:column}.miniParlay span{white-space:normal}}
+
+/* V30 mobile and final-release polish */
+.v21 a{color:var(--gold2);text-decoration:none}.v21 a:hover{text-decoration:underline}
+.tableWrap{-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
+.v21Table{min-width:1180px}
+.v21PanelHead p{margin:6px 0 0;color:var(--muted);font-size:10px;line-height:1.5}
+.weeklyActions{justify-content:flex-end}
+@media(max-width:650px){
+  .v21{padding:12px 10px 48px}
+  .v21Top{gap:14px;padding-bottom:14px}
+  .v21Top h1{font-size:20px}
+  .v21Top p{font-size:11px}
+  .v21Status{grid-template-columns:1fr 1fr;padding:10px;gap:8px}
+  .v21Status>div:last-child{display:block}
+  .v21Status b{font-size:10px;white-space:normal}
+  .v21Hero{padding:22px 0 12px;gap:12px}
+  .v21Hero h2{font-size:30px;line-height:1.05;margin:12px 0 10px}
+  .v21Hero p{font-size:11px;line-height:1.55}
+  .v21HeroCard{padding:16px}
+  .v21HeroCard>strong{font-size:38px}
+  .badge{font-size:8px;line-height:1.4;letter-spacing:.09em}
+  .v21ControlPanel{grid-template-columns:1fr;gap:8px;padding:10px}
+  .v21Stats{grid-template-columns:1fr 1fr;gap:7px}
+  .v21Stats>div{padding:12px}
+  .v21Stats strong{font-size:20px}
+  .v21PanelHead,.v21CardHead{padding:14px}
+  .panelMeta{width:100%}
+  .panelMeta span{white-space:normal}
+  .tableWrap{margin:0;max-width:100%;overflow-x:auto}
+  .v21Table{min-width:1120px;font-size:10px}
+  .v21Table th,.v21Table td{padding:10px 9px}
+  .parlayCards{padding:10px;gap:8px}
+  .parlayCard{padding:12px}
+  .parlayMeta{grid-template-columns:1fr}
+  .weeklyBuilder{padding:8px 12px 14px}
+  .weeklyLeg{grid-template-columns:24px minmax(0,1fr);gap:9px}
+  .weeklyActions{grid-column:2;justify-content:flex-start;gap:5px}
+  .historyBox{padding:14px}
+  .historyRow{grid-template-columns:1fr}
+  .historyRow b{justify-self:start}
+  .v21FooterGrid{grid-template-columns:1fr}
+  .signalList>div{gap:8px}
+  .signalList p{font-size:9px}
+  .connectState{padding:20px 14px}
+}
