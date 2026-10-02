@@ -25,6 +25,7 @@ jobs:
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-gate
+      - run: npm run final-qa
 
   preview:
     needs: verify
@@ -59,7 +60,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Validate preview environment
-        run: REQUIRE_PRODUCTION_ENV=true EXPECTED_MODEL_VERSION=edgeforce-v29 node --env-file=.env.preview.local scripts/validate-env.mjs
+        run: REQUIRE_PRODUCTION_ENV=true EXPECTED_MODEL_VERSION=edgeforce-v30 node --env-file=.env.preview.local scripts/validate-env.mjs
 
       - name: Build preview outside the Vercel build queue
         run: vercel build --token="$VERCEL_TOKEN"
