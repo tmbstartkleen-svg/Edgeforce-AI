@@ -6,17 +6,17 @@ const results=[];
 
 for(const path of paths){
  const started=Date.now();
- const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/21'}});
+ const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/22'}});
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
  if(path==='/api/health'){
   const json=JSON.parse(body);
-  if(json.version!=='21.0.0'||json.ok!==true)throw new Error('health version mismatch');
+  if(json.version!=='22.0.0'||json.ok!==true)throw new Error('health version mismatch');
  }
  if(path==='/api/deployment/smoke'){
   const json=JSON.parse(body);
-  if(json.smoke!==true||json.version!=='21.0.0')throw new Error('deployment smoke mismatch');
+  if(json.smoke!==true||json.version!=='22.0.0')throw new Error('deployment smoke mismatch');
  }
 }
 

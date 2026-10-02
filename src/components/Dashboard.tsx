@@ -37,6 +37,39 @@ type SummaryRow={
   net?:number;
 };
 
+type ParlayRow={
+  id:string;
+  legs:BoardRow[];
+  combinedProbability:number;
+  independentProbability:number;
+  correlationPenalty:number;
+  estimatedAmericanOdds:number;
+  simFairAmericanOdds:number;
+  priceVerified:boolean;
+  sportsbookImpliedProbability:number;
+  edge:number;
+  quarterKelly:number;
+  score:number;
+  label:string;
+};
+
+type WeeklyDraft={
+  configured:boolean;
+  week:string;
+  legs:Array<{
+    marketId:string;
+    sport:string;
+    event:string;
+    selection:string;
+    market:string;
+    startTime:string;
+    odds:number;
+    simProbability:number;
+    locked:boolean;
+  }>;
+  combinedProbability:number|null;
+};
+
 type LiveBoardResponse={
   generatedAt:string;
   uiRefreshMs:number;
@@ -48,8 +81,22 @@ type LiveBoardResponse={
   providerMode:string;
   providerName?:string;
   warnings?:string[];
+  minJoint:number;
+  minLeg:number;
   rows:BoardRow[];
   sports:string[];
+  parlays:{
+    topTwoLeg:ParlayRow[];
+    topThreeLeg:ParlayRow[];
+    valueTwoLeg:ParlayRow[];
+  };
+  coverage:{
+    markets:number;
+    noVigComplete:number;
+    predictionMatched:number;
+    projectedProps:number;
+    fallbackSims:number;
+  };
   predictions:{
     mode:string;
     source:string|null;
@@ -103,8 +150,12 @@ const emptyBoard:LiveBoardResponse={
   risk:'Moderate',
   source:'loading',
   providerMode:'loading',
+  minJoint:.52,
+  minLeg:.65,
   rows:[],
   sports:[],
+  parlays:{topTwoLeg:[],topThreeLeg:[],valueTwoLeg:[]},
+  coverage:{markets:0,noVigComplete:0,predictionMatched:0,projectedProps:0,fallbackSims:0},
   predictions:{mode:'loading',source:null,contracts:[]},
   history:{
     overall:{key:'Overall',count:0,hits:0,misses:0,hitRate:0},
@@ -133,18 +184,21 @@ function dateLabel(value:string){
 
 export default function Dashboard(){
   const [view,setView]=useState<'today'|'week'>('today');
-  const [limit,setLimit]=useState<30|50>(30);
+  const limit:30=30;
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
-  const [minSim,setMinSim]=useState(0);
+  const [minSim,setMinSim]=useState(65);
+  const [minJoint,setMinJoint]=useState(52);
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
   const [parlaySize,setParlaySize]=useState(2);
   const [lastError,setLastError]=useState('');
+  const [weekly,setWeekly]=useState<WeeklyDraft>({configured:false,week:'',legs:[],combinedProbability:null});
+  const [weeklyMessage,setWeeklyMessage]=useState('');
   const busy=useRef(false);
 
   useEffect(()=>{
@@ -153,7 +207,7 @@ export default function Dashboard(){
       if(busy.current)return;
       busy.current=true;
       try{
-        const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
+        const res=await fetch('/api/live-board?view='+view+'&risk='+risk+'&minJoint='+(minJoint/100),{cache:'no-store'});
         if(!res.ok)throw new Error('Board request failed');
         const json=await res.json() as LiveBoardResponse;
         if(mounted){setBoard(json);setLastError('')}
@@ -164,9 +218,9 @@ export default function Dashboard(){
       }
     };
     void load();
-    const timer=window.setInterval(()=>void load(),1000);
+    const timer=window.setInterval(()=>void load(),5000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[view,limit,risk]);
+  },[view,risk,minJoint]);
 
   useEffect(()=>{
     let mounted=true;
@@ -186,6 +240,52 @@ export default function Dashboard(){
   useEffect(()=>{
     if(sport!=='ALL'&&!board.sports.includes(sport))setSport('ALL');
   },[board.sports,sport]);
+
+  useEffect(()=>{
+    let mounted=true;
+    const loadWeekly=async()=>{
+      try{
+        const res=await fetch('/api/weekly-builder',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as WeeklyDraft;
+        if(mounted)setWeekly(json);
+      }catch{}
+    };
+    void loadWeekly();
+    const timer=window.setInterval(()=>void loadWeekly(),15000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
+  const addWeeklyLeg=async(row:BoardRow)=>{
+    try{
+      const res=await fetch('/api/weekly-builder',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({action:'add',row})
+      });
+      const json=await res.json();
+      if(!res.ok||!json.ok){setWeeklyMessage(json.error||'Unable to add leg');return}
+      setWeeklyMessage('Added to weekly builder');
+      const refreshed=await fetch('/api/weekly-builder',{cache:'no-store'});
+      if(refreshed.ok)setWeekly(await refreshed.json() as WeeklyDraft);
+    }catch{setWeeklyMessage('Unable to update weekly builder')}
+  };
+
+  const updateWeeklyLeg=async(marketId:string,action:'remove'|'lock'|'unlock')=>{
+    try{
+      const res=await fetch('/api/weekly-builder',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({action,marketId})
+      });
+      const json=await res.json();
+      if(!res.ok||!json.ok){setWeeklyMessage(json.error||'Unable to update leg');return}
+      const refreshed=await fetch('/api/weekly-builder',{cache:'no-store'});
+      if(refreshed.ok)setWeekly(await refreshed.json() as WeeklyDraft);
+      setWeeklyMessage(action==='remove'?'Removed weekly leg':action==='lock'?'Locked weekly leg':'Unlocked weekly leg');
+    }catch{setWeeklyMessage('Unable to update weekly builder')}
+  };
+
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
 
@@ -209,9 +309,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V21</div>
+        <div className="eyebrow">EDGEFORCE AI • V22</div>
         <h1>Live Sports Probability Intelligence</h1>
-        <p>Daily legs, weekly schedule, simulation comparison, prediction markets, historical results and anomaly signals in one view.</p>
+        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, 10,000-run simulations, daily parlays and a persistent weekly builder.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -234,9 +334,9 @@ export default function Dashboard(){
 
     <section className="v21Hero">
       <div>
-        <div className="badge">TOP 30 / 50 • AM / PM • 2–20 LEG FILTER • ALL LIVE SPORTS</div>
-        <h2>One board for <em>probability, simulation and history.</em></h2>
-        <p>The list updates every second on screen. Source pulls are cached briefly so the app stays fast without hammering upstream providers.</p>
+        <div className="badge">TOP 30 PICKS • 30 TWO-LEG PARLAYS • 65%+ LEGS • 52%+ JOINT • 10K MONTE CARLO</div>
+        <h2>Daily and weekly <em>65%+ simulation legs with 52%+ combined tickets.</em></h2>
+        <p>Each board shows up to 30 qualified legs. Daily two-leg parlays return up to 30 tickets, while the weekly view spreads legs across different calendar days. Nothing below the 65% leg floor or 52% joint floor is forced into the list.</p>
       </div>
       <div className="v21HeroCard">
         <small>CURRENT BOARD</small>
@@ -246,7 +346,7 @@ export default function Dashboard(){
           <div><small>AM</small><b>{amCount}</b></div>
           <div><small>PM</small><b>{pmCount}</b></div>
           <div><small>Sports</small><b>{board.sports.length}</b></div>
-          <div><small>History</small><b>{board.history.sampleSize}</b></div>
+          <div><small>Pred matched</small><b>{board.coverage.predictionMatched}</b></div>
         </div>
       </div>
     </section>
@@ -257,13 +357,6 @@ export default function Dashboard(){
         <div className="segmented">
           <button className={view==='today'?'active':''} onClick={()=>setView('today')}>Today</button>
           <button className={view==='week'?'active':''} onClick={()=>setView('week')}>7-Day</button>
-        </div>
-      </div>
-      <div className="controlGroup">
-        <label>Rows</label>
-        <div className="segmented">
-          <button className={limit===30?'active':''} onClick={()=>setLimit(30)}>30</button>
-          <button className={limit===50?'active':''} onClick={()=>setLimit(50)}>50</button>
         </div>
       </div>
       <div className="controlGroup">
@@ -297,8 +390,12 @@ export default function Dashboard(){
         </select>
       </div>
       <div className="controlGroup">
-        <label>Minimum sim %</label>
-        <input type="number" min="0" max="99" value={minSim} onChange={e=>setMinSim(Math.max(0,Math.min(99,Number(e.target.value)||0)))}/>
+        <label>Minimum leg sim %</label>
+        <input type="number" min="65" max="99" value={minSim} onChange={e=>setMinSim(Math.max(65,Math.min(99,Number(e.target.value)||65)))}/>
+      </div>
+      <div className="controlGroup">
+        <label>Minimum joint %</label>
+        <input type="number" min="52" max="99" value={minJoint} onChange={e=>setMinJoint(Math.max(52,Math.min(99,Number(e.target.value)||52)))}/>
       </div>
       <div className="controlGroup double">
         <label>American odds range</label>
@@ -313,7 +410,7 @@ export default function Dashboard(){
     <section className="v21Stats">
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
-      <div><small>AVG MARKET</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.marketProb,0)/filtered.length):'—'}</strong><span>implied probability</span></div>
+      <div><small>NO-VIG COMPLETE</small><strong>{board.coverage.noVigComplete}</strong><span>{board.coverage.markets} modeled markets</span></div>
       <div><small>DATABASE</small><strong>{dbStats.ok?'ONLINE':dbStats.configured?'CHECK':'LOCAL'}</strong><span>{dbStats.counts?.athletes||0} athletes • {dbStats.counts?.player_game_stats||0} stat rows</span></div>
     </section>
 
@@ -331,7 +428,7 @@ export default function Dashboard(){
       <div className="tableWrap">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Market %</th><th>Sport %</th><th>Sim %</th><th>Gap</th><th>Agreement</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>No-vig %</th><th>Pred %</th><th>Sport %</th><th>Sim %</th><th>Edge</th><th>¼ Kelly</th><th>Sims</th><th>Grade</th><th>Week</th>
           </tr></thead>
           <tbody>
             {filtered.map((x,i)=><tr key={x.id}>
@@ -341,17 +438,66 @@ export default function Dashboard(){
               <td><b>{x.period}</b><small>{dateLabel(x.startTime)}</small></td>
               <td>{x.market}</td>
               <td>{fmtOdds(x.odds)}</td>
-              <td>{fmtPct(x.marketProb)}</td>
+              <td>{fmtPct(x.rawImpliedProb??x.marketProb)}</td>
+              <td>{fmtPct(x.noVigProb??x.marketProb)}</td>
+              <td>{typeof x.predictionProb==='number'?fmtPct(x.predictionProb):'—'}</td>
               <td className="orange">{fmtPct(x.sportModelProbability)}</td>
               <td className="lime">{fmtPct(x.simProbability)}</td>
-              <td className={x.probabilityGap>=0?'lime':'negative'}>{x.probabilityGap>=0?'+':''}{fmtPct(x.probabilityGap)}</td>
-              <td>{fmtPct(x.agreement)}</td>
+              <td className={x.edge>=0?'lime':'negative'}>{x.edge>=0?'+':''}{fmtPct(x.edge)}</td>
+              <td>{fmtPct(x.quarterKelly)}</td>
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
+              <td><button className="tinyAction" onClick={()=>void addWeeklyLeg(x)}>Add</button></td>
             </tr>)}
-            {!filtered.length&&<tr><td colSpan={13} className="emptyRow">No rows match the current filters.</td></tr>}
+            {!filtered.length&&<tr><td colSpan={16} className="emptyRow">No rows match the current filters.</td></tr>}
           </tbody>
         </table>
+      </div>
+    </section>
+
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">{view==='today'?'DAILY PARLAY ENGINE':'WEEKLY STRETCHED PARLAYS'}</div><h3>{view==='today'?'Up to 30 two-leg tickets from 65%+ Monte Carlo legs':'Up to 30 two-leg tickets using legs on different days'}</h3></div>
+        <div className="panelMeta"><span>Legs 65%+</span><span>Joint {minJoint}%+</span><span>Max leg reuse 2×</span></div>
+      </div>
+      <div className="parlayCards">
+        {board.parlays.topTwoLeg.map((p,i)=><div className="parlayCard" key={p.id}>
+          <div className="parlayCardTop"><span>#{i+1} • 2-LEG</span><strong>{pct(p.combinedProbability)}</strong></div>
+          <div className="parlayLegs">{p.legs.map((x,n)=><div key={x.id}><b>{n+1}. {x.selection}</b><small>{x.sport} • {x.market} • {fmtOdds(x.odds)} • sim {fmtPct(x.simProbability)}</small></div>)}</div>
+          <div className="parlayMeta"><span>Sim fair {fmtOdds(p.simFairAmericanOdds)}</span><span>Calc. book {fmtOdds(p.estimatedAmericanOdds)}</span><span>Edge {p.edge>=0?'+':''}{pct(p.edge)}</span><span>¼ Kelly {pct(p.quarterKelly)}</span><span>Corr -{pct(p.correlationPenalty)}</span></div>
+        </div>)}
+        {!board.parlays.topTwoLeg.length&&<div className="connectState"><b>No qualifying two-leg parlays.</b><p>No ticket is forced below 65% per leg and the selected 52%+ joint-probability floor.</p></div>}
+      </div>
+      <div className="v22ParlaySplit">
+        <div>
+          <div className="subHead">VALUE TWO-LEG • 65%+ EACH</div>
+          {board.parlays.valueTwoLeg.slice(0,5).map(p=><div className="miniParlay" key={'v-'+p.id}><b>{p.legs.map(x=>x.selection).join(' + ')}</b><span>{pct(p.combinedProbability)} joint • {p.edge>=0?'+':''}{pct(p.edge)} edge</span></div>)}
+        </div>
+        <div>
+          <div className="subHead">QUALIFYING THREE-LEG • 52%+ JOINT</div>
+          {board.parlays.topThreeLeg.slice(0,5).map(p=><div className="miniParlay" key={'t-'+p.id}><b>{p.legs.map(x=>x.selection).join(' + ')}</b><span>{pct(p.combinedProbability)} joint • ¼ Kelly {pct(p.quarterKelly)}</span></div>)}
+        </div>
+      </div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">WEEKLY PARLAY BUILDER</div><h3>Build the week gradually and lock legs you want to preserve</h3></div>
+        <div className="panelMeta"><span>{weekly.week||'current week'}</span><span>{weekly.combinedProbability!==null?pct(weekly.combinedProbability):'—'} joint</span></div>
+      </div>
+      {weeklyMessage&&<div className="historyNote">{weeklyMessage}</div>}
+      <div className="weeklyBuilder">
+        {weekly.legs.map((x,i)=><div className="weeklyLeg" key={x.marketId}>
+          <span className="rankCell">{i+1}</span>
+          <div><b>{x.selection}</b><small>{x.sport} • {x.event} • {x.market} • {fmtOdds(x.odds)} • sim {pct(x.simProbability)}</small></div>
+          <div className="weeklyActions">
+            <span className={x.locked?'locked':'unlocked'}>{x.locked?'LOCKED':'OPEN'}</span>
+            <button onClick={()=>void updateWeeklyLeg(x.marketId,x.locked?'unlock':'lock')}>{x.locked?'Unlock':'Lock'}</button>
+            <button disabled={x.locked} onClick={()=>void updateWeeklyLeg(x.marketId,'remove')}>Remove</button>
+          </div>
+        </div>)}
+        {!weekly.legs.length&&<div className="connectState"><b>No weekly legs yet.</b><p>Use the Add button on any daily or weekly board row to start building the ticket.</p></div>}
       </div>
     </section>
 

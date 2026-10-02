@@ -3,24 +3,30 @@ import {ev,fairAmerican,kelly} from './math';
 import {modelCouncil} from './modelCouncil';
 
 export function rankMarkets(rows:Market[],profile:RiskProfile='Moderate'):Ranked[]{
- const frac=profile==='Conservative'?.2:profile==='Moderate'?.35:.5;
+ const frac=profile==='Conservative'?.25:profile==='Moderate'?.35:.5;
  return rows.map(m=>{
   const c=modelCouncil(m);
   const p=c.ensemble;
-  const edge=p-m.marketProb;
+  const marketFair=m.noVigProb??m.marketProb;
+  const edge=p-marketFair;
+  const predictionEdge=typeof m.predictionProb==='number'?p-m.predictionProb:undefined;
   const expectedValue=ev(p,m.odds);
   const fullKelly=kelly(p,m.odds);
+  const quarterKelly=Math.max(0,Math.min(.05,fullKelly*.25));
   const recommendedStake=Math.max(0,Math.min(.05,fullKelly*frac));
-  const modelConflictPenalty=c.dispersion>.06?.01:0;
-  const adjustedEdge=edge-modelConflictPenalty;
-  const grade:Ranked['grade']=expectedValue>=.08&&adjustedEdge>=.05&&c.agreement>=.7?'ELITE':expectedValue>=.03&&adjustedEdge>=.025?'STRONG':expectedValue>0?'WATCH':'PASS';
+  const quality=m.dataQuality??1;
+  const modelConflictPenalty=c.dispersion>.07?.012:0;
+  const adjustedEdge=edge-modelConflictPenalty-(quality<.65?.01:0);
+  const grade:Ranked['grade']=expectedValue>=.08&&adjustedEdge>=.05&&c.agreement>=.70?'ELITE':expectedValue>=.03&&adjustedEdge>=.025&&c.agreement>=.55?'STRONG':expectedValue>0?'WATCH':'PASS';
   return {
    ...m,
    modelProb:p,
    fairOdds:fairAmerican(p),
    edge,
+   predictionEdge,
    expectedValue,
    kelly:fullKelly,
+   quarterKelly,
    recommendedStake,
    agreement:c.agreement,
    sportModelProbability:c.sport.adjustedProbability,
