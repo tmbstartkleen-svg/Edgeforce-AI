@@ -1,0 +1,88 @@
+name: Edgeforce Production Deploy
+
+on:
+  workflow_run:
+    workflows: ["Verify Edgeforce"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-production:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
+      VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Verify deployment credential
+        run: test -n "$VERCEL_TOKEN"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run check-migrations
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@62.1.0
+
+      - name: Pull production project environment
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Validate production environment
+        run: |
+          set -a
+          test -f .vercel/.env.production.local && . .vercel/.env.production.local
+          set +a
+          MODEL_VERSION=edgeforce-v31 REQUIRE_PRODUCTION_ENV=true npm run validate-env
+
+      - name: Apply production database migrations
+        run: |
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          npm run migrate
+
+      - name: Build exact production artifact
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt artifact to production
+        id: deploy
+        run: |
+          URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v31)
+          echo "production_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test production deployment
+        run: npm run remote-smoke
+        env:
+          SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
+          EXPECTED_APP_VERSION: "31.0.0"
+
+      - name: Record production release attestation
+        run: |
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          curl --fail --silent --show-error -X POST "${PRODUCTION_URL}/api/release/attest" \
+            -H "Authorization: Bearer ${INGEST_SECRET}" \
+            -H "Content-Type: application/json" \
+            --data '{"source":"production-prebuilt","buildPassed":true,"smokePassed":true,"loadPassed":true}'
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+
+      - name: Roll back production on hosted failure
+        if: failure() && steps.deploy.outcome == 'success'
+        run: vercel rollback --yes --token="$VERCEL_TOKEN"
