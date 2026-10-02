@@ -84,7 +84,7 @@ export default function ReplacementsPage(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V29</div>
+        <div className="eyebrow">EDGEFORCE AI • V30</div>
         <h1>Weekly Replacement Comparison</h1>
         <p>Compares qualifying 65%+ alternatives against flagged weekly legs and recalculates the full ticket using shared Monte Carlo outcomes whenever all current legs are available.</p>
       </div>
