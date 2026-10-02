@@ -46,6 +46,7 @@ export async function runAutomaticSettlement(){
   provider:provider.providerName||provider.providerId||'results-provider',
   received:raw.length,
   normalized:normalized.length,
-  ...reconciliation
+  matchedLegs:reconciliation.matchedLegs,
+  settledSlips:reconciliation.settledSlips
  };
 }
