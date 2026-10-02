@@ -11,5 +11,5 @@ export async function GET(req:Request){
  const [fetched,playerStats]=await Promise.all([fetchCompletedResults(),fetchCompletedPlayerStats()]);
  const settlement=await settleCompletedModelRuns(fetched.results,playerStats.results).catch(error=>({configured:true,matchedEvents:0,settled:0,pushes:0,skipped:0,error:error instanceof Error?error.message:'settlement failed'}));
  const learning=await runAutomatedLearning().catch(error=>({configured:true,sampleSize:0,runId:null,error:error instanceof Error?error.message:'learning failed'}));
- return Response.json({ok:true,ranAt:new Date().toISOString(),modelVersion:process.env.MODEL_VERSION||'edgeforce-v26',resultFeed:{mode:fetched.mode,source:fetched.source,count:fetched.results.length,attempts:fetched.attempts},playerStatFeed:{mode:playerStats.mode,source:playerStats.source,count:playerStats.results.length,error:playerStats.error},settlement,learning});
+ return Response.json({ok:true,ranAt:new Date().toISOString(),modelVersion:process.env.MODEL_VERSION||'edgeforce-v27',resultFeed:{mode:fetched.mode,source:fetched.source,count:fetched.results.length,attempts:fetched.attempts},playerStatFeed:{mode:playerStats.mode,source:playerStats.source,count:playerStats.results.length,error:playerStats.error},settlement,learning});
 }
