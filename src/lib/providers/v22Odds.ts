@@ -85,7 +85,7 @@ export async function fetchV22Odds():Promise<V22OddsResult>{
 
   markets=dedupe(markets);
   let validation:V22OddsResult['validation'];
-  if(providerId==='sharpapi'&&process.env.ENABLE_ODDS_VALIDATION==='true'&&process.env.THE_ODDS_API_KEY){
+  if(providerId!=='the-odds-api'&&process.env.ENABLE_ODDS_VALIDATION==='true'&&process.env.THE_ODDS_API_KEY){
     const secondary=await fetchTheOddsApiMarkets();
     attempts.push({providerId:'the-odds-api-validation',ok:secondary.ok,error:secondary.error});
     if(secondary.ok){
@@ -93,6 +93,7 @@ export async function fetchV22Odds():Promise<V22OddsResult>{
       markets=checked.rows;
       validation={enabled:true,compared:checked.compared,conflicts:checked.conflicts};
       if(checked.conflicts)warnings.push(`${checked.conflicts} DraftKings lines differ materially between providers`);
+      if(checked.compared===0)warnings.push('Cross-provider validation returned no directly comparable DraftKings lines');
     }else validation={enabled:true,compared:0,conflicts:0};
   }
 
