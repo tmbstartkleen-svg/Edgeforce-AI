@@ -38,7 +38,7 @@ function validMarket(m:Market,now:number){
   if(start<now-2*3600000)return false;
   if(!Number.isFinite(m.odds)||m.odds===0)return false;
   if(!m.selection||!m.event||!m.sport)return false;
-  if(!finite(probability)||probability!<=0||probability!>=1)return false;
+  if(!finite(probability)||probability<=0||probability>=1)return false;
   if(m.bookmaker&&m.bookmaker.toLowerCase()!=='draftkings')return false;
   return true;
 }
