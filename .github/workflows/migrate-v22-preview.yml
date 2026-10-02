@@ -1,10 +1,10 @@
-name: Migrate Edgeforce V29 Preview
+name: Migrate Edgeforce V30 Preview
 
 on:
   workflow_dispatch:
     inputs:
       apply:
-        description: Apply database migrations through V29
+        description: Apply database migrations through V30
         required: true
         default: false
         type: boolean
@@ -24,6 +24,7 @@ jobs:
       - run: npm install
       - run: npm run check-migrations
       - run: npm run release-gate
+      - run: npm run final-qa
 
   migrate-preview:
     needs: verify
@@ -57,7 +58,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Validate preview environment
-        run: REQUIRE_PRODUCTION_ENV=true EXPECTED_MODEL_VERSION=edgeforce-v29 node --env-file=.env.preview.local scripts/validate-env.mjs
+        run: REQUIRE_PRODUCTION_ENV=true EXPECTED_MODEL_VERSION=edgeforce-v30 node --env-file=.env.preview.local scripts/validate-env.mjs
 
-      - name: Apply migrations through V29
+      - name: Apply migrations through V30
         run: node --env-file=.env.preview.local scripts/migrate.mjs
