@@ -64,6 +64,29 @@ type LiveBoardResponse={
   providerQuality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}|null;
   providerAttempts?:Array<{providerId:string;ok:boolean;skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;error?:string}>;
   warnings?:string[];
+  contextRevision?:string;
+  contextChanges?:Array<{
+    id:string;
+    marketId:string;
+    event:string;
+    selection:string;
+    sport:string;
+    type:string;
+    severity:'INFO'|'WATCH'|'ACTION';
+    reason:string;
+    detectedAt:string;
+  }>;
+  resimulationTriggered?:boolean;
+  resimulatedMarketIds?:string[];
+  resimulationResults?:Array<{
+    marketId:string;
+    selection:string;
+    simProbability:number;
+    modelProbability:number;
+    expectedValue:number;
+    grade:string;
+    simEngine:string;
+  }>;
   contextDiagnostics?:{
     matchedRows:number;
     totalRows:number;
@@ -338,9 +361,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V30</div>
-        <h1>Production-Hardened Intelligence Platform</h1>
-        <p>Production readiness, observability, provider resilience, calibrated model learning, automated settlement and cross-market simulation are unified behind one release-hardened control surface.</p>
+        <div className="eyebrow">EDGEFORCE AI • V31</div>
+        <h1>Automatic Repricing Intelligence Platform</h1>
+        <p>Material lineup, starter, goalie, quarterback, injury, weather, line and player-projection changes now trigger auditable re-simulation and repricing on top of the V30 production-hardened platform.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -361,6 +384,7 @@ export default function Dashboard(){
 
     {lastError&&<div className="v21Alert">{lastError}</div>}
     {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
+    {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     <section className="v21Hero">
       <div>
@@ -378,6 +402,7 @@ export default function Dashboard(){
           <div><small>Sports</small><b>{board.sports.length}</b></div>
           <div><small>History</small><b>{board.history.sampleSize}</b></div>
           <div><small>Feed</small><b>{board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'READY'}</b></div>
+          <div><small>Repriced</small><b>{board.resimulatedMarketIds?.length||0}</b></div>
         </div>
       </div>
     </section>
