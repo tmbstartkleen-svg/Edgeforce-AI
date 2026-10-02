@@ -1,74 +1,52 @@
 # Edgeforce AI
 
-Live sports probability intelligence workspace.
+Adaptive sports probability intelligence workspace.
 
-## Current build — V21 Live Board + History Intelligence
+## Current build — V22 Adaptive Model Learning
 
-V21 turns the project into a daily-use dashboard instead of a spreadsheet.
+V22 closes the loop between settled historical predictions and the live model council while reducing dependence on near-duplicate probability signals.
 
-### V21 workspace
-- today board with Top 30 or Top 50 legs
-- AM / PM filtering
-- sport and market filters
-- American-odds range filter
-- simulation probability filter
-- 7-day board that distributes rows across the week
-- 2 through 20 leg probability-set selector
-- cross-sport set view
-- simulation vs market-implied probability comparison
-- anomaly signal panel
-- generic prediction-market provider adapter
-- screenshot-derived result history
-- observed performance by sport, leg count, and known market type
-- athlete / player-stat / market-snapshot / model-run database counters
-- 1-second UI refresh with a short upstream source cache
+### V22 modeling
+- bounded learned model-weight multipliers from settled historical predictions
+- sport / market-specific weighting with sample-size protection
+- calibration, recency-decay, CLV, and performance influence on weight multipliers
+- model multipliers capped so one model cannot dominate from a small sample
+- more distinct power, matchup, player, environment, line-regime, historical, market, sport-engine, and Bayesian signals
+- scenario-volatility simulation that varies event probability using confidence and available injury, weather, travel, starter, goalie, and quarterback context
+- past events excluded from current scans
+- live / stored / demo source labeling remains explicit
+- portfolio optimizer consumes the same learned-weight market ranking used by the live board
+
+### Live board and risk controls
+- Top 30 / Top 50 today and 7-day boards
+- AM / PM, sport, market, odds, and simulation filters
+- 2 through 20 leg probability sets
+- bankroll and drawdown controls
+- event, sport, and correlation exposure limits
+- HOLD / REDUCE portfolio guidance
+- prediction-market comparison
+- uploaded result-history analytics
+- anomaly signals
+
+### APIs
+- `GET /api/live-board?view=today&limit=30&risk=Moderate`
+- `GET /api/intelligence/learned-weights`
+- `GET /api/intelligence/model-performance`
+- `POST /api/portfolio/optimize`
+- `POST /api/cashout`
+- `POST /api/hedge`
+- `GET /api/health`
 
 ### Live data
-The dashboard is provider-driven. It does not scrape DraftKings directly.
-
-Configure an authorized odds provider that returns DraftKings markets through:
-- `ODDS_PROVIDER_PRIMARY_URL`
-- `ODDS_PROVIDER_PRIMARY_KEY`
-
-Additional failover providers are already supported.
-
-Prediction-market data uses:
-- `PREDICTION_PROVIDER_PRIMARY_URL`
-- `PREDICTION_PROVIDER_PRIMARY_KEY`
-
-If providers are not configured, the dashboard explicitly shows DEMO FALLBACK rather than presenting sample data as live.
-
-### Core APIs
-- `GET /api/live-board?view=today&limit=30&risk=Moderate`
-- `GET /api/live-board?view=week&limit=50&risk=Moderate`
-- `GET /api/db/stats`
-- `GET /api/health`
-- `POST /api/cashout`
+The app is provider-driven and does not scrape DraftKings directly. Configure an authorized provider using the ODDS_PROVIDER_* environment variables. Prediction-market providers use PREDICTION_PROVIDER_* variables. When no provider is configured, the UI identifies demo fallback data rather than presenting it as live.
 
 ### Database
-Apply migrations through:
-```
-db/v21.sql
-```
+Apply migrations through `db/v22.sql`. V22 adds learned-model-weight snapshot storage. Learned weights are currently calculated from `historical_predictions`; the snapshot table is available for retained audit/history.
 
-V21 adds tables for parsed bet slips, bet legs, prediction-market snapshots, and anomaly signals. Existing athlete, event, player-stat, market-snapshot, model-run, result, calibration, provider, release, and monitoring tables remain intact.
-
-### Result-history rules
-Uploaded screenshots are used only when information is clearly visible. Hidden losing legs are stored as unknown rather than guessed. Historical hit rates are descriptive and sample-size dependent; they are not guarantees of future outcomes.
-
-### Release
-The repository includes:
-- build verification
-- migration checks
-- smoke tests
-- concurrency checks
-- preview deployment workflow
-- hosted smoke tests
-- production promotion
-- rollback workflow
-
-## Guardrails
-- Simulation percentages are model outputs, not certainties.
-- Correlated legs reduce combined probability.
-- Small historical samples can look much stronger or weaker than they really are.
-- Prediction-market and sportsbook prices can move quickly.
+### Guardrails
+- Model and simulation probabilities are estimates, not guarantees.
+- Historical weighting requires sufficient settled samples; small groups are ignored.
+- Learned multipliers are deliberately capped.
+- Scenario simulation models uncertainty around the current probability; it is not a full play-by-play physics simulation.
+- Correlated exposures are capped by the portfolio layer.
+- Sportsbook and prediction-market prices can move quickly.
