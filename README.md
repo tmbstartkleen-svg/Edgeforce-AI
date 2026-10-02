@@ -2,48 +2,56 @@
 
 Cross-market sports probability, simulation, parlay and bankroll intelligence workspace.
 
-## Current build — V26 Cross-Market Consensus Intelligence
+## Current build — V27 Automated Settlement + Bankroll Ledger
 
-V26 turns the sportsbook and prediction-market feeds into one auditable probability board instead of displaying them as separate sources.
+V27 turns the result-history layer into a persistent wager ledger that can record open tickets, reconcile provider results, settle parlays, update bankroll state, and calculate rolling performance.
 
-### V26 probability stack
-- preserves the posted American odds and raw implied sportsbook probability
-- de-vigs complete 2-way and 3-way sportsbook markets before comparing the model to the book
-- matches prediction contracts to sportsbook selections conservatively
-- requires a configurable prediction-market volume threshold before using that probability for edge
-- marks unmatched, illiquid, and unknown-liquidity prediction data instead of inventing a comparison
-- shows sport-engine probability, Monte Carlo probability, sportsbook edge, prediction-market edge, fair price and conservative quarter-Kelly
-- caps displayed quarter-Kelly at 5% of bankroll for risk control
+### V27 ledger engine
+- persistent wager and leg storage
+- exact September 29, 2026 baseline retained: $25 staked, $32 returned, +$7 net, +28% ROI
+- open, win, loss and push wager states
+- combined ticket odds, potential return and modeled probability storage
+- per-leg event, market, odds and model-probability audit fields
+- manual/API wager recording
+- manual/API settlement
+- result-provider reconciliation for matching open legs
+- hourly automatic settlement cron when a results provider is configured
+- winning wagers without a known ticket price or return are not assigned an invented payout
 
-### Prediction-market liquidity
-Set `PREDICTION_MIN_VOLUME` to the minimum reported contract volume required for a prediction-market probability to be treated as usable. The default is `1000`.
-
-Statuses exposed on each board row:
-- `MATCHED`
-- `ILLIQUID`
-- `UNKNOWN_LIQUIDITY`
-- `NO_MATCH`
-
-### Existing V25 intelligence retained
-- player projection and availability context
-- same-game correlation engine
-- sport-specific outcome Monte Carlo
-- Model Council ensemble
-- historical backtesting and learned model weights
-- portfolio risk and bankroll controls
-- daily and weekly probability boards
-- result-history analytics
+### Performance analytics
+- cumulative settled stake, return, net P/L and ROI
+- individual-leg hit rate by sport
+- market-type hit rate
+- parlay hit rate by leg count
+- sport-by-sport parlay performance
+- model-probability bands
+- average modeled probability for known winners and losers
+- best-performing sport and parlay size once a minimum settled sample exists
+- open wagers excluded from settled ROI/hit-rate calculations
 
 ### APIs
 - `GET /api/live-board`
-- `GET /api/intelligence/simulation-engines`
-- `GET /api/intelligence/learned-weights`
-- `POST /api/intelligence/sgp-correlation`
-- `POST /api/portfolio/optimize`
+- `GET /api/ledger/wagers`
+- `POST /api/ledger/wagers`
+- `POST /api/ledger/settle`
+- `POST /api/results/ingest`
+- `GET /api/cron/settle`
 - `GET /api/health`
 
+### V26 intelligence retained
+- raw sportsbook implied probability
+- complete-market de-vig probability
+- liquid prediction-market matching
+- sport-specific Monte Carlo
+- model-vs-sportsbook and model-vs-prediction-market edge
+- conservative quarter-Kelly
+- player context and SGP correlation
+- Model Council ensemble and learned historical weights
+
 ### Guardrails
-- Missing sportsbook, lineup, player, weather, or prediction-market data is not fabricated.
-- Prediction-market edge is only calculated for a confidently matched contract above the configured volume threshold.
-- De-vig probability is only recomputed when a complete 2-way or 3-way market is present.
-- Simulation, edge, Kelly sizing and parlay probabilities are estimates, not guarantees.
+- Open wagers never count as losses.
+- Unknown or hidden leg outcomes remain unknown.
+- Ambiguous result-provider rows are skipped.
+- Prediction-market data must pass matching and liquidity gates.
+- Missing payout information is never fabricated.
+- Simulation, edge, Kelly sizing and performance analytics are estimates and historical measurements, not guarantees.
