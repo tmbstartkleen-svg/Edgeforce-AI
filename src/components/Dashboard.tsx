@@ -69,7 +69,13 @@ type WeeklyDraft={
     startTime:string;
     odds:number;
     simProbability:number;
+    originalOdds:number;
+    originalSimProbability:number;
+    currentOdds:number;
+    currentSimProbability:number;
     locked:boolean;
+    needsReview:boolean;
+    changeSummary:string[];
   }>;
   combinedProbability:number|null;
 };
@@ -344,7 +350,7 @@ export default function Dashboard(){
       <div>
         <div className="eyebrow">EDGEFORCE AI • V25</div>
         <h1>Live Sports Probability Intelligence</h1>
-        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder.</p>
+        <p>Automated DraftKings odds, no-vig probabilities, prediction markets, shared-outcome 10,000-run Monte Carlo parlays and a persistent weekly builder. <a href="/pregame">Open V25 Pregame Monitor</a></p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -523,9 +529,9 @@ export default function Dashboard(){
       <div className="weeklyBuilder">
         {weekly.legs.map((x,i)=><div className="weeklyLeg" key={x.marketId}>
           <span className="rankCell">{i+1}</span>
-          <div><b>{x.selection}</b><small>{x.sport} • {x.event} • {x.market} • {fmtOdds(x.odds)} • sim {pct(x.simProbability)}</small></div>
+          <div><b>{x.selection}</b><small>{x.sport} • {x.event} • {x.market} • saved {fmtOdds(x.odds)} / {pct(x.simProbability)} • current {fmtOdds(x.currentOdds)} / {pct(x.currentSimProbability)}</small>{x.needsReview&&<small className="negative">{x.changeSummary.length?x.changeSummary.join(' • '):'Current simulation fell below the saved threshold'}</small>}</div>
           <div className="weeklyActions">
-            <span className={x.locked?'locked':'unlocked'}>{x.locked?'LOCKED':'OPEN'}</span>
+            {x.needsReview&&<span className="signal high">REVIEW</span>}<span className={x.locked?'locked':'unlocked'}>{x.locked?'LOCKED':'OPEN'}</span>
             <button onClick={()=>void updateWeeklyLeg(x.marketId,x.locked?'unlock':'lock')}>{x.locked?'Unlock':'Lock'}</button>
             <button disabled={x.locked} onClick={()=>void updateWeeklyLeg(x.marketId,'remove')}>Remove</button>
           </div>
