@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run build && npm run check-migrations && npm run smoke && npm run load-check",
+    "verify": "npm run build && npm run check-migrations && npm run release-gate && npm run smoke && npm run load-check",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
