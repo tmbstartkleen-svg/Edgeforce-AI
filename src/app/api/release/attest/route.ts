@@ -22,7 +22,7 @@ export async function POST(req:Request){
   ) values(
    ${RELEASE.appVersion},${process.env.VERCEL_GIT_COMMIT_SHA||body.commitSha||null},
    ${process.env.VERCEL_ENV||body.environment||'unknown'},${RELEASE.migrationVersion},
-   ${body.buildPassed!==false},${body.smokePassed!==false},${body.loadPassed!==false},
+   ${body.buildPassed===true},${body.smokePassed===true},${body.loadPassed===true},
    ${readiness.ready},${sql.json({source:body.source||'release-workflow',deploymentUrl:process.env.VERCEL_URL||body.deploymentUrl||null,productionReady:readiness.productionReady})}
   )
   returning id,created_at as "createdAt"
