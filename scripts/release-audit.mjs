@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V42',
- appVersion:'42.0.0',
- packageVersion:'0.42.0',
- modelVersion:'edgeforce-v42',
+ build:'V43',
+ appVersion:'43.0.0',
+ packageVersion:'0.43.0',
+ modelVersion:'edgeforce-v43',
  migrationVersion:38
 };
 const checks=[];
@@ -48,9 +48,16 @@ const requiredFiles=[
  'src/lib/automationHealth.ts',
  'src/lib/modelGovernance.ts',
  'src/app/api/intelligence/model-governance/route.ts',
- 'src/app/api/testing/model-governance/route.ts'
+ 'src/app/api/testing/model-governance/route.ts',
+ 'src/lib/providers/theOddsApi.ts',
+ 'src/lib/providers/polymarket.ts',
+ 'src/lib/runtimeMigrations.ts',
+ 'src/app/api/release/bootstrap/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
+add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
+add('Neon env fallback',read('src/lib/db.ts').includes('POSTGRES_URL'),'runtime DB accepts Neon integration vars');
+add('runtime migration bootstrap',read('src/app/api/release/bootstrap/route.ts').includes('runRuntimeMigrations'),'post-deploy migrations run with Vercel runtime secrets');
 add('governance migration schema',read('db/v38.sql').includes('model_governance_snapshots')&&read('db/v38.sql').includes('model_governance_runs'),'v38 governance tables');
 add('governance runtime brake',read('src/lib/learnedWeights.ts').includes('loadGovernanceMultipliers'),'learned weights consume governance');
 add('governance scheduled rebuild',read('src/app/api/cron/recalibrate/route.ts').includes('runModelGovernance'),'recalibration runs governance');
