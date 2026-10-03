@@ -194,7 +194,7 @@ export function evaluateModelGovernance(
    else if(p.modelName===challenger?.modelName)p.role='CHALLENGER';
    else p.role='MONITORED';
 
-   const roleScale=p.role==='CHAMPION'?1.04:p.role==='CHALLENGER'?1:p.role==='MONITORED'?.96:.75;
+   const roleScale=p.role==='CHAMPION'?1.04:p.role==='CHALLENGER'?1:p.role==='MONITORED'? .96 : .75;
    p.runtimeMultiplier=p.driftStatus==='INSUFFICIENT'?1:clamp(p.weightBrake*roleScale,.35,1.05);
    p.reason+=`; role ${p.role}, runtime ×${p.runtimeMultiplier.toFixed(3)}`;
   }
