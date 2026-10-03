@@ -2,6 +2,7 @@ import {db} from './db';
 import type {Market} from './types';
 import type {ContextChangeEvent} from './contextChanges';
 import {contextMarketKey} from './contextChanges';
+import {consensusMarketKey} from './marketConsensus';
 
 export async function saveMarketSnapshots(markets:Market[],provider='authorized-provider',bookmaker='DraftKings'){
   const sql=db();
@@ -61,18 +62,16 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
 export async function saveConsensusMarketSnapshots(markets:Market[],panelMarkets:Market[]){
   const sql=db();
   if(!sql||!markets.length)return {written:0,mode:'memory' as const};
-  const norm=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
-  const key=(m:Market)=>[norm(m.sport),norm(m.event),norm(m.market),norm(m.selection),new Date(m.startTime).toISOString()].join('|');
   const panel=new Map<string,Market[]>();
   for(const quote of panelMarkets){
-   const k=key(quote);
+   const k=consensusMarketKey(quote);
    panel.set(k,[...(panel.get(k)||[]),quote]);
   }
   let written=0;
   for(const market of markets){
    const consensus=market.consensus;
    if(!consensus)continue;
-   const quotes=(panel.get(key(market))||[]).map(q=>({
+   const quotes=(panel.get(consensusMarketKey(market))||[]).map(q=>({
     providerId:q.sourceProviderId||null,
     book:q.sourceBook||null,
     role:q.marketRole||'NEUTRAL',
