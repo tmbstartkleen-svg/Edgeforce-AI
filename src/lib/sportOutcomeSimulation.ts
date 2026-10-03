@@ -29,7 +29,7 @@ function poisson(rng:Rng,lambda:number){
  return Math.max(0,k-1);
 }
 
-function gammaSample(rng:Rng,shape:number,scale:number){
+function gammaSample(rng:Rng,shape:number,scale:number):number{
  if(shape<1){
   const u=Math.max(1e-12,rng.next());
   return gammaSample(rng,shape+1,scale)*Math.pow(u,1/shape);

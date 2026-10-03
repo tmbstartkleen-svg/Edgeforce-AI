@@ -2,7 +2,22 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V34 Distribution-Aware Prediction Intelligence
+## Current build — V34.1 Provider Certification + Launch Doctor
+
+V34.1 keeps the V34 distribution-aware prediction model unchanged and adds launch-readiness tooling that certifies live provider contracts, scores capability coverage, persists certification history, and produces a single blocker/warning report before production.
+
+### V34.1 launch-readiness upgrades
+- authenticated live provider certification for configured feeds
+- ODDS treated as a hard launch requirement
+- weather, injuries, stats, results and prediction markets scored as enrichment coverage
+- freshness, row-count, payload-quality and latency evidence retained per provider
+- odds feeds must normalize into valid markets to certify
+- certification history persisted in Postgres through migration v33
+- `/api/providers/certify` for certification status and authorized live probes
+- `/api/launch-doctor` for combined readiness + provider-certification blockers
+- synthetic CI guardrails prove failed core odds feeds block launch
+
+## V34 Distribution-Aware Prediction Intelligence
 
 V34 upgrades the simulation layer from mostly generic normal-style outputs to market-specific probability distributions with explicit uncertainty ranges.
 
@@ -34,11 +49,11 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - player context and sport context
 
 ### Release identity
-- build: `V34`
-- app: `34.0.0`
-- package: `0.34.0`
+- build: `V34.1`
+- app: `34.1.0`
+- package: `0.34.1`
 - model: `edgeforce-v34`
-- migration: `v32`
+- migration: `v33`
 
 ### Elite roadmap remaining after V34
 - V35: event-level joint simulation and learned SGP correlation

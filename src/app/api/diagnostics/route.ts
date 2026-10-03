@@ -33,6 +33,8 @@ export async function GET(){
   providerHardening:true,
   circuitBreaker:true,
   payloadFreshnessGate:true,
+  providerCertification:true,
+  launchDoctor:true,
   walkForwardCalibration:true,
   controlledWeightPromotion:true,
   readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict,requiredFailures:readiness.requiredFailures,warnings:readiness.warnings},

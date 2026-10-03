@@ -24,6 +24,8 @@ export async function GET(){
   providerReconciliation:true,
   providerCircuitBreaker:true,
   providerPayloadFreshnessGate:true,
+  providerCertification:true,
+  launchDoctor:true,
   staleStoredOddsRejection:true,
   degradedModeDisclosure:true,
   persistentWagerLedger:true,
