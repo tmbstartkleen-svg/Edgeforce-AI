@@ -196,6 +196,7 @@ type DbStats={
     athletes?:number;
     player_game_stats?:number;
     market_snapshots?:number;
+    market_consensus_snapshots?:number;
     model_runs?:number;
     bet_results?:number;
   };
@@ -727,6 +728,7 @@ export default function Dashboard(){
       <div><small>ATHLETES</small><b>{dbStats.counts?.athletes||0}</b></div>
       <div><small>PLAYER GAME STATS</small><b>{dbStats.counts?.player_game_stats||0}</b></div>
       <div><small>MARKET SNAPSHOTS</small><b>{dbStats.counts?.market_snapshots||0}</b></div>
+      <div><small>CONSENSUS SNAPSHOTS</small><b>{dbStats.counts?.market_consensus_snapshots||0}</b></div>
       <div><small>MODEL RUNS</small><b>{dbStats.counts?.model_runs||0}</b></div>
       <div><small>SETTLED RESULTS</small><b>{dbStats.counts?.bet_results||0}</b></div>
     </section>
