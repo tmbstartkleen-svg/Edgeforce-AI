@@ -298,6 +298,7 @@ assert(productionCertification.res.ok&&productionCertification.body?.ok===true,'
 assert(productionCertification.body?.certified===true,'local production certification did not certify');
 assert(productionCertification.body?.security?.ok===true,'production certification security posture failed');
 assert(productionCertification.body?.modelGovernance?.ok===true,'production certification model governance status missing');
+assert(productionCertification.body?.modelValidation?.ok===true,'production certification model validation status missing');
 
 const modelDiagnostics=await get('/api/intelligence/model-diagnostics');
 assert(modelDiagnostics.res.ok&&modelDiagnostics.body?.ok===true,'model diagnostics endpoint failed');
