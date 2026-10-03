@@ -62,9 +62,9 @@ export async function loadLearnedSgpCorrelations():Promise<LearnedSgpMap>{
  }
 }
 
-export function learnedSgpProfile(map:LearnedSgpMap|undefined,sport:string,a:string,b:string){
+export function learnedSgpProfile(map:LearnedSgpMap|undefined,sport:string,marketA:string,selectionA:string,marketB:string,selectionB:string){
  if(!map)return undefined;
- return map[key(sport,a,b)];
+ return map[key(sport,sgpMarketSignature(marketA,selectionA),sgpMarketSignature(marketB,selectionB))];
 }
 
 type PairRow={sport:string;marketA:string;marketB:string;selectionA:string;selectionB:string;aResult:string;bResult:string};
