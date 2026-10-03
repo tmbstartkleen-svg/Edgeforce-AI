@@ -1,5 +1,5 @@
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'40.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'41.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
 const paths=['/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
@@ -7,7 +7,7 @@ const results=[];
 
 for(const path of paths){
  const started=Date.now();
- const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/40'}});
+ const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/41'}});
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
