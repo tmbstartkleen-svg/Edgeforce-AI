@@ -1,10 +1,10 @@
-# Edgeforce AI V40 deployment
+# Edgeforce AI V41 deployment
 
 ## Release strategy
 lint → build → migration continuity → local production server → smoke → load gate → Vercel prebuilt preview → hosted smoke → release attestation → optional exact-artifact promotion → observe → rollback if needed.
 
 ## Required production configuration
-Configure `DATABASE_URL`, `INGEST_SECRET`, `CRON_SECRET`, `MODEL_VERSION=edgeforce-v40`, a positive `DEFAULT_BANKROLL`, and at least one authorized odds provider. Apply database migrations through `v36`.
+Configure `DATABASE_URL`, `INGEST_SECRET`, `CRON_SECRET`, `MODEL_VERSION=edgeforce-v41`, a positive `DEFAULT_BANKROLL`, and at least one authorized odds provider. Apply database migrations through `v37`.
 
 GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 
@@ -12,7 +12,7 @@ GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VE
 - `/api/health/live`: process liveness only.
 - `/api/health/ready`: environment-aware service readiness.
 - `/api/release/readiness`: release/dependency details without secret values.
-- In production, readiness requires database connectivity, migration v36, secrets, bankroll configuration and an operational odds provider.
+- In production, readiness requires database connectivity, migration v37, secrets, bankroll configuration and an operational odds provider.
 
 ## Pre-release gates
 - `npm run lint`
@@ -21,13 +21,13 @@ GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VE
 - local production-server smoke suite
 - load check with zero failures and configured p95 ceiling
 - hosted preview liveness/readiness/diagnostics/ops-status/dashboard checks
-- V40 version and migration identity checks
+- V41 version, migration, and static release-audit checks
 
 ## Preview and promotion
-Use **Edgeforce Release Candidate**. It builds a Vercel preview with pinned CLI tooling, smoke-tests the exact prebuilt artifact, records a release attestation, and promotes that same artifact only when `promote=true`.
+Use **Edgeforce Release Candidate** for preview validation only. V41 intentionally blocks direct preview promotion. Production releases must flow through **Edgeforce Production Deploy** so production environment validation, migration v37, provider certification, strict readiness, hosted smoke, release attestation, final certification, and rollback cannot be bypassed.
 
 ## Rollback
-Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V40 release toolchain.
+Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V41 release toolchain.
 
 ## Observability
 The hourly heartbeat records readiness when a database is configured. `/api/ops/status` surfaces recent heartbeats, release attestations, unresolved incidents and route performance. Live-board performance sampling is controlled with `PERFORMANCE_SAMPLE_RATE`.
@@ -50,11 +50,11 @@ The canonical production project is `edgeforce-ai2` (`prj_8edFTZzS8e6RZyMVm1mjxu
 After **Verify Edgeforce** succeeds on `main`, **Edgeforce Production Deploy**:
 1. targets the canonical Vercel project,
 2. pulls the production environment,
-3. validates the V40 app/model environment,
-4. applies database migrations through v36,
+3. validates the V41 app/model environment,
+4. applies database migrations through v37,
 5. builds with the pinned Vercel CLI,
 6. deploys the prebuilt artifact directly to production,
-7. runs hosted V40 smoke/readiness checks,
+7. runs hosted V41 smoke/readiness checks,
 8. records a release attestation,
 9. rolls back automatically if a hosted post-deploy check fails.
 
@@ -91,3 +91,18 @@ V39 runs five portfolio-level loss scenarios after initial concentration-aware a
 
 ## Explainability, ablation and read-only what-if
 V40 adds additive model-contribution reconstruction, leave-one-model-out ablation, feature-zeroing ablation, local feature sensitivity, fragility diagnostics, and a read-only scenario API. The smoke suite requires contribution reconstruction, component/feature coverage, model diagnostics, and an actual hypothetical what-if POST. What-if analysis must remain side-effect free: it must not persist odds, wagers, calibration state, model weights, or learning events.
+
+
+## V41 final production certification
+V41 adds a second, post-deploy certification layer after provider certification, strict launch-doctor readiness, hosted smoke tests, and release attestation. The authorized `POST /api/release/certify?strict=1` requires current release identity, required readiness checks, current provider certification, acceptable batch data quality, no stale/failed durable automation jobs, the hardened security posture, and a complete current-version release attestation. A non-2xx certification response causes the production workflow to enter the existing rollback step.
+
+The first deployment can show scheduled jobs as `PENDING` until their configured schedules run; pending jobs are warnings, while a recorded failed or stale job is a strict certification blocker.
+
+## Static release audit
+`npm run release-audit` runs before preview and production deployment. It verifies V41 release/model/package/migration identity, required V41 routes and files, Vercel cron coverage, security controls, blank example secret values, absence of tracked local environment files, and workflow identity synchronization.
+
+## Durable automation health
+Migration v37 stores scheduler outcomes for heartbeat, settlement, scan, decision, and recalibration. `GET /api/automation/health` reports HEALTHY, STALE, FAILED, or PENDING by job. Scheduled scan and decision automation now consume learned weights and dynamic calibration profiles so automated scoring follows the same calibration path as interactive boards.
+
+## Batch market data contract
+`GET /api/data-quality` audits the active ingestion batch for structural validity, odds/probability bounds, freshness, duplicates, consensus depth, target-book coverage, and feature coverage. Severe invalidity, duplication, staleness, or an overall REJECT grade blocks strict final certification.

@@ -14,6 +14,8 @@ export async function GET(){
         (select count(*)::int from market_consensus_snapshots) as market_consensus_snapshots,
         (select count(*)::int from model_runs) as model_runs,
         (select count(*)::int from bet_results) as bet_results,
+        (select count(*)::int from automation_runs) as automation_runs,
+        (select count(*)::int from production_certifications) as production_certifications,
         (select count(*)::int from bet_slips) as bet_slips,
         (select count(*)::int from bet_slips where result='open') as open_wagers,
         (select count(*)::int from bet_slips where result in ('win','loss','push')) as settled_wagers

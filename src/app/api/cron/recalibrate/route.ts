@@ -1,18 +1,27 @@
 import {runRecalibration} from '@/lib/recalibrationEngine';
 import {rebuildLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
+import {recordAutomationRun} from '@/lib/automationHealth';
 
 export const dynamic='force-dynamic';
 
 export async function GET(req:Request){
  const auth=req.headers.get('authorization');
- if(process.env.CRON_SECRET && auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
+ if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
+ const started=Date.now();
  try{
   const [modelCalibration,sgpCorrelation]=await Promise.all([
    runRecalibration(),
    rebuildLearnedSgpCorrelations()
   ]);
+  await recordAutomationRun('recalibrate','success',started,{
+   calibrationMode:(modelCalibration as any).mode||null,
+   groups:(modelCalibration as any).groups?.length??null,
+   sgpProfiles:(sgpCorrelation as any).profiles?.length??null
+  });
   return Response.json({ok:true,modelCalibration,sgpCorrelation,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
-  return Response.json({ok:false,error:error instanceof Error?error.message:'recalibration failed'},{status:500});
+  const message=error instanceof Error?error.message:'recalibration failed';
+  await recordAutomationRun('recalibrate','failed',started,{},message);
+  return Response.json({ok:false,error:message},{status:500,headers:{'Cache-Control':'no-store'}});
  }
 }

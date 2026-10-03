@@ -2,7 +2,62 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V40 Explainability + Diagnostics + Live What-If
+## Current build — V41 Production Certification + Final Hardening
+
+V41 completes the planned Edgeforce roadmap with release-wide certification rather than another prediction layer. It verifies the data contract, scheduled automation, security posture, release identity, migration state, provider certification, and post-deploy production health as one system.
+
+### V41 data integrity
+- batch market contract auditing validates required identifiers, timestamps, American odds, probability bounds, confidence, source age, duplicates, consensus depth, target-book coverage, and context-feature coverage
+- batch audits return a quality score, TRUSTED / USABLE / CAUTION / REJECT grade, blockers, warnings, and row-level issues
+- scheduled scans include the same batch audit used by the live data-quality endpoint
+- malformed, duplicated, and stale market rows are covered by deterministic regression tests
+
+### V41 automation health
+- heartbeat, settlement, scan, decision, and recalibration jobs persist durable run status, duration, release version, metadata, and failures
+- automation health classifies every scheduled job as HEALTHY, STALE, FAILED, or PENDING
+- stale or failed jobs block strict production certification; never-run jobs are visible warnings until the schedule has executed
+- scheduled scan and decision jobs use the same learned weights and dynamic calibration profiles as the live scoring path
+
+### V41 security hardening
+- separate read and mutation rate limits
+- 1 MB declared mutation-body ceiling
+- TRACE / TRACK / CONNECT rejection
+- request IDs on normal and security-failure responses
+- no-store policy on API responses
+- HSTS, CSP, anti-framing, MIME sniffing, permissions, referrer, COOP/CORP, and cross-domain policy headers
+- static release audit checks for accidentally tracked environment-secret files
+
+### V41 release certification
+- `npm run release-audit` rejects release/version drift, missing migration files, missing hardening endpoints, cron drift, weakened security constants, workflow identity drift, and nonblank example secrets
+- migration `v37` adds durable automation and production-certification history
+- `POST /api/release/certify?strict=1` combines readiness, provider certification, live data quality, automation health, security posture, release attestation, and operational incidents
+- production deployment runs final certification after hosted smoke + attestation
+- a failed final certification flows into the existing automatic rollback path
+
+### V41 APIs
+- `GET /api/data-quality` — current live/stored/demo batch audit
+- `GET /api/automation/health` — durable scheduler health
+- `GET /api/release/certify` — latest production certification
+- `POST /api/release/certify?strict=1` — authorized strict post-deploy certification
+- deterministic tests: `/api/testing/data-contract`, `/api/testing/automation-health`, and `/api/testing/security-hardening`
+
+### Release identity
+- build: `V41`
+- app: `41.0.0`
+- package: `0.41.0`
+- model: `edgeforce-v41`
+- migration: `v37`
+
+### Roadmap status
+The V34–V41 elite roadmap is complete. Further releases should be driven by live-provider integration, measured production behavior, data coverage, calibration results, and user workflow needs rather than adding features solely to increase build count.
+
+### Guardrails
+- production certification is an operational gate, not a guarantee of model accuracy or profit
+- body-size enforcement at the edge rejects oversized declared mutation requests; infrastructure-level request limits remain part of deployment security
+- automation health depends on durable database records after scheduled jobs begin running
+- live provider quality, simulations, and model probabilities remain estimates and can fail or change
+
+## V40 Explainability + Diagnostics + Live What-If
 
 V40 makes Edgeforce probabilities inspectable and scenario-testable instead of treating the ensemble as a black box.
 
@@ -289,8 +344,8 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V40
-- V41: final data-quality, automation, deployment, security and production hardening
+### Elite roadmap status
+- V41 completes the planned final data-quality, automation, deployment, security, and production-hardening milestone.
 
 ### Guardrails
 - Distribution choice is a modeling assumption and is labeled in output.
