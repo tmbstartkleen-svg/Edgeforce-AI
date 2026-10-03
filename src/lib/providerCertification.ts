@@ -29,6 +29,24 @@ export type ProviderCertification={
  error?:string;
 };
 
+export type LatestProviderCertification={
+ id:number;
+ releaseVersion:string;
+ modelVersion:string;
+ status:string;
+ configuredCount:number;
+ certifiedCount:number;
+ cautionCount:number;
+ failedCount:number;
+ coverageScore:number;
+ launchReady:boolean;
+ blockers:string[];
+ warnings:string[];
+ startedAt:string;
+ completedAt?:string;
+ providers:Array<Record<string,unknown>>;
+};
+
 export type CapabilityCoverage={
  capability:ProviderCapability;
  required:boolean;
@@ -185,7 +203,7 @@ export async function certifyConfiguredProviders(){
  return report;
 }
 
-export async function latestProviderCertification(){
+export async function latestProviderCertification():Promise<LatestProviderCertification|null>{
  const sql=db();
  if(!sql)return null;
  try{
@@ -207,7 +225,24 @@ export async function latestProviderCertification(){
     max_age_minutes as "maxAgeMin",error_text as error,reasons,checked_at as "checkedAt"
    from provider_certifications where run_id=${run.id} order by capability,priority desc
   `;
-  return {...run,providers};
+  const row=run as Record<string,unknown>;
+  return {
+   id:Number(row.id),
+   releaseVersion:String(row.releaseVersion||''),
+   modelVersion:String(row.modelVersion||''),
+   status:String(row.status||'unknown'),
+   configuredCount:Number(row.configuredCount||0),
+   certifiedCount:Number(row.certifiedCount||0),
+   cautionCount:Number(row.cautionCount||0),
+   failedCount:Number(row.failedCount||0),
+   coverageScore:Number(row.coverageScore||0),
+   launchReady:Boolean(row.launchReady),
+   blockers:Array.isArray(row.blockers)?row.blockers.map(String):[],
+   warnings:Array.isArray(row.warnings)?row.warnings.map(String):[],
+   startedAt:row.startedAt?new Date(row.startedAt as string|Date).toISOString():'',
+   completedAt:row.completedAt?new Date(row.completedAt as string|Date).toISOString():undefined,
+   providers:(providers as unknown as Array<Record<string,unknown>>)
+  };
  }catch{
   return null;
  }
