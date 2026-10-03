@@ -63,8 +63,6 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
-          INGEST_SECRET: ${{ env.INGEST_SECRET }}
-          CRON_SECRET: ${{ env.CRON_SECRET }}
 
       - name: Wait for Worker
         env:
