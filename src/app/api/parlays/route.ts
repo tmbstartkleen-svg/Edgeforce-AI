@@ -4,6 +4,7 @@ import {buildParlayBoards,selectParlayPool,DEFAULT_PARLAY_THRESHOLDS} from '@/li
 import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
+import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 
 export const dynamic='force-dynamic';
 const PARLAY_SCHEMA_VERSION='v48-recommendation-quality-1';
@@ -48,7 +49,8 @@ export async function GET(req:Request){
   },{status:503,headers:{'Cache-Control':'no-store'}});
  }
 
- const all=scanMarkets(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
+ const context=await enrichMarketsWithContext(ingestion.markets);
+ const all=scanMarkets(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
  const eligible=view==='today'?all.filter(x=>x.bucket==='TODAY'):all;
  const gradeCounts={
   ELITE:eligible.filter(x=>x.grade==='ELITE').length,
@@ -82,6 +84,7 @@ export async function GET(req:Request){
   fallbackUsed:pool.fallbackUsed,
   qualification:pool.qualification,
   learnedProfileCount:Object.keys(learned).length,
+  contextDiagnostics:context.diagnostics,
   recommendationStatus,
   thresholds:boards.thresholds,
   generatedParlayCandidates:boards.generated,
