@@ -1,69 +1,45 @@
 # Edgeforce AI
 
-Production-hardened sports probability, simulation, repricing, parlay, bankroll and model-learning workspace.
+Production-hardened sports probability, simulation, repricing, line-movement, CLV, parlay, bankroll and model-learning workspace.
 
-## Current build — V31 Automatic Context Repricing
+## Current build — V32 Line Movement + CLV Intelligence
 
-V31 extends the V30 production-hardened platform with automatic material-change detection and auditable re-simulation. Fresh provider pulls are compared with the prior persisted market/context state. Material changes trigger a new scan immediately and retain the post-change model run.
+V32 adds market-movement intelligence and automatic closing-line tracking on top of V31 automatic context repricing.
 
-### V31 automatic triggers
-- sportsbook line / implied-probability movement
-- injury context changes
-- lineup changes
-- starter designation changes
-- goalie changes
-- quarterback changes
-- material weather changes
-- player status changes
-- player availability changes of at least 5 percentage points
-- player projection changes of at least 0.5 units or 3%
+### V32 line movement
+- opener and current odds from persisted market snapshots
+- opener and current implied/no-vig probability
+- signed probability movement and odds movement
+- 30-minute steam detection
+- WATCH steam at >=2.0 probability-point movement
+- STRONG steam at >=3.5 probability-point movement with at least three snapshots
+- live-board steam count and per-row opener/current movement
+- `GET /api/intelligence/line-movement` for recent movement history
 
-### Re-simulation and repricing flow
-1. Pull the latest live/stored market feed.
-2. Fuse weather, injuries, stats and player context.
-3. Load the prior context state from Postgres when available.
-4. Detect material changes.
-5. Persist each change event.
-6. Persist the new current context state for serverless continuity.
-7. Re-run sport-specific simulation and model scoring for affected markets.
-8. Persist triggered model-run snapshots.
-9. Surface the changed markets, fresh probabilities, EV, grade and simulation engine on the live-board response.
-
-The normal provider refresh cadence remains 10 seconds. `GET /api/live-board?force=1` can bypass the cache only when authorized with the configured ingest secret.
-
-### V31 endpoints
-- `GET /api/live-board`
-- `GET /api/context-changes`
-- `POST /api/reprice`
-- `POST /api/events/reprice`
-- `GET /api/health/live`
-- `GET /api/health`
-- `GET /api/health/ready`
-- `GET /api/release/readiness`
-
-The reprice endpoints now resolve markets from the current live/stored provider pipeline rather than defaulting to demo markets.
+### Automatic closing line + CLV
+- settlement backfills the final valid pre-start market snapshot when a closing price is missing
+- provider-supplied closing prices are also normalized into closing implied probability
+- signed CLV is persisted on each wager leg
+- positive CLV means the closing implied probability moved in the bettor's favor relative to the offered line
+- wager-leg CLV is merged into the existing `/api/intelligence/clv` analytics
 
 ### Release identity
-- build: `V31`
-- app: `31.0.0`
-- package: `0.31.0`
-- model: `edgeforce-v31`
-- migration: `v30`
+- build: `V32`
+- app: `32.0.0`
+- package: `0.32.0`
+- model: `edgeforce-v32`
+- migration: `v31`
 
-### V30 retained
-- dedicated liveness and readiness
-- production readiness gates
-- operational heartbeat and incident tracking
-- release attestations
-- provider resilience and payload freshness gates
-- calibrated model learning
-- persistent wager ledger and settlement
-- hosted preview smoke testing and promotion workflows
+### Retained from V31
+- automatic injury / lineup / starter / goalie / quarterback / weather / player-projection repricing
+- Postgres-backed context state for serverless continuity
+- context-change audit history
+- triggered model-run persistence
+- live/stored provider-based repricing endpoints
 
-### Guardrails
-- Missing provider context is not fabricated.
-- A context change only triggers when it crosses a defined materiality threshold.
-- Re-simulation outputs remain estimates, not guarantees.
-- Forced cache bypass is protected when an ingest secret is configured.
-- Provider degraded/stored/demo modes remain explicitly disclosed.
-- Repricing history and post-change model runs are retained for audit when a database is configured.
+### Production guardrails
+- stale, stored and demo data remain explicitly labeled
+- closing prices are taken only from observed provider snapshots at or before event start
+- missing closing prices are left missing rather than invented
+- steam is a market-movement signal, not a guarantee of outcome
+- CLV and model probabilities are descriptive/analytic metrics and do not guarantee profit
