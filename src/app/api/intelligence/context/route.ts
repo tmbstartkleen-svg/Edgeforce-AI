@@ -39,6 +39,13 @@ export async function GET(){
   injuries:configuredProviders('INJURIES').map(x=>x.id),
   stats:configuredProviders('STATS').map(x=>x.id)
  };
+ const provenance=enriched.markets.flatMap(x=>x.contextProvenance||[]);
+ const provenanceBySource=Object.fromEntries(
+  [...new Set(provenance.map(x=>x.source))].map(source=>[
+   source,
+   provenance.filter(x=>x.source===source).length
+  ])
+ );
 
  return Response.json({
   ok:true,
