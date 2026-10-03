@@ -62,6 +62,15 @@ for(const token of [
 add('mutation body limit enforced',proxy.includes('content-length')&&proxy.includes('MAX_MUTATION_BYTES'),'proxy content-length gate');
 add('dangerous methods blocked',proxy.includes("'TRACE'")&&proxy.includes("'TRACK'")&&proxy.includes("'CONNECT'"),'TRACE/TRACK/CONNECT');
 
+const previewWorkflow=read('.github/workflows/deploy-preview.yml');
+const candidateWorkflow=read('.github/workflows/release-candidate.yml');
+const productionWorkflow=read('.github/workflows/deploy-production.yml');
+add('preview workflow release audit',previewWorkflow.includes('npm run release-audit'),'release audit required');
+add('candidate workflow release audit',candidateWorkflow.includes('npm run release-audit'),'release audit required');
+add('production workflow release audit',productionWorkflow.includes('npm run release-audit'),'release audit required');
+add('direct preview promotion disabled',!candidateWorkflow.includes('vercel promote'),'canonical production deploy required');
+add('production final certification',productionWorkflow.includes('/api/release/certify?strict=1'),'strict final certification required');
+
 for(const workflow of [
  '.github/workflows/deploy-preview.yml',
  '.github/workflows/deploy-production.yml',
