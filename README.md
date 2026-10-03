@@ -2,7 +2,52 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V39 Portfolio Stress Testing + Drawdown Control
+## Current build — V40 Explainability + Diagnostics + Live What-If
+
+V40 makes Edgeforce probabilities inspectable and scenario-testable instead of treating the ensemble as a black box.
+
+### V40 explainability
+- decomposes the ensemble into additive normalized model contributions that reconstruct the council probability
+- reports each model's probability, normalized weight, signed contribution, and direction
+- runs leave-one-model-out ablation across all council members
+- zeroes each active sport/context feature to measure its probability contribution
+- perturbs active features to estimate local sensitivity per feature unit
+- reports weight concentration, effective model count, dominant model, council agreement, and dispersion
+- classifies explanation fragility as `ROBUST`, `MODERATE`, or `FRAGILE`
+
+### V40 diagnostics
+- `GET /api/intelligence/explainability` returns market-level explanations
+- `GET /api/intelligence/model-diagnostics` summarizes fragility, model concentration, agreement, dominant-model frequency, and largest edges across current markets
+- the main dashboard shows aggregate fragility diagnostics
+- every board row exposes an `EXPLAIN` action for exact event + market + selection drill-down
+
+### V40 live read-only what-if
+- `POST /api/what-if` accepts context changes, feature overrides, feature deltas, and optional probability deltas
+- recalculates council explanation, calibrated simulation probability, dynamic confidence, grade, regime, stake sizing, and portfolio result
+- returns explicit before/after deltas and fragility changes
+- does not write to odds history, wagers, calibration history, or model learning
+- drill-down controls allow interactive line-move, home-adjustment, and feature-delta scenarios
+
+### V40 validation
+- additive contribution reconstruction is regression-tested to numerical tolerance
+- component and feature ablation coverage is required
+- scenario movement is required
+- smoke testing performs a real read-only what-if POST and requires explanation diagnostics
+
+### Release identity
+- build: `V40`
+- app: `40.0.0`
+- package: `0.40.0`
+- model: `edgeforce-v40`
+- migration: `v36` (no schema change required)
+
+### Guardrails
+- explanations describe model mechanics; they do not prove causality
+- local sensitivity is conditional on current inputs and is not a guarantee of outcome
+- what-if scenarios are hypothetical and read-only
+- model explanations and simulations remain estimates, not guaranteed betting outcomes
+
+## V39 Portfolio Stress Testing + Drawdown Control
 
 V39 upgrades portfolio sizing from static exposure caps to scenario-tested tail-risk control.
 
@@ -244,8 +289,7 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V39
-- V40: explainability, model diagnostics, ablation and live what-if analysis
+### Elite roadmap remaining after V40
 - V41: final data-quality, automation, deployment, security and production hardening
 
 ### Guardrails
