@@ -151,12 +151,22 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  const awayMean=Math.max(.05,totalMean/2-marginMean/2);
  const kind=marketKind(m);
  const line=parseLine(m);
+ const s=sport(m);
+ const discreteLowScore=s.includes('MLB')||s.includes('NHL')||s.includes('SOCCER');
  let hits=0;
+ const totals:number[]=[];
  for(let i=0;i<runs;i++){
-  const common=rng.normal()*base.sd*.24;
-  const home=Math.max(0,homeMean+common+rng.normal()*base.sd*.48);
-  const away=Math.max(0,awayMean+common+rng.normal()*base.sd*.48);
+  let home:number,away:number;
+  if(discreteLowScore){
+   home=poisson(rng,homeMean);
+   away=poisson(rng,awayMean);
+  }else{
+   const common=rng.normal()*base.sd*.24;
+   home=Math.max(0,homeMean+common+rng.normal()*base.sd*.48);
+   away=Math.max(0,awayMean+common+rng.normal()*base.sd*.48);
+  }
   const total=home+away;
+  totals.push(total);
   const margin=selectionAway?away-home:home-away;
   let hit=false;
   if(kind==='OVER')hit=line===undefined?rng.next()<p:total>Math.abs(line);
@@ -165,9 +175,14 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
   else hit=selectionAway?away>home:selectionHome?home>away:rng.next()<p;
   if(hit)hits++;
  }
- return finalize(runs,hits,'TEAM_SCORE_MONTE_CARLO',{homeMean,awayMean,totalMean,marginMean,line,unit:base.unit},base.sd);
+ const q=quantileSummary(totals);
+ return finalize(runs,hits,discreteLowScore?'DISCRETE_TEAM_SCORE_MONTE_CARLO':'TEAM_SCORE_MONTE_CARLO',{
+  homeMean,awayMean,totalMean:q.mean,marginMean,line,unit:base.unit,
+  distributionFamily:discreteLowScore?'POISSON':'NORMAL',
+  distributionConfidence:.82,
+  p10:q.p10,p50:q.p50,p90:q.p90
+ },q.stdDev||base.sd);
 }
-
 function simulateSetSport(m:Market,runs:SimulationTier){
  const s=sport(m);
  const isSet=s.includes('TENNIS')||s.includes('TABLE TENNIS')||s.includes('VOLLEYBALL');
