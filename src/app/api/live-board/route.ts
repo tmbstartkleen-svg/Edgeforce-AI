@@ -13,6 +13,7 @@ import {recordPerformance} from '@/lib/ops';
 import type {Market} from '@/lib/types';
 import {detectMaterialContextChanges,contextRevision} from '@/lib/contextChanges';
 import {loadContextMarketStates,recordContextChanges,saveContextMarketStates,recordModelRuns} from '@/lib/persistence';
+import {loadLineMovement} from '@/lib/lineMovement';
 
 export const dynamic='force-dynamic';
 
@@ -73,7 +74,10 @@ export async function GET(req:Request){
   ]);
 
   const ingestion=cached.ingestion;
-  const scanned=scanMarkets(ingestion.markets,risk,new Date(),learnedWeights);
+  const [scanned,lineMovement]=await Promise.all([
+    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights)),
+    loadLineMovement(ingestion.markets).catch(()=>new Map())
+  ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
   const resimulatedRows=scanned.filter(x=>triggeredIds.has(x.id));
   if(resimulatedRows.length)await recordModelRuns(resimulatedRows).catch(()=>0);
@@ -87,7 +91,10 @@ export async function GET(req:Request){
     simEngine:x.simEngine
   }));
   const ranked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
-  const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume);
+  const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
+    ...row,
+    lineMovement:lineMovement.get(row.id)||null
+  }));
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
   const predictionCoverage={
     minimumVolume:minPredictionVolume,
@@ -124,6 +131,7 @@ export async function GET(req:Request){
     sports,
     predictions,
     predictionCoverage,
+    steamCount:rows.filter(x=>x.lineMovement?.steam).length,
     history:analyzeHistory(ledgerHistory),
     historicalBets:ledgerHistory,
     anomalies:detectAnomalies(rows).slice(0,20)
