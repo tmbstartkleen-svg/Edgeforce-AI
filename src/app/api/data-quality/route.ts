@@ -13,7 +13,7 @@ export async function GET(){
   source:ingestion.source,
   providerId:ingestion.providerId,
   audit:auditMarketBatch(ingestion.markets)
- },{headers:{'Cache-Control':'no-store'}});
+ },{status:ingestion.markets.length?200:503,headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(req:Request){
