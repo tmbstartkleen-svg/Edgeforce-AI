@@ -1,6 +1,6 @@
-const expectedModel='edgeforce-v42';
+const expectedModel='edgeforce-v43';
 const requiredBase=['INGEST_SECRET','CRON_SECRET','MODEL_VERSION','DEFAULT_BANKROLL'];
-const requiredProduction=['DATABASE_URL'];
+const requiredProduction=[];
 const providerGroups=[
  ['ODDS_PROVIDER_PRIMARY_URL','ODDS_PROVIDER_PRIMARY_KEY'],
  ['ODDS_PROVIDER_SECONDARY_URL','ODDS_PROVIDER_SECONDARY_KEY'],
@@ -10,13 +10,16 @@ const providerGroups=[
 const env=process.env;
 const strict=env.REQUIRE_PRODUCTION_ENV==='true'||env.VERCEL_ENV==='production';
 const missingBase=requiredBase.filter(k=>!env[k]);
+const databaseUrl=env.DATABASE_URL||env.POSTGRES_URL||env.POSTGRES_PRISMA_URL||env.NEON_DATABASE_URL;
 const missingProduction=(strict?requiredProduction:[]).filter(k=>!env[k]);
+if(strict&&!databaseUrl)missingProduction.push('DATABASE_URL|POSTGRES_URL');
+const nativeOdds=Boolean(env.THE_ODDS_API_KEY);
 const configuredOdds=providerGroups.filter(group=>group.some(k=>Boolean(env[k])));
 const incompleteOdds=configuredOdds.filter(group=>group.some(k=>!env[k]));
 const modelVersionOk=env.MODEL_VERSION===expectedModel;
 const bankroll=Number(env.DEFAULT_BANKROLL);
 const bankrollOk=Number.isFinite(bankroll)&&bankroll>0;
-const productionOddsOk=!strict||configuredOdds.some(group=>group.every(k=>Boolean(env[k])));
+const productionOddsOk=!strict||nativeOdds||configuredOdds.some(group=>group.every(k=>Boolean(env[k])));
 
 const report={
  ok:missingBase.length===0&&missingProduction.length===0&&incompleteOdds.length===0&&modelVersionOk&&bankrollOk&&productionOddsOk,
@@ -25,7 +28,8 @@ const report={
  missingBase,
  missingProduction,
  incompleteOdds,
- configuredOddsProviders:configuredOdds.length,
+ configuredOddsProviders:configuredOdds.length+(nativeOdds?1:0),
+ nativeTheOddsApi:nativeOdds,
  productionOddsOk,
  modelVersion:env.MODEL_VERSION||null,
  modelVersionOk,

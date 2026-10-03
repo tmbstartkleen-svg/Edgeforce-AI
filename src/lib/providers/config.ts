@@ -49,8 +49,32 @@ function provider(prefix:string,name:string,capability:ProviderCapability,priori
  };
 }
 
+function theOddsApiProvider():ProviderConfig|null{
+ const key=process.env.THE_ODDS_API_KEY;
+ if(!key)return null;
+ return {
+  id:'the-odds-api',
+  name:'The Odds API',
+  capability:'ODDS',
+  url:'the-odds-api://live-board',
+  apiKey:key,
+  authHeader:'X-Api-Key',
+  authScheme:'',
+  priority:120,
+  timeoutMs:Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000)),
+  enabled:true,
+  bookmaker:'DraftKings',
+  maxAgeMin:Math.max(1,int(process.env.ODDS_PROVIDER_PRIMARY_MAX_AGE_MIN,20)),
+  failureThreshold:Math.max(1,int(process.env.PROVIDER_FAILURE_THRESHOLD,3)),
+  quarantineMin:Math.max(1,int(process.env.PROVIDER_QUARANTINE_MIN,5)),
+  marketRole:'REFERENCE',
+  consensusWeight:1
+ };
+}
+
 export function configuredProviders(capability?:ProviderCapability):ProviderConfig[]{
  const all=[
+  theOddsApiProvider(),
   provider('ODDS_PROVIDER_PRIMARY','Odds Primary','ODDS',100),
   provider('ODDS_PROVIDER_SECONDARY','Odds Secondary','ODDS',80),
   provider('ODDS_PROVIDER_TERTIARY','Odds Tertiary','ODDS',60),

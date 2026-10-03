@@ -1,4 +1,5 @@
 import {fetchWithFailover} from './providers/failover';
+import {fetchPublicPolymarket} from './providers/polymarket';
 
 export type PredictionContract={
   id:string;
@@ -54,9 +55,13 @@ export function normalizePredictionMarkets(payload:unknown,source='prediction-pr
 
 export async function fetchPredictionMarkets(){
   const result=await fetchWithFailover('PREDICTION_MARKETS');
-  if(!result.ok){
-    return {mode:result.attempts.length?'failed':'unconfigured',source:null,contracts:[] as PredictionContract[],attempts:result.attempts,error:result.error};
+  if(result.ok){
+    const source=result.providerName||result.providerId||'prediction-provider';
+    return {mode:'live',source,contracts:normalizePredictionMarkets(result.data,source),attempts:result.attempts};
   }
-  const source=result.providerName||result.providerId||'prediction-provider';
-  return {mode:'live',source,contracts:normalizePredictionMarkets(result.data,source),attempts:result.attempts};
+  const publicMarket=await fetchPublicPolymarket();
+  if(publicMarket.ok){
+    return {mode:'live',source:publicMarket.source,contracts:publicMarket.contracts,attempts:result.attempts,warnings:['Using public Polymarket market probabilities as the prediction-market fallback']};
+  }
+  return {mode:result.attempts.length?'failed':'unconfigured',source:null,contracts:[] as PredictionContract[],attempts:result.attempts,error:result.error||publicMarket.error};
 }

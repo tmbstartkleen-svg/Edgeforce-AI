@@ -2,6 +2,46 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V43 Real Sports Data + Automated Runtime Bootstrap
+
+V43 removes the remaining demo-first production dependency and gives Edgeforce a native live sportsbook path.
+
+### Real sportsbook data
+- native The Odds API integration using one secret: `THE_ODDS_API_KEY`
+- automatically discovers all currently active sports
+- uses free event discovery to find sports with games inside the next eight days before spending odds credits
+- requests DraftKings plus FanDuel, BetMGM and Caesars/William Hill U.S. prices for moneylines, spreads and totals
+- preserves DraftKings as the target wager price while using the additional books for consensus pricing
+- dynamically includes tennis, soccer, football, basketball, baseball, hockey, MMA and any other active supported sport returned by the provider
+- caches live odds requests and preserves a configurable credit reserve to avoid accidental quota exhaustion
+- stores accepted live market snapshots and consensus quotes in Postgres through the existing ingestion path
+
+### Real prediction-market data
+- public Polymarket market probabilities are used as a credential-free prediction-market fallback
+- a configured dedicated prediction-market provider still takes priority when present
+- unmatched or illiquid prediction markets remain labeled rather than fabricated
+
+### Automated Vercel runtime bootstrap
+- Edgeforce accepts Neon-created `POSTGRES_URL`, `POSTGRES_PRISMA_URL` or `NEON_DATABASE_URL` automatically; a manual `DATABASE_URL` alias is no longer required
+- database migrations run inside the deployed Vercel runtime so encrypted Neon credentials never need to be exported into GitHub Actions
+- deployment-only ingest, cron and bootstrap secrets are generated automatically by GitHub Actions
+- the production workflow applies migration v38, certifies the live odds provider, runs strict launch readiness, hosted smoke tests and final release certification
+- only the external sportsbook API account/key must be supplied by the operator
+
+### Release identity
+- build: `V43`
+- app: `43.0.0`
+- package: `0.43.0`
+- model: `edgeforce-v43`
+- migration: `v38`
+
+### Guardrails
+- Edgeforce never labels demo/stored fallback rows as live provider data
+- a live ODDS provider must certify successfully before strict production certification passes
+- The Odds API usage quota is monitored from response headers and refreshes stop at the configured reserve
+- sportsbook availability is provider coverage, not a guarantee that a wager is legally available in every U.S. jurisdiction
+- model probabilities and simulations remain estimates, not guaranteed outcomes
+
 ## Current build — V42 Champion/Challenger Governance + Drift Control
 
 V42 adds a production model-governance layer above calibration. Historical strength alone can no longer preserve full model influence when recent probability distributions or recent performance deteriorate.

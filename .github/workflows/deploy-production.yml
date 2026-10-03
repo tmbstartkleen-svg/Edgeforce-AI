@@ -19,6 +19,7 @@ jobs:
       VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
       VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
     steps:
       - name: Verify deployment credential
         run: test -n "$VERCEL_TOKEN"
@@ -40,78 +41,109 @@ jobs:
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@62.1.0
 
-      - name: Pull production project environment
+      - name: Generate deployment-only secrets
+        shell: bash
+        run: |
+          INGEST_SECRET=$(openssl rand -hex 32)
+          CRON_SECRET=$(openssl rand -hex 32)
+          DEPLOY_BOOTSTRAP_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$INGEST_SECRET"
+          echo "::add-mask::$CRON_SECRET"
+          echo "::add-mask::$DEPLOY_BOOTSTRAP_SECRET"
+          echo "INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
+          echo "CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
+          echo "DEPLOY_BOOTSTRAP_SECRET=$DEPLOY_BOOTSTRAP_SECRET" >> "$GITHUB_ENV"
+
+      - name: Pull production project settings
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-
-      - name: Validate production environment
-        run: |
-          set -a
-          test -f .vercel/.env.production.local && . .vercel/.env.production.local
-          set +a
-          MODEL_VERSION=edgeforce-v42 REQUIRE_PRODUCTION_ENV=true npm run validate-env
-
-      - name: Apply production database migrations
-        run: |
-          set -a
-          . .vercel/.env.production.local
-          set +a
-          npm run migrate
 
       - name: Build exact production artifact
         run: vercel build --prod --token="$VERCEL_TOKEN"
 
       - name: Deploy prebuilt artifact to production
         id: deploy
+        shell: bash
         run: |
-          URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v42)
+          args=(
+            --prebuilt
+            --prod
+            --yes
+            --token="$VERCEL_TOKEN"
+            --env MODEL_VERSION=edgeforce-v43
+            --env DEFAULT_BANKROLL=1000
+            --env INGEST_SECRET="$INGEST_SECRET"
+            --env CRON_SECRET="$CRON_SECRET"
+            --env DEPLOY_BOOTSTRAP_SECRET="$DEPLOY_BOOTSTRAP_SECRET"
+            --env TARGET_BOOKMAKER=DraftKings
+            --env THE_ODDS_API_MAX_SPORTS=12
+            --env THE_ODDS_API_CACHE_MS=120000
+            --env THE_ODDS_API_CREDIT_RESERVE=25
+          )
+          if [ -n "$THE_ODDS_API_KEY" ]; then
+            args+=(--env THE_ODDS_API_KEY="$THE_ODDS_API_KEY")
+          fi
+          URL=$(vercel deploy "${args[@]}")
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Certify live production providers
+      - name: Wait for deployed runtime
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          set -a
-          . .vercel/.env.production.local
-          set +a
-          curl --fail --silent --show-error -X POST "${PRODUCTION_URL}/api/providers/certify" \
-            -H "Authorization: Bearer ${INGEST_SECRET}" \
+          for i in {1..20}; do
+            if curl --fail --silent --show-error "$PRODUCTION_URL/api/health/live" >/dev/null; then
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
+
+      - name: Apply database migrations inside Vercel runtime
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/bootstrap" \
+            -H "Authorization: Bearer $DEPLOY_BOOTSTRAP_SECRET" \
             -H "Content-Type: application/json"
           echo
+
+      - name: Certify live production providers
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/providers/certify" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json"
+          echo
 
       - name: Require strict launch doctor
-        run: curl --fail --silent --show-error "${PRODUCTION_URL}/api/launch-doctor?strict=1"
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: curl --fail --silent --show-error "$PRODUCTION_URL/api/launch-doctor?strict=1"
 
       - name: Smoke test production deployment
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "42.0.0"
+          EXPECTED_APP_VERSION: "43.0.0"
 
       - name: Record production release attestation
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          set -a
-          . .vercel/.env.production.local
-          set +a
-          curl --fail --silent --show-error -X POST "${PRODUCTION_URL}/api/release/attest" \
-            -H "Authorization: Bearer ${INGEST_SECRET}" \
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/attest" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data '{"source":"production-prebuilt","buildPassed":true,"smokePassed":true,"loadPassed":true}'
-        env:
-          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+          echo
 
       - name: Certify final production release
-        run: |
-          set -a
-          . .vercel/.env.production.local
-          set +a
-          curl --fail --silent --show-error -X POST "${PRODUCTION_URL}/api/release/certify?strict=1" \
-            -H "Authorization: Bearer ${INGEST_SECRET}" \
-            -H "Content-Type: application/json"
-          echo
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/certify?strict=1" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json"
+          echo
 
       - name: Roll back production on hosted failure
         if: failure() && steps.deploy.outcome == 'success'
