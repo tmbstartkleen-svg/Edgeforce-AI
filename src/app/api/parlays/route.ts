@@ -6,6 +6,7 @@ import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 
 export const dynamic='force-dynamic';
+const PARLAY_SCHEMA_VERSION='v48-recommendation-quality-1';
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const numberParam=(value:string|null,fallback:number,min:number,max:number)=>{
@@ -66,6 +67,8 @@ export async function GET(req:Request){
  return Response.json({
   ok:true,
   generatedAt:new Date().toISOString(),
+  build:'V48',
+  schemaVersion:PARLAY_SCHEMA_VERSION,
   source:ingestion.source,
   providerId:ingestion.providerId||null,
   providerName:ingestion.providerName||null,
