@@ -1,9 +1,15 @@
 import type {LearnedSgpMap} from './learnedSgpCorrelation';
 import {sameGameCorrelation,type CorrelationLeg} from './sameGameCorrelation';
+import {runSharedEventStateSimulation} from './sharedEventState';
 
 export type JointSimulationLeg=CorrelationLeg & {
  startTime:string;
  simProbability:number;
+ home?:string;
+ away?:string;
+ modelProb?:number;
+ sportFeatures?:Record<string,number>;
+ playerContext?:CorrelationLeg['playerContext'] & {projection?:number;stdDev?:number;availability?:number;starter?:boolean;statKey?:string};
 };
 
 export type PairCorrelation={
@@ -15,6 +21,7 @@ export type PairCorrelation={
  learnedSample:number;
  learnedConfidence:number;
  blended:number;
+ source?:'EVENT_STATE'|'COPULA';
 };
 
 export type JointSimulationResult={
@@ -28,6 +35,8 @@ export type JointSimulationResult={
  pairCorrelations:PairCorrelation[];
  matrixShrink:number;
  eventCount:number;
+ engine:'SHARED_EVENT_STATE'|'GAUSSIAN_COPULA_FALLBACK';
+ scenarioCoverage:number;
 };
 
 const clamp=(x:number,min:number,max:number)=>Math.max(min,Math.min(max,x));
@@ -125,19 +134,33 @@ function invNorm(p:number){
 
 export function runEventJointSimulation(legs:JointSimulationLeg[],learned?:LearnedSgpMap,runs=10000):JointSimulationResult{
  const n=legs.length;
- if(!n)return {runs:0,hits:0,probability:0,independentProbability:0,correlationDelta:0,ciLow:0,ciHigh:0,pairCorrelations:[],matrixShrink:1,eventCount:0};
+ if(!n)return {runs:0,hits:0,probability:0,independentProbability:0,correlationDelta:0,ciLow:0,ciHigh:0,pairCorrelations:[],matrixShrink:1,eventCount:0,engine:'GAUSSIAN_COPULA_FALLBACK',scenarioCoverage:0};
  const independent=legs.reduce((p,x)=>p*clamp(x.simProbability,.001,.999),1);
  if(n===1){
   const p=clamp(legs[0].simProbability,.001,.999);
-  return {runs,hits:Math.round(p*runs),probability:p,independentProbability:p,correlationDelta:0,ciLow:p,ciHigh:p,pairCorrelations:[],matrixShrink:1,eventCount:1};
+  return {runs,hits:Math.round(p*runs),probability:p,independentProbability:p,correlationDelta:0,ciLow:p,ciHigh:p,pairCorrelations:[],matrixShrink:1,eventCount:1,engine:'GAUSSIAN_COPULA_FALLBACK',scenarioCoverage:0};
  }
+ const shared=runSharedEventStateSimulation(legs,runs);
+ if(shared){
+  const pairCorrelations:PairCorrelation[]=shared.pairCorrelations.map(pair=>({
+   a:pair.a,b:pair.b,sameEvent:true,heuristic:pair.rho,learned:0,learnedSample:0,learnedConfidence:0,
+   blended:pair.rho,source:'EVENT_STATE'
+  }));
+  return {
+   runs:shared.runs,hits:shared.hits,probability:shared.probability,
+   independentProbability:independent,correlationDelta:shared.probability-independent,
+   ciLow:shared.ciLow,ciHigh:shared.ciHigh,pairCorrelations,matrixShrink:1,eventCount:1,
+   engine:'SHARED_EVENT_STATE',scenarioCoverage:shared.coverage
+  };
+ }
+
  const matrix:number[][]=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
  const pairCorrelations:PairCorrelation[]=[];
  for(let i=0;i<n;i++){
   for(let j=i+1;j<n;j++){
    const pair=blendedCorrelation(legs[i],legs[j],learned);
    matrix[i][j]=matrix[j][i]=pair.blended;
-   pairCorrelations.push(pair);
+   pairCorrelations.push({...pair,source:'COPULA'});
   }
  }
  const {L,shrink}=stableCholesky(matrix);
@@ -157,6 +180,7 @@ export function runEventJointSimulation(legs:JointSimulationLeg[],learned?:Learn
   correlationDelta:p-independent,
   ciLow:Math.max(0,p-1.96*se),ciHigh:Math.min(1,p+1.96*se),
   pairCorrelations,matrixShrink:shrink,
-  eventCount:new Set(legs.map(eventKey)).size
+  eventCount:new Set(legs.map(eventKey)).size,
+  engine:'GAUSSIAN_COPULA_FALLBACK',scenarioCoverage:0
  };
 }
