@@ -6,8 +6,6 @@ type EdgeforceEnv={
  [key:string]:unknown;
 };
 
-export default worker;
-
 type ScheduledControllerLike={
  cron:string;
  scheduledTime:number;
@@ -56,3 +54,5 @@ const worker={
   ctx.waitUntil(task);
  },
 };
+
+export default worker;
