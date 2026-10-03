@@ -28,6 +28,7 @@ export type TheOddsApiResult={
 
 const base=()=>String(process.env.THE_ODDS_API_BASE_URL||'https://api.the-odds-api.com/v4').replace(/\/$/,'');
 let cache:{at:number;value:TheOddsApiResult}|null=null;
+const failureCacheMs=()=>Math.max(5000,int(process.env.THE_ODDS_API_FAILURE_CACHE_MS,30000));
 const int=(v:string|undefined,fallback:number)=>{const n=Number(v);return Number.isFinite(n)?Math.floor(n):fallback};
 const csv=(v:string|undefined)=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);
 const priority=(key:string)=>{
@@ -69,17 +70,21 @@ function withKey(path:string,key:string,params:Record<string,string>={}){
  return url.toString();
 }
 
-async function mapBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>){
+async function mapBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>,pauseMs=0){
  const out:R[]=[];
  for(let i=0;i<items.length;i+=size){
   out.push(...await Promise.all(items.slice(i,i+size).map(fn)));
+  if(pauseMs>0&&i+size<items.length)await new Promise(resolve=>setTimeout(resolve,pauseMs));
  }
  return out;
 }
 
 export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOddsApiResult>{
  const cacheMs=Math.max(15000,int(process.env.THE_ODDS_API_CACHE_MS,120000));
- if(cache&&Date.now()-cache.at<cacheMs)return cache.value;
+ if(cache){
+  const ttl=cache.value.ok?cacheMs:failureCacheMs();
+  if(Date.now()-cache.at<ttl)return cache.value;
+ }
  const key=config.apiKey||process.env.THE_ODDS_API_KEY;
  if(!key)return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{},error:'THE_ODDS_API_KEY is not configured'};
 
@@ -96,20 +101,26 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
 
  const sportsResponse=await jsonRequest<SportRow[]>(withKey('/sports/',key),timeoutMs);
  if(!sportsResponse.ok||!Array.isArray(sportsResponse.data)){
-  return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{remaining:sportsResponse.remaining,used:sportsResponse.used,last:sportsResponse.last},error:sportsResponse.error||'sports discovery failed'};
+  const value:TheOddsApiResult={
+   ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,
+   quota:{remaining:sportsResponse.remaining,used:sportsResponse.used,last:sportsResponse.last},
+   error:sportsResponse.error||'sports discovery failed'
+  };
+  cache={at:Date.now(),value};
+  return value;
  }
  const allSports=sportsResponse.data.filter(x=>x.active!==false&&!x.has_outrights);
  const sports=(requested.length?allSports.filter(x=>requested.includes(x.key)):allSports)
   .sort((a,b)=>priority(a.key)-priority(b.key)||a.key.localeCompare(b.key));
 
- const eventChecks=await mapBatches(sports,8,async sport=>{
+ const eventChecks=await mapBatches(sports,4,async sport=>{
   const result=await jsonRequest<EventRow[]>(withKey(`/sports/${encodeURIComponent(sport.key)}/events`,key,{dateFormat:'iso',commenceTimeFrom:now.toISOString(),commenceTimeTo:to}),timeoutMs);
   const events=Array.isArray(result.data)?result.data.filter(x=>{
    const t=x.commence_time?new Date(x.commence_time).getTime():0;
    return t>=now.getTime()&&t<=new Date(to).getTime();
   }):[];
   return {sport,result,events};
- });
+ },200);
  const candidates=eventChecks.filter(x=>x.result.ok&&x.events.length>0).map(x=>x.sport).slice(0,maxSports);
  const warnings:string[]=[];
  if(eventChecks.some(x=>!x.result.ok))warnings.push(`${eventChecks.filter(x=>!x.result.ok).length} free event-discovery request(s) failed`);
@@ -150,6 +161,15 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  if(stoppedForQuota)warnings.push(`Stopped live odds refresh with ${remaining} credits remaining to preserve the configured reserve of ${reserve}`);
  if(!data.length)warnings.push('The Odds API returned no DraftKings events for the selected sports/window');
 
+ const rateLimited=attempts.some(x=>x.status===429);
+ const quotaStopped=stoppedForQuota&&remaining!==undefined;
+ const error=data.length
+  ?undefined
+  :rateLimited
+   ?`The Odds API rate limited the live refresh (HTTP 429)`
+   :quotaStopped
+    ?`The Odds API credit reserve stopped the refresh with ${remaining} credits remaining`
+    :'No live sportsbook odds returned';
  const value:TheOddsApiResult={
   ok:data.length>0,
   data,
@@ -159,8 +179,8 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   sportsWithEvents:eventChecks.filter(x=>x.result.ok&&x.events.length>0).length,
   fetchedSports:attempts.length,
   quota:{remaining,used,last},
-  error:data.length?undefined:'No live sportsbook odds returned'
+  error
  };
- if(value.ok)cache={at:Date.now(),value};
+ cache={at:Date.now(),value};
  return value;
 }
