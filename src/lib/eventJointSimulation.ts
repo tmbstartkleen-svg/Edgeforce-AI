@@ -1,5 +1,4 @@
 import type {LearnedSgpMap} from './learnedSgpCorrelation';
-import {learnedSgpProfile} from './learnedSgpCorrelation';
 import {sameGameCorrelation,type CorrelationLeg} from './sameGameCorrelation';
 
 export type JointSimulationLeg=CorrelationLeg & {
@@ -41,7 +40,9 @@ function blendedCorrelation(a:JointSimulationLeg,b:JointSimulationLeg,learned?:L
  const sameEvent=eventKey(a)===eventKey(b);
  if(!sameEvent)return {a:a.id,b:b.id,sameEvent:false,heuristic:0,learned:0,learnedSample:0,learnedConfidence:0,blended:0};
  const heuristic=sameGameCorrelation(a,b);
- const profile=learnedSgpProfile(learned,a.sport,a.market,b.market);
+ const norm=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
+ const [marketA,marketB]=[norm(a.market),norm(b.market)].sort();
+ const profile=learned?.[[norm(a.sport),marketA,marketB].join('|')];
  const learnedRho=profile?.learnedRho??0;
  const confidence=profile?.confidence??0;
  const blendWeight=Math.min(.80,confidence*.80);
