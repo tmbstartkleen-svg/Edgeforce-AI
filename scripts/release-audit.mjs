@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V45',
- appVersion:'45.0.0',
- packageVersion:'0.45.0',
- modelVersion:'edgeforce-v45',
+ build:'V46',
+ appVersion:'46.0.0',
+ packageVersion:'0.46.0',
+ modelVersion:'edgeforce-v46',
  migrationVersion:38
 };
 const checks=[];
@@ -60,7 +60,9 @@ const requiredFiles=[
  'scripts/validate-cloudflare-build.mjs',
  'scripts/configure-cloudflare-live.mjs',
  'worker/index.ts',
- 'src/app/api/live-data/status/route.ts'
+ 'src/app/api/live-data/status/route.ts',
+ 'src/lib/sharedEventState.ts',
+ 'src/app/api/testing/shared-event-state/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -71,7 +73,7 @@ add('governance runtime brake',read('src/lib/learnedWeights.ts').includes('loadG
 add('governance scheduled rebuild',read('src/app/api/cron/recalibrate/route.ts').includes('runModelGovernance'),'recalibration runs governance');
 add('Cloudflare runtime platform identity',wrangler.includes('"DEPLOYMENT_PLATFORM": "cloudflare"'),'Cloudflare production platform is explicit');
 add('Cloudflare runtime environment identity',wrangler.includes('"DEPLOYMENT_ENV": "production"'),'Cloudflare production environment is explicit');
-add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v45"'),'edgeforce-v45');
+add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v46"'),'edgeforce-v46');
 add('Cloudflare account target',wrangler.includes('"account_id": "de9b84b39940a0b5b622ae5d27b415dc"'),'selected Cloudflare account is pinned');
 add('Cloudflare custom Worker entry',wrangler.includes('"main": "./worker/index.ts"'),'custom fetch + scheduled entrypoint');
 add('Cloudflare hourly autopilot cron',wrangler.includes('"0 * * * *"'),'hourly live-data automation');
@@ -85,6 +87,8 @@ add('Cloudflare autopilot Worker',read('worker/index.ts').includes("handler from
 add('Cloudflare local preflight placeholder guard',read('scripts/cloudflare-preflight.mjs').includes('PASTE_YOUR_ACCOUNT_ID_HERE'),'placeholder account IDs are rejected');
 add('Cloudflare generated build validation',read('scripts/validate-cloudflare-build.mjs').includes('dist/server/wrangler.json'),'generated Worker config is validated');
 add('Cloudflare deploy script uses generated config',String(pkg.scripts?.['deploy:cloudflare']||'').includes('dist/server/wrangler.json')&&String(pkg.scripts?.['deploy:cloudflare']||'').includes('preflight:cloudflare'),'safe local Cloudflare deploy path');
+add('shared event-state simulator',read('src/lib/eventJointSimulation.ts').includes('runSharedEventStateSimulation'),'same-event parlays prefer shared scenario simulation');
+add('shared event-state regression endpoint',read('src/app/api/testing/shared-event-state/route.ts').includes("engine==='SHARED_EVENT_STATE'"),'shared scenario engine is deterministically tested');
 
 const requiredCrons=[
  '/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'
