@@ -1,5 +1,4 @@
-import {latestStoredMarkets} from '@/lib/persistence';
-import {demoMarkets} from '@/lib/demo';
+import {ingestOdds} from '@/lib/providers/ingest';
 import {weekTop30} from '@/lib/scanner';
 import {defaultLimits} from '@/lib/portfolio';
 import {runDecisionEngine} from '@/lib/decisionEngine';
@@ -16,11 +15,15 @@ export async function GET(req:Request){
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
  const started=Date.now();
  try{
-  const [stored,learnedWeights,dynamicCalibration]=await Promise.all([
-   latestStoredMarkets(),loadLearnedWeightMultipliers(),loadDynamicCalibrationProfiles()
+  const [ingestion,learnedWeights,dynamicCalibration]=await Promise.all([
+   ingestOdds(),loadLearnedWeightMultipliers(),loadDynamicCalibrationProfiles()
   ]);
-  const markets=stored.length?stored:demoMarkets;
-  const rows=weekTop30(markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
+  if(!ingestion.markets.length){
+   const message='No live or fresh stored sportsbook markets are available for decision automation';
+   await recordAutomationRun('decision','failed',started,{source:ingestion.source},message);
+   return Response.json({ok:false,source:ingestion.source,error:message,warnings:ingestion.warnings},{status:503,headers:{'Cache-Control':'no-store'}});
+  }
+  const rows=weekTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
   const bankroll=Math.max(1,Number(process.env.DEFAULT_BANKROLL)||1000);
   const result=runDecisionEngine(rows,defaultLimits(bankroll),[],0);
   const journal=await writeDecisionJournal(result.decisions.map(d=>({
@@ -28,10 +31,10 @@ export async function GET(req:Request){
   })));
   const alerts=await writeAlerts(result.alerts as any[]);
   await recordAutomationRun('decision','success',started,{
-   source:stored.length?'database':'demo',decisions:result.decisions.length,journal,alerts
+   source:ingestion.source,providerId:ingestion.providerId||null,decisions:result.decisions.length,journal,alerts
   });
   return Response.json({
-   ok:true,source:stored.length?'database':'demo',ranAt:new Date().toISOString(),
+   ok:true,source:ingestion.source,providerId:ingestion.providerId||null,ranAt:new Date().toISOString(),
    decisions:result.decisions.length,journal,alerts
   },{headers:{'Cache-Control':'no-store'}});
  }catch(error){
