@@ -62,6 +62,9 @@ assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag mis
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
 assert(health.body?.probabilityDriftDetection===true,'probability drift detection flag missing');
 assert(health.body?.automaticDriftWeightBrakes===true,'automatic drift weight brake flag missing');
+assert(health.body?.nativeRealOddsIngestion===true,'native real odds ingestion flag missing');
+assert(health.body?.publicPredictionMarketFallback===true,'public prediction market fallback flag missing');
+assert(health.body?.runtimeNeonMigrationBootstrap===true,'runtime Neon migration bootstrap flag missing');
 
 const ready=await get('/api/health/ready');
 assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed');
