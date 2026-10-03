@@ -44,7 +44,7 @@
     "@vitejs/plugin-react": "6.1.0",
     "@vitejs/plugin-rsc": "0.5.34",
     "vite": "8.0.0",
-    "wrangler": "4.118.0"
+    "wrangler": "4.147.0"
   },
   "type": "module"
 }
