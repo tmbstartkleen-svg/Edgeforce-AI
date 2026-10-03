@@ -6,6 +6,7 @@ import {writeDecisionJournal} from '@/lib/decisionJournal';
 import {writeAlerts} from '@/lib/alertStore';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
+import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 import {recordAutomationRun} from '@/lib/automationHealth';
 
 export const dynamic='force-dynamic';
@@ -23,7 +24,8 @@ export async function GET(req:Request){
    await recordAutomationRun('decision','failed',started,{source:ingestion.source},message);
    return Response.json({ok:false,source:ingestion.source,error:message,warnings:ingestion.warnings},{status:503,headers:{'Cache-Control':'no-store'}});
   }
-  const rows=weekTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
+  const context=await enrichMarketsWithContext(ingestion.markets);
+  const rows=weekTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
   const bankroll=Math.max(1,Number(process.env.DEFAULT_BANKROLL)||1000);
   const result=runDecisionEngine(rows,defaultLimits(bankroll),[],0);
   const journal=await writeDecisionJournal(result.decisions.map(d=>({
@@ -35,7 +37,7 @@ export async function GET(req:Request){
   });
   return Response.json({
    ok:true,source:ingestion.source,providerId:ingestion.providerId||null,ranAt:new Date().toISOString(),
-   decisions:result.decisions.length,journal,alerts
+   decisions:result.decisions.length,journal,alerts,contextDiagnostics:context.diagnostics
   },{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'decision automation failed';
