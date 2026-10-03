@@ -43,6 +43,7 @@ export async function loadLearnedSgpCorrelations():Promise<LearnedSgpMap>{
     joint_hits as "jointHits",a_hits as "aHits",b_hits as "bHits",
     phi::float,lift::float,learned_rho::float as "learnedRho",confidence::float
    from sgp_correlation_profiles
+   where abs(learned_rho)>0.000001
    order by sample_size desc,confidence desc
   `;
   const out:LearnedSgpMap={};
