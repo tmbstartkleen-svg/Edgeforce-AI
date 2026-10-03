@@ -1,5 +1,5 @@
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'48.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'49.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
 const paths=['/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
@@ -7,13 +7,13 @@ const results=[];
 
 for(const path of paths){
  const started=Date.now();
- const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/48'}});
+ const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/49'}});
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
  if(path==='/api/parlays?size=2&view=today'){
   const json=JSON.parse(body);
-  if(json.build!=='V48'||json.schemaVersion!=='v48-recommendation-quality-1')throw new Error('parlay route schema mismatch');
+  if(json.build!=='V49'||json.schemaVersion!=='v48-recommendation-quality-1')throw new Error('parlay route schema mismatch');
   if(Number(json.thresholds?.recommendedMinJoint)!==0.52)throw new Error('parlay recommendation threshold mismatch');
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
  }
