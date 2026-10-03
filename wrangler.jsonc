@@ -24,8 +24,9 @@
     "THE_ODDS_API_MARKETS": "h2h,spreads,totals",
     "THE_ODDS_API_LOOKAHEAD_DAYS": "8",
     "THE_ODDS_API_MAX_SPORTS": "12",
-    "THE_ODDS_API_CACHE_MS": "120000",
+    "THE_ODDS_API_CACHE_MS": "600000",
     "THE_ODDS_API_CREDIT_RESERVE": "25",
+    "THE_ODDS_API_FAILURE_CACHE_MS": "60000",
     "ALLOW_DEMO_DATA": "false"
   },
   "account_id": "de9b84b39940a0b5b622ae5d27b415dc",
