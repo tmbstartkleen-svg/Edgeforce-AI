@@ -6,15 +6,18 @@ import {explainMarket} from '@/lib/explainability';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 
-export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
+export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  const {id}=await params;
+ const {searchParams}=new URL(req.url);
+ const marketKey=searchParams.get('market');
+ const selection=searchParams.get('selection');
  const [learnedWeights,dynamicCalibration]=await Promise.all([
   loadLearnedWeightMultipliers(),
   loadDynamicCalibrationProfiles()
  ]);
  const sql=db();
  if(!sql){
-  const market=demoMarkets.find(x=>x.id===id)||null;
+  const market=demoMarkets.find(x=>x.id===id&&(!marketKey||x.market===marketKey)&&(!selection||x.selection===selection))||demoMarkets.find(x=>x.id===id)||null;
   return Response.json({
    source:'demo',
    market,
@@ -44,6 +47,8 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
    ms.raw->'playerContext' as "playerContext"
   from market_snapshots ms join events e on e.id=ms.event_id
   where ms.event_id=${id}
+   and (${marketKey}::text is null or lower(ms.market_key)=lower(${marketKey??''}))
+   and (${selection}::text is null or lower(ms.selection_key)=lower(${selection??''}))
   order by ms.event_id,ms.market_key,ms.selection_key,ms.pulled_at desc
   limit 1
  `;
