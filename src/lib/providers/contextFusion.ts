@@ -129,7 +129,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
   ok:s.result.ok,
   providerId:s.result.providerId,
   attempts:s.result.attempts,
-  qualityScore:s.result.quality?.qualityScore??(s.result.ok?.7:0),
+  qualityScore:s.result.quality?.qualityScore??(s.result.ok ? .7 : 0),
   rows:s.result.ok?normalizeRows(s.result.data,s.kind):[]
  }));
  const sourceQuality=Object.fromEntries(normalized.map(x=>[x.kind,x.qualityScore]));
