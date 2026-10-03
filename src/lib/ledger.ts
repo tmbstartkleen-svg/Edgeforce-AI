@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {db} from './db';
 import {uploadedBetHistory,type HistoricalBet,type HistoricalLeg,type LegResult} from './betHistory';
+import {backfillClosingOddsForSlip} from './lineMovement';
 
 export type WagerLegInput={
  ordinal?:number;
@@ -82,7 +83,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
    select bet_slip_id as "betSlipId",ordinal,sport,market_type as "marketType",
     selection as label,result,offered_odds as "offeredOdds",event_id as "eventId",
     event_label as event,model_probability::float as "modelProbability",
-    closing_odds as "closingOdds"
+    closing_odds as "closingOdds",clv_probability::float as clv
    from bet_legs
    order by bet_slip_id,ordinal
   `;
@@ -96,6 +97,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
     result:(row.result||'unknown') as LegResult,
     offeredOdds:row.offeredOdds??undefined,
     closingOdds:row.closingOdds??undefined,
+    clv:clampProbability(row.clv)??(typeof row.clv==='number'?row.clv:undefined),
     eventId:row.eventId??undefined,
     event:row.event??undefined,
     modelProbability:clampProbability(row.modelProbability)
@@ -218,6 +220,7 @@ export async function settleWager(input:SettlementInput){
    `;
   }
  }
+ await backfillClosingOddsForSlip(input.betSlipId).catch(()=>0);
  const {slip,result}=await deriveSlipState(sql,input.betSlipId,input.result);
  let returned=asNumber(slip.returned);
  if(input.returned!==undefined)returned=Math.max(0,input.returned);
