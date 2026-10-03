@@ -1,16 +1,27 @@
-import type {Scanned} from './scanner';
+export type CorrelationLeg={
+ id:string;
+ event:string;
+ sport:string;
+ market:string;
+ selection:string;
+ playerContext?:{
+  name:string;
+  team?:string;
+ };
+ simProbability:number;
+};
 
 const lower=(s:string)=>s.toLowerCase();
-const sameEvent=(a:Scanned,b:Scanned)=>a.event===b.event;
-const sameSport=(a:Scanned,b:Scanned)=>a.sport===b.sport;
-const isOver=(x:Scanned)=>lower(`${x.market} ${x.selection}`).includes('over');
-const isUnder=(x:Scanned)=>lower(`${x.market} ${x.selection}`).includes('under');
-const sameDirection=(a:Scanned,b:Scanned)=>(isOver(a)&&isOver(b))||(isUnder(a)&&isUnder(b));
-const playerName=(x:Scanned)=>x.playerContext?.name?.toLowerCase()||'';
-const team=(x:Scanned)=>x.playerContext?.team?.toLowerCase()||'';
-const isPlayer=(x:Scanned)=>Boolean(x.playerContext)||lower(x.market).includes('player')||lower(x.market).includes('prop');
+const sameEvent=(a:CorrelationLeg,b:CorrelationLeg)=>a.event===b.event;
+const sameSport=(a:CorrelationLeg,b:CorrelationLeg)=>a.sport===b.sport;
+const isOver=(x:CorrelationLeg)=>lower(`${x.market} ${x.selection}`).includes('over');
+const isUnder=(x:CorrelationLeg)=>lower(`${x.market} ${x.selection}`).includes('under');
+const sameDirection=(a:CorrelationLeg,b:CorrelationLeg)=>(isOver(a)&&isOver(b))||(isUnder(a)&&isUnder(b));
+const playerName=(x:CorrelationLeg)=>x.playerContext?.name?.toLowerCase()||'';
+const team=(x:CorrelationLeg)=>x.playerContext?.team?.toLowerCase()||'';
+const isPlayer=(x:CorrelationLeg)=>Boolean(x.playerContext)||lower(x.market).includes('player')||lower(x.market).includes('prop');
 
-export function sameGameCorrelation(a:Scanned,b:Scanned){
+export function sameGameCorrelation(a:CorrelationLeg,b:CorrelationLeg){
  if(a.id===b.id)return 1;
  let c=0;
  if(!sameEvent(a,b)){
@@ -45,11 +56,11 @@ export function sameGameCorrelation(a:Scanned,b:Scanned){
  return Math.max(-.35,Math.min(.35,c));
 }
 
-export function correlationExposure(a:Scanned,b:Scanned){
+export function correlationExposure(a:CorrelationLeg,b:CorrelationLeg){
  return Math.abs(sameGameCorrelation(a,b));
 }
 
-export function correlationAdjustedJoint(legs:Scanned[]){
+export function correlationAdjustedJoint(legs:CorrelationLeg[]){
  const joint=legs.reduce((p,x)=>p*x.simProbability,1);
  let adjustment=0;
  for(let i=0;i<legs.length;i++){
