@@ -2,6 +2,86 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V51 Prediction Validation Laboratory
+
+V51 adds an evidence-grade validation layer that measures whether Edgeforce predictions improve out of sample before learned models retain full runtime influence.
+
+### Validation metrics
+- Brier score and log loss
+- calibration error and probability reliability buckets
+- confidence-band predicted-vs-actual hit rates
+- sportsbook offered-price baseline
+- Brier Skill Score versus offered market probability
+- log-loss improvement versus the market baseline
+- holdout-set Brier/log-loss/calibration
+- walk-forward out-of-sample folds
+- ROI and signed CLV
+- simulation-vs-model paired Brier comparison with a 95% interval
+- context-rich versus context-thin performance comparison
+
+### Evidence grades
+Each model / sport / market group is classified as:
+- **VERIFIED** — deep history, multiple walk-forward folds, positive market-relative skill and strong holdout calibration
+- **QUALIFIED** — clears minimum out-of-sample, calibration, CLV and skill gates
+- **PROVISIONAL** — promising but not enough evidence for full promotion
+- **INSUFFICIENT** — sample or holdout history is too small
+- **FAILED** — holdout, calibration or market-relative skill is materially weak
+
+Only VERIFIED and QUALIFIED groups are promotion-eligible.
+
+### Runtime protection
+- validation snapshots now produce runtime multipliers
+- FAILED models are heavily braked
+- PROVISIONAL / INSUFFICIENT models retain reduced influence
+- evidence-qualified models may keep or receive a small positive validation multiplier
+- validation multipliers stack with existing recalibration and champion/challenger governance controls
+
+### Historical feature preservation
+Settlement feedback now retains the original model-run feature snapshot, including:
+- context quality
+- context provenance
+- raw simulation probability
+- model council probability
+- dynamic confidence
+- regime / uncertainty
+- consensus
+- player context
+- sport features
+- model votes
+
+This lets the validation lab test whether context and simulation actually improved settled outcomes.
+
+### APIs and automation
+- `GET /api/intelligence/validation-lab` — current validation report and latest durable snapshots
+- `POST /api/intelligence/validation-lab` — authenticated manual validation run
+- `GET /api/testing/validation-lab` — deterministic evidence-gate regression
+- scheduled recalibration now runs prediction validation alongside calibration, SGP learning and model governance
+- validation results are stored in `validation_runs` and `validation_snapshots`
+
+### Dashboard
+The V51 dashboard shows:
+- settled prediction sample size
+- holdout Brier score
+- holdout calibration error
+- market-relative Brier skill
+- CLV coverage
+- context-rich Brier delta
+- simulation-vs-model Brier delta
+- verified / qualified / provisional / failed model counts
+
+### Release identity
+- build: `V51`
+- app: `51.0.0`
+- package: `0.51.0`
+- model: `edgeforce-v51`
+- migration: `v39`
+
+### Validation caveats
+- context-rich versus context-thin comparisons are observational and may be confounded by sport, market, timing and difficulty
+- statistical validation reduces unsupported confidence but does not guarantee future profitability
+- a model can be accurate over one historical window and still drift later; V42 governance and V51 validation therefore remain active together
+
+
 ## Current build — V50 Real Context Data Network
 
 V50 connects V49's context-quality framework to live supplemental event data instead of relying only on user-configured provider payloads.

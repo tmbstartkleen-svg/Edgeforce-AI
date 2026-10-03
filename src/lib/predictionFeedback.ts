@@ -59,7 +59,13 @@ export async function recordPredictionFeedback(results:PredictionFeedbackResult[
     ) values(
      ${occurredAt},${sport},${marketKey},${result.selectionKey},${prediction.name},
      ${run.modelVersion},${prediction.prob},${offeredOdds},${result.closingOdds??null},
-     ${outcome},${sql.json({modelRunId:Number(run.id),source:'settled-model-run'})},${sourceKey}
+     ${outcome},${sql.json({
+      ...(run.featureSnapshot&&typeof run.featureSnapshot==='object'?run.featureSnapshot:{}),
+      modelRunId:Number(run.id),
+      source:'settled-model-run',
+      simProbability:Number(run.featureSnapshot?.rawSimProbability??run.modelProbability),
+      modelProbability:Number(run.modelProbability)
+     })},${sourceKey}
     )
     on conflict do nothing
     returning id

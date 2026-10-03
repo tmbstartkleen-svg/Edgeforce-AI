@@ -98,11 +98,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V50 smoke test
+      - name: Hosted V51 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "50.0.0"
+          EXPECTED_APP_VERSION: "51.0.0"
 
       - name: Publish deployment URL
         env:
@@ -110,7 +110,7 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Build: V50" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v50" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: V51" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v51" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v38" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"

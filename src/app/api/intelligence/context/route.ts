@@ -49,7 +49,7 @@ export async function GET(){
 
  return Response.json({
   ok:true,
-  build:'V50',
+  build:'V51',
   source:ingestion.source,
   providerId:ingestion.providerId||null,
   configuredContextProviders:configured,

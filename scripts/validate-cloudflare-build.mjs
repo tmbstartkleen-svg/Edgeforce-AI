@@ -25,7 +25,7 @@ if(config){
   }
 }
 
-const schemaMarker='v50-real-context-network-1';
+const schemaMarker='v51-prediction-validation-1';
 if(fs.existsSync('dist/server')){
   const stack=['dist/server'];
   let found=false;

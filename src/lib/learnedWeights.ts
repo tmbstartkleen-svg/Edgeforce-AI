@@ -1,6 +1,7 @@
 import {db} from './db';
 import {rollingModelPerformance} from './modelPerformance';
 import {loadGovernanceMultipliers,modelGovernanceKey,type GovernanceMultiplierMap} from './modelGovernance';
+import {loadValidationMultipliers} from './validationLab';
 
 export type LearnedWeightMap=Record<string,number>;
 
@@ -30,6 +31,7 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
  if(!sql)return {};
  try{
   const governance:GovernanceMultiplierMap=await loadGovernanceMultipliers().catch(()=>({} as GovernanceMultiplierMap));
+  const validation=await loadValidationMultipliers().catch(()=>({} as Record<string,number>));
   const snapshots=await sql`
    select distinct on (model_name,sport,market_key)
     model_name as "modelName",sport,market_key as "marketKey",
@@ -43,7 +45,7 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
     modelName:String(row.modelName),
     sport:String(row.sport),
     marketKey:String(row.marketKey),
-    multiplier:clamp((Number(row.multiplier)||1)*(governance[modelGovernanceKey(String(row.modelName),String(row.sport),String(row.marketKey))]??1),.35,1.25),
+    multiplier:clamp((Number(row.multiplier)||1)*(governance[modelGovernanceKey(String(row.modelName),String(row.sport),String(row.marketKey))]??1)*(validation[modelGovernanceKey(String(row.modelName),String(row.sport),String(row.marketKey))]??1),.25,1.25),
     sampleSize:Math.max(1,Number(row.sampleSize)||1)
    })));
   }
@@ -62,7 +64,8 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
    const clvTerm=clamp(row.avgClv,-.05,.05)*2;
    const learned=clamp(1+(row.decayedScore-.65)*1.4-row.calibrationError*1.6+clvTerm,.75,1.25);
    const governanceMultiplier=governance[modelGovernanceKey(row.modelName,row.sport,row.marketKey)]??1;
-   const multiplier=clamp(learned*governanceMultiplier,.35,1.25);
+   const validationMultiplier=validation[modelGovernanceKey(row.modelName,row.sport,row.marketKey)]??1;
+   const multiplier=clamp(learned*governanceMultiplier*validationMultiplier,.25,1.25);
    return {modelName:row.modelName,sport:row.sport,marketKey:row.marketKey,multiplier,sampleSize:row.sampleSize};
   }));
  }catch{
