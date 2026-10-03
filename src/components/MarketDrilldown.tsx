@@ -5,7 +5,7 @@ import Sparkline from './Sparkline';
 const pct=(n:number)=>Number.isFinite(n)?(n*100).toFixed(1)+'%':'—';
 const signedPct=(n:number)=>Number.isFinite(n)?((n>=0?'+':'')+(n*100).toFixed(1)+'%'):'—';
 
-export default function MarketDrilldown({marketId,onClose}:{marketId:string;onClose:()=>void}){
+export default function MarketDrilldown({marketId,marketKey,selection,onClose}:{marketId:string;marketKey?:string;selection?:string;onClose:()=>void}){
  const [detail,setDetail]=useState<any>(null);
  const [lines,setLines]=useState<any[]>([]);
  const [scenario,setScenario]=useState<any>(null);
@@ -16,8 +16,11 @@ export default function MarketDrilldown({marketId,onClose}:{marketId:string;onCl
  const [featureDelta,setFeatureDelta]=useState(0);
 
  useEffect(()=>{
+  const qs=new URLSearchParams();
+  if(marketKey)qs.set('market',marketKey);
+  if(selection)qs.set('selection',selection);
   Promise.all([
-   fetch('/api/market/'+encodeURIComponent(marketId),{cache:'no-store'}).then(r=>r.json()),
+   fetch('/api/market/'+encodeURIComponent(marketId)+(qs.size?'?'+qs.toString():''),{cache:'no-store'}).then(r=>r.json()),
    fetch('/api/market/'+encodeURIComponent(marketId)+'/lines',{cache:'no-store'}).then(r=>r.json())
   ]).then(([d,l])=>{
    setDetail(d);
@@ -25,7 +28,7 @@ export default function MarketDrilldown({marketId,onClose}:{marketId:string;onCl
    const first=d?.explanation?.featureAblations?.[0]?.feature||'';
    setFeatureKey(first);
   }).catch(()=>{});
- },[marketId]);
+ },[marketId,marketKey,selection]);
 
  const runScenario=async()=>{
   setBusy(true);
@@ -36,6 +39,7 @@ export default function MarketDrilldown({marketId,onClose}:{marketId:string;onCl
     headers:{'content-type':'application/json'},
     body:JSON.stringify({
      marketId,
+     market:detail?.market,
      context:{lineMovePct:lineMove/100,homeAdvantage:homeAdjustment/100},
      featureDeltas,
      bankroll:1000
