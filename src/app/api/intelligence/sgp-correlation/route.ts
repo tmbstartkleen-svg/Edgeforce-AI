@@ -21,7 +21,9 @@ export async function POST(req:Request){
  if(legs.length<2)return Response.json({ok:false,error:'At least two legs are required'},{status:400});
  if(legs.length>20)return Response.json({ok:false,error:'At most 20 legs are supported'},{status:400});
  const learned=await loadLearnedSgpCorrelations();
- const runs=Math.max(1000,Math.min(100000,Number(body?.runs||10000)));
+ const authorized=!process.env.INGEST_SECRET||req.headers.get('authorization')===`Bearer ${process.env.INGEST_SECRET}`;
+ const maxRuns=authorized?100000:10000;
+ const runs=Math.max(1000,Math.min(maxRuns,Number(body?.runs||10000)));
  const joint=runEventJointSimulation(legs,learned,runs);
  return Response.json({ok:true,...joint},{headers:{'Cache-Control':'no-store'}});
 }
