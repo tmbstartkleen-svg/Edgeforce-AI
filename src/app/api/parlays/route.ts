@@ -1,6 +1,6 @@
 import {ingestOdds} from '@/lib/providers/ingest';
 import {scanMarkets} from '@/lib/scanner';
-import {buildParlays} from '@/lib/parlays';
+import {buildParlays,selectParlayPool} from '@/lib/parlays';
 import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
@@ -34,6 +34,13 @@ export async function GET(req:Request){
 
  const all=scanMarkets(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
  const eligible=view==='today'?all.filter(x=>x.bucket==='TODAY'):all;
+ const gradeCounts={
+  ELITE:eligible.filter(x=>x.grade==='ELITE').length,
+  STRONG:eligible.filter(x=>x.grade==='STRONG').length,
+  WATCH:eligible.filter(x=>x.grade==='WATCH').length,
+  PASS:eligible.filter(x=>x.grade==='PASS').length
+ };
+ const pool=selectParlayPool(eligible,size);
  const parlays=buildParlays(eligible,size,learned).filter(x=>x.combinedProbability>=minJoint);
 
  return Response.json({
@@ -47,6 +54,11 @@ export async function GET(req:Request){
   view,
   minJoint,
   candidateLegs:eligible.length,
+  gradeCounts,
+  strictEligible:pool.strictCount,
+  watchEligible:pool.watchCount,
+  fallbackUsed:pool.fallbackUsed,
+  qualification:pool.qualification,
   learnedProfileCount:Object.keys(learned).length,
   warnings:ingestion.warnings,
   parlays
