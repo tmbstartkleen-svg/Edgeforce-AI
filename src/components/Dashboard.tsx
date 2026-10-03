@@ -374,8 +374,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V34</div>
-        <h1>Distribution-Aware Prediction Intelligence Platform</h1>
+        <div className="eyebrow">EDGEFORCE AI • V34.1</div>
+        <h1>Distribution-Aware Intelligence + Launch Certification</h1>
         <p>Market-specific probability distributions now drive supported player props and low-scoring team markets, with p10/p50/p90 uncertainty ranges layered on line movement, steam, CLV and automatic repricing.</p>
       </div>
       <div className="v21Status">
