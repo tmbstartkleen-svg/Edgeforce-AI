@@ -41,6 +41,8 @@ export async function GET(){
   steamDetection:true,
   automaticClosingLineCapture:true,
   signedClvTracking:true,
+  actionableSteamAlerts:true,
+  releaseIdentitySynchronized:true,
   sportEngines:19,
   securityHardening:true,
   productionSmokeTests:true,
