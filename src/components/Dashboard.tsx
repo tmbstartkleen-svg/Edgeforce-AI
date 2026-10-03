@@ -377,8 +377,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V35</div>
-        <h1>Joint Event Simulation + Learned SGP Correlation</h1>
+        <div className="eyebrow">EDGEFORCE AI • V36</div>
+        <h1>Sport Micro-Simulation + Joint Event Intelligence</h1>
         <p>Market-specific probability distributions now drive supported player props and low-scoring team markets, with p10/p50/p90 uncertainty ranges layered on line movement, steam, CLV and automatic repricing.</p>
       </div>
       <div className="v21Status">
@@ -520,7 +520,7 @@ export default function Dashboard(){
               <td className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</td>
               <td className={(x.predictionEdge??0)>=0?'lime':'negative'}>{x.predictionEdge===undefined?'—':`${x.predictionEdge>=0?'+':''}${fmtPct(x.predictionEdge)}`}</td>
               <td>{fmtPct(x.quarterKelly)}</td>
-              <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
+              <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
             </tr>)}
