@@ -68,6 +68,7 @@ assert(health.body?.nativeRealOddsIngestion===true,'native real odds ingestion f
 assert(health.body?.adaptiveFullSlateOdds===true,'adaptive full-slate odds flag missing');
 assert(health.body?.quotaAwareProviderExpansion===true,'quota-aware provider expansion flag missing');
 assert(health.body?.liveParlayProductionData===true,'live parlay production-data flag missing');
+assert(health.body?.persistedLiveSnapshotReuse===true,'persisted live snapshot reuse flag missing');
 assert(health.body?.publicPredictionMarketFallback===true,'public prediction market fallback flag missing');
 assert(health.body?.runtimeNeonMigrationBootstrap===true,'runtime Neon migration bootstrap flag missing');
 assert(health.body?.cloudflareRuntimeIdentity===true,'Cloudflare runtime identity flag missing');
