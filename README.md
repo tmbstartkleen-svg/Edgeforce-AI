@@ -1,45 +1,56 @@
 # Edgeforce AI
 
-Production-hardened sports probability, simulation, repricing, line-movement, CLV, parlay, bankroll and model-learning workspace.
+Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V32 Line Movement + CLV Intelligence
+## Current build — V34 Distribution-Aware Prediction Intelligence
 
-V32 adds market-movement intelligence and automatic closing-line tracking on top of V31 automatic context repricing.
+V34 upgrades the simulation layer from mostly generic normal-style outputs to market-specific probability distributions with explicit uncertainty ranges.
 
-### V32 line movement
-- opener and current odds from persisted market snapshots
-- opener and current implied/no-vig probability
-- signed probability movement and odds movement
-- 30-minute steam detection
-- WATCH steam at >=2.0 probability-point movement
-- STRONG steam at >=3.5 probability-point movement with at least three snapshots
-- live-board steam count and per-row opener/current movement
-- `GET /api/intelligence/line-movement` for recent movement history
+### V34 distribution families
+- Bernoulli for binary event markets when represented as probability outcomes
+- Poisson for ordinary count statistics
+- negative binomial for overdispersed count statistics
+- gamma for positive-skew yardage and similar continuous props
+- lognormal for strictly positive skewed duration/distance-type statistics
+- normal for high-volume continuous statistics
 
-### Automatic closing line + CLV
-- settlement backfills the final valid pre-start market snapshot when a closing price is missing
-- provider-supplied closing prices are also normalized into closing implied probability
-- signed CLV is persisted on each wager leg
-- positive CLV means the closing implied probability moved in the bettor's favor relative to the offered line
-- wager-leg CLV is merged into the existing `/api/intelligence/clv` analytics
+### Team simulation upgrades
+- MLB, NHL and soccer now use discrete score simulation rather than continuous score draws
+- higher-scoring team sports retain continuous score models
+- team simulation now returns p10, p50 and p90 outcome ranges
+
+### Player prop upgrades
+- provider projection mean and standard deviation determine the market distribution when available
+- distribution selection is market/stat aware
+- p10, p50 and p90 simulated ranges are retained
+- distribution confidence is retained separately from model confidence
+- availability and non-starter adjustments remain active
+
+### Auditability
+- each model run can retain distribution family
+- distribution confidence
+- p10 / p50 / p90 quantiles
+- simulation engine and projection
+- player context and sport context
 
 ### Release identity
-- build: `V32`
-- app: `32.0.0`
-- package: `0.32.0`
-- model: `edgeforce-v32`
-- migration: `v31`
+- build: `V34`
+- app: `34.0.0`
+- package: `0.34.0`
+- model: `edgeforce-v34`
+- migration: `v32`
 
-### Retained from V31
-- automatic injury / lineup / starter / goalie / quarterback / weather / player-projection repricing
-- Postgres-backed context state for serverless continuity
-- context-change audit history
-- triggered model-run persistence
-- live/stored provider-based repricing endpoints
+### Elite roadmap remaining after V34
+- V35: event-level joint simulation and learned SGP correlation
+- V36: sport-specific possession/play/plate-appearance/shift engines
+- V37: multi-provider consensus pricing and sharp-vs-public market structure
+- V38: regime detection, uncertainty calibration and dynamic confidence
+- V39: portfolio optimization with scenario stress testing and drawdown control
+- V40: explainability, model diagnostics, ablation and live what-if analysis
+- V41: final data-quality, automation, deployment, security and production hardening
 
-### Production guardrails
-- stale, stored and demo data remain explicitly labeled
-- closing prices are taken only from observed provider snapshots at or before event start
-- missing closing prices are left missing rather than invented
-- steam is a market-movement signal, not a guarantee of outcome
-- CLV and model probabilities are descriptive/analytic metrics and do not guarantee profit
+### Guardrails
+- Distribution choice is a modeling assumption and is labeled in output.
+- Missing projection inputs are not fabricated.
+- Simulated ranges and probabilities are estimates, not guarantees.
+- Market movement, CLV and historical performance do not guarantee future results.
