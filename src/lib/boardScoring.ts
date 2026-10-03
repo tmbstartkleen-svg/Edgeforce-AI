@@ -13,8 +13,10 @@ export function scoreBoardRows(rows:Scanned[]):BoardRow[]{
     const consensusAgreement=row.consensus?.agreement??.7;
     const consensusDispersion=row.consensus?.dispersion??0;
     const depthBonus=row.consensus?Math.min(.012,Math.max(0,row.consensus.bookCount-1)*.003):0;
-    const dailyScore=Math.max(0,Math.min(1,row.simProbability-consensusDispersion*.30+depthBonus));
-    const weeklyScore=Math.max(0,Math.min(1,row.simProbability*.68+row.agreement*.16+freshness*.08+consensusAgreement*.08-consensusDispersion*.18+depthBonus));
+    const dynamicConfidence=row.dynamicConfidence??row.confidence;
+    const regimePenalty=row.regime==='DISLOCATED'?.055:row.regime==='VOLATILE'?.025:row.regime==='THIN'?.035:0;
+    const dailyScore=Math.max(0,Math.min(1,row.simProbability*.78+dynamicConfidence*.22-consensusDispersion*.30-regimePenalty+depthBonus));
+    const weeklyScore=Math.max(0,Math.min(1,row.simProbability*.58+row.agreement*.13+dynamicConfidence*.13+freshness*.07+consensusAgreement*.09-consensusDispersion*.18-regimePenalty+depthBonus));
     const probabilityGap=row.simProbability-row.marketProb;
     const calendarDay=new Date(row.startTime).toISOString().slice(0,10);
     return {...row,dailyScore,weeklyScore,probabilityGap,calendarDay};
@@ -24,14 +26,14 @@ export function scoreBoardRows(rows:Scanned[]):BoardRow[]{
 export function rankDaily(rows:Scanned[],limit=30){
   return scoreBoardRows(rows)
     .filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS')
-    .sort((a,b)=>b.dailyScore-a.dailyScore||b.agreement-a.agreement)
+    .sort((a,b)=>b.dailyScore-a.dailyScore||b.dynamicConfidence-a.dynamicConfidence||b.agreement-a.agreement)
     .slice(0,limit);
 }
 
 export function rankWeekly(rows:Scanned[],limit=30){
   const ranked=scoreBoardRows(rows)
     .filter(x=>x.grade!=='PASS')
-    .sort((a,b)=>b.weeklyScore-a.weeklyScore||b.dailyScore-a.dailyScore);
+    .sort((a,b)=>b.weeklyScore-a.weeklyScore||b.dynamicConfidence-a.dynamicConfidence||b.dailyScore-a.dailyScore);
 
   const days=[...new Set(ranked.map(x=>x.calendarDay))].slice(0,8);
   const dayCap=Math.max(2,Math.ceil(limit/Math.max(1,days.length)));

@@ -87,6 +87,11 @@ type LiveBoardResponse={
     targetBookRows:number;averageAgreement:number;averageDispersion:number;priceShopOpportunities:number;
     outlierRows:number;classifiedRows:number;sharpOverPublic:number;publicOverSharp:number;aligned:number;
   };
+  dynamicCalibrationProfileCount?:number;
+  regimeCoverage?:{
+    stable:number;volatile:number;dislocated:number;thin:number;unknown:number;
+    highConfidence:number;mediumConfidence:number;lowConfidence:number;averageDynamicConfidence:number;
+  };
   warnings?:string[];
   contextRevision?:string;
   contextChanges?:Array<{
@@ -389,9 +394,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V37</div>
-        <h1>Consensus Pricing + Sharp/Public Market Structure</h1>
-        <p>Cross-book no-vig consensus now anchors market probability while Edgeforce preserves the target-book wager price, tracks price dispersion, flags outliers, and shows explicitly configured sharp-vs-public book structure.</p>
+        <div className="eyebrow">EDGEFORCE AI • V38</div>
+        <h1>Regime-Aware Uncertainty + Dynamic Confidence</h1>
+        <p>Edgeforce now calibrates each simulation against live market regime, cross-book agreement, historical reliability, source freshness, and model precision before ranking or sizing a position.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -434,6 +439,10 @@ export default function Dashboard(){
           <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
           <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
           <div><small>Price shops</small><b>{board.consensusCoverage?.priceShopOpportunities??0}</b></div>
+          <div><small>Stable</small><b>{board.regimeCoverage?.stable??0}</b></div>
+          <div><small>Dislocated</small><b>{board.regimeCoverage?.dislocated??0}</b></div>
+          <div><small>High conf</small><b>{board.regimeCoverage?.highConfidence??0}</b></div>
+          <div><small>Avg conf</small><b>{board.regimeCoverage?fmtPct(board.regimeCoverage.averageDynamicConfidence):'—'}</b></div>
         </div>
       </div>
     </section>
@@ -501,7 +510,7 @@ export default function Dashboard(){
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
-      <div><small>STEAM</small><strong>{board.steamCount||0}</strong><span>material moves detected</span></div>
+      <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
     </section>
 
     <section className="v21Panel">
@@ -518,7 +527,7 @@ export default function Dashboard(){
       <div className="tableWrap">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Target Edge</th><th>PM Edge</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Target Edge</th><th>PM Edge</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
             {filtered.map((x,i)=><tr key={x.id}>
@@ -531,7 +540,8 @@ export default function Dashboard(){
               <td>{fmtPct(x.rawImpliedProbability)}</td>
               <td><b>{fmtPct(x.noVigProbability)}</b><small>{x.consensus?`${x.consensus.bookCount} books • ${fmtPct(x.consensus.agreement)} agree • ${x.consensus.marketStructure.replaceAll('_',' ')}`:'single-source baseline'}</small></td>
               <td><b>{x.predictionMarketProbability!==undefined?fmtPct(x.predictionMarketProbability):'—'}</b><small>{x.predictionMarketStatus==='MATCHED'?(x.predictionMarketVolume!==undefined?`vol ${Math.round(x.predictionMarketVolume).toLocaleString()}`:'matched'):x.predictionMarketStatus.replaceAll('_',' ')}</small></td>
-              <td className="lime">{fmtPct(x.simProbability)}</td>
+              <td className="lime"><b>{fmtPct(x.simProbability)}</b><small>raw {fmtPct(x.rawSimProbability)} • CI {fmtPct(x.simCi[0])}–{fmtPct(x.simCi[1])}</small></td>
+              <td><b>{fmtPct(x.dynamicConfidence)}</b><small>{x.confidenceLabel} • {x.regime}</small></td>
               <td className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</td>
               <td className={(x.predictionEdge??0)>=0?'lime':'negative'}>{x.predictionEdge===undefined?'—':`${x.predictionEdge>=0?'+':''}${fmtPct(x.predictionEdge)}`}</td>
               <td>{fmtPct(x.quarterKelly)}</td>
@@ -539,7 +549,7 @@ export default function Dashboard(){
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
             </tr>)}
-            {!filtered.length&&<tr><td colSpan={16} className="emptyRow">No rows match the current filters.</td></tr>}
+            {!filtered.length&&<tr><td colSpan={17} className="emptyRow">No rows match the current filters.</td></tr>}
           </tbody>
         </table>
       </div>
