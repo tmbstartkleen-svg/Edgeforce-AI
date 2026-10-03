@@ -83,10 +83,19 @@ export function adaptiveOddsPolicy(input:{
  const nearest=input.nearestStartMinutes;
  let refreshMinutes=360;
  if(nearest!==undefined&&Number.isFinite(nearest)){
-  if(nearest<=60){refreshMinutes=60;reasons.push('an event begins within 60 minutes');}
-  else if(nearest<=180){refreshMinutes=120;reasons.push('an event begins within 3 hours');}
-  else if(nearest<=720){refreshMinutes=240;reasons.push('events are active within 12 hours');}
-  else reasons.push('no immediate event-start pressure');
+  if(nearest<=60){
+   refreshMinutes=60;
+   maxExpansionSports=Math.min(maxExpansionSports,3);
+   reasons.push('an event begins within 60 minutes; refresh faster with a narrower expansion set');
+  }else if(nearest<=180){
+   refreshMinutes=120;
+   maxExpansionSports=Math.min(maxExpansionSports,4);
+   reasons.push('an event begins within 3 hours; refresh faster with controlled expansion');
+  }else if(nearest<=720){
+   refreshMinutes=240;
+   maxExpansionSports=Math.min(maxExpansionSports,6);
+   reasons.push('events are active within 12 hours');
+  }else reasons.push('no immediate event-start pressure');
  }
  if(mode==='CONSERVE')refreshMinutes=Math.max(refreshMinutes,360);
  if(mode==='BOOTSTRAP_ONLY')refreshMinutes=Math.max(refreshMinutes,720);
