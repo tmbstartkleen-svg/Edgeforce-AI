@@ -42,7 +42,7 @@ export async function GET(req:Request){
   blockers,
   warnings,
   recommendations:[
-   ...(configured.filter(x=>x.capability==='ODDS').length>=2?[]:['Connect a second independent odds provider to enable deeper V37 cross-book consensus.']),
+   ...(configured.filter(x=>x.capability==='ODDS').length>=2?[]:['Connect a second independent odds provider to enable deeper cross-book consensus.']),
    ...(configuredCapabilities.includes('RESULTS')?[]:['Connect a results provider to automate settlement and prediction feedback.']),
    ...(configuredCapabilities.includes('WEATHER')?[]:['Connect a weather provider for outdoor-sport context.']),
    ...(configuredCapabilities.includes('INJURIES')?[]:['Connect an injury provider for automated availability context.']),
