@@ -65,6 +65,23 @@ jobs:
           URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v34)
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
 
+      - name: Certify live production providers
+        run: |
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          curl --fail --silent --show-error -X POST "${PRODUCTION_URL}/api/providers/certify" \
+            -H "Authorization: Bearer ${INGEST_SECRET}" \
+            -H "Content-Type: application/json"
+          echo
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+
+      - name: Require strict launch doctor
+        run: curl --fail --silent --show-error "${PRODUCTION_URL}/api/launch-doctor?strict=1"
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+
       - name: Smoke test production deployment
         run: npm run remote-smoke
         env:
