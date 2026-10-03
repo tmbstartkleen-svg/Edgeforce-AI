@@ -59,6 +59,7 @@ export async function GET(){
   shiftEngine:true,
   chanceEngine:true,
   pointGameSetEngine:true,
+  granularSportEngines:7,
   sportEngines:19,
   securityHardening:true,
   productionSmokeTests:true,
