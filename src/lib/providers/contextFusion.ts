@@ -1,5 +1,6 @@
 import type {Market} from '../types';
 import {fetchWeatherContext,fetchInjuryContext,fetchStatsContext} from './context';
+import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -128,8 +129,10 @@ export async function enrichMarketsWithContext(markets:Market[]){
   ok:s.result.ok,
   providerId:s.result.providerId,
   attempts:s.result.attempts,
+  qualityScore:s.result.quality?.qualityScore??(s.result.ok ? .7 : 0),
   rows:s.result.ok?normalizeRows(s.result.data,s.kind):[]
  }));
+ const sourceQuality=Object.fromEntries(normalized.map(x=>[x.kind,x.qualityScore]));
  let matchedRows=0;
  const enriched=markets.map(m=>{
   const sportFeatures={...(m.sportFeatures||{})};
@@ -151,14 +154,20 @@ export async function enrichMarketsWithContext(markets:Market[]){
    if(matched)matchedKinds.push(source.kind);
   }
   if(matchedKinds.length)matchedRows++;
-  return {...m,sportFeatures,contextSources:matchedKinds,playerContext};
+  const enrichedMarket={...m,sportFeatures,contextSources:matchedKinds,playerContext};
+  return {...enrichedMarket,contextQuality:assessContextQuality(enrichedMarket,sourceQuality)};
  });
+ const qualitySummary=summarizeContextQuality(enriched);
  return {
   markets:enriched,
   diagnostics:{
    matchedRows,
    totalRows:markets.length,
-   providers:normalized.map(x=>({kind:x.kind,ok:x.ok,providerId:x.providerId,rowCount:x.rows.length,attempts:x.attempts}))
+   qualitySummary,
+   providers:normalized.map(x=>({
+    kind:x.kind,ok:x.ok,providerId:x.providerId,rowCount:x.rows.length,
+    qualityScore:x.qualityScore,attempts:x.attempts
+   }))
   }
  };
 }

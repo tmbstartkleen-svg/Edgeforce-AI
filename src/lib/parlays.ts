@@ -101,6 +101,7 @@ function americanFromDecimal(decimal:number){
 }
 
 function hasContext(row:Scanned){
+ if(row.contextQuality)return row.contextQuality.coverage>0;
  return Boolean(
   row.playerContext ||
   (row.contextSources?.length||0)>0 ||
@@ -122,7 +123,7 @@ export function assessParlayTier(
 ){
  const minLegProbability=Math.min(...picks.map(x=>x.simProbability));
  const averageDynamicConfidence=picks.reduce((s,x)=>s+(x.dynamicConfidence??x.confidence),0)/Math.max(1,picks.length);
- const contextCoverage=picks.filter(hasContext).length/Math.max(1,picks.length);
+ const contextCoverage=picks.reduce((sum,x)=>sum+(x.contextQuality?.coverage??(hasContext(x)?1:0)),0)/Math.max(1,picks.length);
  const maxModelSimulationGap=Math.max(...picks.map(x=>Math.abs(x.simProbability-x.modelProb)));
  const extremeUnderdogCount=picks.filter(x=>x.odds>=thresholds.extremeUnderdogOdds).length;
  const flags:ParlayRiskFlag[]=[];
@@ -133,7 +134,7 @@ export function assessParlayTier(
  if(averageDynamicConfidence<thresholds.recommendedMinConfidence)flags.push('LOW_DYNAMIC_CONFIDENCE');
  if(picks.some(x=>x.regime==='VOLATILE'))flags.push('VOLATILE_REGIME');
  if(picks.some(x=>x.regime==='DISLOCATED'))flags.push('DISLOCATED_REGIME');
- if(contextCoverage<thresholds.recommendedMinContextCoverage)flags.push('CONTEXT_LIMITED');
+ if(contextCoverage<thresholds.recommendedMinContextCoverage||picks.some(x=>x.contextQuality&&!x.contextQuality.recommendationReady))flags.push('CONTEXT_LIMITED');
  if(maxModelSimulationGap>thresholds.recommendedMaxModelSimulationGap)flags.push('MODEL_SIM_DIVERGENCE');
  if(extremeUnderdogCount>0)flags.push('EXTREME_UNDERDOG');
  if(combinedAmericanOdds>=thresholds.hailMaryCombinedOdds)flags.push('LONGSHOT_PAYOUT');

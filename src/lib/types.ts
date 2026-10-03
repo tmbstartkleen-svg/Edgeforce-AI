@@ -1,3 +1,4 @@
+import type {ContextQuality} from './contextQuality';
 export type RiskProfile='Conservative'|'Moderate'|'Aggressive';
 export type MarketRole='SHARP'|'PUBLIC'|'REFERENCE'|'NEUTRAL';
 
@@ -60,6 +61,7 @@ export type Market={
  sportFeatures?:Record<string,number>;
  contextSources?:string[];
  playerContext?:PlayerContext;
+ contextQuality?:ContextQuality;
 };
 
 export type ModelVoteSnapshot={

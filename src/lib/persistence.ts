@@ -136,6 +136,7 @@ export async function recordModelRuns(rows:any[]){
           sportFactors:x.sportFactors,
           sportFeatures:x.sportFeatures||{},
           contextSources:x.contextSources||[],
+          contextQuality:x.contextQuality||null,
           simEngine:x.simEngine,
           rawSimProbability:x.rawSimProbability??x.simProbability,
           dynamicConfidence:x.dynamicConfidence??null,
