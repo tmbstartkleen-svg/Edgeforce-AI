@@ -1,23 +1,27 @@
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'50.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'51.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
-const paths=['/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
+const paths=['/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
 
 for(const path of paths){
  const started=Date.now();
- const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/50'}});
+ const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/51'}});
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
+ if(path==='/api/intelligence/validation-lab'){
+  const json=JSON.parse(body);
+  if(json.ok!==true||json.build!=='V51'||!json.report?.overall)throw new Error('validation laboratory mismatch');
+ }
  if(path==='/api/intelligence/context'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V50'||!json.diagnostics?.qualitySummary||!json.diagnostics?.publicNetwork)throw new Error('context intelligence mismatch');
+  if(json.ok!==true||json.build!=='V51'||!json.diagnostics?.qualitySummary||!json.diagnostics?.publicNetwork)throw new Error('context intelligence mismatch');
  }
  if(path==='/api/parlays?size=2&view=today'){
   const json=JSON.parse(body);
-  if(json.build!=='V50'||json.schemaVersion!=='v50-real-context-network-1')throw new Error('parlay route schema mismatch');
+  if(json.build!=='V50'||json.schemaVersion!=='v51-prediction-validation-1')throw new Error('parlay route schema mismatch');
   if(Number(json.thresholds?.recommendedMinJoint)!==0.52)throw new Error('parlay recommendation threshold mismatch');
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
  }
