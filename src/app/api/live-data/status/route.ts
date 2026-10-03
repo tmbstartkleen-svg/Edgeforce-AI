@@ -5,7 +5,9 @@ import {RELEASE} from '@/lib/releaseManifest';
 
 export const dynamic='force-dynamic';
 
-export async function GET(){
+export async function GET(req:Request){
+ const url=new URL(req.url);
+ const requireLive=url.searchParams.get('requireLive')==='1'||url.searchParams.get('requireLive')==='true';
  const ingestion=await ingestOdds();
  const oddsProviders=configuredProviders('ODDS');
  const audit=auditMarketBatch(ingestion.markets);
@@ -32,5 +34,5 @@ export async function GET(){
   warnings:ingestion.warnings,
   attempts:ingestion.attempts,
   generatedAt:new Date().toISOString(),
- },{status:ingestion.source==='unavailable'?503:200,headers:{'Cache-Control':'no-store'}});
+ },{status:(requireLive&&ingestion.source!=='live')||ingestion.source==='unavailable'?503:200,headers:{'Cache-Control':'no-store'}});
 }
