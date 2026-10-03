@@ -25,6 +25,24 @@ if(config){
   }
 }
 
+const schemaMarker='v48-recommendation-quality-1';
+if(fs.existsSync('dist/server')){
+  const stack=['dist/server'];
+  let found=false;
+  while(stack.length){
+    const current=stack.pop();
+    if(!current)continue;
+    const stat=fs.statSync(current);
+    if(stat.isDirectory()){
+      for(const name of fs.readdirSync(current))stack.push(path.join(current,name));
+    }else if(/\.(?:js|mjs|cjs|json)$/.test(current)){
+      const text=fs.readFileSync(current,'utf8');
+      if(text.includes(schemaMarker)){found=true;break}
+    }
+  }
+  if(!found)failures.push('Generated Worker artifact is missing parlay schema marker '+schemaMarker);
+}
+
 const report={
   ok:failures.length===0,
   config:'dist/server/wrangler.json',
