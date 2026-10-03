@@ -12,7 +12,7 @@ export type Scanned=Ranked & {
  bucket:'TODAY'|'WEEK';
  freshness:'FRESH'|'AGING'|'STALE';
  simEngine:string;
- simProjection:{homeMean?:number;awayMean?:number;totalMean?:number;marginMean?:number;selectionMean?:number;line?:number;unit?:string;distributionFamily?:string;distributionConfidence?:number;p10?:number;p50?:number;p90?:number};
+ simProjection:{homeMean?:number;awayMean?:number;totalMean?:number;marginMean?:number;selectionMean?:number;line?:number;unit?:string;distributionFamily?:string;distributionConfidence?:number;p10?:number;p50?:number;p90?:number;microUnit?:string;microUnitCount?:number};
 };
 
 export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap):Scanned[]{
@@ -23,7 +23,7 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
   const freshness:Scanned['freshness']=r.sourceAgeMin<=5?'FRESH':r.sourceAgeMin<=20?'AGING':'STALE';
   const bucket:Scanned['bucket']=daysOut<1?'TODAY':'WEEK';
   const simCi:[number,number]=[sim.ciLow,sim.ciHigh];
-  return {...r,simulationRuns:runs,simProbability:sim.probability,simCi,daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection};
+  return {...r,simulationRuns:sim.runs,simProbability:sim.probability,simCi,daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection};
  }).filter(x=>x.daysOut>=0&&x.daysOut<=8);
 }
 
