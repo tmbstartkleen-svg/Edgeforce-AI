@@ -2,7 +2,45 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V38 Regime-Aware Uncertainty + Dynamic Confidence
+## Current build — V39 Portfolio Stress Testing + Drawdown Control
+
+V39 upgrades portfolio sizing from static exposure caps to scenario-tested tail-risk control.
+
+### V39 portfolio engine
+- runs deterministic Monte Carlo portfolio scenarios across accepted positions
+- scenarios: `BASE`, `MODEL_MISS`, `MARKET_DISLOCATION`, `CORRELATED_SLATE`, and `DRAWDOWN`
+- models shared slate, sport, event, and idiosyncratic loss factors
+- reports mean P/L, p05/p10/p50/p90/p95, volatility, loss probability, and modeled drawdown-breach probability
+- computes 95% Value at Risk (VaR) and Conditional Value at Risk (CVaR)
+- applies a continuous drawdown brake as current bankroll drawdown grows
+- applies a second portfolio-wide CVaR scale when modeled tail loss exceeds the configured limit
+- keeps event, sport, position, correlation, and daily-risk caps
+- uses V38 dynamic confidence and regime state when scoring and sizing positions
+
+### V39 controls
+- `PORTFOLIO_STRESS_RUNS=1500`
+- `PORTFOLIO_MAX_CVAR_PCT=0.06`
+- `PORTFOLIO_STRESS_DRAWDOWN_PCT=0.10`
+- `PORTFOLIO_MIN_DYNAMIC_CONFIDENCE=0.45`
+
+### V39 validation
+- `GET /api/testing/portfolio-stress` verifies five scenarios, CVaR output, and drawdown allocation reduction
+- the production smoke suite includes portfolio stress regression coverage
+- the dashboard exposes worst-scenario VaR/CVaR, loss probability, drawdown breach probability, drawdown brake, CVaR scale, and scenario detail
+
+### Release identity
+- build: `V39`
+- app: `39.0.0`
+- package: `0.39.0`
+- model: `edgeforce-v39`
+- migration: `v36` (no schema change required)
+
+### Guardrails
+- VaR/CVaR and scenario probabilities are model estimates, not guarantees or hard loss bounds.
+- stress scaling reduces modeled exposure but cannot eliminate real-world market, execution, or data risk.
+- the optimizer rejects insufficient-confidence rows and preserves existing concentration caps.
+
+## V38 Regime-Aware Uncertainty + Dynamic Confidence
 
 V38 turns calibration, market structure, and simulation precision into live decision controls instead of passive diagnostics.
 
@@ -206,8 +244,7 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V38
-- V39: portfolio optimization with scenario stress testing and drawdown control
+### Elite roadmap remaining after V39
 - V40: explainability, model diagnostics, ablation and live what-if analysis
 - V41: final data-quality, automation, deployment, security and production hardening
 
