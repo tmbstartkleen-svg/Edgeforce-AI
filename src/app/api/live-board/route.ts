@@ -16,6 +16,7 @@ import {loadContextMarketStates,recordContextChanges,saveContextMarketStates,rec
 import {loadLineMovement} from '@/lib/lineMovement';
 import {steamAlert} from '@/lib/alerts';
 import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
+import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 
 export const dynamic='force-dynamic';
 
@@ -68,17 +69,18 @@ export async function GET(req:Request){
     return Response.json({ok:false,error:'unauthorized forced refresh'},{status:401});
   }
 
-  const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations]=await Promise.all([
+  const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles]=await Promise.all([
     cachedOdds(forceRefresh),
     fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
     loadLearnedWeightMultipliers(),
     loadLedgerHistory(),
-    loadLearnedSgpCorrelations()
+    loadLearnedSgpCorrelations(),
+    loadDynamicCalibrationProfiles()
   ]);
 
   const ingestion=cached.ingestion;
   const [scanned,lineMovement]=await Promise.all([
-    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights)),
+    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles)),
     loadLineMovement(ingestion.markets).catch(()=>new Map())
   ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
@@ -126,6 +128,18 @@ export async function GET(req:Request){
     aligned:consensusRows.filter(x=>x.consensus?.marketStructure==='ALIGNED').length
   };
 
+  const regimeCoverage={
+    stable:rows.filter(x=>x.regime==='STABLE').length,
+    volatile:rows.filter(x=>x.regime==='VOLATILE').length,
+    dislocated:rows.filter(x=>x.regime==='DISLOCATED').length,
+    thin:rows.filter(x=>x.regime==='THIN').length,
+    unknown:rows.filter(x=>x.regime==='UNKNOWN').length,
+    highConfidence:rows.filter(x=>x.confidenceLabel==='HIGH').length,
+    mediumConfidence:rows.filter(x=>x.confidenceLabel==='MEDIUM').length,
+    lowConfidence:rows.filter(x=>x.confidenceLabel==='LOW').length,
+    averageDynamicConfidence:rows.length?rows.reduce((sum,x)=>sum+x.dynamicConfidence,0)/rows.length:0
+  };
+
   await recordPerformance('/api/live-board',Date.now()-started,200,ingestion.providerId);
   return Response.json({
     generatedAt:new Date().toISOString(),
@@ -147,6 +161,8 @@ export async function GET(req:Request){
     learnedWeightCount:Object.keys(learnedWeights).length,
     learnedSgpCorrelations,
     learnedSgpProfileCount:Object.keys(learnedSgpCorrelations).length,
+    dynamicCalibrationProfileCount:Object.keys(dynamicCalibrationProfiles).length,
+    regimeCoverage,
     contextDiagnostics:cached.context.diagnostics,
     contextRevision:cached.contextRevision,
     contextChanges:cached.contextChanges,
