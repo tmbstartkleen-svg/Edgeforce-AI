@@ -98,7 +98,7 @@ function leagueSpec(m:Market):LeagueSpec|null{
 }
 
 const timeoutMs=()=>Math.max(1500,Number(process.env.PUBLIC_CONTEXT_TIMEOUT_MS)||5000);
-async function fetchJson(url:string,ttlMs:number){
+async function fetchJson(url:string,ttlMs:number):Promise<Cached>{
  const cached=requestCache.get(url);
  if(cached&&Date.now()-cached.at<ttlMs)return cached;
  const controller=new AbortController();
@@ -110,15 +110,15 @@ async function fetchJson(url:string,ttlMs:number){
    headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/50 context-enrichment'}
   });
   if(!res.ok){
-   const result={at:Date.now(),value:null,ok:false,status:res.status,error:`HTTP ${res.status}`};
+   const result:Cached={at:Date.now(),value:null,ok:false,status:res.status,error:`HTTP ${res.status}`};
    requestCache.set(url,result);
    return result;
   }
-  const result={at:Date.now(),value:await res.json(),ok:true,status:res.status};
+  const result:Cached={at:Date.now(),value:await res.json(),ok:true,status:res.status};
   requestCache.set(url,result);
   return result;
  }catch(error){
-  const result={at:Date.now(),value:null,ok:false,error:error instanceof Error?error.message:'request failed'};
+  const result:Cached={at:Date.now(),value:null,ok:false,error:error instanceof Error?error.message:'request failed'};
   requestCache.set(url,result);
   return result;
  }finally{clearTimeout(timer)}
