@@ -63,9 +63,9 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
  }).filter(x=>x.daysOut>=0&&x.daysOut<=8);
 }
 
-export function todayTop30(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap){
- return scanMarkets(rows,risk,now,learnedWeights).filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS').slice(0,30);
+export function todayTop30(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap,dynamicCalibration:DynamicCalibrationMap={}){
+ return scanMarkets(rows,risk,now,learnedWeights,dynamicCalibration).filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS').slice(0,30);
 }
-export function weekTop30(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap){
- return scanMarkets(rows,risk,now,learnedWeights).filter(x=>x.grade!=='PASS').slice(0,30);
+export function weekTop30(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap,dynamicCalibration:DynamicCalibrationMap={}){
+ return scanMarkets(rows,risk,now,learnedWeights,dynamicCalibration).filter(x=>x.grade!=='PASS').slice(0,30);
 }

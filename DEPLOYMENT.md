@@ -1,10 +1,10 @@
-# Edgeforce AI V38 deployment
+# Edgeforce AI V39 deployment
 
 ## Release strategy
 lint → build → migration continuity → local production server → smoke → load gate → Vercel prebuilt preview → hosted smoke → release attestation → optional exact-artifact promotion → observe → rollback if needed.
 
 ## Required production configuration
-Configure `DATABASE_URL`, `INGEST_SECRET`, `CRON_SECRET`, `MODEL_VERSION=edgeforce-v38`, a positive `DEFAULT_BANKROLL`, and at least one authorized odds provider. Apply database migrations through `v36`.
+Configure `DATABASE_URL`, `INGEST_SECRET`, `CRON_SECRET`, `MODEL_VERSION=edgeforce-v39`, a positive `DEFAULT_BANKROLL`, and at least one authorized odds provider. Apply database migrations through `v36`.
 
 GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 
@@ -21,13 +21,13 @@ GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VE
 - local production-server smoke suite
 - load check with zero failures and configured p95 ceiling
 - hosted preview liveness/readiness/diagnostics/ops-status/dashboard checks
-- V38 version and migration identity checks
+- V39 version and migration identity checks
 
 ## Preview and promotion
 Use **Edgeforce Release Candidate**. It builds a Vercel preview with pinned CLI tooling, smoke-tests the exact prebuilt artifact, records a release attestation, and promotes that same artifact only when `promote=true`.
 
 ## Rollback
-Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V38 release toolchain.
+Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V39 release toolchain.
 
 ## Observability
 The hourly heartbeat records readiness when a database is configured. `/api/ops/status` surfaces recent heartbeats, release attestations, unresolved incidents and route performance. Live-board performance sampling is controlled with `PERFORMANCE_SAMPLE_RATE`.
@@ -50,11 +50,11 @@ The canonical production project is `edgeforce-ai2` (`prj_8edFTZzS8e6RZyMVm1mjxu
 After **Verify Edgeforce** succeeds on `main`, **Edgeforce Production Deploy**:
 1. targets the canonical Vercel project,
 2. pulls the production environment,
-3. validates the V38 app/model environment,
+3. validates the V39 app/model environment,
 4. applies database migrations through v36,
 5. builds with the pinned Vercel CLI,
 6. deploys the prebuilt artifact directly to production,
-7. runs hosted V38 smoke/readiness checks,
+7. runs hosted V39 smoke/readiness checks,
 8. records a release attestation,
 9. rolls back automatically if a hosted post-deploy check fails.
 
@@ -83,3 +83,7 @@ Migration v36 stores quote-level consensus snapshots, dispersion, agreement, tar
 
 ## Regime-aware uncertainty and confidence
 V38 classifies each priced market as STABLE, VOLATILE, DISLOCATED, THIN, or UNKNOWN from consensus depth, price dispersion, and simulation precision. Historical calibration quality, model agreement, source freshness, distribution confidence, and cross-book agreement are combined into a dynamic confidence score. Low-confidence or dislocated rows are automatically downgraded and stake sizing is reduced. Simulation probabilities are shrunk toward calibrated historical and consensus baselines rather than being treated as certainty.
+
+
+## Portfolio stress testing and drawdown control
+V39 runs five portfolio-level loss scenarios after initial concentration-aware allocation. The optimizer reports 95% VaR/CVaR and modeled drawdown-breach probability, applies a continuous brake as current bankroll drawdown increases, and uniformly scales accepted positions when worst-scenario CVaR exceeds `PORTFOLIO_MAX_CVAR_PCT`. Configure `PORTFOLIO_STRESS_RUNS`, `PORTFOLIO_MAX_CVAR_PCT`, `PORTFOLIO_STRESS_DRAWDOWN_PCT`, and `PORTFOLIO_MIN_DYNAMIC_CONFIDENCE` to tune production risk posture. These are model controls, not guaranteed loss limits.
