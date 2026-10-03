@@ -48,6 +48,10 @@ export type Market={
  odds:number;
  rawImpliedProb?:number;
  sourceBook?:string;
+ sourceProviderId?:string;
+ marketRole?:MarketRole;
+ sourceProviderWeight?:number;
+ consensus?:MarketConsensus;
  marketProb:number;
  modelProb:number;
  confidence:number;
