@@ -6,6 +6,7 @@ import {fmtOdds,fmtPct} from '@/lib/math';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
+import MarketDrilldown from './MarketDrilldown';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -317,6 +318,7 @@ export default function Dashboard(){
   const [bankroll,setBankroll]=useState(1000);
   const [drawdownPct,setDrawdownPct]=useState(0);
   const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
+  const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
   const busy=useRef(false);
 
   useEffect(()=>{
@@ -413,9 +415,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V39</div>
-        <h1>Portfolio Stress Testing + Drawdown Control</h1>
-        <p>Edgeforce now combines calibrated V38 probabilities with portfolio-level scenario simulations, 95% VaR/CVaR, correlated-loss shocks, and automatic drawdown/CVaR allocation brakes.</p>
+        <div className="eyebrow">EDGEFORCE AI • V40</div>
+        <h1>Explainability + Diagnostics + Live What-If</h1>
+        <p>Every model probability can now be decomposed into additive model drivers, feature ablations, sensitivity, fragility, and read-only what-if deltas while retaining V39 portfolio stress controls.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -566,7 +568,7 @@ export default function Dashboard(){
               <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
-              <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
+              <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>)}
             {!filtered.length&&<tr><td colSpan={17} className="emptyRow">No rows match the current filters.</td></tr>}
           </tbody>
@@ -779,5 +781,6 @@ export default function Dashboard(){
       <div><small>MODEL RUNS</small><b>{dbStats.counts?.model_runs||0}</b></div>
       <div><small>SETTLED RESULTS</small><b>{dbStats.counts?.bet_results||0}</b></div>
     </section>
+    {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
 }
