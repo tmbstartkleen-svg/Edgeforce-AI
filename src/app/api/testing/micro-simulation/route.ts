@@ -50,14 +50,23 @@ export async function GET(){
  };
  const partialSim=runSportOutcomeSimulation(partialMarket,1000,runGameStateSimulation);
 
+ const tennisTotal:Market={
+  ...market('Tennis','tennis-total','Player A','Player B',{serve:.08,return:.06,surface:.04}),
+  market:'Total Games',selection:'Over 22.5 Games'
+ };
+ const tennisTotalSim=runSportOutcomeSimulation(tennisTotal,1000,runGameStateSimulation);
+
  const ok=
   results.every((x,i)=>x.engine===expected[i]&&x.runs===1000&&x.microUnit&&Number(x.microUnitCount)>0&&x.probability>0&&x.probability<1)&&
   propSim.engine==='PLAYER_DISTRIBUTION_MONTE_CARLO'&&
-  partialSim.engine==='PROBABILITY_STATE_FALLBACK';
+  partialSim.engine==='PROBABILITY_STATE_FALLBACK'&&
+  tennisTotalSim.engine==='TENNIS_POINT_GAME_SET_MONTE_CARLO'&&
+  tennisTotalSim.projection.unit==='games';
  return Response.json({
   ok,
   results,
   propRouting:{engine:propSim.engine,probability:propSim.probability},
-  partialRouting:{engine:partialSim.engine,probability:partialSim.probability}
+  partialRouting:{engine:partialSim.engine,probability:partialSim.probability},
+  tennisTotalRouting:{engine:tennisTotalSim.engine,probability:tennisTotalSim.probability,unit:tennisTotalSim.projection.unit}
  });
 }
