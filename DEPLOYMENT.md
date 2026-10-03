@@ -51,7 +51,7 @@ After **Verify Edgeforce** succeeds on `main`, **Edgeforce Production Deploy**:
 1. targets the canonical Vercel project,
 2. pulls the production environment,
 3. validates the V35 app/model environment,
-4. applies database migrations through v33,
+4. applies database migrations through v34,
 5. builds with the pinned Vercel CLI,
 6. deploys the prebuilt artifact directly to production,
 7. runs hosted V35 smoke/readiness checks,
