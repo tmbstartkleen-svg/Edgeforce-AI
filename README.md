@@ -2,6 +2,51 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V36 Sport-Specific Micro-Simulation Engines
+
+V36 adds granular game-state simulation ahead of the generic team-score layer. Supported full-game markets now simulate the natural unit of play instead of sampling only final scores.
+
+### V36 granular engines
+- MLB — plate appearances with outs, walks, singles, doubles, triples, home runs, base advancement, starter and bullpen context
+- NFL / NCAAF — drive-level scoring with touchdown, field-goal, safety, tempo, quarterback, trenches and weather context
+- NBA / WNBA / NCAAB — possession-level scoring with pace and shooting context
+- NHL — shift-level goal generation with goalie, shot-quality, special-teams and pace context
+- Soccer — chance-level goal generation with xG, keeper, tactical and set-piece context
+- Tennis — point → game → set → match simulation using serve, return and surface context
+- Table Tennis — point → game → match simulation using serve and return context
+
+### Routing and safeguards
+- player props continue through the V34 distribution-aware prop engine
+- supported full-game team/match markets use the V36 micro engine
+- period, quarter, half, inning, and set-specific markets fall back unless a dedicated granular model exists
+- unsupported sports continue through existing team-score, set-match, combat, or probability-state engines
+- 100,000-tier granular simulations are capped internally at 10,000 micro runs for bounded latency
+- the scanner records the actual run count executed, not the requested tier
+- dashboard audit output includes average micro units per simulation
+
+### APIs and verification
+- `GET /api/intelligence/micro-simulation` — granular engine catalog
+- `GET /api/testing/micro-simulation` — seven-engine coverage test when test endpoints are enabled
+- model-run feature snapshots retain `simEngine`, `microUnit`, and `microUnitCount`
+
+### Release identity
+- build: `V36`
+- app: `36.0.0`
+- package: `0.36.0`
+- model: `edgeforce-v36`
+- migration: `v35`
+
+### Guardrails
+- micro engines are modeling approximations, not literal reconstructions of future games
+- missing sport context falls back to conservative defaults rather than fabricated player/team data
+- player-prop markets are not forced through team-level possession/drive/shift models
+- unsupported market periods fall back rather than being misrepresented as full-game simulations
+- simulation probabilities and ranges are estimates, not guarantees
+
+# Edgeforce AI
+
+Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
+
 ## Current build — V35 Event-Level Joint Simulation + Learned SGP Correlation
 
 V35 stops treating same-event parlay legs as independent outcomes. It combines a shared event-level Gaussian-copula simulation with conservative historical correlation learning from settled same-event wager legs.
@@ -85,8 +130,7 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V35
-- V36: sport-specific possession/play/plate-appearance/shift engines
+### Elite roadmap remaining after V36
 - V37: multi-provider consensus pricing and sharp-vs-public market structure
 - V38: regime detection, uncertainty calibration and dynamic confidence
 - V39: portfolio optimization with scenario stress testing and drawdown control
@@ -98,4 +142,5 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - Missing projection inputs are not fabricated.
 - Simulated ranges and probabilities are estimates, not guarantees.
 - Market movement, CLV and historical performance do not guarantee future results.
+
 
