@@ -375,6 +375,8 @@ type DbStats={
     production_certifications?:number;
     model_governance_runs?:number;
     model_governance_snapshots?:number;
+    validation_runs?:number;
+    validation_snapshots?:number;
   };
 };
 
