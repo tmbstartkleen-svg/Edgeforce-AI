@@ -13,7 +13,7 @@
     "binding": "ASSETS"
   },
   "vars": {
-    "MODEL_VERSION": "edgeforce-v46",
+    "MODEL_VERSION": "edgeforce-v47",
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
     "DEFAULT_BANKROLL": "1000",
@@ -24,6 +24,8 @@
     "THE_ODDS_API_MARKETS": "h2h,spreads,totals",
     "THE_ODDS_API_LOOKAHEAD_DAYS": "8",
     "THE_ODDS_API_MAX_SPORTS": "12",
+    "THE_ODDS_API_EXPANSION_SPORTS": "8",
+    "THE_ODDS_API_EXPANSION_MARKETS": "h2h",
     "THE_ODDS_API_CACHE_MS": "600000",
     "THE_ODDS_API_CREDIT_RESERVE": "25",
     "THE_ODDS_API_FAILURE_CACHE_MS": "60000",
