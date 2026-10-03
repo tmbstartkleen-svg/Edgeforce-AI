@@ -7,6 +7,7 @@ export type HistoricalLeg={
   result:LegResult;
   offeredOdds?:number;
   closingOdds?:number;
+  clv?:number;
   eventId?:string;
   event?:string;
   modelProbability?:number;
