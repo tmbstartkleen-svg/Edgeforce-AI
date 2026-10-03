@@ -17,9 +17,9 @@ export function db() {
 }
 
 export async function dbHealth() {
-  const sql = db();
-  if (!sql) return { configured: false, ok: false };
   try {
+    const sql = db();
+    if (!sql) return { configured: false, ok: false };
     await sql`select 1 as ok`;
     return { configured: true, ok: true };
   } catch (error) {
