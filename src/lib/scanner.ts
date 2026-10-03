@@ -16,7 +16,7 @@ export type Scanned=Ranked & {
  regime:MarketRegime;
  historicalShrinkage:number;
  consensusBlend:number;
- dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'];
+ dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'] & {contextQuality:number};
  daysOut:number;
  bucket:'TODAY'|'WEEK';
  freshness:'FRESH'|'AGING'|'STALE';
@@ -40,9 +40,15 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
   const daysOut=(new Date(r.startTime).getTime()-now.getTime())/86400000;
   const freshness:Scanned['freshness']=r.sourceAgeMin<=5?'FRESH':r.sourceAgeMin<=20?'AGING':'STALE';
   const bucket:Scanned['bucket']=daysOut<1?'TODAY':'WEEK';
+  const contextScore=r.contextQuality?.score??0;
+  const contextMultiplier=.72+.28*contextScore;
+  const dynamicConfidence=Math.max(.18,Math.min(.98,calibrated.dynamicConfidence*contextMultiplier));
   const confidenceDowngrade=calibrated.confidenceLabel==='LOW'||calibrated.regime==='DISLOCATED';
-  const grade=confidenceDowngrade?(r.grade==='ELITE'?'STRONG':r.grade==='STRONG'?'WATCH':r.grade):r.grade;
-  const stakeScale=Math.max(.35,.55+.45*calibrated.dynamicConfidence);
+  const contextDowngrade=Boolean(r.contextQuality&&!r.contextQuality.recommendationReady);
+  let grade=r.grade;
+  if(confidenceDowngrade||contextDowngrade)grade=grade==='ELITE'?'STRONG':grade==='STRONG'?'WATCH':grade;
+  if((r.contextQuality?.criticalCoverage??1)<.34&&grade==='STRONG')grade='WATCH';
+  const stakeScale=Math.max(.30,.50+.50*dynamicConfidence);
   return {
    ...r,
    grade,
@@ -51,13 +57,13 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
    rawSimProbability:sim.probability,
    simProbability:calibrated.calibratedProbability,
    simCi:calibrated.calibratedCi,
-   dynamicConfidence:calibrated.dynamicConfidence,
+   dynamicConfidence,
    uncertainty:calibrated.uncertainty,
    confidenceLabel:calibrated.confidenceLabel,
    regime:calibrated.regime,
    historicalShrinkage:calibrated.historicalShrinkage,
    consensusBlend:calibrated.consensusBlend,
-   dynamicConfidenceComponents:calibrated.components,
+   dynamicConfidenceComponents:{...calibrated.components,contextQuality:contextScore},
    daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection
   };
  }).filter(x=>x.daysOut>=0&&x.daysOut<=8);
