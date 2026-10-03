@@ -81,6 +81,7 @@ export async function GET(req:Request){
   recommendationStatus,
   thresholds:boards.thresholds,
   generatedParlayCandidates:boards.generated,
+  rejectedParlayCandidates:boards.rejected,
   recommended:boards.recommended,
   valueWatchlist:boards.valueWatchlist,
   hailMary:boards.hailMary,
