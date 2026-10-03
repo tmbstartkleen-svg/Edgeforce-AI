@@ -1,4 +1,4 @@
-import {impliedProbability,kelly} from './math';
+import {impliedProbability} from './math';
 import type {PredictionContract} from './predictionMarkets';
 import type {Scanned} from './scanner';
 
@@ -74,7 +74,7 @@ export function fusePredictionMarkets(rows:Scanned[],contracts:PredictionContrac
   const rawImpliedProbability=row.rawImpliedProb??impliedProbability(row.odds);
   const noVigProbability=row.marketProb;
   const sportsbookEdge=row.simProbability-noVigProbability;
-  const quarterKelly=Math.min(.05,kelly(row.simProbability,row.odds)*.25);
+  const quarterKelly=Math.min(.05,Math.max(0,row.recommendedStake));
   const match=bestContract(row,contracts);
   if(!match){
    return {...row,rawImpliedProbability,noVigProbability,sportsbookEdge,quarterKelly,predictionMarketStatus:'NO_MATCH' as const};
