@@ -103,14 +103,7 @@ export async function certifyProvider(config:ProviderConfig):Promise<ProviderCer
  };
 }
 
-export async function certifyConfiguredProviders(){
- const providers=configuredProviders();
- const startedAt=new Date().toISOString();
- const results:ProviderCertification[]=[];
- for(const provider of providers){
-  results.push(await certifyProvider(provider));
- }
-
+export function evaluateCertificationResults(results:ProviderCertification[]){
  const coverage=capabilityCoverage(results);
  const blockers:string[]=[];
  const warnings:string[]=[];
@@ -133,6 +126,19 @@ export async function certifyConfiguredProviders(){
  const weightTotal=coverage.reduce((sum,row)=>sum+(row.required?2:1),0);
  const coverageScore=weightTotal?weighted/weightTotal:0;
  const launchReady=blockers.length===0;
+ return {configuredCount,certifiedCount,cautionCount,failedCount,coverageScore,launchReady,blockers,warnings,coverage};
+}
+
+export async function certifyConfiguredProviders(){
+ const providers=configuredProviders();
+ const startedAt=new Date().toISOString();
+ const results:ProviderCertification[]=[];
+ for(const provider of providers){
+  results.push(await certifyProvider(provider));
+ }
+
+ const evaluation=evaluateCertificationResults(results);
+ const {configuredCount,certifiedCount,cautionCount,failedCount,coverageScore,launchReady,blockers,warnings,coverage}=evaluation;
 
  const report={
   ok:true,
