@@ -37,6 +37,27 @@ export async function GET(){
   'TENNIS_POINT_GAME_SET_MONTE_CARLO',
   'TABLE_TENNIS_POINT_GAME_MONTE_CARLO'
  ];
- const ok=results.every((x,i)=>x.engine===expected[i]&&x.runs===1000&&x.microUnit&&Number(x.microUnitCount)>0&&x.probability>0&&x.probability<1);
- return Response.json({ok,results});
+ const propMarket:Market={
+  ...market('NFL','prop','Home NFL','Away NFL',{projection:275,propStd:45,quarterback:.1}),
+  market:'Player Prop',selection:'Sample QB over 249.5 passing yards',
+  playerContext:{name:'Sample QB',team:'Home NFL',projection:275,stdDev:45,statKey:'passing yards'}
+ };
+ const propSim=runSportOutcomeSimulation(propMarket,1000,runGameStateSimulation);
+
+ const partialMarket:Market={
+  ...market('NFL','partial','Home NFL','Away NFL',{quarterback:.1}),
+  market:'1st Quarter Moneyline',selection:'Home NFL 1st Quarter ML'
+ };
+ const partialSim=runSportOutcomeSimulation(partialMarket,1000,runGameStateSimulation);
+
+ const ok=
+  results.every((x,i)=>x.engine===expected[i]&&x.runs===1000&&x.microUnit&&Number(x.microUnitCount)>0&&x.probability>0&&x.probability<1)&&
+  propSim.engine==='PLAYER_DISTRIBUTION_MONTE_CARLO'&&
+  partialSim.engine==='PROBABILITY_STATE_FALLBACK';
+ return Response.json({
+  ok,
+  results,
+  propRouting:{engine:propSim.engine,probability:propSim.probability},
+  partialRouting:{engine:partialSim.engine,probability:partialSim.probability}
+ });
 }
