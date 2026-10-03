@@ -69,7 +69,7 @@ export async function GET(req:Request){
  return Response.json({
   ok:true,
   generatedAt:new Date().toISOString(),
-  build:'V48',
+  build:'V49',
   schemaVersion:PARLAY_SCHEMA_VERSION,
   source:ingestion.source,
   providerId:ingestion.providerId||null,
