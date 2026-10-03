@@ -70,7 +70,7 @@ for(const workflow of [
 ]){
  const text=read(workflow);
  add(`${workflow} model identity`,text.includes(expected.modelVersion),expected.modelVersion);
- if(workflow!=='/.github/workflows/verify.yml'&&workflow!=='.github/workflows/verify.yml'){
+ if(workflow!=='.github/workflows/verify.yml'){
   add(`${workflow} app identity`,text.includes(expected.appVersion),expected.appVersion);
  }
 }
