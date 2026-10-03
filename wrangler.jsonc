@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgeforce-ai",
+  "compatibility_date": "2026-10-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "vinext/server/fetch-handler",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "MODEL_VERSION": "edgeforce-v43",
+    "DEFAULT_BANKROLL": "1000",
+    "TARGET_BOOKMAKER": "DraftKings",
+    "THE_ODDS_API_BASE_URL": "https://api.the-odds-api.com/v4",
+    "THE_ODDS_API_BOOKMAKERS": "draftkings,fanduel,betmgm,williamhill_us",
+    "THE_ODDS_API_REGIONS": "us",
+    "THE_ODDS_API_MARKETS": "h2h,spreads,totals",
+    "THE_ODDS_API_LOOKAHEAD_DAYS": "8",
+    "THE_ODDS_API_MAX_SPORTS": "12",
+    "THE_ODDS_API_CACHE_MS": "120000",
+    "THE_ODDS_API_CREDIT_RESERVE": "25"
+  }
+}
