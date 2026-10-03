@@ -5,9 +5,9 @@ export const dynamic='force-dynamic';
 
 function row(i:number,good:boolean,contextRich:boolean):HistoricalPrediction{
  const outcome:(0|1)=i%10<6?1:0;
- const base=good?(outcome?.68:.42):(outcome?.82:.74);
+ const base=good?(outcome ? .68 : .42):(outcome ? .82 : .74);
  const predicted=Math.max(.05,Math.min(.95,base+(i%5-2)*.006));
- const sim=Math.max(.05,Math.min(.95,(outcome?.72:.34)+(i%3-1)*.004));
+ const sim=Math.max(.05,Math.min(.95,(outcome ? .72 : .34)+(i%3-1)*.004));
  return {
   occurredAt:new Date(Date.UTC(2026,0,1+i)).toISOString(),
   sport:'NFL',marketKey:'h2h',modelName:good?'Good Model':'Bad Model',modelVersion:'edgeforce-v51',
