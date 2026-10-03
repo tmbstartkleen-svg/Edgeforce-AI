@@ -378,6 +378,34 @@ type DbStats={
   };
 };
 
+
+type ValidationLabResponse={
+  ok:boolean;
+  source:string;
+  latestRun?:{
+    id:number;modelVersion:string;status:string;predictionRows:number;groupsEvaluated:number;
+    evidencePassed:number;evidenceHeld:number;completedAt?:string|null;
+  }|null;
+  report:{
+    sampleSize:number;
+    overall:{
+      summary:{brierScore:number;logLoss:number;avgClv:number;roi:number;hitRate:number};
+      calibrationError:number;
+      brierSkillScore:number;
+      logLossImprovement:number;
+      holdout:{sampleSize:number;brierScore:number;logLoss:number};
+      holdoutCalibrationError:number;
+      walkForwardFolds:number;
+      walkForwardBrier:number;
+      contextContribution:{richSampleSize:number;thinSampleSize:number;brierDelta:number;logLossDelta:number};
+      simulationComparison:{sampleSize:number;brierDelta:number;better:string};
+    };
+    evidence:{verified:number;qualified:number;provisional:number;insufficient:number;failed:number;promotionEligible:number};
+    diagnostics:{contextTaggedRows:number;simulationTaggedRows:number;closingLineRows:number;modelVersions:string[]};
+    groups:Array<{modelName:string;sport:string;marketKey:string;sampleSize:number;evidenceGrade:string;promotionEligible:boolean;reason:string;metrics:{brierSkillScore:number;holdout:{brierScore:number};calibrationError:number}}>;
+  };
+};
+
 type CalibrationResponse={
   source:string;
   latestRun?:{
@@ -458,6 +486,7 @@ export default function Dashboard(){
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
+  const [validationLab,setValidationLab]=useState<ValidationLabResponse|null>(null);
   const [modelDiagnostics,setModelDiagnostics]=useState<ModelDiagnosticsResponse|null>(null);
   const [modelGovernance,setModelGovernance]=useState<ModelGovernanceResponse|null>(null);
   const [releaseCertification,setReleaseCertification]=useState<ReleaseCertificationResponse|null>(null);
@@ -526,6 +555,21 @@ export default function Dashboard(){
     };
     void load();
     const timer=window.setInterval(()=>void load(),30000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/intelligence/validation-lab',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as ValidationLabResponse;
+        if(mounted)setValidationLab(json);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[]);
 
@@ -637,9 +681,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V50</div>
-        <h1>Real Context Network + Recommendation Quality Platform</h1>
-        <p>Live event matching now enriches odds with ESPN venue/injury/rest/starter signals and Open‑Meteo weather, while configured providers retain override priority.</p>
+        <div className="eyebrow">EDGEFORCE AI • V51</div>
+        <h1>Prediction Validation Laboratory + Real Context Platform</h1>
+        <p>Out-of-sample validation now measures calibration, Brier/log loss, market-relative skill, CLV, context lift and simulation lift before learned models retain full runtime influence.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -691,6 +735,8 @@ export default function Dashboard(){
           <div><small>Live context</small><b>{board.contextDiagnostics?.publicNetwork?.matchedEvents??0}</b></div>
           <div><small>Data audit</small><b>{dataQuality?.audit?.grade||'—'}</b></div>
           <div><small>Automation</small><b>{automationHealth?(automationHealth.healthy?'HEALTHY':automationHealth.failedCount?'FAILED':automationHealth.staleCount?'STALE':'PENDING'):'—'}</b></div>
+          <div><small>Validation</small><b>{validationLab?.report?.evidence?.promotionEligible??0}</b></div>
+          <div><small>Brier skill</small><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b></div>
           <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
         </div>
       </div>
@@ -765,7 +811,47 @@ export default function Dashboard(){
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div>
-          <div className="eyebrow">V50 REAL-CONTEXT RECOMMENDATIONS</div>
+          <div className="eyebrow">V51 PREDICTION VALIDATION LAB</div>
+          <h3>Out-of-sample evidence gates now control model influence</h3>
+        </div>
+        <div className="panelMeta">
+          <span>{validationLab?.report?.sampleSize??0} settled predictions</span>
+          <span>{validationLab?.report?.overall?.walkForwardFolds??0} walk-forward folds</span>
+          <span>{validationLab?.report?.evidence?.promotionEligible??0} evidence-qualified</span>
+        </div>
+      </div>
+      <div className="v21Grid three">
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">OUT-OF-SAMPLE</div><h3>{validationLab?.report?.overall?.holdout?.sampleSize??0} holdout rows</h3></div><span className="miniBadge">Brier {validationLab?.report?.sampleSize?validationLab.report.overall.holdout.brierScore.toFixed(3):'—'}</span></div>
+          <div className="historyList">
+            <div className="historyRow"><span>Calibration error</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.holdoutCalibrationError):'—'}</b><small>lower is better</small></div>
+            <div className="historyRow"><span>Market-relative Brier skill</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b><small>positive means model beats offered-price baseline</small></div>
+            <div className="historyRow"><span>Average CLV</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.summary.avgClv):'—'}</b><small>{validationLab?.report?.diagnostics?.closingLineRows??0} rows with closing prices</small></div>
+          </div>
+        </div>
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">CONTEXT + SIMULATION</div><h3>Contribution audit</h3></div><span className="miniBadge">evidence, not assumption</span></div>
+          <div className="historyList">
+            <div className="historyRow"><span>Context-rich Brier delta</span><b>{validationLab?.report?.sampleSize?validationLab.report.overall.contextContribution.brierDelta.toFixed(3):'—'}</b><small>negative means context-rich rows scored better; observational only</small></div>
+            <div className="historyRow"><span>Simulation vs council delta</span><b>{validationLab?.report?.overall?.simulationComparison?.sampleSize?validationLab.report.overall.simulationComparison.brierDelta.toFixed(3):'—'}</b><small>{validationLab?.report?.overall?.simulationComparison?.better||'INSUFFICIENT'} • negative favors simulation</small></div>
+            <div className="historyRow"><span>Tagged coverage</span><b>{validationLab?.report?.diagnostics?.contextTaggedRows??0}</b><small>{validationLab?.report?.diagnostics?.simulationTaggedRows??0} simulation-tagged</small></div>
+          </div>
+        </div>
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">EVIDENCE GATES</div><h3>{validationLab?.report?.evidence?.promotionEligible??0} models eligible</h3></div><span className="miniBadge">{validationLab?.latestRun?.status||'LIVE VIEW'}</span></div>
+          <div className="historyList">
+            <div className="historyRow"><span>Verified / qualified</span><b>{(validationLab?.report?.evidence?.verified??0)+(validationLab?.report?.evidence?.qualified??0)}</b><small>{validationLab?.report?.evidence?.verified??0} verified • {validationLab?.report?.evidence?.qualified??0} qualified</small></div>
+            <div className="historyRow"><span>Provisional / insufficient</span><b>{(validationLab?.report?.evidence?.provisional??0)+(validationLab?.report?.evidence?.insufficient??0)}</b><small>kept from full promotion</small></div>
+            <div className="historyRow"><span>Failed</span><b>{validationLab?.report?.evidence?.failed??0}</b><small>runtime influence is automatically braked</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div>
+          <div className="eyebrow">V51 EVIDENCE-GATED RECOMMENDATIONS</div>
           <h3>Recommended, Value Watchlist and Hail Mary are separated by risk gates</h3>
         </div>
         <div className="panelMeta">
