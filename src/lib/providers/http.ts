@@ -1,7 +1,22 @@
 import type {ProviderConfig,ProviderFetchResult} from './types';
+import {fetchTheOddsApiBoard} from './theOddsApi';
 
 export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
+ if(config.url==='the-odds-api://live-board'){
+  const result=await fetchTheOddsApiBoard(config);
+  return {
+   ok:result.ok,
+   providerId:config.id,
+   providerName:config.name,
+   capability:config.capability,
+   latencyMs:Date.now()-started,
+   receivedAt:new Date().toISOString(),
+   status:result.ok?200:502,
+   data:result.data as T,
+   error:result.error
+  };
+ }
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),config.timeoutMs);
  try{
