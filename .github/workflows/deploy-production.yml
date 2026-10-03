@@ -35,6 +35,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm run check-migrations
+      - run: npm run release-audit
 
       - name: Install pinned Vercel CLI
         run: npm install --global vercel@62.1.0
@@ -47,7 +48,7 @@ jobs:
           set -a
           test -f .vercel/.env.production.local && . .vercel/.env.production.local
           set +a
-          MODEL_VERSION=edgeforce-v40 REQUIRE_PRODUCTION_ENV=true npm run validate-env
+          MODEL_VERSION=edgeforce-v41 REQUIRE_PRODUCTION_ENV=true npm run validate-env
 
       - name: Apply production database migrations
         run: |
@@ -62,7 +63,7 @@ jobs:
       - name: Deploy prebuilt artifact to production
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v40)
+          URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v41)
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Certify live production providers
@@ -86,7 +87,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "40.0.0"
+          EXPECTED_APP_VERSION: "41.0.0"
 
       - name: Record production release attestation
         run: |
@@ -97,6 +98,18 @@ jobs:
             -H "Authorization: Bearer ${INGEST_SECRET}" \
             -H "Content-Type: application/json" \
             --data '{"source":"production-prebuilt","buildPassed":true,"smokePassed":true,"loadPassed":true}'
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+
+      - name: Certify final production release
+        run: |
+          set -a
+          . .vercel/.env.production.local
+          set +a
+          curl --fail --silent --show-error -X POST "${PRODUCTION_URL}/api/release/certify?strict=1" \
+            -H "Authorization: Bearer ${INGEST_SECRET}" \
+            -H "Content-Type: application/json"
+          echo
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
 
