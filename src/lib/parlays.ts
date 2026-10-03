@@ -112,7 +112,7 @@ function uniqueFlags(flags:ParlayRiskFlag[]){
  return [...new Set(flags)];
 }
 
-function tierParlay(
+export function assessParlayTier(
  picks:Scanned[],
  qualification:ParlayQualification,
  combinedProbability:number,
@@ -201,7 +201,7 @@ function summarize(
  const combinedAmericanOdds=americanFromDecimal(combinedDecimalOdds);
  const fairParlayOdds=fairAmerican(adjusted);
  const expectedValue=adjusted*(combinedDecimalOdds-1)-(1-adjusted);
- const tiered=tierParlay(picks,qualification,adjusted,combinedAmericanOdds,expectedValue,thresholds);
+ const tiered=assessParlayTier(picks,qualification,adjusted,combinedAmericanOdds,expectedValue,thresholds);
  const tierBonus=tiered.tier==='RECOMMENDED'?.08:tiered.tier==='VALUE_WATCHLIST'?.02:-.04;
  const riskPenalty=Math.min(.18,tiered.riskFlags.length*.018);
  const score=adjusted*.62+agreement*.14+freshness*.08+tiered.averageDynamicConfidence*.08+tiered.contextCoverage*.08+tierBonus-riskPenalty;
