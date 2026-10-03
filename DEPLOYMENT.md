@@ -1,10 +1,10 @@
-# Edgeforce AI V42 deployment
+# Edgeforce AI V43 deployment
 
 ## Release strategy
 lint → build → migration continuity → local production server → smoke → load gate → Vercel prebuilt preview → hosted smoke → release attestation → optional exact-artifact promotion → observe → rollback if needed.
 
 ## Required production configuration
-Configure `DATABASE_URL`, `INGEST_SECRET`, `CRON_SECRET`, `MODEL_VERSION=edgeforce-v42`, a positive `DEFAULT_BANKROLL`, and at least one authorized odds provider. Apply database migrations through `v38`.
+Configure `MODEL_VERSION=edgeforce-v43`, a positive `DEFAULT_BANKROLL`, a Neon/Postgres connection exposed as `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, or `NEON_DATABASE_URL`, and at least one authorized live ODDS provider. The canonical native provider requires only `THE_ODDS_API_KEY`. Apply database migrations through `v38`.
 
 GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 
@@ -21,13 +21,13 @@ GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VE
 - local production-server smoke suite
 - load check with zero failures and configured p95 ceiling
 - hosted preview liveness/readiness/diagnostics/ops-status/dashboard checks
-- V42 version, migration, governance, and static release-audit checks
+- V43 version, migration, real-data, governance, and static release-audit checks
 
 ## Preview and promotion
-Use **Edgeforce Release Candidate** for preview validation only. V42 retains the direct-preview promotion block introduced in V41. Production releases must flow through **Edgeforce Production Deploy** so production environment validation, migration v38, provider certification, strict readiness, hosted smoke, release attestation, final certification, and rollback cannot be bypassed.
+Use **Edgeforce Release Candidate** for preview validation only. V43 retains the direct-preview promotion block introduced in V41. Production releases must flow through **Edgeforce Production Deploy** so production environment validation, migration v38, provider certification, strict readiness, hosted smoke, release attestation, final certification, and rollback cannot be bypassed.
 
 ## Rollback
-Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V42 release toolchain.
+Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V43 release toolchain.
 
 ## Observability
 The hourly heartbeat records readiness when a database is configured. `/api/ops/status` surfaces recent heartbeats, release attestations, unresolved incidents and route performance. Live-board performance sampling is controlled with `PERFORMANCE_SAMPLE_RATE`.
@@ -50,11 +50,11 @@ The canonical production project is `edgeforce-ai2` (`prj_8edFTZzS8e6RZyMVm1mjxu
 After **Verify Edgeforce** succeeds on `main`, **Edgeforce Production Deploy**:
 1. targets the canonical Vercel project,
 2. pulls the production environment,
-3. validates the V42 app/model environment,
+3. validates the V43 app/model environment,
 4. applies database migrations through v38,
 5. builds with the pinned Vercel CLI,
 6. deploys the prebuilt artifact directly to production,
-7. runs hosted V42 smoke/readiness checks,
+7. runs hosted V43 smoke/readiness checks,
 8. records a release attestation,
 9. rolls back automatically if a hosted post-deploy check fails.
 
@@ -99,7 +99,7 @@ V41 adds a second, post-deploy certification layer after provider certification,
 The first deployment can show scheduled jobs as `PENDING` until their configured schedules run; pending jobs are warnings, while a recorded failed or stale job is a strict certification blocker.
 
 ## Static release audit
-`npm run release-audit` runs before preview and production deployment. It verifies V42 release/model/package/migration identity, required V41 routes and files, Vercel cron coverage, security controls, blank example secret values, absence of tracked local environment files, and workflow identity synchronization.
+`npm run release-audit` runs before preview and production deployment. It verifies V43 release/model/package/migration identity, required V41 routes and files, Vercel cron coverage, security controls, blank example secret values, absence of tracked local environment files, and workflow identity synchronization.
 
 ## Durable automation health
 Migration v37 stores scheduler outcomes for heartbeat, settlement, scan, decision, and recalibration. `GET /api/automation/health` reports HEALTHY, STALE, FAILED, or PENDING by job. Scheduled scan and decision automation now consume learned weights and dynamic calibration profiles so automated scoring follows the same calibration path as interactive boards.
@@ -112,3 +112,11 @@ Migration v37 stores scheduler outcomes for heartbeat, settlement, scan, decisio
 Migration v38 stores model-governance runs and per-model/sport/market snapshots. Scheduled recalibration now evaluates recent-vs-baseline probability drift and performance drift, assigns champion/challenger roles, and writes runtime multipliers. The learned-weight loader consumes those multipliers so WATCH, DRIFTING, and CRITICAL models are automatically throttled in live boards, scheduled scans, decisions, what-if analysis, and portfolio inputs that use the model council.
 
 Default controls are `MODEL_GOVERNANCE_MIN_BASELINE=40`, `MODEL_GOVERNANCE_MIN_RECENT=20`, `MODEL_GOVERNANCE_RECENT_FRACTION=0.30`, `MODEL_GOVERNANCE_PROMOTION_MARGIN=0.015`, and `MODEL_GOVERNANCE_LOOKBACK_ROWS=30000`. Tune only after enough settled history exists to measure false drift alerts and promotion stability.
+
+
+## V43 native real-data setup
+The preferred sportsbook feed is The Odds API. Create one account/key and save it as `THE_ODDS_API_KEY` in either the Vercel Production environment or the GitHub Actions repository secrets. No provider URL is required. Edgeforce calls the provider's v4 API directly, discovers active sports, checks event availability for free, and then requests h2h/spreads/totals for the configured U.S. books. Defaults are DraftKings, FanDuel, BetMGM and William Hill/Caesars, an eight-day lookahead, 12 active sports per refresh, a 120-second cache, and a 25-credit reserve.
+
+Neon integration variables are consumed directly. The production workflow no longer tries to pull encrypted database credentials into GitHub Actions; instead, `POST /api/release/bootstrap` runs migration v38 inside the deployed Vercel runtime using a deployment-only bootstrap secret.
+
+A credential-free Polymarket feed is available as the prediction-market fallback. It supplements sportsbook pricing and is not used as a substitute for a certified live ODDS provider.
