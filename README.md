@@ -3,6 +3,30 @@
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
 
+## Current build — V46 Shared Event-State Parlay Simulation
+
+V46 upgrades same-event parlay estimation from correlation-only coupling to one shared simulated game state when the event and market mix is supported.
+
+### Shared event scenario engine
+- supported same-event legs are resolved from the same latent pace, team-form, score and player-performance state
+- team moneyline, spread and total markets can share one simulated event with projection-backed player props
+- pairwise dependence is measured from realized simulated outcomes instead of being imposed only through a covariance matrix
+- unsupported sports or market structures fall back to the Gaussian-copula plus learned-correlation engine instead of fabricating scenario support
+- joint simulation output exposes `engine` and `scenarioCoverage` so downstream APIs can distinguish shared-event simulation from fallback
+
+### Release identity
+- build: `V46`
+- app: `46.0.0`
+- package: `0.46.0`
+- model: `edgeforce-v46`
+- migration: `v38`
+
+### Guardrails
+- shared event state is a simulation model, not a guarantee of sportsbook settlement relationships or future outcomes
+- projection-backed player props require a numeric projection and market line; unsupported inputs use the fallback joint engine
+- unsupported sport or event structures remain explicitly routed to the Gaussian-copula fallback
+
+
 ## Current build — V45 Real Data Autopilot
 
 V45 makes the production path real-data-only and turns Cloudflare into the live ingestion scheduler instead of relying on demo fallbacks.
