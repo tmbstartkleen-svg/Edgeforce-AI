@@ -2,7 +2,34 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V37 Multi-Provider Consensus Pricing + Market Structure
+## Current build — V38 Regime-Aware Uncertainty + Dynamic Confidence
+
+V38 turns calibration, market structure, and simulation precision into live decision controls instead of passive diagnostics.
+
+### V38 confidence engine
+- classifies market regimes as `STABLE`, `VOLATILE`, `DISLOCATED`, `THIN`, or `UNKNOWN`
+- combines source freshness, model agreement, simulation precision, consensus agreement, distribution confidence, and historical calibration reliability
+- creates per-row dynamic confidence and uncertainty scores
+- shrinks raw simulation probabilities toward historical calibration and cross-book consensus as uncertainty rises
+- widens probability intervals in volatile and dislocated regimes
+- reduces fractional-Kelly stake sizing when confidence falls
+- downgrades ELITE/STRONG grades when confidence is LOW or the regime is DISLOCATED
+- exposes live regime coverage and confidence coverage
+- persists regime/confidence audit fields inside model-run feature snapshots
+
+### V38 APIs and validation
+- `GET /api/intelligence/regime-confidence` — calibration profiles and recent regime decisions
+- `GET /api/testing/regime-confidence` — deterministic stable-vs-dislocated regression test
+- smoke coverage verifies confidence degrades under dislocated market conditions
+
+### Release identity
+- build: `V38`
+- app: `38.0.0`
+- package: `0.38.0`
+- model: `edgeforce-v38`
+- migration: `v36` (no schema change required)
+
+## V37 Multi-Provider Consensus Pricing + Market Structure
 
 V37 replaces single-feed market baselines with a robust cross-book pricing panel. Edgeforce keeps the target sportsbook's actual wager odds for EV/Kelly while using a weighted, quality-aware, outlier-resistant consensus probability as the market baseline.
 
@@ -179,8 +206,7 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V37
-- V38: regime detection, uncertainty calibration and dynamic confidence
+### Elite roadmap remaining after V38
 - V39: portfolio optimization with scenario stress testing and drawdown control
 - V40: explainability, model diagnostics, ablation and live what-if analysis
 - V41: final data-quality, automation, deployment, security and production hardening
