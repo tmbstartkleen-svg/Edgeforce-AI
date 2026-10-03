@@ -1,6 +1,8 @@
 import type {Market} from '../types';
 import type {ProviderCapability} from '../providerRegistry';
 
+export type MarketRole='SHARP'|'PUBLIC'|'REFERENCE'|'NEUTRAL';
+
 export type ProviderConfig={
  id:string;
  name:string;
