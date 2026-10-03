@@ -4,14 +4,15 @@ import type {HistoricalPrediction} from '@/lib/backtest';
 export const dynamic='force-dynamic';
 
 function row(i:number,good:boolean,contextRich:boolean):HistoricalPrediction{
- const outcome:(0|1)=i%10<6?1:0;
- const base=good?(outcome ? .68 : .42):(outcome ? .82 : .74);
- const predicted=Math.max(.05,Math.min(.95,base+(i%5-2)*.006));
- const sim=Math.max(.05,Math.min(.95,(outcome ? .72 : .34)+(i%3-1)*.004));
+ const cycle=i%20;
+ const highSignal=cycle<10;
+ const outcome:(0|1)=highSignal?(cycle<8?1:0):(cycle<15?1:0);
+ const predicted=good ? .65 : .88;
+ const sim=highSignal ? .80 : .50;
  return {
-  occurredAt:new Date(Date.UTC(2026,0,1+i)).toISOString(),
+  occurredAt:new Date(Date.UTC(2024,0,1+i)).toISOString(),
   sport:'NFL',marketKey:'h2h',modelName:good?'Good Model':'Bad Model',modelVersion:'edgeforce-v51',
-  predicted,odds:outcome?-115:105,closingOdds:outcome?-125:115,outcome,
+  predicted,odds:-105,closingOdds:-115,outcome,
   features:{
    simProbability:sim,
    contextQuality:contextRich?{coverage:.82,criticalCoverage:.88,recommendationReady:true}:{coverage:.20,criticalCoverage:.25,recommendationReady:false}
@@ -22,8 +23,8 @@ function row(i:number,good:boolean,contextRich:boolean):HistoricalPrediction{
 export async function GET(){
  if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
 
- const good=Array.from({length:240},(_,i)=>row(i,true,i%4!==0));
- const bad=Array.from({length:100},(_,i)=>row(i,false,i%3===0));
+ const good=Array.from({length:400},(_,i)=>row(i,true,i%4!==0));
+ const bad=Array.from({length:120},(_,i)=>row(i,false,i%3===0));
  const report=buildValidationReport([...good,...bad]);
  const goodGroup=report.groups.find(x=>x.modelName==='Good Model');
  const badGroup=report.groups.find(x=>x.modelName==='Bad Model');
