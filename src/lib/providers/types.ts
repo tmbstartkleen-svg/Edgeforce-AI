@@ -18,6 +18,8 @@ export type ProviderConfig={
  maxAgeMin:number;
  failureThreshold:number;
  quarantineMin:number;
+ marketRole:MarketRole;
+ consensusWeight:number;
 };
 
 export type ProviderFetchResult<T>={
