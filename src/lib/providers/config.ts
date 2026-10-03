@@ -40,7 +40,7 @@ function provider(prefix:string,name:string,capability:ProviderCapability,priori
   priority:int(process.env[`${prefix}_PRIORITY`],priority),
   timeoutMs:int(process.env[`${prefix}_TIMEOUT_MS`],8000),
   enabled:process.env[`${prefix}_ENABLED`]!=='false',
-  bookmaker:process.env[`${prefix}_BOOKMAKER`]||'DraftKings',
+  bookmaker:process.env[`${prefix}_BOOKMAKER`]||(capability==='ODDS'&&prefix==='ODDS_PROVIDER_PRIMARY'?'DraftKings':name),
   maxAgeMin:int(process.env[`${prefix}_MAX_AGE_MIN`],defaultMaxAge(capability)),
   failureThreshold:Math.max(1,int(process.env[`${prefix}_FAILURE_THRESHOLD`],int(process.env.PROVIDER_FAILURE_THRESHOLD,3))),
   quarantineMin:Math.max(1,int(process.env[`${prefix}_QUARANTINE_MIN`],int(process.env.PROVIDER_QUARANTINE_MIN,5))),
