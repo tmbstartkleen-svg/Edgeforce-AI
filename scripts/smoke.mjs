@@ -8,19 +8,32 @@ async function get(path){
  return {res,body,text};
 }
 
+async function post(path,payload){
+ const res=await fetch(base+path,{
+  method:'POST',
+  headers:{'content-type':'application/json'},
+  body:JSON.stringify(payload),
+  redirect:'manual'
+ });
+ const text=await res.text();
+ let body=null;
+ try{body=JSON.parse(text)}catch{}
+ return {res,body,text};
+}
+
 function assert(condition,message){
  if(!condition)throw new Error(message);
 }
 
 const live=await get('/api/health/live');
 assert(live.res.ok&&live.body?.live===true,'liveness endpoint failed');
-assert(live.body?.version==='39.0.0','liveness version mismatch');
+assert(live.body?.version==='40.0.0','liveness version mismatch');
 
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='39.0.0','unexpected health version');
-assert(health.body?.modelVersion==='edgeforce-v39','unexpected model version');
+assert(health.body?.version==='40.0.0','unexpected health version');
+assert(health.body?.modelVersion==='edgeforce-v40','unexpected model version');
 assert(health.body?.migrationVersion===36,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
@@ -37,27 +50,31 @@ assert(health.body?.sportMicroSimulation===true,'sport micro simulation flag mis
 assert(health.body?.multiProviderConsensusPricing===true,'multi-provider consensus flag missing');
 assert(health.body?.targetBookPricePreservation===true,'target-book price preservation flag missing');
 assert(health.body?.explicitSharpPublicBookRoles===true,'explicit market-role flag missing');
+assert(health.body?.additiveExplainability===true,'additive explainability flag missing');
+assert(health.body?.componentAblation===true,'component ablation flag missing');
+assert(health.body?.featureSensitivity===true,'feature sensitivity flag missing');
+assert(health.body?.liveReadOnlyWhatIf===true,'live what-if flag missing');
 
 const ready=await get('/api/health/ready');
 assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed');
 
 const releaseReady=await get('/api/release/readiness');
 assert(releaseReady.res.ok&&releaseReady.body?.ready===true,'release readiness endpoint failed');
-assert(releaseReady.body?.version==='39.0.0','release readiness version mismatch');
+assert(releaseReady.body?.version==='40.0.0','release readiness version mismatch');
 
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
-assert(deployment.body?.version==='39.0.0','deployment smoke version mismatch');
+assert(deployment.body?.version==='40.0.0','deployment smoke version mismatch');
 assert(deployment.body?.checks?.migrations==='v36','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
-assert(diagnostics.body?.version==='39.0.0','diagnostics version mismatch');
+assert(diagnostics.body?.version==='40.0.0','diagnostics version mismatch');
 assert(diagnostics.body?.granularSportEngines===7,'granular sport engine count mismatch');
 
 const ops=await get('/api/ops/status');
 assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
-assert(ops.body?.version==='39.0.0','ops status version mismatch');
+assert(ops.body?.version==='40.0.0','ops status version mismatch');
 
 const ledger=await get('/api/ledger/wagers');
 assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
@@ -82,7 +99,7 @@ const providerCertificationStatus=await get('/api/providers/certify');
 assert(providerCertificationStatus.res.ok&&providerCertificationStatus.body?.ok===true,'provider certification status endpoint failed');
 
 const launchDoctor=await get('/api/launch-doctor');
-assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='39.0.0','launch doctor endpoint failed');
+assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='40.0.0','launch doctor endpoint failed');
 
 const jointSimulation=await get('/api/testing/joint-simulation');
 assert(jointSimulation.res.ok&&jointSimulation.body?.ok===true,'joint simulation directionality test failed');
@@ -127,6 +144,20 @@ assert(portfolioStress.body?.drawdown?.drawdownBrake<portfolioStress.body?.norma
 assert(portfolioStress.body?.drawdown?.totalStake<portfolioStress.body?.normal?.totalStake,'drawdown brake did not reduce allocation');
 assert(portfolioStress.body?.normal?.worstScenario?.cvar95Loss>=0,'portfolio CVaR output invalid');
 
+const explainability=await get('/api/testing/explainability');
+assert(explainability.res.ok&&explainability.body?.ok===true,'explainability regression test failed');
+assert(explainability.body?.reconstructed===true,'explainability contribution reconstruction failed');
+assert(explainability.body?.componentCoverage===true,'component ablation coverage failed');
+assert(explainability.body?.featureCoverage===true,'feature ablation coverage failed');
+
+const whatIf=await post('/api/what-if',{marketId:'demo-mlb',featureDeltas:{starter:.20},context:{homeAdvantage:.01}});
+assert(whatIf.res.ok&&whatIf.body?.readOnly===true,'read-only what-if endpoint failed');
+assert(Math.abs(Number(whatIf.body?.delta?.ensembleProbability||0))>.0001,'what-if did not move ensemble probability');
+assert(Boolean(whatIf.body?.scenarioExplanation?.diagnostics?.fragility),'what-if explanation diagnostics missing');
+
+const modelDiagnostics=await get('/api/intelligence/model-diagnostics');
+assert(modelDiagnostics.res.ok&&modelDiagnostics.body?.ok===true,'model diagnostics endpoint failed');
+
 const recalibration=await get('/api/testing/recalibration');
 assert(recalibration.res.ok&&recalibration.body?.ok===true,'recalibration guardrail simulation failed');
 assert(recalibration.body?.good?.promoted===true,'qualified model was not promoted');
@@ -153,5 +184,5 @@ assert(Boolean(home.res.headers.get('x-edgeforce-request-id')),'request id missi
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','portfolio-stress','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','portfolio-stress','explainability','what-if','model-diagnostics','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
