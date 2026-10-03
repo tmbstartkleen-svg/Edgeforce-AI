@@ -41,7 +41,16 @@ function blendedCorrelation(a:JointSimulationLeg,b:JointSimulationLeg,learned?:L
  if(!sameEvent)return {a:a.id,b:b.id,sameEvent:false,heuristic:0,learned:0,learnedSample:0,learnedConfidence:0,blended:0};
  const heuristic=sameGameCorrelation(a,b);
  const norm=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
- const [marketA,marketB]=[norm(a.market),norm(b.market)].sort();
+ const signature=(market:string,selection:string)=>{
+  const text=norm(`${market} ${selection}`);
+  const direction=text.includes(' over ')||text.startsWith('over ')?'over':
+   text.includes(' under ')||text.startsWith('under ')?'under':
+   text.includes('moneyline')||text.includes(' moneyline')?'moneyline':
+   text.includes('spread')||text.includes('run line')||text.includes('puck line')?'spread':
+   text.includes('total')?'total':'neutral';
+  return `${norm(market)}|${direction}`;
+ };
+ const [marketA,marketB]=[signature(a.market,a.selection),signature(b.market,b.selection)].sort();
  const profile=learned?.[[norm(a.sport),marketA,marketB].join('|')];
  const learnedRho=profile?.learnedRho??0;
  const confidence=profile?.confidence??0;
