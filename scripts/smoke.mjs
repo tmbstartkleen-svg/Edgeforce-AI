@@ -45,6 +45,8 @@ assert(health.body?.productionHardened===true,'production hardening flag missing
 assert(health.body?.providerCertification===true,'provider certification flag missing');
 assert(health.body?.launchDoctor===true,'launch doctor flag missing');
 assert(health.body?.eventLevelJointSimulation===true,'event-level joint simulation flag missing');
+assert(health.body?.sharedEventStateSimulation===true,'shared event-state simulation flag missing');
+assert(health.body?.empiricalSameGameCorrelation===true,'empirical same-game correlation flag missing');
 assert(health.body?.learnedSgpCorrelation===true,'learned SGP correlation flag missing');
 assert(health.body?.sportMicroSimulation===true,'sport micro simulation flag missing');
 assert(health.body?.multiProviderConsensusPricing===true,'multi-provider consensus flag missing');
