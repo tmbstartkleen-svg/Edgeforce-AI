@@ -145,3 +145,16 @@ The workflow:
 10. publishes the Workers deployment URL in the GitHub job summary.
 
 Sensitive values are never committed to the repository. Cloudflare's `nodejs_compat` runtime exposes configured text variables and secrets through `process.env`, which preserves Edgeforce's existing provider/database configuration pattern.
+
+### Generated Worker config
+The vinext build generates `dist/server/wrangler.json`. Production deployment must use that generated file rather than the source `wrangler.jsonc` entrypoint. Local deployment is therefore:
+
+```bash
+npm run deploy:cloudflare
+```
+
+Cloudflare Git builds should use:
+- Build command: `npm run build:vinext`
+- Deploy command: `npx wrangler deploy --config dist/server/wrangler.json`
+- Root directory: blank
+
