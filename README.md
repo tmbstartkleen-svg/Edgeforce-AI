@@ -2,6 +2,36 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+
+## Current build — V44 Cloudflare Launch Guardrails + Runtime Identity
+
+V44 hardens the Cloudflare production path so deployment failures are caught before upload and Cloudflare is treated as a first-class production runtime rather than a Vercel-shaped fallback.
+
+### Cloudflare deployment guardrails
+- `npm run preflight:cloudflare` rejects literal placeholder values such as `PASTE_YOUR_ACCOUNT_ID_HERE` before Wrangler can call the wrong account path
+- local OAuth sessions remain supported when Cloudflare token/account environment variables are intentionally unset
+- `npm run validate:cloudflare-build` verifies that vinext generated `dist/server/wrangler.json` and that its Worker entry point actually exists
+- `npm run deploy:cloudflare` now runs preflight → vinext build → generated-config validation → deployment in one guarded command
+- the GitHub Cloudflare workflow uses the same preflight and generated-build validation path
+
+### Cloudflare production runtime identity
+- Worker builds now set `DEPLOYMENT_PLATFORM=cloudflare` and `DEPLOYMENT_ENV=production`
+- readiness uses platform-neutral deployment identity instead of assuming every production runtime is Vercel
+- Cloudflare production therefore enables strict readiness automatically
+- deployment smoke output identifies the runtime platform and environment without exposing secrets
+
+### Release identity
+- build: `V44`
+- app: `44.0.0`
+- package: `0.44.0`
+- model: `edgeforce-v44`
+- migration: `v38`
+
+### Guardrails
+- deployment preflight validates configuration shape and placeholder values; it does not validate secret contents
+- Cloudflare production still requires the real database and sportsbook credentials to pass strict readiness
+- model probabilities and simulations remain estimates, not guaranteed outcomes
+
 ## Current build — V43 Real Sports Data + Automated Runtime Bootstrap
 
 V43 removes the remaining demo-first production dependency and gives Edgeforce a native live sportsbook path.
