@@ -120,3 +120,28 @@ The preferred sportsbook feed is The Odds API. Create one account/key and save i
 Neon integration variables are consumed directly. The production workflow no longer tries to pull encrypted database credentials into GitHub Actions; instead, `POST /api/release/bootstrap` runs migration v38 inside the deployed Vercel runtime using a deployment-only bootstrap secret.
 
 A credential-free Polymarket feed is available as the prediction-market fallback. It supplements sportsbook pricing and is not used as a substitute for a certified live ODDS provider.
+
+
+## Cloudflare Workers production target
+
+Edgeforce V43 can also run on Cloudflare Workers through vinext. This is an independent production target and does not require Vercel.
+
+Required GitHub Actions repository secrets for the manual **Deploy Edgeforce to Cloudflare** workflow:
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN` scoped to the Cloudflare account and Worker deployment permissions
+- `EDGEFORCE_DATABASE_URL` containing the Neon/Postgres connection string
+- `THE_ODDS_API_KEY`
+
+The workflow:
+1. verifies the four required credentials are present,
+2. runs vinext compatibility checks and builds the Worker,
+3. applies database migrations through v38 directly to Neon/Postgres,
+4. generates fresh ingest and cron authentication secrets,
+5. deploys the Worker and encrypted production secrets together,
+6. waits for Worker liveness,
+7. certifies the live sportsbook provider,
+8. requires the strict launch doctor,
+9. runs the hosted V43 smoke suite,
+10. publishes the Workers deployment URL in the GitHub job summary.
+
+Sensitive values are never committed to the repository. Cloudflare's `nodejs_compat` runtime exposes configured text variables and secrets through `process.env`, which preserves Edgeforce's existing provider/database configuration pattern.
