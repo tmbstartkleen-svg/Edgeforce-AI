@@ -2,6 +2,7 @@ import {ingestOdds} from '@/lib/providers/ingest';
 import {todayTop30,weekTop30} from '@/lib/scanner';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
+import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 
 export const dynamic='force-dynamic';
 
@@ -18,13 +19,14 @@ export async function GET(req:Request){
    warnings:ingestion.warnings
   },{status:503,headers:{'Cache-Control':'no-store'}});
  }
+ const context=await enrichMarketsWithContext(ingestion.markets);
  const rows=view==='week'
-  ?weekTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration)
-  :todayTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
+  ?weekTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration)
+  :todayTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
  return Response.json({
   ok:true,view,count:rows.length,horizonDays:view==='week'?8:1,
   source:ingestion.source,providerId:ingestion.providerId||null,
   providerName:ingestion.providerName||null,targetBook:ingestion.targetBook,
-  warnings:ingestion.warnings,rows
+  warnings:ingestion.warnings,contextDiagnostics:context.diagnostics,rows
  },{headers:{'Cache-Control':'no-store'}});
 }
