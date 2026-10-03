@@ -99,7 +99,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{remaining:sportsResponse.remaining,used:sportsResponse.used,last:sportsResponse.last},error:sportsResponse.error||'sports discovery failed'};
  }
  const allSports=sportsResponse.data.filter(x=>x.active!==false&&!x.has_outrights);
- let sports=(requested.length?allSports.filter(x=>requested.includes(x.key)):allSports)
+ const sports=(requested.length?allSports.filter(x=>requested.includes(x.key)):allSports)
   .sort((a,b)=>priority(a.key)-priority(b.key)||a.key.localeCompare(b.key));
 
  const eventChecks=await mapBatches(sports,8,async sport=>{
