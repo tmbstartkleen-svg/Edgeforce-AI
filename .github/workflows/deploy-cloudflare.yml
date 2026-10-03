@@ -29,8 +29,10 @@ jobs:
           test -n "$THE_ODDS_API_KEY"
 
       - run: npm install
+      - run: npm run preflight:cloudflare
       - run: npm run check:vinext
       - run: npm run build:vinext
+      - run: npm run validate:cloudflare-build
 
       - name: Apply Neon/Postgres migrations through v38
         run: npm run migrate
@@ -91,11 +93,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V43 smoke test
+      - name: Hosted V44 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "43.0.0"
+          EXPECTED_APP_VERSION: "44.0.0"
 
       - name: Publish deployment URL
         env:
@@ -103,7 +105,7 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Build: V43" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v43" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: V44" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v44" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v38" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"

@@ -11,7 +11,9 @@
     "binding": "ASSETS"
   },
   "vars": {
-    "MODEL_VERSION": "edgeforce-v43",
+    "MODEL_VERSION": "edgeforce-v44",
+    "DEPLOYMENT_PLATFORM": "cloudflare",
+    "DEPLOYMENT_ENV": "production",
     "DEFAULT_BANKROLL": "1000",
     "TARGET_BOOKMAKER": "DraftKings",
     "THE_ODDS_API_BASE_URL": "https://api.the-odds-api.com/v4",

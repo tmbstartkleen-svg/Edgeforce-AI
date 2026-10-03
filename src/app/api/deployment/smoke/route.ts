@@ -14,7 +14,13 @@ export async function GET(){
   modelVersion:RELEASE.modelVersion,
   releaseCandidate:true,
   readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict},
-  env:{node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'},
+  env:{
+   node:process.version,
+   platform:process.env.DEPLOYMENT_PLATFORM||(process.env.VERCEL?'vercel':'local'),
+   environment:process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local',
+   vercel:Boolean(process.env.VERCEL),
+   cloudflare:process.env.DEPLOYMENT_PLATFORM==='cloudflare'
+  },
   checks:{
    runtime:true,
    api:true,

@@ -17,3 +17,5 @@ jobs:
         run: npm run check:vinext
       - name: Build Cloudflare Worker
         run: npm run build:vinext
+      - name: Validate generated Worker config
+        run: npm run validate:cloudflare-build

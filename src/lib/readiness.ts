@@ -12,7 +12,8 @@ function positiveNumber(value:string|undefined){
 }
 
 export async function evaluateReadiness(options:{strict?:boolean}={}){
- const environment=process.env.VERCEL_ENV||'local';
+ const platform=process.env.DEPLOYMENT_PLATFORM||(process.env.VERCEL?'vercel':'local');
+ const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
  const [database,states]=await Promise.all([dbHealth(),loadProviderHealthStates()]);
  const sql=db();
@@ -95,9 +96,12 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    quarantined:[...states.values()].filter(x=>providerHealth(x).quarantined).map(x=>x.id)
   },
   deployment:{
-   vercel:Boolean(process.env.VERCEL),
-   url:process.env.VERCEL_URL||null,
-   commit:process.env.VERCEL_GIT_COMMIT_SHA||null
+   platform,
+   environment,
+   vercel:platform==='vercel'||Boolean(process.env.VERCEL),
+   cloudflare:platform==='cloudflare',
+   url:process.env.DEPLOYMENT_URL||process.env.VERCEL_URL||null,
+   commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null
   },
   time:new Date().toISOString()
  };
