@@ -2,6 +2,59 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V37 Multi-Provider Consensus Pricing + Market Structure
+
+V37 replaces single-feed market baselines with a robust cross-book pricing panel. Edgeforce keeps the target sportsbook's actual wager odds for EV/Kelly while using a weighted, quality-aware, outlier-resistant consensus probability as the market baseline.
+
+### V37 consensus pricing
+- fetches every healthy configured odds provider in parallel
+- respects provider circuit breakers and payload-quality gates
+- normalizes h2h / moneyline / ML aliases into one canonical market identity
+- collapses duplicate books before consensus
+- weights prices by configured weight, live provider health and payload quality
+- rejects extreme price outliers with robust median/MAD logic
+- computes consensus no-vig probability, fair odds, dispersion and agreement
+- preserves the target-book price for actual wager EV/Kelly
+- surfaces the best available book/price for shopping
+- stores provider/book quotes and consensus snapshots in Postgres
+
+### Explicit market-role structure
+- provider or individual-book roles may be configured as `SHARP`, `PUBLIC`, `REFERENCE`, or `NEUTRAL`
+- sharp/public probability gaps are calculated only from explicitly tagged books
+- untagged markets remain `UNCLASSIFIED`
+- Edgeforce does **not** infer bettor ticket percentages, handle percentages, or bookmaker sophistication from price alone
+- supported structure labels: `SHARP_OVER_PUBLIC`, `PUBLIC_OVER_SHARP`, `ALIGNED`, `MIXED`, `UNCLASSIFIED`
+
+### Configuration
+- `TARGET_BOOKMAKER=DraftKings`
+- per-provider: `*_MARKET_ROLE` and `*_CONSENSUS_WEIGHT`
+- optional aggregator overrides: `ODDS_BOOK_ROLE_MAP` and `ODDS_BOOK_WEIGHT_MAP` as JSON objects
+- secondary/tertiary flat feeds keep distinct bookmaker identities unless the payload explicitly names the same book
+
+### APIs and UI
+- `GET /api/intelligence/market-consensus` — recent consensus snapshots and coverage
+- `GET /api/testing/market-consensus` — deterministic target-book/outlier/role regression test when test endpoints are enabled
+- live board shows target price, best price, consensus %, book depth, agreement and market structure
+- board ranking/stake confidence incorporates cross-book dispersion and agreement
+
+### Release identity
+- build: `V37`
+- app: `37.0.0`
+- package: `0.37.0`
+- model: `edgeforce-v37`
+- migration: `v36`
+
+### Guardrails
+- target-book odds are never replaced by consensus odds for EV/Kelly calculations
+- a one-book market is not presented as deep consensus
+- rejected outliers do not inflate post-filter consensus dispersion
+- market-role labels are configuration, not inferred facts about bettors
+- consensus pricing, simulations and model edges are estimates, not guarantees
+
+# Edgeforce AI
+
+Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
+
 ## Current build — V36 Sport-Specific Micro-Simulation Engines
 
 V36 adds granular game-state simulation ahead of the generic team-score layer. Supported full-game markets now simulate the natural unit of play instead of sampling only final scores.
@@ -126,8 +179,7 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V36
-- V37: multi-provider consensus pricing and sharp-vs-public market structure
+### Elite roadmap remaining after V37
 - V38: regime detection, uncertainty calibration and dynamic confidence
 - V39: portfolio optimization with scenario stress testing and drawdown control
 - V40: explainability, model diagnostics, ablation and live what-if analysis
@@ -138,5 +190,6 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - Missing projection inputs are not fabricated.
 - Simulated ranges and probabilities are estimates, not guarantees.
 - Market movement, CLV and historical performance do not guarantee future results.
+
 
 
