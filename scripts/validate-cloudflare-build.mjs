@@ -25,7 +25,7 @@ if(config){
   }
 }
 
-const schemaMarker='v48-recommendation-quality-1';
+const schemaMarker='v49-context-intelligence-1';
 if(fs.existsSync('dist/server')){
   const stack=['dist/server'];
   let found=false;
