@@ -5,10 +5,13 @@ export type HistoricalPrediction={
   sport:string;
   marketKey:string;
   modelName:string;
+  modelVersion?:string;
+  selectionKey?:string;
   predicted:number;
   odds:number;
   outcome:0|1;
   closingOdds?:number;
+  features?:Record<string,unknown>;
 };
 
 export type BacktestSummary={
