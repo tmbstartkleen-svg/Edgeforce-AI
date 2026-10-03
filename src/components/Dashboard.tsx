@@ -191,6 +191,25 @@ type PortfolioApiResponse={
       leg:Scanned;
     }>;
     rejected:Array<{id:string;reason:string}>;
+    drawdownBrake:number;
+    stressScale:number;
+    stress:{
+      runsPerScenario:number;
+      drawdownLimitPct:number;
+      worstScenario:{
+        scenario:string;meanPnl:number;var95Loss:number;cvar95Loss:number;maxLoss:number;
+        probabilityOfLoss:number;drawdownBreachProbability:number;volatility:number;
+      };
+      baseScenario:{
+        scenario:string;meanPnl:number;var95Loss:number;cvar95Loss:number;maxLoss:number;
+        probabilityOfLoss:number;drawdownBreachProbability:number;volatility:number;
+      };
+      scenarios:Array<{
+        scenario:string;meanPnl:number;p05:number;p10:number;p50:number;p90:number;p95:number;
+        var95Loss:number;cvar95Loss:number;maxLoss:number;probabilityOfLoss:number;
+        drawdownBreachProbability:number;volatility:number;runs:number;
+      }>;
+    };
   };
 };
 
@@ -606,7 +625,7 @@ export default function Dashboard(){
 
     <section className="v21Panel">
       <div className="v21PanelHead">
-        <div><div className="eyebrow">PORTFOLIO RISK INTELLIGENCE</div><h3>Exposure-aware sizing with correlation and drawdown brakes</h3></div>
+        <div><div className="eyebrow">PORTFOLIO STRESS INTELLIGENCE</div><h3>Scenario stress testing + CVaR + continuous drawdown control</h3></div>
         <span className="miniBadge">{portfolio?.source?sourceLabel(portfolio.source,portfolio.source):'waiting for board'}</span>
       </div>
       <div className="v21ControlPanel">
@@ -621,9 +640,15 @@ export default function Dashboard(){
       </div>
       <div className="v21Stats">
         <div><small>ALLOCATED</small><strong>{portfolio?money(portfolio.result.totalStake):'—'}</strong><span>{portfolio?pct(portfolio.result.totalStakePct):'—'} of bankroll</span></div>
-        <div><small>MODEL EXPECTED PROFIT</small><strong>{portfolio?money(portfolio.result.expectedProfit):'—'}</strong><span>estimate, not guaranteed</span></div>
-        <div><small>MODEL EXPECTED ROI</small><strong>{portfolio?pct(portfolio.result.expectedRoi):'—'}</strong><span>based on current board inputs</span></div>
-        <div><small>POSITIONS</small><strong>{portfolio?.result.positions.length||0}</strong><span>{portfolio?.result.rejected.length||0} rejected by risk limits</span></div>
+        <div><small>EXPECTED PROFIT</small><strong>{portfolio?money(portfolio.result.expectedProfit):'—'}</strong><span>model estimate • ROI {portfolio?pct(portfolio.result.expectedRoi):'—'}</span></div>
+        <div><small>WORST 95% CVAR</small><strong>{portfolio?money(portfolio.result.stress.worstScenario.cvar95Loss):'—'}</strong><span>{portfolio?.result.stress.worstScenario.scenario.replaceAll('_',' ')||'stress scenario'}</span></div>
+        <div><small>DRAWDOWN BREACH</small><strong>{portfolio?pct(portfolio.result.stress.worstScenario.drawdownBreachProbability):'—'}</strong><span>limit {portfolio?pct(portfolio.result.stress.drawdownLimitPct):'—'}</span></div>
+      </div>
+      <div className="v21Stats">
+        <div><small>95% VAR</small><strong>{portfolio?money(portfolio.result.stress.worstScenario.var95Loss):'—'}</strong><span>worst scenario loss threshold</span></div>
+        <div><small>LOSS PROBABILITY</small><strong>{portfolio?pct(portfolio.result.stress.worstScenario.probabilityOfLoss):'—'}</strong><span>{portfolio?.result.stress.runsPerScenario||0} sims per scenario</span></div>
+        <div><small>DRAWDOWN BRAKE</small><strong>{portfolio?pct(portfolio.result.drawdownBrake):'—'}</strong><span>continuous bankroll throttle</span></div>
+        <div><small>STRESS SCALE</small><strong>{portfolio?pct(portfolio.result.stressScale):'—'}</strong><span>CVaR allocation multiplier</span></div>
       </div>
       <div className="tableWrap">
         <table className="v21Table">
@@ -638,13 +663,25 @@ export default function Dashboard(){
               <td>{pct(p.eventExposurePct)}</td>
               <td>{pct(p.sportExposurePct)}</td>
               <td>{pct(p.correlationExposurePct)}</td>
-              <td><span className="grade strong">{drawdownPct>=0.12?'REDUCE':p.correlationExposurePct>=0.04?'REDUCE':'HOLD'}</span></td>
+              <td><span className="grade strong">{(portfolio?.result.stressScale??1)<.85||(portfolio?.result.drawdownBrake??1)<.70||p.correlationExposurePct>=0.04?'REDUCE':'HOLD'}</span></td>
             </tr>)}
             {!portfolio?.result.positions.length&&<tr><td colSpan={9} className="emptyRow">No qualified positions under the current risk limits.</td></tr>}
           </tbody>
         </table>
       </div>
-      <div className="historyNote">Risk tags are sizing guidance from the current model and limits. They do not guarantee profit or prevent losses.</div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Stress scenarios</h4>
+          {(portfolio?.result.stress.scenarios||[]).map(x=><div className="historyRow" key={x.scenario}><span>{x.scenario.replaceAll('_',' ')}</span><b>{money(x.cvar95Loss)}</b><small>CVaR • loss {pct(x.probabilityOfLoss)} • breach {pct(x.drawdownBreachProbability)}</small></div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Stress controls</h4>
+          <div className="historyRow"><span>Drawdown throttle</span><b>{portfolio?pct(portfolio.result.drawdownBrake):'—'}</b><small>falls continuously as current drawdown rises</small></div>
+          <div className="historyRow"><span>CVaR throttle</span><b>{portfolio?pct(portfolio.result.stressScale):'—'}</b><small>scales all accepted positions when tail risk exceeds limit</small></div>
+          <div className="historyRow"><span>Positions</span><b>{portfolio?.result.positions.length||0}</b><small>{portfolio?.result.rejected.length||0} rejected before stress scaling</small></div>
+        </div>
+      </div>
+      <div className="historyNote">Stress metrics are model-based estimates under defined scenarios. They reduce exposure when modeled tail risk rises, but cannot guarantee profit or bound real-world losses.</div>
     </section>
 
     <section className="v21Panel">
