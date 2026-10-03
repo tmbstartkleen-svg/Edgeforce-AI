@@ -10,6 +10,7 @@ import {
 } from './security';
 import {RELEASE} from './releaseManifest';
 import {getModelGovernanceStatus} from './modelGovernance';
+import {getValidationLabStatus} from './validationLab';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -28,6 +29,7 @@ export type ProductionCertificationReport={
  dataQuality:ReturnType<typeof auditMarketBatch>;
  automation:Awaited<ReturnType<typeof getAutomationHealth>>;
  modelGovernance:Awaited<ReturnType<typeof getModelGovernanceStatus>>;
+ modelValidation:Awaited<ReturnType<typeof getValidationLabStatus>>;
  security:{
   ok:boolean;
   missingHeaders:string[];
@@ -77,13 +79,14 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
   getAutomationHealth(),
   getOpsStatus(),
-  getModelGovernanceStatus()
+  getModelGovernanceStatus(),
+  getValidationLabStatus()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -115,6 +118,11 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(!modelGovernance.latestRun)warnings.push('model governance: no completed governance run yet');
  if(modelGovernance.summary.critical>0)warnings.push(`model governance: ${modelGovernance.summary.critical} critical model group(s) are runtime-braked`);
  if(modelGovernance.summary.drifting>0)warnings.push(`model governance: ${modelGovernance.summary.drifting} drifting model group(s) are runtime-braked`);
+
+ if(modelValidation.latestRun?.status==='failed')blockers.push('model validation: latest validation run failed');
+ if(!modelValidation.latestRun)warnings.push('model validation: no durable validation run yet');
+ if(modelValidation.report.evidence.failed>0)warnings.push(`model validation: ${modelValidation.report.evidence.failed} model group(s) failed evidence gates and are runtime-braked`);
+ if(modelValidation.report.sampleSize>=75&&modelValidation.report.evidence.promotionEligible===0)warnings.push('model validation: settled history exists but no model group is currently evidence-qualified');
 
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
  if(strict&&ingestion.source!=='live')blockers.push(`data: strict production certification requires live odds, current source is ${ingestion.source}`);
@@ -152,7 +160,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    migrationVersion:RELEASE.migrationVersion,commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null,
    environment
   },
-  readiness,providerCertification,dataQuality,automation,modelGovernance,security,
+  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,security,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
