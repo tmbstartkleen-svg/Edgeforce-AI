@@ -50,6 +50,7 @@ assert(deployment.body?.checks?.migrations==='v35','deployment migration identit
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
 assert(diagnostics.body?.version==='36.0.0','diagnostics version mismatch');
+assert(diagnostics.body?.granularSportEngines===7,'granular sport engine count mismatch');
 
 const ops=await get('/api/ops/status');
 assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
@@ -91,6 +92,8 @@ assert(sgpCorrelation.res.ok&&sgpCorrelation.body?.ok===true,'SGP correlation st
 const microSimulation=await get('/api/testing/micro-simulation');
 assert(microSimulation.res.ok&&microSimulation.body?.ok===true,'micro simulation coverage test failed');
 assert(Array.isArray(microSimulation.body?.results)&&microSimulation.body.results.length===7,'micro simulation engine coverage incomplete');
+assert(microSimulation.body?.propRouting?.engine==='PLAYER_DISTRIBUTION_MONTE_CARLO','player prop routing regressed');
+assert(microSimulation.body?.partialRouting?.engine==='PROBABILITY_STATE_FALLBACK','partial-market fallback regressed');
 
 const microCatalog=await get('/api/intelligence/micro-simulation');
 assert(microCatalog.res.ok&&microCatalog.body?.ok===true,'micro simulation catalog endpoint failed');
