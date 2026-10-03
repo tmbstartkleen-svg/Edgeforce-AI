@@ -1,7 +1,7 @@
-import type {Market} from '../types';
+import type {Market,MarketRole as CoreMarketRole} from '../types';
 import type {ProviderCapability} from '../providerRegistry';
 
-export type MarketRole='SHARP'|'PUBLIC'|'REFERENCE'|'NEUTRAL';
+export type MarketRole=CoreMarketRole;
 
 export type ProviderConfig={
  id:string;
