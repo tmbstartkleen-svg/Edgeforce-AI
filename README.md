@@ -2,6 +2,54 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V47 Adaptive Full-Slate + Live Parlay Engine
+
+V47 expands the verified V46 production feed without returning to high-volume provider fan-out. It adds quota-aware sport expansion, adaptive refresh cadence, and moves parlay generation onto the same live production ingestion path as the Daily / Weekly boards.
+
+### Adaptive full-slate provider
+- keeps the verified `upcoming` bootstrap for the next 8 live/upcoming events across sports
+- uses the free active-sports catalog to rank expansion targets
+- prioritizes NFL, NCAAF, MLB, NBA, NCAAB, WNBA, NHL, MMA, MLS, then tennis/soccer and secondary sports
+- expands only a bounded number of sport feeds per refresh
+- defaults expansion to `h2h` so broad moneyline coverage costs less than requesting every featured market for every sport
+- automatically narrows the expansion set when refresh cadence accelerates near event start
+- progressively enters CONSERVE and BOOTSTRAP_ONLY modes as quota approaches the configured reserve
+- serializes paid expansion requests and retries HTTP 429 only once after a delay
+- caches live results according to the adaptive refresh target
+
+### Live parlay production path
+- `GET /api/parlays` now uses `ingestOdds()` rather than demo markets
+- supports 2-leg and 3-leg live parlays
+- supports today/week scopes
+- supports a caller-selected minimum joint probability with `minJoint`
+- retains shared-event state simulation, learned SGP correlation, and Gaussian-copula fallback from V46/V35
+- returns the live source, provider, target book, candidate-leg count, warnings, and generated parlays
+
+### V47 refresh policy
+- EXPANDED: wider sport coverage when quota headroom is strong
+- BALANCED: moderate expansion as quota headroom declines
+- CONSERVE: maximum two expansion sports when quota is low
+- BOOTSTRAP_ONLY: no paid expansion when quota is near the configured reserve
+- event proximity can accelerate refreshes while simultaneously narrowing the number of paid sport expansions
+
+### Validation
+- deterministic policy regression verifies expanded, urgent, conserve, and reserve modes
+- smoke testing requires the live-parlay endpoint to use the production ingestion path
+- release audit rejects a V47 build that falls back to demo-backed parlays or loses the adaptive provider policy
+
+### Release identity
+- build: `V47`
+- app: `47.0.0`
+- package: `0.47.0`
+- model: `edgeforce-v47`
+- migration: `v38` (no schema change required)
+
+### Guardrails
+- the provider budget controller reduces request volume; it does not guarantee a fixed credit burn because provider response costs depend on markets actually returned
+- full-slate coverage expands opportunistically and may intentionally narrow as quota approaches reserve
+- live odds, model probabilities, simulations and parlay probabilities remain estimates, not guarantees of outcome or profitability
+
+
 ## Current build — V46 Unified Event-State Prediction
 
 V46 upgrades same-game pricing from probability-only correlation to shared event-state simulation whenever the selected markets are structurally supported.
