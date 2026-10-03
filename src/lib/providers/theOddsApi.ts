@@ -70,10 +70,11 @@ function withKey(path:string,key:string,params:Record<string,string>={}){
  return url.toString();
 }
 
-async function mapBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>){
+async function mapBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>,pauseMs=0){
  const out:R[]=[];
  for(let i=0;i<items.length;i+=size){
   out.push(...await Promise.all(items.slice(i,i+size).map(fn)));
+  if(pauseMs>0&&i+size<items.length)await new Promise(resolve=>setTimeout(resolve,pauseMs));
  }
  return out;
 }
@@ -112,14 +113,14 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const sports=(requested.length?allSports.filter(x=>requested.includes(x.key)):allSports)
   .sort((a,b)=>priority(a.key)-priority(b.key)||a.key.localeCompare(b.key));
 
- const eventChecks=await mapBatches(sports,8,async sport=>{
+ const eventChecks=await mapBatches(sports,4,async sport=>{
   const result=await jsonRequest<EventRow[]>(withKey(`/sports/${encodeURIComponent(sport.key)}/events`,key,{dateFormat:'iso',commenceTimeFrom:now.toISOString(),commenceTimeTo:to}),timeoutMs);
   const events=Array.isArray(result.data)?result.data.filter(x=>{
    const t=x.commence_time?new Date(x.commence_time).getTime():0;
    return t>=now.getTime()&&t<=new Date(to).getTime();
   }):[];
   return {sport,result,events};
- });
+ },200);
  const candidates=eventChecks.filter(x=>x.result.ok&&x.events.length>0).map(x=>x.sport).slice(0,maxSports);
  const warnings:string[]=[];
  if(eventChecks.some(x=>!x.result.ok))warnings.push(`${eventChecks.filter(x=>!x.result.ok).length} free event-discovery request(s) failed`);
