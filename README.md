@@ -2,6 +2,95 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V50 Real Context Data Network
+
+V50 connects V49's context-quality framework to live supplemental event data instead of relying only on user-configured provider payloads.
+
+### Credential-free live context sources
+- ESPN public site feeds are used as a best-effort supplemental source for supported major leagues
+- Open-Meteo is used for hourly event-time weather when an outdoor venue can be resolved
+- no new secret is required for these supplemental sources
+- configured paid/credentialed context providers remain authoritative and override public supplemental values
+
+### Event-level enrichment
+Supported event matching currently covers:
+- NFL and college football
+- NBA, WNBA and men's college basketball
+- MLB
+- NHL
+- MLS and English Premier League
+- UFC/MMA event matching where ESPN exposes compatible schedule data
+
+For matched events Edgeforce can add:
+- venue identity and indoor/outdoor state
+- league injury context
+- player injury/availability status
+- directional team injury burden
+- QB injury context for football
+- goalie injury context for hockey
+- confirmed probable starter signals when exposed in pregame summaries
+- lineup confirmation signals when sufficient starter data is exposed
+- rest-day differential from team schedules
+- season-record form differential
+- outdoor weather at scheduled event time
+
+### Weather enrichment
+Open-Meteo forecasting adds:
+- temperature
+- precipitation probability
+- precipitation amount
+- wind speed
+- wind gusts
+- a normalized weather-impact score used as context/volatility input
+
+Indoor venues explicitly satisfy the weather-context requirement with a neutral weather value rather than being treated as missing.
+
+### Source provenance
+Each injected context field records:
+- source
+- provider ID
+- field name
+- observation time
+- confidence
+- source status
+- optional detail payload such as venue and forecast observations
+
+Field-level provenance is persisted with model runs and surfaced through the context-intelligence API.
+
+### Provider priority
+1. public ESPN/Open-Meteo data fills missing context
+2. configured WEATHER / INJURIES / STATS providers run afterward
+3. configured providers override public values when both provide the same field
+
+This lets Edgeforce start with real context immediately while remaining upgradeable to premium feeds without changing model code.
+
+### Operational controls
+- public context is enabled automatically in production and may be explicitly disabled
+- event count, summary count, schedule count and request timeout are bounded by environment variables
+- endpoint responses are cached by URL to reduce repeated upstream traffic
+- V49 context quality still decides whether the resulting context is complete enough for recommendation-grade confidence
+
+### APIs and validation
+- `GET /api/intelligence/context` now reports public-network diagnostics and field-level provenance coverage
+- `GET /api/testing/public-context-network` validates ESPN event matching, venue parsing, injury parsing, QB directionality and rest-day calculation
+- hosted smoke tests validate the V50 context/parlay schema
+- Worker build validation requires the V50 schema marker before deployment
+
+### Release identity
+- build: `V50`
+- app: `50.0.0`
+- package: `0.50.0`
+- model: `edgeforce-v50`
+- migration: `v38` (no schema change required)
+
+### Data-source caveats
+- ESPN site endpoints are public-facing supplemental feeds, not a contracted SLA-backed data service
+- Edgeforce treats them as lower-confidence than configured premium providers
+- any upstream failure leaves the affected context missing rather than inventing values
+- Open-Meteo weather requires successful venue resolution; unresolved venues remain missing
+- context data improves the information set but does not guarantee predictive accuracy
+
+
 ## Current build — V49 Context Intelligence
 
 V49 turns context from an optional feature bag into a scored, sport-aware input contract used by every recommendation and automated decision path.
