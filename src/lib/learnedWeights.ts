@@ -1,5 +1,6 @@
 import {db} from './db';
 import {rollingModelPerformance} from './modelPerformance';
+import {loadGovernanceMultipliers,modelGovernanceKey} from './modelGovernance';
 
 export type LearnedWeightMap=Record<string,number>;
 
@@ -28,6 +29,7 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
  const sql=db();
  if(!sql)return {};
  try{
+  const governance=await loadGovernanceMultipliers().catch(()=>({}));
   const snapshots=await sql`
    select distinct on (model_name,sport,market_key)
     model_name as "modelName",sport,market_key as "marketKey",
@@ -41,7 +43,7 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
     modelName:String(row.modelName),
     sport:String(row.sport),
     marketKey:String(row.marketKey),
-    multiplier:clamp(Number(row.multiplier)||1,.75,1.25),
+    multiplier:clamp((Number(row.multiplier)||1)*(governance[modelGovernanceKey(String(row.modelName),String(row.sport),String(row.marketKey))]??1),.35,1.25),
     sampleSize:Math.max(1,Number(row.sampleSize)||1)
    })));
   }
@@ -58,7 +60,9 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
   const perf=rollingModelPerformance(rows as any);
   return aggregates(perf.filter(row=>row.sampleSize>=25).map(row=>{
    const clvTerm=clamp(row.avgClv,-.05,.05)*2;
-   const multiplier=clamp(1+(row.decayedScore-.65)*1.4-row.calibrationError*1.6+clvTerm,.75,1.25);
+   const learned=clamp(1+(row.decayedScore-.65)*1.4-row.calibrationError*1.6+clvTerm,.75,1.25);
+   const governanceMultiplier=governance[modelGovernanceKey(row.modelName,row.sport,row.marketKey)]??1;
+   const multiplier=clamp(learned*governanceMultiplier,.35,1.25);
    return {modelName:row.modelName,sport:row.sport,marketKey:row.marketKey,multiplier,sampleSize:row.sampleSize};
   }));
  }catch{
