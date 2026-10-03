@@ -13,9 +13,9 @@ export async function GET(){
    startTime:'2026-10-03T20:00:00Z',simProbability:.70
   }
  ];
- const key='test|moneyline|player points';
+ const key='test|moneyline|moneyline|player points|over';
  const positive:LearnedSgpMap={
-  [key]:{sport:'TEST',marketA:'moneyline',marketB:'player points',sampleSize:200,jointHits:120,aHits:150,bHits:150,phi:.45,lift:.12,learnedRho:.45,confidence:.90}
+  [key]:{sport:'TEST',marketA:'moneyline|moneyline',marketB:'player points|over',sampleSize:200,jointHits:120,aHits:150,bHits:150,phi:.45,lift:.12,learnedRho:.45,confidence:.90}
  };
  const negative:LearnedSgpMap={
   [key]:{sport:'TEST',marketA:'moneyline',marketB:'player points',sampleSize:200,jointHits:60,aHits:150,bHits:150,phi:-.45,lift:-.12,learnedRho:-.45,confidence:.90}
