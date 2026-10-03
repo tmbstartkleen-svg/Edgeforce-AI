@@ -93,6 +93,7 @@ export async function GET(){
   adaptiveFullSlateOdds:true,
   quotaAwareProviderExpansion:true,
   liveParlayProductionData:true,
+  persistedLiveSnapshotReuse:true,
   publicPredictionMarketFallback:true,
   runtimeNeonMigrationBootstrap:true,
   cloudflareRuntimeIdentity:true,
