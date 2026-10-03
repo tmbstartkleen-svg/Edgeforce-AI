@@ -2,20 +2,50 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V34.1 Provider Certification + Launch Doctor
+## Current build — V35 Event-Level Joint Simulation + Learned SGP Correlation
 
-V34.1 keeps the V34 distribution-aware prediction model unchanged and adds launch-readiness tooling that certifies live provider contracts, scores capability coverage, persists certification history, and produces a single blocker/warning report before production.
+V35 stops treating same-event parlay legs as independent outcomes. It combines a shared event-level Gaussian-copula simulation with conservative historical correlation learning from settled same-event wager legs.
 
-### V34.1 launch-readiness upgrades
-- authenticated live provider certification for configured feeds
-- ODDS treated as a hard launch requirement
-- weather, injuries, stats, results and prediction markets scored as enrichment coverage
-- freshness, row-count, payload-quality and latency evidence retained per provider
-- odds feeds must normalize into valid markets to certify
-- certification history persisted in Postgres through migration v33
-- `/api/providers/certify` for certification status and authorized live probes
-- `/api/launch-doctor` for combined readiness + provider-certification blockers
-- synthetic CI guardrails prove failed core odds feeds block launch
+### V35 joint simulation
+- 10,000 correlated simulations for standard 2–3 leg parlays
+- tapered simulation counts for larger 4–20 leg probability sets to control browser/runtime cost
+- one joint probability for the entire parlay
+- independent probability retained for direct comparison
+- 95% Monte Carlo interval retained
+- same-event pair correlation matrix with automatic positive-definite shrinkage
+- cross-event legs remain independent inside the joint engine
+- same event name on different start times is not treated as the same game
+
+### Learned SGP correlation
+- settled same-event leg pairs feed market-pair profiles
+- Over/Under direction is preserved in the learned market signature
+- phi correlation, joint lift, sample size and confidence are persisted
+- minimum sample default: 20 settled pairs
+- shrinkage default: 50 samples
+- small samples remain neutral
+- learned rho is capped to avoid unstable historical overfitting
+- heuristic and learned correlation are blended by historical confidence
+- active profiles rebuild with the daily recalibration workflow
+
+### APIs
+- `GET /api/intelligence/sgp-correlation` — active learned profiles
+- `POST /api/intelligence/sgp-correlation` — correlated joint simulation for supplied legs
+- `PUT /api/intelligence/sgp-correlation` — authenticated correlation-profile rebuild
+- `GET /api/testing/joint-simulation` — deterministic positive/negative correlation guardrail when test endpoints are enabled
+
+### Release identity
+- build: `V35`
+- app: `35.0.0`
+- package: `0.35.0`
+- model: `edgeforce-v35`
+- migration: `v34`
+
+### Guardrails
+- Learned SGP relationships require minimum settled sample size before affecting probability.
+- Correlation profiles are shrinkage-weighted and capped.
+- Non-positive-definite correlation matrices are automatically shrunk toward independence.
+- Public joint-simulation requests are capped at 10,000 runs; authenticated requests can use up to 100,000.
+- Same-game correlation and simulation probabilities are estimates, not guarantees.
 
 ## V34 Distribution-Aware Prediction Intelligence
 
@@ -55,8 +85,7 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - model: `edgeforce-v34`
 - migration: `v33`
 
-### Elite roadmap remaining after V34
-- V35: event-level joint simulation and learned SGP correlation
+### Elite roadmap remaining after V35
 - V36: sport-specific possession/play/plate-appearance/shift engines
 - V37: multi-provider consensus pricing and sharp-vs-public market structure
 - V38: regime detection, uncertainty calibration and dynamic confidence
@@ -69,3 +98,4 @@ V34 upgrades the simulation layer from mostly generic normal-style outputs to ma
 - Missing projection inputs are not fabricated.
 - Simulated ranges and probabilities are estimates, not guarantees.
 - Market movement, CLV and historical performance do not guarantee future results.
+

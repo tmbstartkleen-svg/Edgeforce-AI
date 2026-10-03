@@ -37,6 +37,8 @@ export async function GET(){
   launchDoctor:true,
   walkForwardCalibration:true,
   controlledWeightPromotion:true,
+  eventLevelJointSimulation:true,
+  learnedSgpCorrelation:true,
   readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict,requiredFailures:readiness.requiredFailures,warnings:readiness.warnings},
   uptimeSeconds:Math.round(process.uptime()),
   memory:{rss:memory.rss,heapTotal:memory.heapTotal,heapUsed:memory.heapUsed,external:memory.external},

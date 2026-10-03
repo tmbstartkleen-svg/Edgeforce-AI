@@ -1,14 +1,39 @@
 import type {Scanned} from './scanner';
-import {correlationAdjustedJoint,correlationExposure} from './sameGameCorrelation';
+import {correlationExposure} from './sameGameCorrelation';
+import {runEventJointSimulation,type JointSimulationResult} from './eventJointSimulation';
+import type {LearnedSgpMap} from './learnedSgpCorrelation';
 
-export type Parlay={id:string;legs:Scanned[];combinedProbability:number;independentProbability:number;correlationPenalty:number;score:number;label:string};
+export type Parlay={
+ id:string;
+ legs:Scanned[];
+ combinedProbability:number;
+ independentProbability:number;
+ correlationPenalty:number;
+ correlationDelta:number;
+ jointSimulationRuns:number;
+ jointCi:[number,number];
+ eventCount:number;
+ sameEventPairCount:number;
+ learnedPairCount:number;
+ matrixShrink:number;
+ score:number;
+ label:string;
+ pairCorrelations:JointSimulationResult['pairCorrelations'];
+};
 
 function correlation(a:Scanned,b:Scanned){return correlationExposure(a,b)}
 
-function summarize(picks:Scanned[],label:string):Parlay{
- const joint=correlationAdjustedJoint(picks);
- const independent=joint.independent;
- const adjusted=joint.adjusted;
+function runCount(size:number){
+ if(size<=3)return 10000;
+ if(size<=6)return 5000;
+ if(size<=10)return 3000;
+ return 1500;
+}
+
+function summarize(picks:Scanned[],label:string,learned?:LearnedSgpMap):Parlay{
+ const joint=runEventJointSimulation(picks,learned,runCount(picks.length));
+ const independent=joint.independentProbability;
+ const adjusted=joint.probability;
  let penalty=0;
  for(let i=0;i<picks.length;i++)for(let j=i+1;j<picks.length;j++)penalty+=correlation(picks[i],picks[j]);
  const cappedPenalty=Math.min(.55,penalty);
@@ -21,17 +46,25 @@ function summarize(picks:Scanned[],label:string):Parlay{
   combinedProbability:adjusted,
   independentProbability:independent,
   correlationPenalty:cappedPenalty,
+  correlationDelta:joint.correlationDelta,
+  jointSimulationRuns:joint.runs,
+  jointCi:[joint.ciLow,joint.ciHigh],
+  eventCount:joint.eventCount,
+  sameEventPairCount:joint.pairCorrelations.filter(x=>x.sameEvent).length,
+  learnedPairCount:joint.pairCorrelations.filter(x=>x.learnedSample>0).length,
+  matrixShrink:joint.matrixShrink,
+  pairCorrelations:joint.pairCorrelations,
   score,
   label
  };
 }
 
-export function buildParlays(rows:Scanned[],size:2|3):Parlay[]{
+export function buildParlays(rows:Scanned[],size:2|3,learned?:LearnedSgpMap):Parlay[]{
  const qualified=rows.filter(x=>x.grade==='ELITE'||x.grade==='STRONG').slice(0,16);
  const out:Parlay[]=[];
  const visit=(start:number,picks:Scanned[])=>{
   if(picks.length===size){
-   out.push(summarize(picks,size===2?'2-LEG ELITE':'3-LEG ELITE'));
+   out.push(summarize(picks,size===2?'2-LEG ELITE':'3-LEG ELITE',learned));
    return;
   }
   for(let i=start;i<qualified.length;i++)visit(i+1,[...picks,qualified[i]]);
@@ -40,7 +73,7 @@ export function buildParlays(rows:Scanned[],size:2|3):Parlay[]{
  return out.sort((a,b)=>b.score-a.score).slice(0,10);
 }
 
-export function buildProbabilitySet(rows:Scanned[],size:number):Parlay|null{
+export function buildProbabilitySet(rows:Scanned[],size:number,learned?:LearnedSgpMap):Parlay|null{
  const target=Math.max(2,Math.min(20,Math.round(size)));
  const pool=[...rows]
   .filter(x=>x.grade!=='PASS')
@@ -70,15 +103,14 @@ export function buildProbabilitySet(rows:Scanned[],size:number):Parlay|null{
   used.add(best.id);
  }
 
- return picks.length===target?summarize(picks,target+'-LEG PROBABILITY SET'):null;
+ return picks.length===target?summarize(picks,target+'-LEG PROBABILITY SET',learned):null;
 }
 
-export function buildSportProbabilitySet(rows:Scanned[],sport:string,size:number){
- return buildProbabilitySet(rows.filter(x=>x.sport===sport),size);
+export function buildSportProbabilitySet(rows:Scanned[],sport:string,size:number,learned?:LearnedSgpMap){
+ return buildProbabilitySet(rows.filter(x=>x.sport===sport),size,learned);
 }
 
-
-export function buildMixedSportProbabilitySet(rows:Scanned[],size:number):Parlay|null{
+export function buildMixedSportProbabilitySet(rows:Scanned[],size:number,learned?:LearnedSgpMap):Parlay|null{
  const target=Math.max(2,Math.min(20,Math.round(size)));
  const bySport=new Map<string,Scanned[]>();
  for(const row of rows.filter(x=>x.grade!=='PASS').sort((a,b)=>b.simProbability-a.simProbability)){
@@ -96,6 +128,6 @@ export function buildMixedSportProbabilitySet(rows:Scanned[],size:number):Parlay
   cursor++;
   if(seed.length>=rows.length)break;
  }
- if(seed.length<target)return buildProbabilitySet(rows,target);
- return summarize(seed.slice(0,target),target+'-LEG MULTI-SPORT SET');
+ if(seed.length<target)return buildProbabilitySet(rows,target,learned);
+ return summarize(seed.slice(0,target),target+'-LEG MULTI-SPORT SET',learned);
 }

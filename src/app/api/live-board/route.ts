@@ -15,6 +15,7 @@ import {detectMaterialContextChanges,contextRevision} from '@/lib/contextChanges
 import {loadContextMarketStates,recordContextChanges,saveContextMarketStates,recordModelRuns} from '@/lib/persistence';
 import {loadLineMovement} from '@/lib/lineMovement';
 import {steamAlert} from '@/lib/alerts';
+import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 
 export const dynamic='force-dynamic';
 
@@ -67,11 +68,12 @@ export async function GET(req:Request){
     return Response.json({ok:false,error:'unauthorized forced refresh'},{status:401});
   }
 
-  const [cached,predictions,learnedWeights,ledgerHistory]=await Promise.all([
+  const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations]=await Promise.all([
     cachedOdds(forceRefresh),
     fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
     loadLearnedWeightMultipliers(),
-    loadLedgerHistory()
+    loadLedgerHistory(),
+    loadLearnedSgpCorrelations()
   ]);
 
   const ingestion=cached.ingestion;
@@ -122,6 +124,8 @@ export async function GET(req:Request){
     providerQuality:ingestion.quality||null,
     providerAttempts:ingestion.attempts,
     learnedWeightCount:Object.keys(learnedWeights).length,
+    learnedSgpCorrelations,
+    learnedSgpProfileCount:Object.keys(learnedSgpCorrelations).length,
     contextDiagnostics:cached.context.diagnostics,
     contextRevision:cached.contextRevision,
     contextChanges:cached.contextChanges,
