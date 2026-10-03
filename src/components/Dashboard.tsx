@@ -232,6 +232,59 @@ type ModelDiagnosticsResponse={
   }>;
 };
 
+type ReleaseCertificationResponse={
+  ok:boolean;
+  latest?:{
+    id:number;
+    releaseVersion:string;
+    modelVersion:string;
+    commitSha?:string|null;
+    environment:string;
+    certified:boolean;
+    blockers?:string[];
+    warnings?:string[];
+    createdAt:string;
+  }|null;
+};
+
+type AutomationHealthResponse={
+  ok:boolean;
+  source:string;
+  healthy:boolean;
+  healthyCount:number;
+  pendingCount:number;
+  failedCount:number;
+  staleCount:number;
+  blockers:string[];
+  warnings:string[];
+  jobs:Array<{
+    jobName:string;
+    state:'HEALTHY'|'STALE'|'FAILED'|'PENDING';
+    lastRun?:string|null;
+    ageHours?:number|null;
+    status?:string|null;
+  }>;
+};
+
+type DataQualityResponse={
+  ok:boolean;
+  source:string;
+  providerId?:string|null;
+  audit:{
+    score:number;
+    grade:'TRUSTED'|'USABLE'|'CAUTION'|'REJECT';
+    rowCount:number;
+    validRows:number;
+    invalidRows:number;
+    duplicateRows:number;
+    staleRows:number;
+    consensusDepthCoverage:number;
+    featureCoverage:number;
+    blockers:string[];
+    warnings:string[];
+  };
+};
+
 type DbStats={
   configured:boolean;
   ok:boolean;
@@ -242,6 +295,8 @@ type DbStats={
     market_consensus_snapshots?:number;
     model_runs?:number;
     bet_results?:number;
+    automation_runs?:number;
+    production_certifications?:number;
   };
 };
 
@@ -326,6 +381,9 @@ export default function Dashboard(){
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
   const [modelDiagnostics,setModelDiagnostics]=useState<ModelDiagnosticsResponse|null>(null);
+  const [releaseCertification,setReleaseCertification]=useState<ReleaseCertificationResponse|null>(null);
+  const [automationHealth,setAutomationHealth]=useState<AutomationHealthResponse|null>(null);
+  const [dataQuality,setDataQuality]=useState<DataQualityResponse|null>(null);
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -406,6 +464,26 @@ export default function Dashboard(){
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[]);
 
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const [certRes,automationRes,dataRes]=await Promise.all([
+          fetch('/api/release/certify',{cache:'no-store'}),
+          fetch('/api/automation/health',{cache:'no-store'}),
+          fetch('/api/data-quality',{cache:'no-store'})
+        ]);
+        if(!mounted)return;
+        if(certRes.ok)setReleaseCertification(await certRes.json() as ReleaseCertificationResponse);
+        if(automationRes.ok)setAutomationHealth(await automationRes.json() as AutomationHealthResponse);
+        if(dataRes.ok)setDataQuality(await dataRes.json() as DataQualityResponse);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
 
   useEffect(()=>{
@@ -449,9 +527,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V40</div>
-        <h1>Explainability + Diagnostics + Live What-If</h1>
-        <p>Every model probability can now be decomposed into additive model drivers, feature ablations, sensitivity, fragility, and read-only what-if deltas while retaining V39 portfolio stress controls.</p>
+        <div className="eyebrow">EDGEFORCE AI • V41</div>
+        <h1>Production Certification + Final Hardening</h1>
+        <p>The planned elite roadmap is complete. Edgeforce now certifies release identity, market data contracts, scheduled automation, provider health, security posture, migration state, and post-deploy readiness around the V40 explainable prediction stack.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -498,6 +576,9 @@ export default function Dashboard(){
           <div><small>Dislocated</small><b>{board.regimeCoverage?.dislocated??0}</b></div>
           <div><small>High conf</small><b>{board.regimeCoverage?.highConfidence??0}</b></div>
           <div><small>Avg conf</small><b>{board.regimeCoverage?fmtPct(board.regimeCoverage.averageDynamicConfidence):'—'}</b></div>
+          <div><small>Data audit</small><b>{dataQuality?.audit?.grade||'—'}</b></div>
+          <div><small>Automation</small><b>{automationHealth?(automationHealth.healthy?'HEALTHY':automationHealth.failedCount?'FAILED':automationHealth.staleCount?'STALE':'PENDING'):'—'}</b></div>
+          <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
         </div>
       </div>
     </section>
