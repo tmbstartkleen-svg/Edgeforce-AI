@@ -14,6 +14,7 @@ import type {Market} from '@/lib/types';
 import {detectMaterialContextChanges,contextRevision} from '@/lib/contextChanges';
 import {loadContextMarketStates,recordContextChanges,saveContextMarketStates,recordModelRuns} from '@/lib/persistence';
 import {loadLineMovement} from '@/lib/lineMovement';
+import {steamAlert} from '@/lib/alerts';
 
 export const dynamic='force-dynamic';
 
@@ -95,6 +96,7 @@ export async function GET(req:Request){
     ...row,
     lineMovement:lineMovement.get(row.id)||null
   }));
+  const steamAlerts=rows.map(x=>x.lineMovement?steamAlert(x.id,x.lineMovement.probabilityMove,x.lineMovement.snapshotCount,x.lineMovement.direction):null).filter(Boolean);
   const sports=[...new Set(rows.map(x=>x.sport))].sort();
   const predictionCoverage={
     minimumVolume:minPredictionVolume,
@@ -132,6 +134,7 @@ export async function GET(req:Request){
     predictions,
     predictionCoverage,
     steamCount:rows.filter(x=>x.lineMovement?.steam).length,
+    steamAlerts,
     history:analyzeHistory(ledgerHistory),
     historicalBets:ledgerHistory,
     anomalies:detectAnomalies(rows).slice(0,20)
