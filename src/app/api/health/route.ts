@@ -89,6 +89,8 @@ export async function GET(){
   nativeRealOddsIngestion:true,
   publicPredictionMarketFallback:true,
   runtimeNeonMigrationBootstrap:true,
+  cloudflareRuntimeIdentity:true,
+  cloudflareDeployPreflight:true,
   sportEngines:19,
   securityHardening:true,
   productionSmokeTests:true,
