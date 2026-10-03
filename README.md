@@ -2,6 +2,67 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V49 Context Intelligence
+
+V49 turns context from an optional feature bag into a scored, sport-aware input contract used by every recommendation and automated decision path.
+
+### Sport-aware context profiles
+- NFL / NCAAF: quarterback, injuries, trenches, efficiency, rest, travel and weather
+- MLB / NPB: starting pitcher, lineup, bullpen, park, weather, handedness and rest
+- NBA / WNBA / NCAAB: injuries, lineup, pace, efficiency, shooting, rest and travel
+- NHL: starting goalie, injuries, lineup, special teams, shot quality, rest and travel
+- soccer: lineup, injuries, keeper, xG, form, tactical and weather context
+- tennis / table tennis: surface, serve, return, form, fatigue and head-to-head context
+- UFC / MMA: striking, grappling, cardio, takedown defense, weight cut, reach and recent form
+- player markets add projection and availability requirements automatically
+
+### Context quality
+Every market now receives:
+- weighted context coverage
+- critical-context coverage
+- source-quality score
+- context-quality grade: COMPLETE / GOOD / PARTIAL / THIN / NONE
+- missing critical and optional dimensions
+- explicit `recommendationReady` state
+
+Context quality directly affects dynamic confidence, grade promotion, stake scaling and V48 recommendation eligibility. Missing critical information therefore reduces confidence instead of silently behaving like neutral information.
+
+### Provider operations
+- weather context cache defaults to 10 minutes
+- injury context cache defaults to 3 minutes
+- statistics context cache defaults to 15 minutes
+- provider failover, circuit breaking and payload-quality checks remain active
+- cached context is reused across the live board, parlay endpoint, public scan and scheduled automation
+
+### Decision-path consistency
+The same context-enriched markets now feed:
+- live board
+- 2/3-leg recommendation engine
+- public scan API
+- scheduled model scan
+- automated decision engine
+- persisted model-run feature snapshots
+
+### APIs and validation
+- `GET /api/intelligence/context` — configured context providers, overall quality summary and sport-by-sport coverage
+- `GET /api/testing/context-quality` — deterministic NFL, MLB and player-prop context regression
+- dashboard shows context-ready rows and average context coverage
+- smoke and release audit require context gating in recommendation and automation paths
+
+### Release identity
+- build: `V49`
+- app: `49.0.0`
+- package: `0.49.0`
+- model: `edgeforce-v49`
+- migration: `v38` (no schema change required)
+
+### Guardrails
+- context quality measures data completeness and source quality; it does not prove the context is predictive
+- missing context cannot increase recommendation confidence
+- context provider data is not fabricated when a feed is not configured or unavailable
+- simulations, probabilities and recommendation tiers remain estimates rather than guaranteed outcomes
+
+
 ## Current build — V48 Recommendation Quality + Risk Tiers
 
 V48 separates sportsbook analysis from recommendations. A combination can have interesting modeled value without being promoted to the normal recommendation board.
