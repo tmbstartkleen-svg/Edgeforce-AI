@@ -5,7 +5,7 @@ import {normalizeOddsPayload} from './normalizeOdds';
 import {loadProviderHealthStates,recordProviderResult} from './healthStore';
 import {providerHealth} from '../providerRegistry';
 import {buildConsensusMarkets} from '../marketConsensus';
-import type {Market} from '../types';
+import type {Market,MarketRole} from '../types';
 import type {ProviderConfig} from './types';
 
 export type OddsAttempt={
@@ -33,6 +33,30 @@ export type OddsIngestionResult={
  }>;
  error?:string;
 };
+
+function configuredBookRoles(){
+ try{
+  const parsed=JSON.parse(process.env.ODDS_BOOK_ROLE_MAP||'{}') as Record<string,string>;
+  const out:Record<string,MarketRole>={};
+  for(const [book,value] of Object.entries(parsed)){
+   const role=value.toUpperCase();
+   if(role==='SHARP'||role==='PUBLIC'||role==='REFERENCE'||role==='NEUTRAL')out[book.trim().toLowerCase()]=role;
+  }
+  return out;
+ }catch{return {} as Record<string,MarketRole>}
+}
+
+function configuredBookWeights(){
+ try{
+  const parsed=JSON.parse(process.env.ODDS_BOOK_WEIGHT_MAP||'{}') as Record<string,number>;
+  const out:Record<string,number>={};
+  for(const [book,value] of Object.entries(parsed)){
+   const n=Number(value);
+   if(Number.isFinite(n))out[book.trim().toLowerCase()]=Math.max(.1,Math.min(5,n));
+  }
+  return out;
+ }catch{return {} as Record<string,number>}
+}
 
 type PanelResult={
  config:ProviderConfig;
@@ -76,13 +100,19 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  const qualityWeight=quality?.qualityScore??.5;
  const effectiveWeight=Math.max(.1,config.consensusWeight)*Math.max(.15,qualityWeight)*Math.max(.25,healthScore||.8);
  if(accepted){
-  markets=markets.map(m=>({
-   ...m,
-   sourceBook:m.sourceBook||config.bookmaker||config.name,
-   sourceProviderId:config.id,
-   marketRole:config.marketRole,
-   sourceProviderWeight:effectiveWeight
-  }));
+  const bookRoles=configuredBookRoles();
+  const bookWeights=configuredBookWeights();
+  markets=markets.map(m=>{
+   const sourceBook=m.sourceBook||config.bookmaker||config.name;
+   const bookKey=sourceBook.trim().toLowerCase();
+   return {
+    ...m,
+    sourceBook,
+    sourceProviderId:config.id,
+    marketRole:bookRoles[bookKey]||config.marketRole,
+    sourceProviderWeight:effectiveWeight*(bookWeights[bookKey]||1)
+   };
+  });
  }else{
   markets=[];
  }
