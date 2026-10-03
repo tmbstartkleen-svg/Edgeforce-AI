@@ -84,7 +84,7 @@ function regimeScale(leg:Scanned){
  return 1;
 }
 
-function scalePositions(positions:PortfolioPosition[],scale:number,bankroll:number){
+function scalePositions(positions:PortfolioPosition[],scale:number){
  return positions.map(p=>({
   ...p,
   stake:p.stake*scale,
@@ -149,7 +149,7 @@ export function optimizePortfolio(rows:Scanned[],limits:PortfolioLimits,drawdown
   :1;
 
  if(stressScale<.999){
-  positions=scalePositions(positions,stressScale,limits.bankroll);
+  positions=scalePositions(positions,stressScale);
   stress=stressPortfolio(
    positions.map(p=>({id:p.id,leg:p.leg,stake:p.stake})),
    limits.bankroll,
