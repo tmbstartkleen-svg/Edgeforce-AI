@@ -142,7 +142,11 @@ export async function recordModelRuns(rows:any[]){
           distributionConfidence:x.simProjection?.distributionConfidence??null,
           distributionQuantiles:{p10:x.simProjection?.p10??null,p50:x.simProjection?.p50??null,p90:x.simProjection?.p90??null},
           playerContext:x.playerContext||null,
-          modelVotes:x.modelVotes||[]
+          modelVotes:x.modelVotes||[],
+          consensus:x.consensus||null,
+          sourceBook:x.sourceBook||null,
+          sourceProviderId:x.sourceProviderId||null,
+          marketRole:x.marketRole||null
         })}
       )
     `;
