@@ -2,6 +2,48 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V42 Champion/Challenger Governance + Drift Control
+
+V42 adds a production model-governance layer above calibration. Historical strength alone can no longer preserve full model influence when recent probability distributions or recent performance deteriorate.
+
+### V42 champion/challenger governance
+- evaluates every model × sport × market group on a baseline window and a recent holdout window
+- assigns `CHAMPION`, `CHALLENGER`, `MONITORED`, or `HELD` roles
+- retains the existing champion unless a qualified challenger clears the configured promotion margin
+- excludes critically drifting models from champion/challenger eligibility
+- persists every governance decision and its reason for auditability
+
+### V42 drift detection
+- computes probability-distribution Population Stability Index (PSI)
+- compares recent vs baseline Brier score, log loss, calibration error, average CLV, and mean predicted probability
+- classifies each model group as `HEALTHY`, `WATCH`, `DRIFTING`, `CRITICAL`, or `INSUFFICIENT`
+- separates distribution shift from outcome-quality deterioration so either can trigger a brake
+
+### Runtime safety
+- governance multipliers are applied inside the existing learned-weight path used by the model council
+- WATCH, DRIFTING, and CRITICAL states progressively reduce model influence
+- critical models are held at a severe runtime brake instead of being trusted because of older historical results
+- scheduled recalibration rebuilds governance automatically, so scan and decision automation inherit the same controls
+
+### V42 APIs and validation
+- `GET /api/intelligence/model-governance` — current roles, drift metrics, multipliers, and latest governance run
+- `GET /api/testing/model-governance` — deterministic champion/challenger + critical-drift regression test
+- dashboard shows current champions, drift-watch models, PSI, and runtime multipliers
+- migration `v38` stores governance runs and snapshots
+
+### Release identity
+- build: `V42`
+- app: `42.0.0`
+- package: `0.42.0`
+- model: `edgeforce-v42`
+- migration: `v38`
+
+### Guardrails
+- champion status means best qualified model under the configured historical tests; it is not a guarantee of future accuracy
+- PSI detects distribution shift but does not identify the cause of the shift
+- governance brakes reduce model influence; they do not eliminate market, data, or model risk
+- model probabilities and simulations remain estimates, not guaranteed outcomes
+
 ## Current build — V41 Production Certification + Final Hardening
 
 V41 completes the planned Edgeforce roadmap with release-wide certification rather than another prediction layer. It verifies the data contract, scheduled automation, security posture, release identity, migration state, provider certification, and post-deploy production health as one system.
@@ -49,7 +91,7 @@ V41 completes the planned Edgeforce roadmap with release-wide certification rath
 - migration: `v37`
 
 ### Roadmap status
-The V34–V41 elite roadmap is complete. Further releases should be driven by live-provider integration, measured production behavior, data coverage, calibration results, and user workflow needs rather than adding features solely to increase build count.
+The original V34–V41 elite roadmap is complete. V42 extends it with measured model-governance controls driven by settled prediction history, calibration behavior, and production drift rather than feature count.
 
 ### Guardrails
 - production certification is an operational gate, not a guarantee of model accuracy or profit

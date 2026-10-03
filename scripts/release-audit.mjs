@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V41',
- appVersion:'41.0.0',
- packageVersion:'0.41.0',
- modelVersion:'edgeforce-v41',
- migrationVersion:37
+ build:'V42',
+ appVersion:'42.0.0',
+ packageVersion:'0.42.0',
+ modelVersion:'edgeforce-v42',
+ migrationVersion:38
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -45,9 +45,15 @@ const requiredFiles=[
  'src/app/api/testing/automation-health/route.ts',
  'src/app/api/testing/security-hardening/route.ts',
  'src/lib/productionCertification.ts',
- 'src/lib/automationHealth.ts'
+ 'src/lib/automationHealth.ts',
+ 'src/lib/modelGovernance.ts',
+ 'src/app/api/intelligence/model-governance/route.ts',
+ 'src/app/api/testing/model-governance/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
+add('governance migration schema',read('db/v38.sql').includes('model_governance_snapshots')&&read('db/v38.sql').includes('model_governance_runs'),'v38 governance tables');
+add('governance runtime brake',read('src/lib/learnedWeights.ts').includes('loadGovernanceMultipliers'),'learned weights consume governance');
+add('governance scheduled rebuild',read('src/app/api/cron/recalibrate/route.ts').includes('runModelGovernance'),'recalibration runs governance');
 
 const requiredCrons=[
  '/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'

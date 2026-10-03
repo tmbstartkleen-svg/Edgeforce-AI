@@ -9,6 +9,7 @@ import {
  securityHeaders,MAX_MUTATION_BYTES,READ_API_RATE_LIMIT,WRITE_API_RATE_LIMIT
 } from './security';
 import {RELEASE} from './releaseManifest';
+import {getModelGovernanceStatus} from './modelGovernance';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -26,6 +27,7 @@ export type ProductionCertificationReport={
  providerCertification:Awaited<ReturnType<typeof latestProviderCertification>>;
  dataQuality:ReturnType<typeof auditMarketBatch>;
  automation:Awaited<ReturnType<typeof getAutomationHealth>>;
+ modelGovernance:Awaited<ReturnType<typeof getModelGovernanceStatus>>;
  security:{
   ok:boolean;
   missingHeaders:string[];
@@ -74,12 +76,13 @@ function securityPosture(){
 
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const strict=options.strict??((process.env.VERCEL_ENV||'local')==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
   getAutomationHealth(),
-  getOpsStatus()
+  getOpsStatus(),
+  getModelGovernanceStatus()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -106,6 +109,11 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
 
  blockers.push(...automation.blockers.map(x=>`automation: ${x}`));
  warnings.push(...automation.warnings.map(x=>`automation: ${x}`));
+
+ if(modelGovernance.latestRun?.status==='failed')blockers.push('model governance: latest governance run failed');
+ if(!modelGovernance.latestRun)warnings.push('model governance: no completed governance run yet');
+ if(modelGovernance.summary.critical>0)warnings.push(`model governance: ${modelGovernance.summary.critical} critical model group(s) are runtime-braked`);
+ if(modelGovernance.summary.drifting>0)warnings.push(`model governance: ${modelGovernance.summary.drifting} drifting model group(s) are runtime-braked`);
 
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
  if(strict&&ingestion.source==='demo')blockers.push('data: production certification cannot use demo odds');
@@ -142,7 +150,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    migrationVersion:RELEASE.migrationVersion,commit:process.env.VERCEL_GIT_COMMIT_SHA||null,
    environment:process.env.VERCEL_ENV||'local'
   },
-  readiness,providerCertification,dataQuality,automation,security,
+  readiness,providerCertification,dataQuality,automation,modelGovernance,security,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
