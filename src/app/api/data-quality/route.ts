@@ -18,7 +18,12 @@ export async function GET(){
 
 export async function POST(req:Request){
  const body=await req.json().catch(()=>({}));
- const markets=Array.isArray(body?.markets)&&body.markets.length?body.markets:demoMarkets;
+ const provided=Array.isArray(body?.markets)&&body.markets.length?body.markets:null;
+ const production=(process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV)==='production';
+ if(!provided&&production&&process.env.ALLOW_DEMO_DATA!=='true'){
+  return Response.json({ok:false,error:'Explicit market rows are required; production demo fallback is disabled'},{status:400,headers:{'Cache-Control':'no-store'}});
+ }
+ const markets=provided||demoMarkets;
  const rows=scanMarkets(markets,body?.risk||'Moderate');
  return Response.json({
   ok:true,
