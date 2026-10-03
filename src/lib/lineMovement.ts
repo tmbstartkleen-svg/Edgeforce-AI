@@ -86,6 +86,12 @@ export async function backfillClosingOddsForSlip(betSlipId:string){
   from lateral (select ms.american_odds as odds from market_snapshots ms join events e on e.id=ms.event_id where ms.event_id=bl.event_id and lower(ms.market_key)=lower(bl.market_type) and lower(ms.selection_key)=lower(bl.selection) and ms.pulled_at<=e.start_time order by ms.pulled_at desc limit 1) close_line
   where bl.bet_slip_id=${betSlipId} and bl.closing_odds is null and bl.event_id is not null returning bl.ordinal
  `;
+ await sql`
+  update bet_legs set
+   closing_implied_probability=case when closing_odds>0 then 100.0/(closing_odds+100.0) else abs(closing_odds)::float/(abs(closing_odds)+100.0) end,
+   clv_probability=(case when closing_odds>0 then 100.0/(closing_odds+100.0) else abs(closing_odds)::float/(abs(closing_odds)+100.0) end)-coalesce(raw_implied_probability,case when offered_odds>0 then 100.0/(offered_odds+100.0) else abs(offered_odds)::float/(abs(offered_odds)+100.0) end)
+  where bet_slip_id=${betSlipId} and closing_odds is not null and offered_odds is not null
+ `;
  return rows.length;
 }
 
