@@ -8,6 +8,8 @@ export async function GET(){
  const started=Date.now();
  const database=await dbHealth();
  const providers=configuredProviders();
+ const runtimeModelVersion=process.env.MODEL_VERSION||null;
+ const releaseIdentityMatch=!runtimeModelVersion||runtimeModelVersion===RELEASE.modelVersion;
  return Response.json({
   ok:true,
   live:true,
@@ -15,6 +17,8 @@ export async function GET(){
   build:RELEASE.build,
   version:RELEASE.appVersion,
   modelVersion:RELEASE.modelVersion,
+  runtimeModelVersion,
+  releaseIdentityMatch,
   migrationVersion:RELEASE.migrationVersion,
   releaseCandidate:true,
   productionHardened:true,
@@ -111,5 +115,9 @@ export async function GET(){
   database,
   durationMs:Date.now()-started,
   time:new Date().toISOString()
- },{headers:{'Cache-Control':'no-store'}});
+ },{headers:{
+  'Cache-Control':'no-store, no-cache, must-revalidate, max-age=0',
+  'CDN-Cache-Control':'no-store',
+  'Cloudflare-CDN-Cache-Control':'no-store'
+ }});
 }
