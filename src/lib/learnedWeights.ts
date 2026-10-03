@@ -1,6 +1,6 @@
 import {db} from './db';
 import {rollingModelPerformance} from './modelPerformance';
-import {loadGovernanceMultipliers,modelGovernanceKey} from './modelGovernance';
+import {loadGovernanceMultipliers,modelGovernanceKey,type GovernanceMultiplierMap} from './modelGovernance';
 
 export type LearnedWeightMap=Record<string,number>;
 
@@ -29,7 +29,7 @@ export async function loadLearnedWeightMultipliers():Promise<LearnedWeightMap>{
  const sql=db();
  if(!sql)return {};
  try{
-  const governance=await loadGovernanceMultipliers().catch(()=>({}));
+  const governance:GovernanceMultiplierMap=await loadGovernanceMultipliers().catch(()=>({} as GovernanceMultiplierMap));
   const snapshots=await sql`
    select distinct on (model_name,sport,market_key)
     model_name as "modelName",sport,market_key as "marketKey",
