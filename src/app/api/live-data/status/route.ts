@@ -9,7 +9,7 @@ export async function GET(req:Request){
  const url=new URL(req.url);
  const requireLive=url.searchParams.get('requireLive')==='1'||url.searchParams.get('requireLive')==='true';
  try{
-  const ingestion=await ingestOdds();
+  const ingestion=await ingestOdds({forceLive:requireLive});
   const oddsProviders=configuredProviders('ODDS');
   const audit=auditMarketBatch(ingestion.markets);
   const sports=[...new Set(ingestion.markets.map(x=>x.sport))].sort();
@@ -30,6 +30,7 @@ export async function GET(req:Request){
    configuredOddsProviders:oddsProviders.length,
    credentialConfigured:Boolean(process.env.THE_ODDS_API_KEY)||oddsProviders.some(x=>Boolean(x.apiKey)),
    marketCount:ingestion.markets.length,
+   persistedReuseAgeMin:ingestion.reuseAgeMin??null,
    sports,
    quality:audit,
    warnings:ingestion.warnings,
