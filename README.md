@@ -43,11 +43,7 @@ V36 adds granular game-state simulation ahead of the generic team-score layer. S
 - unsupported market periods fall back rather than being misrepresented as full-game simulations
 - simulation probabilities and ranges are estimates, not guarantees
 
-# Edgeforce AI
-
-Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
-
-## Current build — V35 Event-Level Joint Simulation + Learned SGP Correlation
+## V35 Event-Level Joint Simulation + Learned SGP Correlation
 
 V35 stops treating same-event parlay legs as independent outcomes. It combines a shared event-level Gaussian-copula simulation with conservative historical correlation learning from settled same-event wager legs.
 
