@@ -150,12 +150,22 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
   };
  }
 
- const states=await loadProviderHealthStates();
+ const states=await loadProviderHealthStates().catch(()=>new Map());
  const now=Date.now();
- const panel=await Promise.all(configured.map(config=>{
+ const panel=await Promise.all(configured.map(async config=>{
   const stored=states.get(config.id);
   const health=stored?providerHealth(stored,now):{score:.8,status:'HEALTHY',quarantined:false};
-  return fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined);
+  try{
+   return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined);
+  }catch(error){
+   return {
+    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,
+    attempt:{
+     providerId:config.id,ok:false,latencyMs:0,circuitState:stored?.circuitState||'CLOSED',
+     error:error instanceof Error?error.name:'provider exception'
+    }
+   } as PanelResult;
+  }
  }));
 
  const panelMarkets=panel.flatMap(x=>x.markets);
