@@ -90,10 +90,9 @@ jobs:
           PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
 
-      - name: Promote exact tested preview
+      - name: Production promotion safety gate
         if: ${{ inputs.promote }}
-        run: vercel promote "${{ steps.deploy.outputs.preview_url }}" --token="$VERCEL_TOKEN" --yes
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "V41 disables direct preview promotion."
+          echo "Use Edgeforce Production Deploy so production env validation, migrations, provider certification, hosted smoke, attestation, final certification, and rollback remain mandatory."
+          exit 1
