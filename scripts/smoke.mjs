@@ -27,14 +27,14 @@ function assert(condition,message){
 
 const live=await get('/api/health/live');
 assert(live.res.ok&&live.body?.live===true,'liveness endpoint failed');
-assert(live.body?.version==='41.0.0','liveness version mismatch');
+assert(live.body?.version==='42.0.0','liveness version mismatch');
 
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='41.0.0','unexpected health version');
-assert(health.body?.modelVersion==='edgeforce-v41','unexpected model version');
-assert(health.body?.migrationVersion===37,'unexpected migration version');
+assert(health.body?.version==='42.0.0','unexpected health version');
+assert(health.body?.modelVersion==='edgeforce-v42','unexpected model version');
+assert(health.body?.migrationVersion===38,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -59,27 +59,30 @@ assert(health.body?.durableAutomationHealth===true,'durable automation health fl
 assert(health.body?.productionCertification===true,'production certification flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
+assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
+assert(health.body?.probabilityDriftDetection===true,'probability drift detection flag missing');
+assert(health.body?.automaticDriftWeightBrakes===true,'automatic drift weight brake flag missing');
 
 const ready=await get('/api/health/ready');
 assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed');
 
 const releaseReady=await get('/api/release/readiness');
 assert(releaseReady.res.ok&&releaseReady.body?.ready===true,'release readiness endpoint failed');
-assert(releaseReady.body?.version==='41.0.0','release readiness version mismatch');
+assert(releaseReady.body?.version==='42.0.0','release readiness version mismatch');
 
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
-assert(deployment.body?.version==='41.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v37','deployment migration identity mismatch');
+assert(deployment.body?.version==='42.0.0','deployment smoke version mismatch');
+assert(deployment.body?.checks?.migrations==='v38','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
-assert(diagnostics.body?.version==='41.0.0','diagnostics version mismatch');
+assert(diagnostics.body?.version==='42.0.0','diagnostics version mismatch');
 assert(diagnostics.body?.granularSportEngines===7,'granular sport engine count mismatch');
 
 const ops=await get('/api/ops/status');
 assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
-assert(ops.body?.version==='41.0.0','ops status version mismatch');
+assert(ops.body?.version==='42.0.0','ops status version mismatch');
 
 const ledger=await get('/api/ledger/wagers');
 assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
@@ -104,7 +107,7 @@ const providerCertificationStatus=await get('/api/providers/certify');
 assert(providerCertificationStatus.res.ok&&providerCertificationStatus.body?.ok===true,'provider certification status endpoint failed');
 
 const launchDoctor=await get('/api/launch-doctor');
-assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='41.0.0','launch doctor endpoint failed');
+assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='42.0.0','launch doctor endpoint failed');
 
 const jointSimulation=await get('/api/testing/joint-simulation');
 assert(jointSimulation.res.ok&&jointSimulation.body?.ok===true,'joint simulation directionality test failed');
@@ -142,6 +145,15 @@ assert(regimeConfidence.body?.dislocated?.regime==='DISLOCATED','dislocated regi
 
 const regimeStatus=await get('/api/intelligence/regime-confidence');
 assert(regimeStatus.res.ok&&regimeStatus.body?.ok===true,'regime confidence intelligence endpoint failed');
+
+const modelGovernance=await get('/api/testing/model-governance');
+assert(modelGovernance.res.ok&&modelGovernance.body?.ok===true,'model governance regression test failed');
+assert(modelGovernance.body?.champion?.modelName==='Stable Champion','champion selection regressed');
+assert(modelGovernance.body?.drifting?.driftStatus==='CRITICAL','critical model drift detection failed');
+assert(Number(modelGovernance.body?.drifting?.runtimeMultiplier)<Number(modelGovernance.body?.stable?.runtimeMultiplier),'drift brake did not reduce runtime influence');
+
+const modelGovernanceStatus=await get('/api/intelligence/model-governance');
+assert(modelGovernanceStatus.res.ok&&modelGovernanceStatus.body?.ok===true,'model governance intelligence endpoint failed');
 
 const portfolioStress=await get('/api/testing/portfolio-stress');
 assert(portfolioStress.res.ok&&portfolioStress.body?.ok===true,'portfolio stress regression test failed');
@@ -217,5 +229,5 @@ assert(String(health.res.headers.get('cache-control')||'').includes('no-store'),
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
