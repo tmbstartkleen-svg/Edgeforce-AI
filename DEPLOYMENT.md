@@ -24,7 +24,7 @@ GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VE
 - V41 version, migration, and static release-audit checks
 
 ## Preview and promotion
-Use **Edgeforce Release Candidate**. It builds a Vercel preview with pinned CLI tooling, smoke-tests the exact prebuilt artifact, records a release attestation, and promotes that same artifact only when `promote=true`.
+Use **Edgeforce Release Candidate** for preview validation only. V41 intentionally blocks direct preview promotion. Production releases must flow through **Edgeforce Production Deploy** so production environment validation, migration v37, provider certification, strict readiness, hosted smoke, release attestation, final certification, and rollback cannot be bypassed.
 
 ## Rollback
 Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V41 release toolchain.
