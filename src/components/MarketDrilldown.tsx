@@ -20,7 +20,7 @@ export default function MarketDrilldown({marketId,marketKey,selection,onClose}:{
   if(marketKey)qs.set('market',marketKey);
   if(selection)qs.set('selection',selection);
   Promise.all([
-   fetch('/api/market/'+encodeURIComponent(marketId)+(qs.size?'?'+qs.toString():''),{cache:'no-store'}).then(r=>r.json()),
+   fetch('/api/market/'+encodeURIComponent(marketId)+(qs.toString()?'?'+qs.toString():''),{cache:'no-store'}).then(r=>r.json()),
    fetch('/api/market/'+encodeURIComponent(marketId)+'/lines',{cache:'no-store'}).then(r=>r.json())
   ]).then(([d,l])=>{
    setDetail(d);
