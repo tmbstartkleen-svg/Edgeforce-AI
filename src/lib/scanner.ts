@@ -12,7 +12,7 @@ export type Scanned=Ranked & {
  bucket:'TODAY'|'WEEK';
  freshness:'FRESH'|'AGING'|'STALE';
  simEngine:string;
- simProjection:{homeMean?:number;awayMean?:number;totalMean?:number;marginMean?:number;selectionMean?:number;line?:number;unit?:string};
+ simProjection:{homeMean?:number;awayMean?:number;totalMean?:number;marginMean?:number;selectionMean?:number;line?:number;unit?:string;distributionFamily?:string;distributionConfidence?:number;p10?:number;p50?:number;p90?:number};
 };
 
 export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap):Scanned[]{
