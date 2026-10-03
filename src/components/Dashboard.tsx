@@ -21,6 +21,18 @@ type BoardRow=Scanned & {
   predictionMarketTitle?:string;
   predictionMarketStatus:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
   predictionEdge?:number;
+  lineMovement?:{
+    openerOdds:number;
+    currentOdds:number;
+    openerProbability:number;
+    currentProbability:number;
+    probabilityMove:number;
+    oddsMove:number;
+    snapshotCount:number;
+    direction:'TOWARD'|'AWAY'|'FLAT';
+    steam:boolean;
+    steamStrength:'NONE'|'WATCH'|'STRONG';
+  }|null;
 };
 
 type PredictionContract={
@@ -100,6 +112,7 @@ type LiveBoardResponse={
     contracts:PredictionContract[];
     error?:string;
   };
+  steamCount?:number;
   predictionCoverage?:{
     minimumVolume:number;
     matched:number;
@@ -361,9 +374,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V31</div>
-        <h1>Automatic Repricing Intelligence Platform</h1>
-        <p>Material lineup, starter, goalie, quarterback, injury, weather, line and player-projection changes now trigger auditable re-simulation and repricing on top of the V30 production-hardened platform.</p>
+        <div className="eyebrow">EDGEFORCE AI • V32</div>
+        <h1>Line Movement + CLV Intelligence Platform</h1>
+        <p>Opener-to-current line movement, market steam, automatic closing-line capture and signed CLV tracking now run alongside V31 automatic context repricing.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -470,7 +483,7 @@ export default function Dashboard(){
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG NO-VIG</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>sportsbook consensus baseline</span></div>
-      <div><small>PM MATCHES</small><strong>{board.predictionCoverage?.matched||0}</strong><span>{board.predictionCoverage?.illiquid||0} illiquid • min volume {board.predictionCoverage?.minimumVolume?.toLocaleString()||'—'}</span></div>
+      <div><small>STEAM</small><strong>{board.steamCount||0}</strong><span>material moves detected</span></div>
     </section>
 
     <section className="v21Panel">
@@ -496,7 +509,7 @@ export default function Dashboard(){
               <td><b>{x.event}</b><small>{x.selection}</small></td>
               <td><b>{x.period}</b><small>{dateLabel(x.startTime)}</small></td>
               <td>{x.market}</td>
-              <td>{fmtOdds(x.odds)}</td>
+              <td><b>{fmtOdds(x.odds)}</b><small>{x.lineMovement?('open '+fmtOdds(x.lineMovement.openerOdds)+' • '+x.lineMovement.direction+(x.lineMovement.steam?' • '+x.lineMovement.steamStrength+' STEAM':'')):'no history'}</small></td>
               <td>{fmtPct(x.rawImpliedProbability)}</td>
               <td>{fmtPct(x.noVigProbability)}</td>
               <td><b>{x.predictionMarketProbability!==undefined?fmtPct(x.predictionMarketProbability):'—'}</b><small>{x.predictionMarketStatus==='MATCHED'?(x.predictionMarketVolume!==undefined?`vol ${Math.round(x.predictionMarketVolume).toLocaleString()}`:'matched'):x.predictionMarketStatus.replaceAll('_',' ')}</small></td>
