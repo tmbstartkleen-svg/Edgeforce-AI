@@ -589,9 +589,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V41</div>
-        <h1>Production Certification + Final Hardening</h1>
-        <p>The planned elite roadmap is complete. Edgeforce now certifies release identity, market data contracts, scheduled automation, provider health, security posture, migration state, and post-deploy readiness around the V40 explainable prediction stack.</p>
+        <div className="eyebrow">EDGEFORCE AI • V46</div>
+        <h1>Unified Event-State Prediction Platform</h1>
+        <p>Supported same-game markets now derive from the same simulated event state, producing empirical joint hit rates and pair correlations. Unsupported combinations remain explicitly routed through the calibrated copula fallback.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
