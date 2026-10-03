@@ -120,7 +120,12 @@ type LiveBoardResponse={
   contextDiagnostics?:{
     matchedRows:number;
     totalRows:number;
-    providers:Array<{kind:string;ok:boolean;providerId?:string;rowCount:number}>;
+    qualitySummary:{
+      totalRows:number;scoredRows:number;recommendationReadyRows:number;completeRows:number;goodRows:number;
+      partialRows:number;thinRows:number;noneRows:number;averageScore:number;averageCoverage:number;
+      averageCriticalCoverage:number;missingCritical:string[];
+    };
+    providers:Array<{kind:string;ok:boolean;providerId?:string;rowCount:number;qualityScore:number}>;
   };
   rows:BoardRow[];
   sports:string[];
@@ -631,9 +636,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V48</div>
-        <h1>Recommendation Quality + Risk-Tier Platform</h1>
-        <p>Live parlays are separated into Recommended, Value Watchlist and Hail Mary tiers using joint simulation, confidence, context coverage, market-model agreement and payout risk instead of payout alone.</p>
+        <div className="eyebrow">EDGEFORCE AI • V49</div>
+        <h1>Context Intelligence + Recommendation Quality Platform</h1>
+        <p>Sport-specific context quality now measures injuries, starters, QBs, goalies, weather, rest, travel and statistical inputs before a market can earn recommendation-grade confidence.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -680,6 +685,8 @@ export default function Dashboard(){
           <div><small>Dislocated</small><b>{board.regimeCoverage?.dislocated??0}</b></div>
           <div><small>High conf</small><b>{board.regimeCoverage?.highConfidence??0}</b></div>
           <div><small>Avg conf</small><b>{board.regimeCoverage?fmtPct(board.regimeCoverage.averageDynamicConfidence):'—'}</b></div>
+          <div><small>Context ready</small><b>{board.contextDiagnostics?.qualitySummary?.recommendationReadyRows??0}</b></div>
+          <div><small>Context avg</small><b>{board.contextDiagnostics?.qualitySummary?fmtPct(board.contextDiagnostics.qualitySummary.averageCoverage):'—'}</b></div>
           <div><small>Data audit</small><b>{dataQuality?.audit?.grade||'—'}</b></div>
           <div><small>Automation</small><b>{automationHealth?(automationHealth.healthy?'HEALTHY':automationHealth.failedCount?'FAILED':automationHealth.staleCount?'STALE':'PENDING'):'—'}</b></div>
           <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
@@ -756,7 +763,7 @@ export default function Dashboard(){
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div>
-          <div className="eyebrow">V48 RECOMMENDATION QUALITY</div>
+          <div className="eyebrow">V49 CONTEXT-GATED RECOMMENDATIONS</div>
           <h3>Recommended, Value Watchlist and Hail Mary are separated by risk gates</h3>
         </div>
         <div className="panelMeta">
