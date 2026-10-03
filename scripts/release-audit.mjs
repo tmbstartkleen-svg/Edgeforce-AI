@@ -22,6 +22,7 @@ const envExample=read('.env.example');
 const smoke=read('scripts/smoke.mjs');
 const remoteSmoke=read('scripts/remote-smoke.mjs');
 const migrationCheck=read('scripts/check-migrations.mjs');
+const validateEnv=read('scripts/validate-env.mjs');
 const security=read('src/lib/security.ts');
 const proxy=read('src/proxy.ts');
 const vercel=JSON.parse(read('vercel.json'));
@@ -37,6 +38,7 @@ add('env example model identity',envExample.includes(`MODEL_VERSION=${expected.m
 add('local smoke app identity',smoke.includes(expected.appVersion)&&smoke.includes(expected.modelVersion),'smoke identity');
 add('hosted smoke app identity',remoteSmoke.includes(expected.appVersion),'remote smoke identity');
 add('migration checker identity',migrationCheck.includes(`const expected=${expected.migrationVersion};`),`expected=${expected.migrationVersion}`);
+add('environment validator model identity',validateEnv.includes(`const expectedModel='${expected.modelVersion}'`),expected.modelVersion);
 add('latest migration exists',exists(`db/v${expected.migrationVersion}.sql`),`db/v${expected.migrationVersion}.sql`);
 
 const requiredFiles=[
@@ -110,7 +112,8 @@ add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflig
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
 add('Cloudflare workflow model identity',cloudflareWorkflow.includes(expected.modelVersion),expected.modelVersion);
 add('Cloudflare workflow app identity',cloudflareWorkflow.includes(expected.appVersion),expected.appVersion);
-add('Cloudflare workflow verifies live data',cloudflareWorkflow.includes('/api/live-data/status'),'live sportsbook data required after deploy');
+add('Cloudflare workflow verifies live data',cloudflareWorkflow.includes('/api/live-data/status?requireLive=1'),'live sportsbook data required after deploy');
+add('Cloudflare workflow current Wrangler',cloudflareWorkflow.includes('wranglerVersion: "4.147.0"'),'Wrangler 4.147.0');
 const cloudflareVerifyWorkflow=read('.github/workflows/verify-cloudflare.yml');
 add('Cloudflare verify generated config',cloudflareVerifyWorkflow.includes('npm run validate:cloudflare-build'),'generated Worker config validated in CI');
 
