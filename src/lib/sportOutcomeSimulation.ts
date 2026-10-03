@@ -78,6 +78,10 @@ const rawFeature=(m:Market,k:string)=>{
 };
 const sport=(m:Market)=>(m.sport||m.league||'').toUpperCase();
 const lower=(s:string)=>s.toLowerCase();
+function partialMarket(m:Market){
+ const text=lower(`${m.market} ${m.selection}`);
+ return /(first|1st|second|2nd|third|3rd|fourth|4th|quarter|half|period|inning|set\s+\d|game\s+\d)/.test(text);
+}
 
 function seeded(seed:string):Rng{
  let state=hashSeed(seed);
@@ -137,6 +141,7 @@ function baselineForTeamSport(m:Market){
 }
 
 function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
+ if(partialMarket(m))return null;
  const base=baselineForTeamSport(m);
  if(!base)return null;
  const rng=seeded(`team|${m.id}|${m.startTime}`);
@@ -187,6 +192,7 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  },q.stdDev||base.sd);
 }
 function simulateSetSport(m:Market,runs:SimulationTier){
+ if(partialMarket(m))return null;
  const s=sport(m);
  const isSet=s.includes('TENNIS')||s.includes('TABLE TENNIS')||s.includes('VOLLEYBALL');
  if(!isSet)return null;
@@ -237,6 +243,7 @@ function simulateCombat(m:Market,runs:SimulationTier){
 }
 
 function simulateProp(m:Market,runs:SimulationTier){
+ if(partialMarket(m))return null;
  const text=lower(`${m.market} ${m.selection}`);
  if(!(text.includes('player')||text.includes('prop')||rawFeature(m,'propMean')!==undefined||rawFeature(m,'projection')!==undefined||m.playerContext?.projection!==undefined))return null;
  const player=m.playerContext;
