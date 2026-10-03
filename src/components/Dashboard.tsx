@@ -912,6 +912,32 @@ export default function Dashboard(){
       </div>
     </section>
 
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">V41 RELEASE CERTIFICATION</div><h3>Data, automation, security, and deployment gate</h3></div>
+        <span className="miniBadge">{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING DEPLOYMENT'}</span>
+      </div>
+      <div className="v21Stats">
+        <div><small>DATA CONTRACT</small><strong>{dataQuality?.audit?.grade||'—'}</strong><span>{dataQuality?.audit?`${dataQuality.audit.validRows}/${dataQuality.audit.rowCount} valid • ${dataQuality.audit.invalidRows} invalid`:'audit loading'}</span></div>
+        <div><small>AUTOMATION HEALTH</small><strong>{automationHealth?(automationHealth.healthy?'HEALTHY':automationHealth.failedCount?'FAILED':automationHealth.staleCount?'STALE':'PENDING'):'—'}</strong><span>{automationHealth?`${automationHealth.healthyCount} healthy • ${automationHealth.pendingCount} pending`:'health loading'}</span></div>
+        <div><small>LATEST CERTIFICATE</small><strong>{releaseCertification?.latest?.releaseVersion||'—'}</strong><span>{releaseCertification?.latest?dateLabel(releaseCertification.latest.createdAt):'created after a certified deployment'}</span></div>
+        <div><small>CERTIFICATION RECORDS</small><strong>{dbStats.counts?.production_certifications||0}</strong><span>{dbStats.counts?.automation_runs||0} automation runs recorded</span></div>
+      </div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Certification blockers</h4>
+          {(releaseCertification?.latest?.blockers||[]).slice(0,8).map((x,i)=><div className="historyRow" key={i}><span>{x}</span><b>BLOCK</b><small>must clear before strict production certification</small></div>)}
+          {!releaseCertification?.latest?.blockers?.length&&<div className="historyRow"><span>{releaseCertification?.latest?.certified?'No recorded blockers':'No final production certificate yet'}</span><b>{releaseCertification?.latest?.certified?'CLEAR':'—'}</b><small>{releaseCertification?.latest?.certified?'latest release passed the final gate':'deployment credentials and live certification are required'}</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Scheduled automation</h4>
+          {(automationHealth?.jobs||[]).map(x=><div className="historyRow" key={x.jobName}><span>{x.jobName}</span><b>{x.state}</b><small>{x.lastRun?dateLabel(x.lastRun):'no durable run yet'}</small></div>)}
+          {!automationHealth?.jobs?.length&&<div className="historyRow"><span>Automation health</span><b>—</b><small>loads from durable scheduler records</small></div>}
+        </div>
+      </div>
+      <div className="historyNote">Final certification is an operational launch gate. It confirms configured systems agree at deployment time; it does not guarantee model accuracy, winnings, or future provider availability.</div>
+    </section>
+
     <section className="v21FooterGrid">
       <div><small>ATHLETES</small><b>{dbStats.counts?.athletes||0}</b></div>
       <div><small>PLAYER GAME STATS</small><b>{dbStats.counts?.player_game_stats||0}</b></div>
@@ -919,6 +945,8 @@ export default function Dashboard(){
       <div><small>CONSENSUS SNAPSHOTS</small><b>{dbStats.counts?.market_consensus_snapshots||0}</b></div>
       <div><small>MODEL RUNS</small><b>{dbStats.counts?.model_runs||0}</b></div>
       <div><small>SETTLED RESULTS</small><b>{dbStats.counts?.bet_results||0}</b></div>
+      <div><small>AUTOMATION RUNS</small><b>{dbStats.counts?.automation_runs||0}</b></div>
+      <div><small>RELEASE CERTS</small><b>{dbStats.counts?.production_certifications||0}</b></div>
     </section>
     {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
