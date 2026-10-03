@@ -374,8 +374,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V32</div>
-        <h1>Line Movement + CLV Intelligence Platform</h1>
+        <div className="eyebrow">EDGEFORCE AI • V33</div>
+        <h1>Steam Alert + Release Intelligence Platform</h1>
         <p>Opener-to-current line movement, market steam, automatic closing-line capture and signed CLV tracking now run alongside V31 automatic context repricing.</p>
       </div>
       <div className="v21Status">
