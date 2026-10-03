@@ -27,13 +27,13 @@ function assert(condition,message){
 
 const live=await get('/api/health/live');
 assert(live.res.ok&&live.body?.live===true,'liveness endpoint failed');
-assert(live.body?.version==='44.0.0','liveness version mismatch');
+assert(live.body?.version==='45.0.0','liveness version mismatch');
 
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='44.0.0','unexpected health version');
-assert(health.body?.modelVersion==='edgeforce-v44','unexpected model version');
+assert(health.body?.version==='45.0.0','unexpected health version');
+assert(health.body?.modelVersion==='edgeforce-v45','unexpected model version');
 assert(health.body?.migrationVersion===38,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
@@ -67,27 +67,30 @@ assert(health.body?.publicPredictionMarketFallback===true,'public prediction mar
 assert(health.body?.runtimeNeonMigrationBootstrap===true,'runtime Neon migration bootstrap flag missing');
 assert(health.body?.cloudflareRuntimeIdentity===true,'Cloudflare runtime identity flag missing');
 assert(health.body?.cloudflareDeployPreflight===true,'Cloudflare deployment preflight flag missing');
+assert(health.body?.liveDataStatus===true,'live data status flag missing');
+assert(health.body?.productionRealDataOnly===true,'production real-data-only flag missing');
+assert(health.body?.cloudflareCronAutopilot===true,'Cloudflare cron autopilot flag missing');
 
 const ready=await get('/api/health/ready');
 assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed');
 
 const releaseReady=await get('/api/release/readiness');
 assert(releaseReady.res.ok&&releaseReady.body?.ready===true,'release readiness endpoint failed');
-assert(releaseReady.body?.version==='44.0.0','release readiness version mismatch');
+assert(releaseReady.body?.version==='45.0.0','release readiness version mismatch');
 
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
-assert(deployment.body?.version==='44.0.0','deployment smoke version mismatch');
+assert(deployment.body?.version==='45.0.0','deployment smoke version mismatch');
 assert(deployment.body?.checks?.migrations==='v38','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
-assert(diagnostics.body?.version==='44.0.0','diagnostics version mismatch');
+assert(diagnostics.body?.version==='45.0.0','diagnostics version mismatch');
 assert(diagnostics.body?.granularSportEngines===7,'granular sport engine count mismatch');
 
 const ops=await get('/api/ops/status');
 assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
-assert(ops.body?.version==='44.0.0','ops status version mismatch');
+assert(ops.body?.version==='45.0.0','ops status version mismatch');
 
 const ledger=await get('/api/ledger/wagers');
 assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
@@ -112,7 +115,7 @@ const providerCertificationStatus=await get('/api/providers/certify');
 assert(providerCertificationStatus.res.ok&&providerCertificationStatus.body?.ok===true,'provider certification status endpoint failed');
 
 const launchDoctor=await get('/api/launch-doctor');
-assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='44.0.0','launch doctor endpoint failed');
+assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='45.0.0','launch doctor endpoint failed');
 
 const jointSimulation=await get('/api/testing/joint-simulation');
 assert(jointSimulation.res.ok&&jointSimulation.body?.ok===true,'joint simulation directionality test failed');
@@ -192,6 +195,9 @@ assert(securityHardening.body?.maxMutationBytes===1048576,'mutation body ceiling
 
 const automationHealth=await get('/api/automation/health');
 assert(automationHealth.res.ok&&automationHealth.body?.ok===true,'automation health endpoint failed');
+
+const liveDataStatus=await get('/api/live-data/status');
+assert(liveDataStatus.res.ok&&liveDataStatus.body?.ok===true,'live data status endpoint failed');
 
 const liveDataQuality=await get('/api/data-quality');
 assert(liveDataQuality.res.ok&&liveDataQuality.body?.ok===true,'live data quality audit failed');
