@@ -97,7 +97,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
     result:(row.result||'unknown') as LegResult,
     offeredOdds:row.offeredOdds??undefined,
     closingOdds:row.closingOdds??undefined,
-    clv:clampProbability(row.clv)??(typeof row.clv==='number'?row.clv:undefined),
+    clv:Number.isFinite(Number(row.clv))?Number(row.clv):undefined,
     eventId:row.eventId??undefined,
     event:row.event??undefined,
     modelProbability:clampProbability(row.modelProbability)
