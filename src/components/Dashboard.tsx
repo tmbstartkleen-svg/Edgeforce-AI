@@ -5,6 +5,7 @@ import {buildMixedSportProbabilitySet,buildProbabilitySet} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
+import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -106,6 +107,8 @@ type LiveBoardResponse={
   };
   rows:BoardRow[];
   sports:string[];
+  learnedSgpCorrelations?:LearnedSgpMap;
+  learnedSgpProfileCount?:number;
   predictions:{
     mode:string;
     source:string|null;
@@ -363,8 +366,8 @@ export default function Dashboard(){
     return true;
   }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds]);
 
-  const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize),[filtered,parlaySize]);
-  const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize),[board.rows,parlaySize,minSim,minOdds,maxOdds]);
+  const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
+  const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
 
   const amCount=filtered.filter(x=>x.period==='AM').length;
   const pmCount=filtered.filter(x=>x.period==='PM').length;
@@ -374,8 +377,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V34.1</div>
-        <h1>Distribution-Aware Intelligence + Launch Certification</h1>
+        <div className="eyebrow">EDGEFORCE AI • V35</div>
+        <h1>Joint Event Simulation + Learned SGP Correlation</h1>
         <p>Market-specific probability distributions now drive supported player props and low-scoring team markets, with p10/p50/p90 uncertainty ranges layered on line movement, steam, CLV and automatic repricing.</p>
       </div>
       <div className="v21Status">
@@ -536,7 +539,7 @@ export default function Dashboard(){
           </select>
         </div>
         {probabilitySet?<div className="setBody">
-          <div className="setScore"><small>COMBINED MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>correlation adjusted</span></div>
+          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>{probabilitySet.jointSimulationRuns.toLocaleString()} correlated sims • independent {pct(probabilitySet.independentProbability)}</span></div>
           <div className="legList">{probabilitySet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
         </div>:<p className="muted">Not enough qualified rows for this leg count under the current filters.</p>}
       </div>
@@ -544,7 +547,7 @@ export default function Dashboard(){
       <div className="v21Card">
         <div className="v21CardHead"><div><div className="eyebrow">MULTI-SPORT</div><h3>Cross-sport probability set</h3></div><span className="miniBadge">{parlaySize} legs</span></div>
         {mixedSet?<div className="setBody">
-          <div className="setScore"><small>COMBINED MODEL %</small><strong>{pct(mixedSet.combinedProbability)}</strong><span>sports diversified where inventory allows</span></div>
+          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(mixedSet.combinedProbability)}</strong><span>{mixedSet.jointSimulationRuns.toLocaleString()} correlated sims • {mixedSet.eventCount} events</span></div>
           <div className="legList">{mixedSet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
         </div>:<p className="muted">Not enough rows to form this set.</p>}
       </div>
