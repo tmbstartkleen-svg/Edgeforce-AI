@@ -6,8 +6,13 @@ export async function GET(){
  if(!sql)return Response.json({source:'none',summary:summarizeClv([]),bySport:[]});
  const rows=await sql`
   select sport,offered_odds as "offeredOdds",closing_odds as "closingOdds"
-  from historical_predictions
-  where closing_odds is not null
+  from (
+   select sport,offered_odds,closing_odds,occurred_at from historical_predictions where closing_odds is not null
+   union all
+   select coalesce(bl.sport,'Unknown') as sport,bl.offered_odds,bl.closing_odds,coalesce(bl.settled_at,bs.settled_at,bs.placed_at) as occurred_at
+   from bet_legs bl join bet_slips bs on bs.id=bl.bet_slip_id
+   where bl.offered_odds is not null and bl.closing_odds is not null
+  ) x
   order by occurred_at desc
   limit 5000
  `;
