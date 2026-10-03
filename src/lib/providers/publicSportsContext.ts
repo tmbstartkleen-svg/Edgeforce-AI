@@ -276,6 +276,15 @@ function directionalHealth(home:string,away:string,entries:InjuryEntry[],positio
  return clamp(burden(away,entries,position)-burden(home,entries,position));
 }
 
+export function deriveInjurySignals(home:string,away:string,entries:InjuryEntry[],sportKey:string){
+ const features:Record<string,number>={};
+ if(!entries.length)return features;
+ features.injury=directionalBurden(home,away,entries);
+ if(sportKey==='nfl'||sportKey==='ncaaf')features.quarterback=directionalHealth(home,away,entries,/QB|QUARTERBACK/i);
+ if(sportKey==='nhl')features.goalie=directionalHealth(home,away,entries,/G|GOALIE/i);
+ return features;
+}
+
 function hasStarterSignals(payload:unknown,positions:RegExp){
  let count=0;
  const visit=(value:unknown)=>{
@@ -439,16 +448,11 @@ export async function fetchPublicSportsContext(markets:Market[]){
   const now=new Date().toISOString();
 
   if(injuries.length){
-   features.injury=directionalBurden(event.home,event.away,injuries);
-   provenance.push({source:'espn-public',providerId:'espn-site-api',field:'injury',observedAt:now,confidence:.72,status:'LIVE'});
-   if(spec.key==='nfl'||spec.key==='ncaaf'){
-    features.quarterback=directionalHealth(event.home,event.away,injuries,/QB|QUARTERBACK/i);
-    provenance.push({source:'espn-public',providerId:'espn-site-api',field:'quarterback',observedAt:now,confidence:.66,status:'LIVE'});
-   }
-   if(spec.key==='nhl'){
-    features.goalie=directionalHealth(event.home,event.away,injuries,/G|GOALIE/i);
-    provenance.push({source:'espn-public',providerId:'espn-site-api',field:'goalie',observedAt:now,confidence:.62,status:'LIVE'});
-   }
+   const injurySignals=deriveInjurySignals(event.home,event.away,injuries,spec.key);
+   Object.assign(features,injurySignals);
+   if('injury' in injurySignals)provenance.push({source:'espn-public',providerId:'espn-site-api',field:'injury',observedAt:now,confidence:.72,status:'LIVE'});
+   if('quarterback' in injurySignals)provenance.push({source:'espn-public',providerId:'espn-site-api',field:'quarterback',observedAt:now,confidence:.66,status:'LIVE'});
+   if('goalie' in injurySignals)provenance.push({source:'espn-public',providerId:'espn-site-api',field:'goalie',observedAt:now,confidence:.62,status:'LIVE'});
   }
 
   if(event.homeRecord!==undefined&&event.awayRecord!==undefined){
