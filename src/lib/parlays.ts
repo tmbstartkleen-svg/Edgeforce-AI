@@ -3,8 +3,11 @@ import {correlationExposure} from './sameGameCorrelation';
 import {runEventJointSimulation,type JointSimulationResult} from './eventJointSimulation';
 import type {LearnedSgpMap} from './learnedSgpCorrelation';
 
+export type ParlayQualification='STRICT'|'WATCH_FALLBACK';
+
 export type Parlay={
  id:string;
+ qualification:ParlayQualification;
  legs:Scanned[];
  combinedProbability:number;
  independentProbability:number;
@@ -32,7 +35,7 @@ function runCount(size:number){
  return 1500;
 }
 
-function summarize(picks:Scanned[],label:string,learned?:LearnedSgpMap):Parlay{
+function summarize(picks:Scanned[],label:string,learned?:LearnedSgpMap,qualification:ParlayQualification='STRICT'):Parlay{
  const joint=runEventJointSimulation(picks,learned,runCount(picks.length));
  const independent=joint.independentProbability;
  const adjusted=joint.probability;
@@ -44,6 +47,7 @@ function summarize(picks:Scanned[],label:string,learned?:LearnedSgpMap):Parlay{
  const score=adjusted*.72+agreement*.18+freshness*.10;
  return {
   id:picks.map(x=>x.id).join('-'),
+  qualification,
   legs:[...picks],
   combinedProbability:adjusted,
   independentProbability:independent,
@@ -63,12 +67,44 @@ function summarize(picks:Scanned[],label:string,learned?:LearnedSgpMap):Parlay{
  };
 }
 
+export function selectParlayPool(rows:Scanned[],size:2|3){
+ const strict=rows
+  .filter(x=>x.grade==='ELITE'||x.grade==='STRONG')
+  .sort((a,b)=>b.simProbability-a.simProbability||b.expectedValue-a.expectedValue)
+  .slice(0,16);
+ const watch=rows
+  .filter(x=>x.grade==='WATCH'&&x.expectedValue>0&&x.freshness!=='STALE'&&(x.dynamicConfidence??x.confidence)>=.40)
+  .sort((a,b)=>b.simProbability-a.simProbability||b.expectedValue-a.expectedValue);
+
+ if(strict.length>=size)return {
+  pool:strict,
+  qualification:'STRICT' as const,
+  strictCount:strict.length,
+  watchCount:watch.length,
+  fallbackUsed:false
+ };
+
+ const seen=new Set(strict.map(x=>x.id));
+ const pool=[...strict,...watch.filter(x=>!seen.has(x.id))].slice(0,16);
+ return {
+  pool,
+  qualification:'WATCH_FALLBACK' as const,
+  strictCount:strict.length,
+  watchCount:watch.length,
+  fallbackUsed:pool.length>=size
+ };
+}
+
 export function buildParlays(rows:Scanned[],size:2|3,learned?:LearnedSgpMap):Parlay[]{
- const qualified=rows.filter(x=>x.grade==='ELITE'||x.grade==='STRONG').slice(0,16);
+ const selected=selectParlayPool(rows,size);
+ const qualified=selected.pool;
  const out:Parlay[]=[];
  const visit=(start:number,picks:Scanned[])=>{
   if(picks.length===size){
-   out.push(summarize(picks,size===2?'2-LEG ELITE':'3-LEG ELITE',learned));
+   const label=selected.qualification==='STRICT'
+    ?(size===2?'2-LEG ELITE':'3-LEG ELITE')
+    :(size===2?'2-LEG WATCHLIST':'3-LEG WATCHLIST');
+   out.push(summarize(picks,label,learned,selected.qualification));
    return;
   }
   for(let i=start;i<qualified.length;i++)visit(i+1,[...picks,qualified[i]]);

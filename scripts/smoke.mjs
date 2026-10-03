@@ -34,6 +34,7 @@ assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='47.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v47','unexpected model version');
+assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
 assert(health.body?.migrationVersion===38,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
@@ -204,6 +205,11 @@ assert(securityHardening.body?.maxMutationBytes===1048576,'mutation body ceiling
 const automationHealth=await get('/api/automation/health');
 assert(automationHealth.res.ok&&automationHealth.body?.ok===true,'automation health endpoint failed');
 
+const parlayFallback=await get('/api/testing/parlay-fallback');
+assert(parlayFallback.res.ok&&parlayFallback.body?.ok===true,'parlay fallback regression failed');
+assert(parlayFallback.body?.strict?.qualification==='STRICT','strict parlay tier regressed');
+assert(parlayFallback.body?.fallback?.qualification==='WATCH_FALLBACK','watch fallback parlay tier regressed');
+
 const oddsRefreshPolicy=await get('/api/testing/odds-refresh-policy');
 assert(oddsRefreshPolicy.res.ok&&oddsRefreshPolicy.body?.ok===true,'adaptive odds refresh policy regression failed');
 assert(oddsRefreshPolicy.body?.expanded?.mode==='EXPANDED','expanded refresh policy regressed');
@@ -258,5 +264,5 @@ assert(String(health.res.headers.get('cache-control')||'').includes('no-store'),
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','odds-refresh-policy','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','parlay-fallback','odds-refresh-policy','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
