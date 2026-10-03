@@ -232,6 +232,50 @@ type ModelDiagnosticsResponse={
   }>;
 };
 
+type ModelGovernanceResponse={
+  ok:boolean;
+  source:string;
+  latestRun?:{
+    id:number;
+    modelVersion:string;
+    status:string;
+    predictionRows:number;
+    groupsEvaluated:number;
+    champions:number;
+    challengers:number;
+    watchCount:number;
+    driftingCount:number;
+    criticalCount:number;
+    completedAt?:string|null;
+  }|null;
+  summary:{
+    champions:number;
+    challengers:number;
+    watch:number;
+    drifting:number;
+    critical:number;
+    averagePsi:number;
+  };
+  profiles:Array<{
+    modelName:string;
+    sport:string;
+    marketKey:string;
+    role:'CHAMPION'|'CHALLENGER'|'MONITORED'|'HELD';
+    driftStatus:'HEALTHY'|'WATCH'|'DRIFTING'|'CRITICAL'|'INSUFFICIENT';
+    baselineSampleSize:number;
+    recentSampleSize:number;
+    psi:number;
+    brierDelta:number;
+    logLossDelta:number;
+    calibrationDelta:number;
+    effectiveScore:number;
+    weightBrake:number;
+    runtimeMultiplier:number;
+    reason:string;
+    asOf:string;
+  }>;
+};
+
 type ReleaseCertificationResponse={
   ok:boolean;
   latest?:{
@@ -297,6 +341,8 @@ type DbStats={
     bet_results?:number;
     automation_runs?:number;
     production_certifications?:number;
+    model_governance_runs?:number;
+    model_governance_snapshots?:number;
   };
 };
 
@@ -381,6 +427,7 @@ export default function Dashboard(){
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
   const [modelDiagnostics,setModelDiagnostics]=useState<ModelDiagnosticsResponse|null>(null);
+  const [modelGovernance,setModelGovernance]=useState<ModelGovernanceResponse|null>(null);
   const [releaseCertification,setReleaseCertification]=useState<ReleaseCertificationResponse|null>(null);
   const [automationHealth,setAutomationHealth]=useState<AutomationHealthResponse|null>(null);
   const [dataQuality,setDataQuality]=useState<DataQualityResponse|null>(null);
@@ -457,6 +504,21 @@ export default function Dashboard(){
         if(!res.ok)return;
         const json=await res.json() as ModelDiagnosticsResponse;
         if(mounted)setModelDiagnostics(json);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/intelligence/model-governance',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as ModelGovernanceResponse;
+        if(mounted)setModelGovernance(json);
       }catch{}
     };
     void load();
@@ -847,6 +909,32 @@ export default function Dashboard(){
 
     <section className="v21Panel">
       <div className="v21PanelHead">
+        <div><div className="eyebrow">V42 MODEL GOVERNANCE</div><h3>Champion/challenger selection + live drift brakes</h3></div>
+        <span className="miniBadge">{modelGovernance?.latestRun?.status||'awaiting settled history'}</span>
+      </div>
+      <div className="v21Stats">
+        <div><small>CHAMPIONS</small><strong>{modelGovernance?.summary.champions||0}</strong><span>best qualified model by sport × market</span></div>
+        <div><small>CHALLENGERS</small><strong>{modelGovernance?.summary.challengers||0}</strong><span>next qualified model under evaluation</span></div>
+        <div><small>DRIFTING / CRITICAL</small><strong>{(modelGovernance?.summary.drifting||0)+(modelGovernance?.summary.critical||0)}</strong><span>{modelGovernance?.summary.watch||0} additional watch states</span></div>
+        <div><small>AVERAGE PSI</small><strong>{modelGovernance?modelGovernance.summary.averagePsi.toFixed(3):'—'}</strong><span>probability-distribution stability index</span></div>
+      </div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Current champions</h4>
+          {(modelGovernance?.profiles||[]).filter(x=>x.role==='CHAMPION').slice(0,8).map(x=><div className="historyRow" key={x.modelName+x.sport+x.marketKey}><span>{x.modelName} • {x.sport}</span><b>{x.runtimeMultiplier.toFixed(3)}×</b><small>{x.marketKey} • {x.driftStatus} • PSI {x.psi.toFixed(3)}</small></div>)}
+          {!modelGovernance?.profiles.some(x=>x.role==='CHAMPION')&&<div className="historyRow"><span>No champion snapshots yet</span><b>—</b><small>scheduled recalibration will establish roles after enough settled history exists</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Drift watch</h4>
+          {(modelGovernance?.profiles||[]).filter(x=>x.driftStatus==='WATCH'||x.driftStatus==='DRIFTING'||x.driftStatus==='CRITICAL').sort((a,b)=>b.psi-a.psi).slice(0,8).map(x=><div className="historyRow" key={x.modelName+x.sport+x.marketKey}><span>{x.modelName} • {x.sport}</span><b>{x.driftStatus}</b><small>{x.marketKey} • PSI {x.psi.toFixed(3)} • brake {x.runtimeMultiplier.toFixed(3)}×</small></div>)}
+          {!modelGovernance?.profiles.some(x=>x.driftStatus==='WATCH'||x.driftStatus==='DRIFTING'||x.driftStatus==='CRITICAL')&&<div className="historyRow"><span>No active drift warnings</span><b>CLEAR</b><small>qualified recent-vs-baseline model distributions are within configured limits</small></div>}
+        </div>
+      </div>
+      <div className="historyNote">PSI detects shifts in the distribution of model probabilities. Performance deterioration and calibration drift independently tighten the runtime weight brake. Champion status is retained unless a challenger clears the promotion margin.</div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
         <div><div className="eyebrow">MODEL CALIBRATION</div><h3>Walk-forward validation + controlled weight promotion</h3></div>
         <span className="miniBadge">{calibration.latestRun?.status||'awaiting history'}</span>
       </div>
@@ -947,6 +1035,8 @@ export default function Dashboard(){
       <div><small>SETTLED RESULTS</small><b>{dbStats.counts?.bet_results||0}</b></div>
       <div><small>AUTOMATION RUNS</small><b>{dbStats.counts?.automation_runs||0}</b></div>
       <div><small>RELEASE CERTS</small><b>{dbStats.counts?.production_certifications||0}</b></div>
+      <div><small>GOVERNANCE RUNS</small><b>{dbStats.counts?.model_governance_runs||0}</b></div>
+      <div><small>GOVERNANCE SNAPSHOTS</small><b>{dbStats.counts?.model_governance_snapshots||0}</b></div>
     </section>
     {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
