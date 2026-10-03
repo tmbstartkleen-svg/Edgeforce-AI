@@ -94,6 +94,8 @@ assert(microSimulation.res.ok&&microSimulation.body?.ok===true,'micro simulation
 assert(Array.isArray(microSimulation.body?.results)&&microSimulation.body.results.length===7,'micro simulation engine coverage incomplete');
 assert(microSimulation.body?.propRouting?.engine==='PLAYER_DISTRIBUTION_MONTE_CARLO','player prop routing regressed');
 assert(microSimulation.body?.partialRouting?.engine==='PROBABILITY_STATE_FALLBACK','partial-market fallback regressed');
+assert(microSimulation.body?.tennisTotalRouting?.engine==='TENNIS_POINT_GAME_SET_MONTE_CARLO','tennis total-games routing regressed');
+assert(microSimulation.body?.tennisTotalRouting?.unit==='games','tennis total-games audit unit mismatch');
 
 const microCatalog=await get('/api/intelligence/micro-simulation');
 assert(microCatalog.res.ok&&microCatalog.body?.ok===true,'micro simulation catalog endpoint failed');
