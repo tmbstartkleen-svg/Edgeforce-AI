@@ -5,7 +5,7 @@ import type {LearnedSgpMap} from './learnedSgpCorrelation';
 import {decimalOdds,fairAmerican} from './math';
 
 export type ParlayQualification='STRICT'|'WATCH_FALLBACK';
-export type ParlayTier='RECOMMENDED'|'VALUE_WATCHLIST'|'HAIL_MARY';
+export type ParlayTier='RECOMMENDED'|'VALUE_WATCHLIST'|'HAIL_MARY'|'REJECTED';
 export type ParlayRiskFlag=
  |'WATCH_FALLBACK'
  |'LOW_JOINT_PROBABILITY'
@@ -18,7 +18,8 @@ export type ParlayRiskFlag=
  |'EXTREME_UNDERDOG'
  |'LONGSHOT_PAYOUT'
  |'THIN_CONSENSUS'
- |'AGING_DATA';
+ |'AGING_DATA'
+ |'NEGATIVE_EXPECTED_VALUE';
 
 export type ParlayThresholds={
  recommendedMinJoint:number;
@@ -79,6 +80,7 @@ export type Parlay={
 export type ParlayBoards={
  thresholds:ParlayThresholds;
  generated:number;
+ rejected:number;
  recommended:Parlay[];
  valueWatchlist:Parlay[];
  hailMary:Parlay[];
@@ -115,6 +117,7 @@ function tierParlay(
  qualification:ParlayQualification,
  combinedProbability:number,
  combinedAmericanOdds:number,
+ expectedValue:number,
  thresholds:ParlayThresholds
 ){
  const minLegProbability=Math.min(...picks.map(x=>x.simProbability));
@@ -136,6 +139,7 @@ function tierParlay(
  if(combinedAmericanOdds>=thresholds.hailMaryCombinedOdds)flags.push('LONGSHOT_PAYOUT');
  if(picks.some(x=>(x.consensus?.bookCount??1)<2))flags.push('THIN_CONSENSUS');
  if(picks.some(x=>x.freshness!=='FRESH'))flags.push('AGING_DATA');
+ if(expectedValue<=0)flags.push('NEGATIVE_EXPECTED_VALUE');
 
  const blocking:ParlayRiskFlag[]=[
   'WATCH_FALLBACK','LOW_JOINT_PROBABILITY','LOW_LEG_PROBABILITY','LOW_DYNAMIC_CONFIDENCE',
@@ -150,7 +154,7 @@ function tierParlay(
   combinedAmericanOdds>=thresholds.hailMaryCombinedOdds ||
   maxModelSimulationGap>.25;
 
- const tier:ParlayTier=recommendationEligible?'RECOMMENDED':hailMary?'HAIL_MARY':'VALUE_WATCHLIST';
+ const tier:ParlayTier=expectedValue<=0?'REJECTED':recommendationEligible?'RECOMMENDED':hailMary?'HAIL_MARY':'VALUE_WATCHLIST';
  const reasons:string[]=[];
 
  if(tier==='RECOMMENDED'){
@@ -161,8 +165,10 @@ function tierParlay(
   );
  }else if(tier==='VALUE_WATCHLIST'){
   reasons.push('positive model value is present, but one or more recommendation gates are not yet cleared');
- }else{
+ }else if(tier==='HAIL_MARY'){
   reasons.push('kept outside normal recommendations because payout/probability/model-risk profile is longshot grade');
+ }else{
+  reasons.push('excluded from recommendation boards because modeled parlay expected value is not positive');
  }
 
  if(flags.includes('CONTEXT_LIMITED'))reasons.push(`context coverage is ${Math.round(contextCoverage*100)}%`);
@@ -195,7 +201,7 @@ function summarize(
  const combinedAmericanOdds=americanFromDecimal(combinedDecimalOdds);
  const fairParlayOdds=fairAmerican(adjusted);
  const expectedValue=adjusted*(combinedDecimalOdds-1)-(1-adjusted);
- const tiered=tierParlay(picks,qualification,adjusted,combinedAmericanOdds,thresholds);
+ const tiered=tierParlay(picks,qualification,adjusted,combinedAmericanOdds,expectedValue,thresholds);
  const tierBonus=tiered.tier==='RECOMMENDED'?.08:tiered.tier==='VALUE_WATCHLIST'?.02:-.04;
  const riskPenalty=Math.min(.18,tiered.riskFlags.length*.018);
  const score=adjusted*.62+agreement*.14+freshness*.08+tiered.averageDynamicConfidence*.08+tiered.contextCoverage*.08+tierBonus-riskPenalty;
@@ -305,7 +311,8 @@ export function buildParlayBoards(
   .filter(x=>x.tier==='HAIL_MARY')
   .sort((a,b)=>b.combinedProbability-a.combinedProbability||b.expectedValue-a.expectedValue)
   .slice(0,10);
- return {thresholds,generated:all.length,recommended,valueWatchlist,hailMary};
+ const rejected=all.filter(x=>x.tier==='REJECTED').length;
+ return {thresholds,generated:all.length,rejected,recommended,valueWatchlist,hailMary};
 }
 
 export function buildProbabilitySet(rows:Scanned[],size:number,learned?:LearnedSgpMap):Parlay|null{
