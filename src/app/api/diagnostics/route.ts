@@ -39,6 +39,8 @@ export async function GET(){
   controlledWeightPromotion:true,
   eventLevelJointSimulation:true,
   learnedSgpCorrelation:true,
+  sportMicroSimulation:true,
+  granularSportEngines:7,
   readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict,requiredFailures:readiness.requiredFailures,warnings:readiness.warnings},
   uptimeSeconds:Math.round(process.uptime()),
   memory:{rss:memory.rss,heapTotal:memory.heapTotal,heapUsed:memory.heapUsed,external:memory.external},
