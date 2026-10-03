@@ -4,6 +4,7 @@ export type CorrelationLeg={
  sport:string;
  market:string;
  selection:string;
+ startTime?:string;
  playerContext?:{
   name:string;
   team?:string;
@@ -12,7 +13,7 @@ export type CorrelationLeg={
 };
 
 const lower=(s:string)=>s.toLowerCase();
-const sameEvent=(a:CorrelationLeg,b:CorrelationLeg)=>a.event===b.event;
+const sameEvent=(a:CorrelationLeg,b:CorrelationLeg)=>a.event===b.event&&(!a.startTime||!b.startTime||a.startTime===b.startTime);
 const sameSport=(a:CorrelationLeg,b:CorrelationLeg)=>a.sport===b.sport;
 const isOver=(x:CorrelationLeg)=>lower(`${x.market} ${x.selection}`).includes('over');
 const isUnder=(x:CorrelationLeg)=>lower(`${x.market} ${x.selection}`).includes('under');
