@@ -47,7 +47,7 @@ jobs:
           set -a
           test -f .vercel/.env.production.local && . .vercel/.env.production.local
           set +a
-          MODEL_VERSION=edgeforce-v35 REQUIRE_PRODUCTION_ENV=true npm run validate-env
+          MODEL_VERSION=edgeforce-v36 REQUIRE_PRODUCTION_ENV=true npm run validate-env
 
       - name: Apply production database migrations
         run: |
@@ -62,7 +62,7 @@ jobs:
       - name: Deploy prebuilt artifact to production
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v35)
+          URL=$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" --env MODEL_VERSION=edgeforce-v36)
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Certify live production providers
@@ -86,7 +86,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "35.0.0"
+          EXPECTED_APP_VERSION: "36.0.0"
 
       - name: Record production release attestation
         run: |
