@@ -144,7 +144,8 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   alreadyCovered:covered,
   activeSports,
   nearestStartMinutes:nearestStartMinutes(bootstrapData),
-  expansionMarkets
+  expansionMarkets,
+  rotationOffset:Math.floor(Date.now()/3600000)
  });
 
  const expanded:unknown[]=[];
