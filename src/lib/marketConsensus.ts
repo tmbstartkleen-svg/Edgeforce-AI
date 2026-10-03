@@ -58,7 +58,7 @@ function robustConsensus(rows:Array<{p:number;weight:number}>){
  const threshold=Math.max(.015,mad*3);
  const retained=rows.filter(x=>Math.abs(x.p-median)<=threshold);
  const used=retained.length>=2?retained:rows;
- return {probability:weightedMean(used),median,mad,retained:used.length};
+ return {probability:weightedMean(used),median,mad,threshold,retained:used.length};
 }
 
 function bestOdds(rows:Quote[]){
@@ -95,7 +95,9 @@ export function buildConsensusMarkets(quotes:Quote[],targetBook='DraftKings'){
   if(!books.length)continue;
   const weighted=books.map(x=>({p:clamp(x.marketProb,.001,.999),weight:Math.max(.1,x.sourceProviderWeight)}));
   const robust=robustConsensus(weighted);
-  const variance=weighted.reduce((s,x)=>s+x.weight*(x.p-robust.probability)**2,0)/Math.max(.1,weighted.reduce((s,x)=>s+x.weight,0));
+  const varianceRows=weighted.filter(x=>Math.abs(x.p-robust.probability)<=robust.threshold);
+  const dispersionRows=varianceRows.length>=2?varianceRows:weighted;
+  const variance=dispersionRows.reduce((s,x)=>s+x.weight*(x.p-robust.probability)**2,0)/Math.max(.1,dispersionRows.reduce((s,x)=>s+x.weight,0));
   const dispersion=Math.sqrt(variance);
   const agreement=clamp(1-dispersion/.10);
   const exactTarget=books.find(x=>norm(x.sourceBook||'')===norm(targetBook));
