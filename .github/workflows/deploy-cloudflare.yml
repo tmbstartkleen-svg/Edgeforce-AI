@@ -91,7 +91,7 @@ jobs:
       - name: Verify live sportsbook data
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status"
+        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireLive=1"
 
       - name: Strict launch doctor
         env:
