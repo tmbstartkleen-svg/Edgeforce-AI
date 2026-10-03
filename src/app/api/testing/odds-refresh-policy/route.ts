@@ -25,6 +25,10 @@ export async function GET(){
   remaining:497,reserve:25,configuredMaxSports:8,alreadyCovered:new Set(),
   activeSports:active,nearestStartMinutes:30,expansionMarkets:'h2h'
  });
+ const rotated=adaptiveOddsPolicy({
+  remaining:497,reserve:25,configuredMaxSports:8,alreadyCovered:new Set(['tennis_atp_tokyo']),
+  activeSports:active,nearestStartMinutes:900,expansionMarkets:'h2h',rotationOffset:3
+ });
  const conserve=adaptiveOddsPolicy({
   remaining:55,reserve:25,configuredMaxSports:8,alreadyCovered:new Set(),
   activeSports:active,nearestStartMinutes:900,expansionMarkets:'h2h'
@@ -39,6 +43,7 @@ export async function GET(){
   expanded.selectedSports[0]==='americanfootball_nfl' &&
   expanded.selectedSports.length<=8 &&
   expanded.estimatedMaxCost<=11 &&
+  rotated.selectedSports.join(',')!==expanded.selectedSports.join(',') &&
   urgent.refreshMinutes===60 &&
   urgent.selectedSports.length<=3 &&
   conserve.mode==='CONSERVE' &&
@@ -46,5 +51,5 @@ export async function GET(){
   reserve.mode==='BOOTSTRAP_ONLY' &&
   reserve.selectedSports.length===0;
 
- return Response.json({ok,expanded,urgent,conserve,reserve},{headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok,expanded,rotated,urgent,conserve,reserve},{headers:{'Cache-Control':'no-store'}});
 }
