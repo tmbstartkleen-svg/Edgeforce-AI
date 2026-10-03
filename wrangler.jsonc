@@ -13,7 +13,7 @@
     "binding": "ASSETS"
   },
   "vars": {
-    "MODEL_VERSION": "edgeforce-v49",
+    "MODEL_VERSION": "edgeforce-v50",
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
     "DEFAULT_BANKROLL": "1000",
@@ -32,6 +32,11 @@
     "WEATHER_CONTEXT_CACHE_MS": "600000",
     "INJURY_CONTEXT_CACHE_MS": "180000",
     "STATS_CONTEXT_CACHE_MS": "900000",
+    "PUBLIC_CONTEXT_ENABLED": "true",
+    "PUBLIC_CONTEXT_TIMEOUT_MS": "5000",
+    "PUBLIC_CONTEXT_MAX_EVENTS": "16",
+    "PUBLIC_CONTEXT_SUMMARY_EVENTS": "8",
+    "PUBLIC_CONTEXT_SCHEDULE_EVENTS": "6",
     "ALLOW_DEMO_DATA": "false"
   },
   "account_id": "de9b84b39940a0b5b622ae5d27b415dc",
