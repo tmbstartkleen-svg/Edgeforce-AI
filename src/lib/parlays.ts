@@ -16,6 +16,8 @@ export type Parlay={
  sameEventPairCount:number;
  learnedPairCount:number;
  matrixShrink:number;
+ jointEngine:JointSimulationResult['engine'];
+ scenarioCoverage:number;
  score:number;
  label:string;
  pairCorrelations:JointSimulationResult['pairCorrelations'];
@@ -53,6 +55,8 @@ function summarize(picks:Scanned[],label:string,learned?:LearnedSgpMap):Parlay{
   sameEventPairCount:joint.pairCorrelations.filter(x=>x.sameEvent).length,
   learnedPairCount:joint.pairCorrelations.filter(x=>x.learnedSample>0).length,
   matrixShrink:joint.matrixShrink,
+  jointEngine:joint.engine,
+  scenarioCoverage:joint.scenarioCoverage,
   pairCorrelations:joint.pairCorrelations,
   score,
   label
