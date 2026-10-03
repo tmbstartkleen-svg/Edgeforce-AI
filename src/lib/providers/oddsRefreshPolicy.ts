@@ -43,13 +43,25 @@ function sportScore(s:ActiveSport){
 export function chooseExpansionSports(
  sports:ActiveSport[],
  alreadyCovered:Set<string>,
- limit:number
+ limit:number,
+ rotationOffset=0
 ){
- return sports
+ const eligible=sports
   .filter(x=>x.active!==false&&!x.has_outrights&&!alreadyCovered.has(x.key))
-  .sort((a,b)=>sportScore(b)-sportScore(a)||a.key.localeCompare(b.key))
-  .slice(0,Math.max(0,limit))
-  .map(x=>x.key);
+  .sort((a,b)=>sportScore(b)-sportScore(a)||a.key.localeCompare(b.key));
+ const target=Math.max(0,limit);
+ if(target===0)return [];
+
+ const coreCount=Math.min(eligible.length,Math.max(1,Math.ceil(target*.65)));
+ const core=eligible.slice(0,coreCount);
+ const tail=eligible.slice(coreCount);
+ const rotateCount=Math.max(0,target-core.length);
+ const rotated:ActiveSport[]=[];
+ if(tail.length&&rotateCount){
+  const offset=((rotationOffset%tail.length)+tail.length)%tail.length;
+  for(let i=0;i<Math.min(rotateCount,tail.length);i++)rotated.push(tail[(offset+i)%tail.length]);
+ }
+ return [...core,...rotated].slice(0,target).map(x=>x.key);
 }
 
 export function adaptiveOddsPolicy(input:{
@@ -60,6 +72,7 @@ export function adaptiveOddsPolicy(input:{
  activeSports:ActiveSport[];
  nearestStartMinutes?:number;
  expansionMarkets?:string;
+ rotationOffset?:number;
 }):AdaptiveOddsPolicy{
  const {remaining,reserve,configuredMaxSports,alreadyCovered,activeSports}=input;
  const headroom=remaining===undefined?undefined:remaining-reserve;
@@ -100,7 +113,7 @@ export function adaptiveOddsPolicy(input:{
  if(mode==='CONSERVE')refreshMinutes=Math.max(refreshMinutes,360);
  if(mode==='BOOTSTRAP_ONLY')refreshMinutes=Math.max(refreshMinutes,720);
 
- const selectedSports=chooseExpansionSports(activeSports,alreadyCovered,maxExpansionSports);
+ const selectedSports=chooseExpansionSports(activeSports,alreadyCovered,maxExpansionSports,input.rotationOffset||0);
  return {
   mode,reserve,remaining,
   maxExpansionSports,
