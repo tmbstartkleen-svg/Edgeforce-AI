@@ -1,4 +1,4 @@
-const expectedModel='edgeforce-v41';
+const expectedModel='edgeforce-v42';
 const requiredBase=['INGEST_SECRET','CRON_SECRET','MODEL_VERSION','DEFAULT_BANKROLL'];
 const requiredProduction=['DATABASE_URL'];
 const providerGroups=[
