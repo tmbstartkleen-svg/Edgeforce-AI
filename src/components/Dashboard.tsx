@@ -6,6 +6,7 @@ import {fmtOdds,fmtPct} from '@/lib/math';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
+import MarketDrilldown from './MarketDrilldown';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -213,6 +214,24 @@ type PortfolioApiResponse={
   };
 };
 
+type ModelDiagnosticsResponse={
+  ok:boolean;
+  source:string;
+  sampleSize:number;
+  summary:{
+    fragility:{robust:number;moderate:number;fragile:number};
+    averageAgreement:number;
+    averageEffectiveModelCount:number;
+    averageWeightConcentration:number;
+    averageAbsoluteEdge:number;
+    dominantModels:Array<{name:string;count:number}>;
+  };
+  mostFragile:Array<{
+    market:{id:string;sport:string;event:string;selection:string;market:string};
+    explanation:{edge:number;diagnostics:{fragility:string;fragilityRatio:number;dominantModel:string;dominantWeight:number;councilAgreement:number}};
+  }>;
+};
+
 type DbStats={
   configured:boolean;
   ok:boolean;
@@ -306,6 +325,7 @@ export default function Dashboard(){
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
+  const [modelDiagnostics,setModelDiagnostics]=useState<ModelDiagnosticsResponse|null>(null);
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -317,6 +337,7 @@ export default function Dashboard(){
   const [bankroll,setBankroll]=useState(1000);
   const [drawdownPct,setDrawdownPct]=useState(0);
   const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
+  const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
   const busy=useRef(false);
 
   useEffect(()=>{
@@ -370,6 +391,21 @@ export default function Dashboard(){
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[]);
 
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/intelligence/model-diagnostics',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as ModelDiagnosticsResponse;
+        if(mounted)setModelDiagnostics(json);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
 
   useEffect(()=>{
@@ -413,9 +449,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V39</div>
-        <h1>Portfolio Stress Testing + Drawdown Control</h1>
-        <p>Edgeforce now combines calibrated V38 probabilities with portfolio-level scenario simulations, 95% VaR/CVaR, correlated-loss shocks, and automatic drawdown/CVaR allocation brakes.</p>
+        <div className="eyebrow">EDGEFORCE AI • V40</div>
+        <h1>Explainability + Diagnostics + Live What-If</h1>
+        <p>Every model probability can now be decomposed into additive model drivers, feature ablations, sensitivity, fragility, and read-only what-if deltas while retaining V39 portfolio stress controls.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -566,7 +602,7 @@ export default function Dashboard(){
               <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
-              <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></td>
+              <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>)}
             {!filtered.length&&<tr><td colSpan={17} className="emptyRow">No rows match the current filters.</td></tr>}
           </tbody>
@@ -619,6 +655,30 @@ export default function Dashboard(){
             <div><b>{x.selection}</b><small>{x.sport} • score {pct(x.score)}</small><p>{x.reason}</p></div>
           </div>)}
           {!board.anomalies.length&&<p className="muted">No material anomaly signals in the current board.</p>}
+        </div>
+      </div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">V40 MODEL DIAGNOSTICS</div><h3>Fragility, concentration, disagreement, and ablation risk</h3></div>
+        <span className="miniBadge">{modelDiagnostics?.sampleSize||0} markets analyzed</span>
+      </div>
+      <div className="v21Stats">
+        <div><small>FRAGILE</small><strong>{modelDiagnostics?.summary.fragility.fragile||0}</strong><span>{modelDiagnostics?.summary.fragility.moderate||0} moderate • {modelDiagnostics?.summary.fragility.robust||0} robust</span></div>
+        <div><small>AVG AGREEMENT</small><strong>{modelDiagnostics?pct(modelDiagnostics.summary.averageAgreement):'—'}</strong><span>model council consistency</span></div>
+        <div><small>EFFECTIVE MODELS</small><strong>{modelDiagnostics?modelDiagnostics.summary.averageEffectiveModelCount.toFixed(1):'—'}</strong><span>after weight concentration</span></div>
+        <div><small>AVG ABS EDGE</small><strong>{modelDiagnostics?pct(modelDiagnostics.summary.averageAbsoluteEdge):'—'}</strong><span>ensemble vs market baseline</span></div>
+      </div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Most fragile markets</h4>
+          {(modelDiagnostics?.mostFragile||[]).slice(0,8).map(x=><div className="historyRow" key={x.market.id+x.market.market+x.market.selection}><span>{x.market.selection}</span><b>{x.explanation.diagnostics.fragility}</b><small>{x.market.sport} • ratio {x.explanation.diagnostics.fragilityRatio.toFixed(2)} • agreement {pct(x.explanation.diagnostics.councilAgreement)}</small></div>)}
+          {!modelDiagnostics?.mostFragile?.length&&<div className="historyRow"><span>No diagnostics yet</span><b>—</b><small>diagnostics populate from current market rows</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Dominant model frequency</h4>
+          {(modelDiagnostics?.summary.dominantModels||[]).slice(0,8).map(x=><div className="historyRow" key={x.name}><span>{x.name}</span><b>{x.count}</b><small>markets where this model has the largest normalized weight</small></div>)}
         </div>
       </div>
     </section>
@@ -779,5 +839,6 @@ export default function Dashboard(){
       <div><small>MODEL RUNS</small><b>{dbStats.counts?.model_runs||0}</b></div>
       <div><small>SETTLED RESULTS</small><b>{dbStats.counts?.bet_results||0}</b></div>
     </section>
+    {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
 }
