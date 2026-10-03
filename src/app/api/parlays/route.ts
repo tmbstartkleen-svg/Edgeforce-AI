@@ -9,6 +9,7 @@ export const dynamic='force-dynamic';
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const numberParam=(value:string|null,fallback:number,min:number,max:number)=>{
+ if(value===null||value.trim()==='')return fallback;
  const n=Number(value);
  return Number.isFinite(n)?clamp(n,min,max):fallback;
 };
