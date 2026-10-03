@@ -16,7 +16,7 @@ export async function GET(req:Request){
   ok:true,
   connected:ingestion.source==='live',
   usable:ingestion.source==='live'||ingestion.source==='stored',
-  productionRealDataOnly:process.env.DEPLOYMENT_ENV==='production',
+  productionRealDataOnly:(process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV)==='production'&&process.env.ALLOW_DEMO_DATA!=='true',
   build:RELEASE.build,
   version:RELEASE.appVersion,
   modelVersion:RELEASE.modelVersion,
