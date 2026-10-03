@@ -17,6 +17,15 @@ export type LearnedSgpProfile={
 export type LearnedSgpMap=Record<string,LearnedSgpProfile>;
 
 const norm=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
+export function sgpMarketSignature(market:string,selection=''){
+ const text=norm(`${market} ${selection}`);
+ const direction=text.includes(' over ')||text.startsWith('over ')?'over':
+  text.includes(' under ')||text.startsWith('under ')?'under':
+  text.includes('moneyline')||text.includes(' moneyline')?'moneyline':
+  text.includes('spread')||text.includes('run line')||text.includes('puck line')?'spread':
+  text.includes('total')?'total':'neutral';
+ return `${norm(market)}|${direction}`;
+}
 const key=(sport:string,a:string,b:string)=>{
  const [x,y]=[norm(a),norm(b)].sort();
  return [norm(sport),x,y].join('|');
@@ -58,7 +67,7 @@ export function learnedSgpProfile(map:LearnedSgpMap|undefined,sport:string,a:str
  return map[key(sport,a,b)];
 }
 
-type PairRow={sport:string;marketA:string;marketB:string;aResult:string;bResult:string};
+type PairRow={sport:string;marketA:string;marketB:string;selectionA:string;selectionB:string;aResult:string;bResult:string};
 
 export async function rebuildLearnedSgpCorrelations(){
  const sql=db();
@@ -69,6 +78,7 @@ export async function rebuildLearnedSgpCorrelations(){
  const raw=await sql`
   select coalesce(a.sport,b.sport,'Unknown') as sport,
    a.market_type as "marketA",b.market_type as "marketB",
+   a.selection as "selectionA",b.selection as "selectionB",
    a.result as "aResult",b.result as "bResult"
   from bet_legs a
   join bet_legs b
@@ -84,8 +94,8 @@ export async function rebuildLearnedSgpCorrelations(){
 
  const groups=new Map<string,{sport:string;marketA:string;marketB:string;n11:number;n10:number;n01:number;n00:number}>();
  for(const row of raw as unknown as PairRow[]){
-  let marketA=norm(String(row.marketA||'Unknown'));
-  let marketB=norm(String(row.marketB||'Unknown'));
+  let marketA=sgpMarketSignature(String(row.marketA||'Unknown'),String(row.selectionA||''));
+  let marketB=sgpMarketSignature(String(row.marketB||'Unknown'),String(row.selectionB||''));
   let aWin=row.aResult==='win';
   let bWin=row.bResult==='win';
   if(marketA>marketB){
