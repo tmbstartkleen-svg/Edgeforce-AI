@@ -3,6 +3,40 @@
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
 
+## Current build — V45 Real Data Autopilot
+
+V45 makes the production path real-data-only and turns Cloudflare into the live ingestion scheduler instead of relying on demo fallbacks.
+
+### Live sportsbook connection
+- `THE_ODDS_API_KEY` drives the native The Odds API feed for DraftKings-targeted moneylines, spreads and totals
+- `GET /api/live-data/status` reports the actual provider source, market count, sports, target book, quality and provider attempts without exposing credentials
+- `GET /api/live-data/status?requireLive=1` fails unless the active source is live, so deployment certification cannot pass on demo or stale-only data
+- production ingestion returns an explicit `unavailable` state instead of substituting demo markets
+- the public `/api/scan` route and decision automation now use the same real ingestion path as the live board
+
+### Cloudflare real-data autopilot
+- the Worker has a custom vinext entry point with Cloudflare `scheduled()` support
+- hourly automation refreshes real sportsbook data, persists model runs, executes decision automation, settlement and readiness heartbeat
+- a daily automation run performs model recalibration/governance plus provider certification
+- the selected Cloudflare account is pinned in Wrangler configuration to remove multi-account deployment ambiguity
+- production Worker config sets `ALLOW_DEMO_DATA=false`
+
+### Private one-command secret setup
+Run `npm run configure:cloudflare-live` locally. Wrangler prompts privately for `THE_ODDS_API_KEY` and `DATABASE_URL`, then creates encrypted ingest and cron secrets without printing them. Secrets are not committed to Git.
+
+### Release identity
+- build: `V45`
+- app: `45.0.0`
+- package: `0.45.0`
+- model: `edgeforce-v45`
+- migration: `v38`
+
+### Guardrails
+- strict production certification requires a live odds source and at least one market
+- demo data remains available only for non-production development/testing unless explicitly enabled
+- live odds, model probabilities and simulations are estimates and can change; they are not guaranteed outcomes
+
+
 ## Current build — V44 Cloudflare Launch Guardrails + Runtime Identity
 
 V44 hardens the Cloudflare production path so deployment failures are caught before upload and Cloudflare is treated as a first-class production runtime rather than a Vercel-shaped fallback.

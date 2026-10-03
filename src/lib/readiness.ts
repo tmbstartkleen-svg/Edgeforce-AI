@@ -68,6 +68,11 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    ok:operationalOdds.length>0||!strict,
    required:strict,
    detail:`${operationalOdds.length} operational / ${odds.length} configured`
+  },
+  productionRealDataOnly:{
+   ok:process.env.ALLOW_DEMO_DATA!=='true'||!strict,
+   required:strict,
+   detail:process.env.ALLOW_DEMO_DATA==='true'?'demo fallback enabled':'demo fallback disabled'
   }
  };
 

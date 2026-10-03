@@ -67,13 +67,25 @@ export async function GET(){
   nativeRealOddsIngestion:true,
   publicPredictionMarketFallback:true,
   runtimeNeonMigrationBootstrap:true,
+  liveDataStatus:true,
+  productionRealDataOnly:process.env.ALLOW_DEMO_DATA!=='true',
+  cloudflareCronAutopilot:true,
   readiness:{ready:readiness.ready,productionReady:readiness.productionReady,strict:readiness.strict,requiredFailures:readiness.requiredFailures,warnings:readiness.warnings},
   uptimeSeconds:Math.round(process.uptime()),
   memory:{rss:memory.rss,heapTotal:memory.heapTotal,heapUsed:memory.heapUsed,external:memory.external},
   database,
   providers,
-  runtime:{node:process.version,vercel:Boolean(process.env.VERCEL),environment:process.env.VERCEL_ENV||'local'},
-  deployment:{url:process.env.VERCEL_URL||null,commit:process.env.VERCEL_GIT_COMMIT_SHA||null},
+  runtime:{
+   node:process.version,
+   platform:process.env.DEPLOYMENT_PLATFORM||(process.env.VERCEL?'vercel':'local'),
+   environment:process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local',
+   vercel:Boolean(process.env.VERCEL),
+   cloudflare:process.env.DEPLOYMENT_PLATFORM==='cloudflare'
+  },
+  deployment:{
+   url:process.env.DEPLOYMENT_URL||process.env.VERCEL_URL||null,
+   commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null
+  },
   time:new Date().toISOString()
  },{headers:{'Cache-Control':'no-store'}});
 }

@@ -69,12 +69,13 @@ jobs:
             --prod
             --yes
             --token="$VERCEL_TOKEN"
-            --env MODEL_VERSION=edgeforce-v44
+            --env MODEL_VERSION=edgeforce-v45
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
             --env DEPLOY_BOOTSTRAP_SECRET="$DEPLOY_BOOTSTRAP_SECRET"
             --env TARGET_BOOKMAKER=DraftKings
+            --env ALLOW_DEMO_DATA=false
             --env THE_ODDS_API_MAX_SPORTS=12
             --env THE_ODDS_API_CACHE_MS=120000
             --env THE_ODDS_API_CREDIT_RESERVE=25
@@ -124,7 +125,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "44.0.0"
+          EXPECTED_APP_VERSION: "45.0.0"
 
       - name: Record production release attestation
         env:

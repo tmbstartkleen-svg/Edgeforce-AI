@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V44',
- appVersion:'44.0.0',
- packageVersion:'0.44.0',
- modelVersion:'edgeforce-v44',
+ build:'V45',
+ appVersion:'45.0.0',
+ packageVersion:'0.45.0',
+ modelVersion:'edgeforce-v45',
  migrationVersion:38
 };
 const checks=[];
@@ -22,6 +22,7 @@ const envExample=read('.env.example');
 const smoke=read('scripts/smoke.mjs');
 const remoteSmoke=read('scripts/remote-smoke.mjs');
 const migrationCheck=read('scripts/check-migrations.mjs');
+const validateEnv=read('scripts/validate-env.mjs');
 const security=read('src/lib/security.ts');
 const proxy=read('src/proxy.ts');
 const vercel=JSON.parse(read('vercel.json'));
@@ -37,6 +38,7 @@ add('env example model identity',envExample.includes(`MODEL_VERSION=${expected.m
 add('local smoke app identity',smoke.includes(expected.appVersion)&&smoke.includes(expected.modelVersion),'smoke identity');
 add('hosted smoke app identity',remoteSmoke.includes(expected.appVersion),'remote smoke identity');
 add('migration checker identity',migrationCheck.includes(`const expected=${expected.migrationVersion};`),`expected=${expected.migrationVersion}`);
+add('environment validator model identity',validateEnv.includes(`const expectedModel='${expected.modelVersion}'`),expected.modelVersion);
 add('latest migration exists',exists(`db/v${expected.migrationVersion}.sql`),`db/v${expected.migrationVersion}.sql`);
 
 const requiredFiles=[
@@ -55,7 +57,10 @@ const requiredFiles=[
  'src/lib/runtimeMigrations.ts',
  'src/app/api/release/bootstrap/route.ts',
  'scripts/cloudflare-preflight.mjs',
- 'scripts/validate-cloudflare-build.mjs'
+ 'scripts/validate-cloudflare-build.mjs',
+ 'scripts/configure-cloudflare-live.mjs',
+ 'worker/index.ts',
+ 'src/app/api/live-data/status/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -66,7 +71,17 @@ add('governance runtime brake',read('src/lib/learnedWeights.ts').includes('loadG
 add('governance scheduled rebuild',read('src/app/api/cron/recalibrate/route.ts').includes('runModelGovernance'),'recalibration runs governance');
 add('Cloudflare runtime platform identity',wrangler.includes('"DEPLOYMENT_PLATFORM": "cloudflare"'),'Cloudflare production platform is explicit');
 add('Cloudflare runtime environment identity',wrangler.includes('"DEPLOYMENT_ENV": "production"'),'Cloudflare production environment is explicit');
-add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v44"'),'edgeforce-v44');
+add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v45"'),'edgeforce-v45');
+add('Cloudflare account target',wrangler.includes('"account_id": "de9b84b39940a0b5b622ae5d27b415dc"'),'selected Cloudflare account is pinned');
+add('Cloudflare custom Worker entry',wrangler.includes('"main": "./worker/index.ts"'),'custom fetch + scheduled entrypoint');
+add('Cloudflare hourly autopilot cron',wrangler.includes('"0 * * * *"'),'hourly live-data automation');
+add('Cloudflare daily certification cron',wrangler.includes('"15 6 * * *"'),'daily recalibration and provider certification');
+add('Cloudflare production demo disabled',wrangler.includes('"ALLOW_DEMO_DATA": "false"'),'production never substitutes demo odds');
+add('production ingestion rejects demo fallback',read('src/lib/providers/ingest.ts').includes("source:'unavailable' as const")&&read('src/lib/providers/ingest.ts').includes('ALLOW_DEMO_DATA'),'production unavailable state is explicit');
+add('public scan uses live ingestion',read('src/app/api/scan/route.ts').includes("ingestOdds"),'scan is not demo-backed');
+add('decision automation uses live ingestion',read('src/app/api/cron/decision/route.ts').includes("ingestOdds")&&!read('src/app/api/cron/decision/route.ts').includes("demoMarkets"),'decision automation is real-data only');
+add('live data status endpoint',read('src/app/api/live-data/status/route.ts').includes("connected:ingestion.source==='live'"),'live connection status exposed');
+add('Cloudflare autopilot Worker',read('worker/index.ts').includes("handler from 'vinext/server/fetch-handler'")&&read('worker/index.ts').includes('scheduled'),'custom Worker delegates HTTP and handles cron');
 add('Cloudflare local preflight placeholder guard',read('scripts/cloudflare-preflight.mjs').includes('PASTE_YOUR_ACCOUNT_ID_HERE'),'placeholder account IDs are rejected');
 add('Cloudflare generated build validation',read('scripts/validate-cloudflare-build.mjs').includes('dist/server/wrangler.json'),'generated Worker config is validated');
 add('Cloudflare deploy script uses generated config',String(pkg.scripts?.['deploy:cloudflare']||'').includes('dist/server/wrangler.json')&&String(pkg.scripts?.['deploy:cloudflare']||'').includes('preflight:cloudflare'),'safe local Cloudflare deploy path');
@@ -97,6 +112,8 @@ add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflig
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
 add('Cloudflare workflow model identity',cloudflareWorkflow.includes(expected.modelVersion),expected.modelVersion);
 add('Cloudflare workflow app identity',cloudflareWorkflow.includes(expected.appVersion),expected.appVersion);
+add('Cloudflare workflow verifies live data',cloudflareWorkflow.includes('/api/live-data/status?requireLive=1'),'live sportsbook data required after deploy');
+add('Cloudflare workflow current Wrangler',cloudflareWorkflow.includes('wranglerVersion: "4.147.0"'),'Wrangler 4.147.0');
 const cloudflareVerifyWorkflow=read('.github/workflows/verify-cloudflare.yml');
 add('Cloudflare verify generated config',cloudflareVerifyWorkflow.includes('npm run validate:cloudflare-build'),'generated Worker config validated in CI');
 

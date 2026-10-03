@@ -55,7 +55,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.118.0"
+          wranglerVersion: "4.147.0"
           command: deploy --config dist/server/wrangler.json
           secrets: |
             DATABASE_URL
@@ -88,16 +88,21 @@ jobs:
             -H "Content-Type: application/json"
           echo
 
+      - name: Verify live sportsbook data
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireLive=1"
+
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V44 smoke test
+      - name: Hosted V45 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "44.0.0"
+          EXPECTED_APP_VERSION: "45.0.0"
 
       - name: Publish deployment URL
         env:
@@ -105,7 +110,7 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Build: V44" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v44" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: V45" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v45" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v38" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"

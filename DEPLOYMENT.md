@@ -1,10 +1,10 @@
-# Edgeforce AI V44 deployment
+# Edgeforce AI V45 deployment
 
 ## Release strategy
 lint → build → migration continuity → local production server → smoke → load gate → Vercel prebuilt preview → hosted smoke → release attestation → optional exact-artifact promotion → observe → rollback if needed.
 
 ## Required production configuration
-Configure `MODEL_VERSION=edgeforce-v44`, a positive `DEFAULT_BANKROLL`, a Neon/Postgres connection exposed as `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, or `NEON_DATABASE_URL`, and at least one authorized live ODDS provider. The canonical native provider requires only `THE_ODDS_API_KEY`. Apply database migrations through `v38`.
+Configure `MODEL_VERSION=edgeforce-v45`, a positive `DEFAULT_BANKROLL`, a Neon/Postgres connection exposed as `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, or `NEON_DATABASE_URL`, and at least one authorized live ODDS provider. The canonical native provider requires only `THE_ODDS_API_KEY`. Apply database migrations through `v38`.
 
 GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 
@@ -21,13 +21,13 @@ GitHub Actions deployment also requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VE
 - local production-server smoke suite
 - load check with zero failures and configured p95 ceiling
 - hosted preview liveness/readiness/diagnostics/ops-status/dashboard checks
-- V44 version, migration, Cloudflare launch-guardrail, real-data, governance, and static release-audit checks
+- V45 version, migration, Cloudflare launch-guardrail, real-data, governance, and static release-audit checks
 
 ## Preview and promotion
-Use **Edgeforce Release Candidate** for preview validation only. V44 retains the direct-preview promotion block introduced in V41. Production releases must flow through **Edgeforce Production Deploy** so production environment validation, migration v38, provider certification, strict readiness, hosted smoke, release attestation, final certification, and rollback cannot be bypassed.
+Use **Edgeforce Release Candidate** for preview validation only. V45 retains the direct-preview promotion block introduced in V41. Production releases must flow through **Edgeforce Production Deploy** so production environment validation, migration v38, provider certification, strict readiness, hosted smoke, release attestation, final certification, and rollback cannot be bypassed.
 
 ## Rollback
-Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V44 release toolchain.
+Use **Edgeforce Rollback** with an optional deployment URL/ID. The Vercel CLI is pinned to the V45 release toolchain.
 
 ## Observability
 The hourly heartbeat records readiness when a database is configured. `/api/ops/status` surfaces recent heartbeats, release attestations, unresolved incidents and route performance. Live-board performance sampling is controlled with `PERFORMANCE_SAMPLE_RATE`.
@@ -50,11 +50,11 @@ The canonical production project is `edgeforce-ai2` (`prj_8edFTZzS8e6RZyMVm1mjxu
 After **Verify Edgeforce** succeeds on `main`, **Edgeforce Production Deploy**:
 1. targets the canonical Vercel project,
 2. pulls the production environment,
-3. validates the V44 app/model environment,
+3. validates the V45 app/model environment,
 4. applies database migrations through v38,
 5. builds with the pinned Vercel CLI,
 6. deploys the prebuilt artifact directly to production,
-7. runs hosted V44 smoke/readiness checks,
+7. runs hosted V45 smoke/readiness checks,
 8. records a release attestation,
 9. rolls back automatically if a hosted post-deploy check fails.
 
@@ -99,7 +99,7 @@ V41 adds a second, post-deploy certification layer after provider certification,
 The first deployment can show scheduled jobs as `PENDING` until their configured schedules run; pending jobs are warnings, while a recorded failed or stale job is a strict certification blocker.
 
 ## Static release audit
-`npm run release-audit` runs before preview and production deployment. It verifies V44 release/model/package/migration identity, required V41 routes and files, Vercel cron coverage, security controls, blank example secret values, absence of tracked local environment files, and workflow identity synchronization.
+`npm run release-audit` runs before preview and production deployment. It verifies V45 release/model/package/migration identity, required V41 routes and files, Vercel cron coverage, security controls, blank example secret values, absence of tracked local environment files, and workflow identity synchronization.
 
 ## Durable automation health
 Migration v37 stores scheduler outcomes for heartbeat, settlement, scan, decision, and recalibration. `GET /api/automation/health` reports HEALTHY, STALE, FAILED, or PENDING by job. Scheduled scan and decision automation now consume learned weights and dynamic calibration profiles so automated scoring follows the same calibration path as interactive boards.
@@ -124,7 +124,7 @@ A credential-free Polymarket feed is available as the prediction-market fallback
 
 ## Cloudflare Workers production target
 
-Edgeforce V44 can also run on Cloudflare Workers through vinext. This is an independent production target and does not require Vercel.
+Edgeforce V45 can also run on Cloudflare Workers through vinext. This is an independent production target and does not require Vercel.
 
 Required GitHub Actions repository secrets for the manual **Deploy Edgeforce to Cloudflare** workflow:
 - `CLOUDFLARE_ACCOUNT_ID`
@@ -141,7 +141,7 @@ The workflow:
 6. waits for Worker liveness,
 7. certifies the live sportsbook provider,
 8. requires the strict launch doctor,
-9. runs the hosted V44 smoke suite,
+9. runs the hosted V45 smoke suite,
 10. publishes the Workers deployment URL in the GitHub job summary.
 
 Sensitive values are never committed to the repository. Cloudflare's `nodejs_compat` runtime exposes configured text variables and secrets through `process.env`, which preserves Edgeforce's existing provider/database configuration pattern.
@@ -160,7 +160,7 @@ Cloudflare Git builds should use:
 
 
 
-## V44 Cloudflare local deployment guardrails
+## V45 Cloudflare local deployment guardrails
 Before a local Worker deployment, run:
 
 ```bash
@@ -178,3 +178,35 @@ npm run deploy:cloudflare
 That command performs Cloudflare preflight, builds vinext, validates the generated `dist/server/wrangler.json` Worker entry point, then deploys the generated Worker config.
 
 Cloudflare Workers set `DEPLOYMENT_PLATFORM=cloudflare` and `DEPLOYMENT_ENV=production`, so strict production readiness applies automatically on the Worker runtime.
+
+
+## V45 Cloudflare real-data connection
+
+The Cloudflare production Worker is pinned to the selected account in `wrangler.jsonc`, uses `worker/index.ts` as the vinext Worker entry point, and manages Cron Triggers from Wrangler configuration.
+
+For a local authenticated deployment, configure the encrypted runtime secrets without putting them in chat or Git:
+
+```bash
+npm run configure:cloudflare-live
+npm run deploy:cloudflare
+```
+
+The configuration command prompts privately for:
+- `THE_ODDS_API_KEY`
+- `DATABASE_URL`
+
+It generates and uploads `INGEST_SECRET` and `CRON_SECRET` automatically.
+
+After deployment, verify the live provider directly:
+
+```bash
+curl --fail "https://<your-worker>.workers.dev/api/live-data/status?requireLive=1"
+```
+
+Production has `ALLOW_DEMO_DATA=false`. If live odds fail and no fresh stored real markets are available, Edgeforce reports `source=unavailable` rather than silently substituting demo rows.
+
+Cloudflare Cron Triggers:
+- `0 * * * *` — hourly live scan, decision automation, settlement and heartbeat
+- `15 6 * * *` — daily recalibration/model governance and provider certification
+
+Cron schedules are UTC.

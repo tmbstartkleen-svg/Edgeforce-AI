@@ -1,8 +1,30 @@
-import {demoMarkets} from '@/lib/demo';
+import {ingestOdds} from '@/lib/providers/ingest';
 import {todayTop30,weekTop30} from '@/lib/scanner';
+import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
+import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
+
+export const dynamic='force-dynamic';
+
 export async function GET(req:Request){
  const {searchParams}=new URL(req.url);
  const view=searchParams.get('view')==='week'?'week':'today';
- const rows=view==='week'?weekTop30(demoMarkets):todayTop30(demoMarkets);
- return Response.json({view,count:rows.length,horizonDays:8,rows});
+ const [ingestion,learnedWeights,dynamicCalibration]=await Promise.all([
+  ingestOdds(),loadLearnedWeightMultipliers(),loadDynamicCalibrationProfiles()
+ ]);
+ if(!ingestion.markets.length){
+  return Response.json({
+   ok:false,view,source:ingestion.source,providerId:ingestion.providerId||null,
+   error:'No live or fresh stored sportsbook markets are available',
+   warnings:ingestion.warnings
+  },{status:503,headers:{'Cache-Control':'no-store'}});
+ }
+ const rows=view==='week'
+  ?weekTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration)
+  :todayTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
+ return Response.json({
+  ok:true,view,count:rows.length,horizonDays:view==='week'?8:1,
+  source:ingestion.source,providerId:ingestion.providerId||null,
+  providerName:ingestion.providerName||null,targetBook:ingestion.targetBook,
+  warnings:ingestion.warnings,rows
+ },{headers:{'Cache-Control':'no-store'}});
 }
