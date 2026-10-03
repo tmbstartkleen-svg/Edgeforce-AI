@@ -17,7 +17,7 @@ for(const path of paths){
  }
  if(path==='/api/parlays?size=2&view=today'){
   const json=JSON.parse(body);
-  if(json.build!=='V49'||json.schemaVersion!=='v50-real-context-network-1')throw new Error('parlay route schema mismatch');
+  if(json.build!=='V50'||json.schemaVersion!=='v50-real-context-network-1')throw new Error('parlay route schema mismatch');
   if(Number(json.thresholds?.recommendedMinJoint)!==0.52)throw new Error('parlay recommendation threshold mismatch');
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
  }
