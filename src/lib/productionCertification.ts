@@ -75,7 +75,8 @@ function securityPosture(){
 }
 
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
- const strict=options.strict??((process.env.VERCEL_ENV||'local')==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
+ const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
+ const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
  const [readiness,providerCertification,ingestion,automation,ops,modelGovernance]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
@@ -116,7 +117,8 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(modelGovernance.summary.drifting>0)warnings.push(`model governance: ${modelGovernance.summary.drifting} drifting model group(s) are runtime-braked`);
 
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
- if(strict&&ingestion.source==='demo')blockers.push('data: production certification cannot use demo odds');
+ if(strict&&ingestion.source!=='live')blockers.push(`data: strict production certification requires live odds, current source is ${ingestion.source}`);
+ if(strict&&ingestion.markets.length===0)blockers.push('data: no sportsbook markets available for strict production certification');
 
  const attestations=(ops as any).attestations||[];
  const currentAttestation=attestations.find((x:any)=>String(x.version)===RELEASE.appVersion)||null;
@@ -147,8 +149,8 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   certified,blockers:[...new Set(blockers)],warnings:[...new Set(warnings)],
   release:{
    build:RELEASE.build,version:RELEASE.appVersion,modelVersion:RELEASE.modelVersion,
-   migrationVersion:RELEASE.migrationVersion,commit:process.env.VERCEL_GIT_COMMIT_SHA||null,
-   environment:process.env.VERCEL_ENV||'local'
+   migrationVersion:RELEASE.migrationVersion,commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null,
+   environment
   },
   readiness,providerCertification,dataQuality,automation,modelGovernance,security,
   ingestion:{
@@ -167,8 +169,8 @@ export async function saveProductionCertification(report:ProductionCertification
    insert into production_certifications(
     release_version,model_version,commit_sha,environment,certified,blockers,warnings,report
    ) values(
-    ${RELEASE.appVersion},${RELEASE.modelVersion},${process.env.VERCEL_GIT_COMMIT_SHA||null},
-    ${process.env.VERCEL_ENV||'local'},${report.certified},
+    ${RELEASE.appVersion},${RELEASE.modelVersion},${process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null},
+    ${process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local'},${report.certified},
     ${sql.json(report.blockers)},${sql.json(report.warnings)},${sql.json(report as any)}
    ) returning id
   `;
