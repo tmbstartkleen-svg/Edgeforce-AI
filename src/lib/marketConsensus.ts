@@ -7,11 +7,32 @@ type Quote=Market & {
  sourceProviderWeight:number;
 };
 
-const norm=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
+export const normalizeConsensusText=(s:string)=>s.trim().toLowerCase().replace(/[^a-z0-9.+-]+/g,' ').replace(/\s+/g,' ').trim();
+const norm=normalizeConsensusText;
 const clamp=(x:number,min=0,max=1)=>Math.max(min,Math.min(max,x));
-const canonicalKey=(m:Market)=>[
- norm(m.sport),norm(m.event),norm(m.market),norm(m.selection),new Date(m.startTime).toISOString()
-].join('|');
+
+export function canonicalConsensusMarket(market:string){
+ const value=norm(market);
+ if(value==='h2h'||value==='ml'||value.includes('moneyline')||value.includes('money line'))return 'moneyline';
+ if(value.includes('spread')||value.includes('run line')||value.includes('runline')||value.includes('puck line')||value.includes('handicap'))return 'spread';
+ if(value.includes('total')||value==='totals')return 'total';
+ return value;
+}
+
+export function canonicalConsensusSelection(selection:string){
+ return norm(selection).replace(/\b(moneyline|money line|ml)\b/g,'').replace(/\s+/g,' ').trim();
+}
+
+export function consensusMarketKey(m:Market){
+ return [
+  norm(m.sport),
+  norm(m.home),
+  norm(m.away),
+  canonicalConsensusMarket(m.market),
+  canonicalConsensusSelection(m.selection),
+  new Date(m.startTime).toISOString()
+ ].join('|');
+}
 
 function weightedMedian(rows:Array<{p:number;weight:number}>){
  if(!rows.length)return .5;
@@ -65,8 +86,8 @@ function roleProbability(rows:Quote[],role:MarketRole){
 export function buildConsensusMarkets(quotes:Quote[],targetBook='DraftKings'){
  const groups=new Map<string,Quote[]>();
  for(const quote of quotes){
-  const list=groups.get(canonicalKey(quote))||[];
-  list.push(quote);groups.set(canonicalKey(quote),list);
+  const list=groups.get(consensusMarketKey(quote))||[];
+  list.push(quote);groups.set(consensusMarketKey(quote),list);
  }
  const markets:Market[]=[];
  for(const group of groups.values()){
