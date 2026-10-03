@@ -39,13 +39,26 @@ export async function GET(){
   injuries:configuredProviders('INJURIES').map(x=>x.id),
   stats:configuredProviders('STATS').map(x=>x.id)
  };
+ const provenance=enriched.markets.flatMap(x=>x.contextProvenance||[]);
+ const provenanceBySource=Object.fromEntries(
+  [...new Set(provenance.map(x=>x.source))].map(source=>[
+   source,
+   provenance.filter(x=>x.source===source).length
+  ])
+ );
 
  return Response.json({
   ok:true,
-  build:'V49',
+  build:'V50',
   source:ingestion.source,
   providerId:ingestion.providerId||null,
   configuredContextProviders:configured,
+  provenanceCoverage:{
+   rows:enriched.markets.filter(x=>(x.contextProvenance?.length||0)>0).length,
+   total:enriched.markets.length,
+   records:provenance.length,
+   bySource:provenanceBySource
+  },
   diagnostics:enriched.diagnostics,
   sports
  },{headers:{'Cache-Control':'no-store'}});

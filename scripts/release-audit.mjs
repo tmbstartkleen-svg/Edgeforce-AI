@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V49',
- appVersion:'49.0.0',
- packageVersion:'0.49.0',
- modelVersion:'edgeforce-v49',
+ build:'V50',
+ appVersion:'50.0.0',
+ packageVersion:'0.50.0',
+ modelVersion:'edgeforce-v50',
  migrationVersion:38
 };
 const checks=[];
@@ -68,7 +68,9 @@ const requiredFiles=[
  'src/app/api/testing/recommendation-quality/route.ts',
  'src/lib/contextQuality.ts',
  'src/app/api/testing/context-quality/route.ts',
- 'src/app/api/intelligence/context/route.ts'
+ 'src/app/api/intelligence/context/route.ts',
+ 'src/lib/providers/publicSportsContext.ts',
+ 'src/app/api/testing/public-context-network/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -81,8 +83,12 @@ add('recommendation risk gates',read('src/lib/parlays.ts').includes('recommended
 add('sport-aware context quality',read('src/lib/contextQuality.ts').includes('contextRequirements')&&read('src/lib/contextQuality.ts').includes('recommendationReady'),'sport-specific context completeness is scored');
 add('context provider caching',read('src/lib/providers/context.ts').includes('WEATHER_CONTEXT_CACHE_MS')&&read('src/lib/providers/context.ts').includes('INJURY_CONTEXT_CACHE_MS'),'context feeds are cached by capability');
 add('context-gated decision paths',read('src/app/api/parlays/route.ts').includes('enrichMarketsWithContext')&&read('src/app/api/cron/decision/route.ts').includes('enrichMarketsWithContext')&&read('src/app/api/cron/scan/route.ts').includes('enrichMarketsWithContext'),'recommendation and automation paths consume context quality');
-add('context model audit trail',read('src/lib/persistence.ts').includes('contextQuality:x.contextQuality'),'context quality is persisted with model runs');
-add('V49 dashboard context',read('src/components/Dashboard.tsx').includes('V49 CONTEXT-GATED RECOMMENDATIONS')&&read('src/components/Dashboard.tsx').includes('Context ready'),'context quality is visible in the dashboard');
+add('context model audit trail',read('src/lib/persistence.ts').includes('contextQuality:x.contextQuality')&&read('src/lib/persistence.ts').includes('contextProvenance:x.contextProvenance'),'context quality and provenance are persisted with model runs');
+add('real public context adapter',read('src/lib/providers/publicSportsContext.ts').includes('site.api.espn.com')&&read('src/lib/providers/publicSportsContext.ts').includes('api.open-meteo.com'),'ESPN event context and Open-Meteo weather are integrated');
+add('event-level context matching',read('src/lib/providers/publicSportsContext.ts').includes('matchEspnEvent')&&read('src/lib/providers/publicSportsContext.ts').includes('parseEspnInjuries'),'public context is matched at event/team level');
+add('configured context override priority',read('src/lib/providers/contextFusion.ts').includes('Configured providers below are authoritative overrides'),'paid/configured providers override public supplemental context');
+add('context provenance',read('src/lib/types.ts').includes('ContextProvenance')&&read('src/lib/contextQuality.ts').includes('contextProvenance'),'field-level context source provenance is modeled');
+add('V50 dashboard context',read('src/components/Dashboard.tsx').includes('V50 REAL-CONTEXT RECOMMENDATIONS')&&read('src/components/Dashboard.tsx').includes('Live context'),'real context coverage is visible in the dashboard');
 add('health runtime identity',read('src/app/api/health/route.ts').includes('releaseIdentityMatch')&&read('src/app/api/health/route.ts').includes('Cloudflare-CDN-Cache-Control'),'health exposes runtime/release identity and disables edge caching');
 add('persisted odds reuse',read('src/lib/providers/ingest.ts').includes('stored-live-snapshot')&&read('src/app/api/live-data/status/route.ts').includes('forceLive:requireLive'),'normal reads reuse persisted snapshots while explicit live verification bypasses cache');
 add('Neon env fallback',read('src/lib/db.ts').includes('POSTGRES_URL'),'runtime DB accepts Neon integration vars');
@@ -92,7 +98,7 @@ add('governance runtime brake',read('src/lib/learnedWeights.ts').includes('loadG
 add('governance scheduled rebuild',read('src/app/api/cron/recalibrate/route.ts').includes('runModelGovernance'),'recalibration runs governance');
 add('Cloudflare runtime platform identity',wrangler.includes('"DEPLOYMENT_PLATFORM": "cloudflare"'),'Cloudflare production platform is explicit');
 add('Cloudflare runtime environment identity',wrangler.includes('"DEPLOYMENT_ENV": "production"'),'Cloudflare production environment is explicit');
-add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v49"'),'edgeforce-v49');
+add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v50"'),'edgeforce-v50');
 add('Cloudflare account target',wrangler.includes('"account_id": "de9b84b39940a0b5b622ae5d27b415dc"'),'selected Cloudflare account is pinned');
 add('Cloudflare custom Worker entry',wrangler.includes('"main": "./worker/index.ts"'),'custom fetch + scheduled entrypoint');
 add('Cloudflare hourly autopilot cron',wrangler.includes('"0 * * * *"'),'hourly live-data automation');
@@ -109,7 +115,7 @@ add('Cloudflare local preflight placeholder guard',read('scripts/cloudflare-pref
 add('Cloudflare generated build validation',read('scripts/validate-cloudflare-build.mjs').includes('dist/server/wrangler.json'),'generated Worker config is validated');
 add('Cloudflare deploy script uses generated config',String(pkg.scripts?.['deploy:cloudflare']||'').includes('dist/server/wrangler.json')&&String(pkg.scripts?.['deploy:cloudflare']||'').includes('preflight:cloudflare'),'safe local Cloudflare deploy path');
 add('vinext clean build',String(pkg.scripts?.['build:vinext']||'').includes('clean:build')&&read('scripts/clean-build.mjs').includes("['dist','.next','.vinext']"),'stale generated route artifacts are removed before Worker builds');
-add('parlay route artifact identity',read('src/app/api/parlays/route.ts').includes('v49-context-intelligence-1')&&read('scripts/validate-cloudflare-build.mjs').includes('v49-context-intelligence-1'),'built Worker must contain V49 parlay schema marker');
+add('parlay route artifact identity',read('src/app/api/parlays/route.ts').includes('v50-real-context-network-1')&&read('scripts/validate-cloudflare-build.mjs').includes('v50-real-context-network-1'),'built Worker must contain V50 parlay schema marker');
 
 const requiredCrons=[
  '/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'

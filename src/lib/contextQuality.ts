@@ -192,12 +192,13 @@ export function assessContextQuality(
    presentWeight+=r.weight;
    if(r.critical)presentCritical+=r.weight;
   }
+  const fieldSources=[...new Set((m.contextProvenance||[]).filter(x=>x.field===r.key).map(x=>x.source))];
   return {
    key:r.key,
    weight:r.weight,
    critical:Boolean(r.critical),
    present:isPresent,
-   source:sources.length?sources.join(','):undefined
+   source:fieldSources.length?fieldSources.join(','):(sources.length?sources.join(','):undefined)
   };
  });
 
