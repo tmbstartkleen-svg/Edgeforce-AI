@@ -38,6 +38,10 @@ function parseLine(m:Market){
 }
 function isHome(m:Market){return lower(m.home)!=='home'&&lower(m.selection).includes(lower(m.home))}
 function isAway(m:Market){return lower(m.away)!=='away'&&lower(m.selection).includes(lower(m.away))}
+function fullGameMarket(m:Market){
+ const text=lower(`${m.market} ${m.selection}`);
+ return !/(first|1st|second|2nd|third|3rd|fourth|4th|quarter|half|period|inning|set\s+\d|game\s+\d)/.test(text);
+}
 function kind(m:Market){
  const t=lower(`${m.market} ${m.selection}`);
  if(t.includes('over'))return'OVER';
@@ -76,6 +80,7 @@ function finalize(m:Market,runs:SimulationTier,samples:Sample[],engine:string,sc
 }
 
 function basketball(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('NBA')||s.includes('WNBA')||s.includes('NCAAB')||s.includes('COLLEGE BASKETBALL')))return null;
  const n=actualRuns(runs),rng=seeded(`basketball|${m.id}|${m.startTime}`),edge=homeEdge(m),college=s.includes('NCAAB')||s.includes('COLLEGE BASKETBALL');
  const basePoss=college?70:s.includes('WNBA')?79:99,basePpp=college?1.04:s.includes('WNBA')?1.05:1.13;
@@ -86,6 +91,7 @@ function basketball(m:Market,runs:SimulationTier){
 }
 
 function football(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('NFL')||s.includes('NCAAF')||s.includes('COLLEGE FOOTBALL')))return null;
  const n=actualRuns(runs),rng=seeded(`football|${m.id}|${m.startTime}`),college=s.includes('NCAAF')||s.includes('COLLEGE FOOTBALL'),edge=homeEdge(m)+feat(m,'quarterback')*.08+feat(m,'trenches')*.05;
  const baseDrives=college?12.5:10.8,weather=Math.max(0,-feat(m,'weather')),samples:Sample[]=[];
@@ -112,6 +118,7 @@ function halfInning(rng:Rng,offense:number,pitching:number){
  return {runs,pa};
 }
 function baseball(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  if(!sport(m).includes('MLB'))return null;
  const n=actualRuns(runs),rng=seeded(`mlb|${m.id}|${m.startTime}`),edge=homeEdge(m),samples:Sample[]=[];
  const homeOff=edge*.55+feat(m,'lineup')*.22+feat(m,'park')*.06,awayOff=-edge*.55+feat(m,'lineup')*.10+feat(m,'park')*.06,starter=feat(m,'starter')*.35,bullpen=feat(m,'bullpen')*.22;
@@ -120,6 +127,7 @@ function baseball(m:Market,runs:SimulationTier){
 }
 
 function hockey(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  if(!sport(m).includes('NHL'))return null;
  const n=actualRuns(runs),rng=seeded(`nhl|${m.id}|${m.startTime}`),edge=homeEdge(m)+feat(m,'goalie')*.08+feat(m,'shotQuality')*.08,samples:Sample[]=[];
  for(let r=0;r<n;r++){let home=0,away=0;const shifts=Math.max(38,Math.round(58*(1+feat(m,'pace')*.10)+rng.normal()*5)),hp=clamp(.051+edge*.010+feat(m,'specialTeams')*.004,.028,.085),ap=clamp(.051-edge*.010,.028,.085);for(let sh=0;sh<shifts;sh++){if(rng.next()<hp)home++;if(rng.next()<ap)away++}if(home===away&&kind(m)==='MONEYLINE'){if(rng.next()<clamp(.5+edge*.10,.35,.65))home++;else away++}samples.push({home,away,units:shifts})}
@@ -127,6 +135,7 @@ function hockey(m:Market,runs:SimulationTier){
 }
 
 function soccer(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('SOCCER')||(!s.includes('NFL')&&!s.includes('NCAAF')&&s.includes('FOOTBALL'))))return null;
  const n=actualRuns(runs),rng=seeded(`soccer|${m.id}|${m.startTime}`),edge=homeEdge(m)+feat(m,'xg')*.10+feat(m,'keeper')*.04,samples:Sample[]=[];
  for(let r=0;r<n;r++){let home=0,away=0;const hc=Math.max(4,Math.round(12*(1+edge*.06)+rng.normal()*2)),ac=Math.max(4,Math.round(12*(1-edge*.06)+rng.normal()*2)),hp=clamp(.108+edge*.022+feat(m,'setPieces')*.006,.055,.18),ap=clamp(.108-edge*.022,.055,.18);for(let c=0;c<hc;c++)if(rng.next()<hp)home++;for(let c=0;c<ac;c++)if(rng.next()<ap)away++;samples.push({home,away,units:hc+ac})}
@@ -140,6 +149,7 @@ function tennisSet(rng:Rng,aServe:number,bServe:number){
  let a=0,b=0,points=0,game=0;while(game<20){game++;const aServes=game%2===1,g=tennisGame(rng,aServes?aServe:1-bServe,4);points+=g.points;if(g.aWon)a++;else b++;if((a>=6||b>=6)&&Math.abs(a-b)>=2)break;if(a===6&&b===6){const t=tennisGame(rng,.5+(aServe-bServe)*.6,7);points+=t.points;if(t.aWon)a++;else b++;break}}return{aWon:a>b,points,games:a+b};
 }
 function tennis(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('TENNIS')&&!s.includes('TABLE')))return null;
  const n=actualRuns(runs),rng=seeded(`tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1),aServe=clamp(.625+strength*.045+feat(m,'serve')*.025+feat(m,'surface')*.012,.52,.76),bServe=clamp(.625-strength*.045+feat(m,'return')*.018,.52,.76),samples:Sample[]=[];
  for(let r=0;r<n;r++){let a=0,b=0,points=0;while(a<2&&b<2){const s=tennisSet(rng,aServe,bServe);points+=s.points;if(s.aWon)a++;else b++}samples.push({home:a,away:b,units:points})}
@@ -147,6 +157,7 @@ function tennis(m:Market,runs:SimulationTier){
 }
 
 function tableTennis(m:Market,runs:SimulationTier){
+ if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('TABLE TENNIS')||s.includes('PING PONG')))return null;
  const n=actualRuns(runs),rng=seeded(`table-tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1)+feat(m,'serve')*.06+feat(m,'return')*.07,p=clamp(.5+strength*.12,.38,.62),samples:Sample[]=[];
  for(let r=0;r<n;r++){let a=0,b=0,points=0;while(a<3&&b<3){const g=tennisGame(rng,p,11);points+=g.points;if(g.aWon)a++;else b++}samples.push({home:a,away:b,units:points})}
