@@ -5,6 +5,12 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
  const started=Date.now();
  if(config.url==='the-odds-api://live-board'){
   const result=await fetchTheOddsApiBoard(config);
+  const quota=[
+   result.quota.remaining===undefined?null:`remaining=${result.quota.remaining}`,
+   result.quota.used===undefined?null:`used=${result.quota.used}`,
+   result.quota.last===undefined?null:`last=${result.quota.last}`
+  ].filter(Boolean).join(',');
+  const warning=result.warnings[0];
   return {
    ok:result.ok,
    providerId:config.id,
@@ -14,7 +20,7 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
    receivedAt:new Date().toISOString(),
    status:result.ok?200:502,
    data:result.data as T,
-   error:result.error
+   error:[result.error,warning,quota?`quota ${quota}`:null].filter(Boolean).join(' | ')||undefined
   };
  }
  const controller=new AbortController();
