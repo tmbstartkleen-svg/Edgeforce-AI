@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {buildMixedSportProbabilitySet,buildProbabilitySet} from '@/lib/parlays';
+import {buildMixedSportProbabilitySet,buildProbabilitySet,type Parlay} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
@@ -329,6 +329,32 @@ type DataQualityResponse={
   };
 };
 
+
+type ParlayBoardResponse={
+  ok:boolean;
+  recommendationStatus:'QUALIFIED'|'NO_STRICT_LEGS'|'NO_COMBINATION_CLEARED_RISK_GATES';
+  generatedAt:string;
+  candidateLegs:number;
+  gradeCounts:{ELITE:number;STRONG:number;WATCH:number;PASS:number};
+  strictEligible:number;
+  watchEligible:number;
+  generatedParlayCandidates:number;
+  rejectedParlayCandidates:number;
+  thresholds:{
+    recommendedMinJoint:number;
+    recommendedMinLeg:number;
+    recommendedMinConfidence:number;
+    recommendedMaxModelSimulationGap:number;
+    recommendedMinContextCoverage:number;
+    valueMinJoint:number;
+    extremeUnderdogOdds:number;
+    hailMaryCombinedOdds:number;
+  };
+  recommended:Parlay[];
+  valueWatchlist:Parlay[];
+  hailMary:Parlay[];
+};
+
 type DbStats={
   configured:boolean;
   ok:boolean;
@@ -438,6 +464,7 @@ export default function Dashboard(){
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
   const [parlaySize,setParlaySize]=useState(2);
+  const [parlayBoard,setParlayBoard]=useState<ParlayBoardResponse|null>(null);
   const [lastError,setLastError]=useState('');
   const [bankroll,setBankroll]=useState(1000);
   const [drawdownPct,setDrawdownPct]=useState(0);
@@ -465,6 +492,21 @@ export default function Dashboard(){
     const timer=window.setInterval(()=>void load(),1000);
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[view,limit,risk]);
+
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/parlays?size=2&view='+view,{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as ParlayBoardResponse;
+        if(mounted)setParlayBoard(json);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[view]);
 
   useEffect(()=>{
     let mounted=true;
@@ -589,9 +631,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V46</div>
-        <h1>Unified Event-State Prediction Platform</h1>
-        <p>Supported same-game markets now derive from the same simulated event state, producing empirical joint hit rates and pair correlations. Unsupported combinations remain explicitly routed through the calibrated copula fallback.</p>
+        <div className="eyebrow">EDGEFORCE AI • V48</div>
+        <h1>Recommendation Quality + Risk-Tier Platform</h1>
+        <p>Live parlays are separated into Recommended, Value Watchlist and Hail Mary tiers using joint simulation, confidence, context coverage, market-model agreement and payout risk instead of payout alone.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -709,6 +751,43 @@ export default function Dashboard(){
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div>
+          <div className="eyebrow">V48 RECOMMENDATION QUALITY</div>
+          <h3>Recommended, Value Watchlist and Hail Mary are separated by risk gates</h3>
+        </div>
+        <div className="panelMeta">
+          <span>{parlayBoard?.recommendationStatus?.replaceAll('_',' ')||'LOADING'}</span>
+          <span>{parlayBoard?.generatedParlayCandidates??0} combinations scored</span>
+          <span>{parlayBoard?.rejectedParlayCandidates??0} rejected</span>
+        </div>
+      </div>
+      <div className="v21Grid three">
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">RECOMMENDED</div><h3>{parlayBoard?.recommended.length??0} qualified</h3></div><span className="miniBadge">≥ {parlayBoard?fmtPct(parlayBoard.thresholds.recommendedMinJoint):'52.0%'} joint</span></div>
+          <div className="historyList">
+            {(parlayBoard?.recommended||[]).slice(0,3).map((p,i)=><div className="historyRow" key={p.id}><span>#{i+1} {p.legs.map(x=>x.selection).join(' + ')}</span><b>{fmtPct(p.combinedProbability)}</b><small>{fmtOdds(p.combinedAmericanOdds)} • EV {p.expectedValue>=0?'+':''}{fmtPct(p.expectedValue)} • conf {fmtPct(p.averageDynamicConfidence)}</small></div>)}
+            {!parlayBoard?.recommended.length&&<div className="historyRow"><span>No normal recommendation clears every gate</span><b>HOLD</b><small>Edgeforce will not promote watchlist or longshot combinations into this tier.</small></div>}
+          </div>
+        </div>
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">VALUE WATCHLIST</div><h3>{parlayBoard?.valueWatchlist.length??0} monitored</h3></div><span className="miniBadge">positive EV</span></div>
+          <div className="historyList">
+            {(parlayBoard?.valueWatchlist||[]).slice(0,3).map((p,i)=><div className="historyRow" key={p.id}><span>#{i+1} {p.legs.map(x=>x.selection).join(' + ')}</span><b>{fmtPct(p.combinedProbability)}</b><small>{fmtOdds(p.combinedAmericanOdds)} • {p.riskFlags.slice(0,2).map(x=>x.replaceAll('_',' ')).join(' • ')}</small></div>)}
+            {!parlayBoard?.valueWatchlist.length&&<div className="historyRow"><span>No current value-watch combinations</span><b>—</b><small>Watchlist requires positive modeled value without longshot-grade risk.</small></div>}
+          </div>
+        </div>
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">HAIL MARY</div><h3>{parlayBoard?.hailMary.length??0} isolated</h3></div><span className="miniBadge">longshot only</span></div>
+          <div className="historyList">
+            {(parlayBoard?.hailMary||[]).slice(0,3).map((p,i)=><div className="historyRow" key={p.id}><span>#{i+1} {p.legs.map(x=>x.selection).join(' + ')}</span><b>{fmtPct(p.combinedProbability)}</b><small>{fmtOdds(p.combinedAmericanOdds)} • {p.riskFlags.slice(0,2).map(x=>x.replaceAll('_',' ')).join(' • ')}</small></div>)}
+            {!parlayBoard?.hailMary.length&&<div className="historyRow"><span>No isolated longshots</span><b>—</b><small>Extreme underdogs and high-divergence combinations stay out of the normal board.</small></div>}
+          </div>
+        </div>
+      </div>
     </section>
 
     <section className="v21Panel">

@@ -2,6 +2,65 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V48 Recommendation Quality + Risk Tiers
+
+V48 separates sportsbook analysis from recommendations. A combination can have interesting modeled value without being promoted to the normal recommendation board.
+
+### Recommendation tiers
+- **RECOMMENDED** — strict ELITE/STRONG source legs only, with joint simulation, per-leg simulation, dynamic confidence, context coverage, market-model agreement, consensus depth and freshness gates all cleared
+- **VALUE WATCHLIST** — positive modeled value remains visible when one or more normal recommendation gates are not yet cleared
+- **HAIL MARY** — extreme underdogs, very large combined payouts, low joint probability or severe model-vs-simulation divergence are isolated from normal recommendations
+- **REJECTED** — non-positive modeled parlay EV is removed from all visible recommendation tiers
+
+### Default recommendation gates
+- minimum joint simulated probability: `52%`
+- minimum simulated probability per leg: `60%`
+- minimum average dynamic confidence: `58%`
+- maximum model-vs-simulation gap: `15 percentage points`
+- minimum context coverage: `50%`
+- extreme-underdog flag: `+400` or longer
+- Hail Mary combined-price flag: `+1000` or longer
+
+All thresholds are explicit in the parlay API response and may be overridden by query parameters for analysis without changing the default recommendation standard.
+
+### Parlay diagnostics
+Every scored parlay now exposes:
+- joint and independent probability
+- 95% joint-simulation interval and simulation run count
+- combined market odds and fair parlay odds
+- modeled expected value
+- minimum leg simulation probability
+- average dynamic confidence
+- context coverage
+- maximum model-vs-simulation divergence
+- extreme-underdog count
+- recommendation tier, reasons and risk flags
+
+### Dashboard
+- the live dashboard has separate cards for Recommended, Value Watchlist and Hail Mary
+- extreme longshots no longer appear beside normal recommendations
+- if nothing clears every recommendation gate, the dashboard explicitly shows HOLD rather than promoting a lower-confidence combination
+- the existing 2–20 leg probability-set tools remain available for analysis, but are distinct from the recommendation-quality board
+
+### Validation
+- deterministic regression coverage proves Recommended, Value Watchlist, Hail Mary and Rejected classifications
+- smoke testing requires all three visible API boards and the 52% default joint threshold
+- release audit requires context/divergence/EV gates and visible dashboard separation
+
+### Release identity
+- build: `V48`
+- app: `48.0.0`
+- package: `0.48.0`
+- model: `edgeforce-v48`
+- migration: `v38` (no schema change required)
+
+### Guardrails
+- recommendation tiers are model classifications, not guarantees of betting outcomes or profit
+- missing context reduces recommendation eligibility instead of being silently treated as complete information
+- large model-vs-simulation disagreement is treated as risk until supporting context improves
+- Hail Mary classification means longshot analysis only; it is not a recommendation
+
+
 ## Current build — V47 Adaptive Full-Slate + Live Parlay Engine
 
 V47 expands the verified V46 production feed without returning to high-volume provider fan-out. It adds quota-aware sport expansion, adaptive refresh cadence, and moves parlay generation onto the same live production ingestion path as the Daily / Weekly boards.

@@ -27,13 +27,13 @@ function assert(condition,message){
 
 const live=await get('/api/health/live');
 assert(live.res.ok&&live.body?.live===true,'liveness endpoint failed');
-assert(live.body?.version==='47.0.0','liveness version mismatch');
+assert(live.body?.version==='48.0.0','liveness version mismatch');
 
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='47.0.0','unexpected health version');
-assert(health.body?.modelVersion==='edgeforce-v47','unexpected model version');
+assert(health.body?.version==='48.0.0','unexpected health version');
+assert(health.body?.modelVersion==='edgeforce-v48','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
 assert(health.body?.migrationVersion===38,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
@@ -69,6 +69,10 @@ assert(health.body?.nativeRealOddsIngestion===true,'native real odds ingestion f
 assert(health.body?.adaptiveFullSlateOdds===true,'adaptive full-slate odds flag missing');
 assert(health.body?.quotaAwareProviderExpansion===true,'quota-aware provider expansion flag missing');
 assert(health.body?.liveParlayProductionData===true,'live parlay production-data flag missing');
+assert(health.body?.recommendationQualityTiering===true,'recommendation quality tiering flag missing');
+assert(health.body?.contextRiskRecommendationGate===true,'context risk recommendation gate flag missing');
+assert(health.body?.longshotIsolation===true,'longshot isolation flag missing');
+assert(health.body?.negativeEvParlayRejection===true,'negative-EV parlay rejection flag missing');
 assert(health.body?.persistedLiveSnapshotReuse===true,'persisted live snapshot reuse flag missing');
 assert(health.body?.publicPredictionMarketFallback===true,'public prediction market fallback flag missing');
 assert(health.body?.runtimeNeonMigrationBootstrap===true,'runtime Neon migration bootstrap flag missing');
@@ -83,21 +87,21 @@ assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed')
 
 const releaseReady=await get('/api/release/readiness');
 assert(releaseReady.res.ok&&releaseReady.body?.ready===true,'release readiness endpoint failed');
-assert(releaseReady.body?.version==='47.0.0','release readiness version mismatch');
+assert(releaseReady.body?.version==='48.0.0','release readiness version mismatch');
 
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
-assert(deployment.body?.version==='47.0.0','deployment smoke version mismatch');
+assert(deployment.body?.version==='48.0.0','deployment smoke version mismatch');
 assert(deployment.body?.checks?.migrations==='v38','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
-assert(diagnostics.body?.version==='47.0.0','diagnostics version mismatch');
+assert(diagnostics.body?.version==='48.0.0','diagnostics version mismatch');
 assert(diagnostics.body?.granularSportEngines===7,'granular sport engine count mismatch');
 
 const ops=await get('/api/ops/status');
 assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
-assert(ops.body?.version==='47.0.0','ops status version mismatch');
+assert(ops.body?.version==='48.0.0','ops status version mismatch');
 
 const ledger=await get('/api/ledger/wagers');
 assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
@@ -122,7 +126,7 @@ const providerCertificationStatus=await get('/api/providers/certify');
 assert(providerCertificationStatus.res.ok&&providerCertificationStatus.body?.ok===true,'provider certification status endpoint failed');
 
 const launchDoctor=await get('/api/launch-doctor');
-assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='47.0.0','launch doctor endpoint failed');
+assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='48.0.0','launch doctor endpoint failed');
 
 const jointSimulation=await get('/api/testing/joint-simulation');
 assert(jointSimulation.res.ok&&jointSimulation.body?.ok===true,'joint simulation directionality test failed');
@@ -205,6 +209,13 @@ assert(securityHardening.body?.maxMutationBytes===1048576,'mutation body ceiling
 const automationHealth=await get('/api/automation/health');
 assert(automationHealth.res.ok&&automationHealth.body?.ok===true,'automation health endpoint failed');
 
+const recommendationQuality=await get('/api/testing/recommendation-quality');
+assert(recommendationQuality.res.ok&&recommendationQuality.body?.ok===true,'recommendation quality regression failed');
+assert(recommendationQuality.body?.recommended?.tier==='RECOMMENDED','recommended tier regressed');
+assert(recommendationQuality.body?.value?.tier==='VALUE_WATCHLIST','value watchlist tier regressed');
+assert(recommendationQuality.body?.hail?.tier==='HAIL_MARY','Hail Mary tier regressed');
+assert(recommendationQuality.body?.rejected?.tier==='REJECTED','negative-EV rejection tier regressed');
+
 const parlayFallback=await get('/api/testing/parlay-fallback');
 assert(parlayFallback.res.ok&&parlayFallback.body?.ok===true,'parlay fallback regression failed');
 assert(parlayFallback.body?.strict?.qualification==='STRICT','strict parlay tier regressed');
@@ -218,6 +229,10 @@ assert(oddsRefreshPolicy.body?.reserve?.mode==='BOOTSTRAP_ONLY','quota reserve p
 const liveParlays=await get('/api/parlays?size=2&view=week');
 assert(liveParlays.res.ok&&liveParlays.body?.ok===true,'live parlay endpoint failed');
 assert(Array.isArray(liveParlays.body?.parlays),'live parlay response missing parlays array');
+assert(Array.isArray(liveParlays.body?.recommended),'recommended parlay board missing');
+assert(Array.isArray(liveParlays.body?.valueWatchlist),'value watchlist parlay board missing');
+assert(Array.isArray(liveParlays.body?.hailMary),'Hail Mary parlay board missing');
+assert(Number(liveParlays.body?.thresholds?.recommendedMinJoint)===0.52,'recommended joint threshold regressed');
 
 const liveDataStatus=await get('/api/live-data/status');
 assert(liveDataStatus.res.ok&&liveDataStatus.body?.ok===true,'live data status endpoint failed');
@@ -264,5 +279,5 @@ assert(String(health.res.headers.get('cache-control')||'').includes('no-store'),
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','parlay-fallback','odds-refresh-policy','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','recommendation-quality','parlay-fallback','odds-refresh-policy','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
