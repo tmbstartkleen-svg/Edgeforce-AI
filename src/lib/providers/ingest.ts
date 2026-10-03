@@ -37,6 +37,8 @@ export async function ingestOdds(options:IngestOddsOptions={}){
    rawCount:reusableStored.length,
    warnings:[`Reused ${reusableStored.length} persisted live market snapshots no older than ${reuseAge} minutes to protect provider quota`],
    attempts:[],
+   quality:undefined,
+   error:undefined,
    degraded:false,
    targetBook:process.env.TARGET_BOOKMAKER||'DraftKings',
    providerPanel:[],
