@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V43',
- appVersion:'43.0.0',
- packageVersion:'0.43.0',
- modelVersion:'edgeforce-v43',
+ build:'V44',
+ appVersion:'44.0.0',
+ packageVersion:'0.44.0',
+ modelVersion:'edgeforce-v44',
  migrationVersion:38
 };
 const checks=[];
@@ -25,6 +25,7 @@ const migrationCheck=read('scripts/check-migrations.mjs');
 const security=read('src/lib/security.ts');
 const proxy=read('src/proxy.ts');
 const vercel=JSON.parse(read('vercel.json'));
+const wrangler=read('wrangler.jsonc');
 
 add('package version',pkg.version===expected.packageVersion,`${pkg.version} expected ${expected.packageVersion}`);
 add('release build',manifest.includes(`build:'${expected.build}'`),expected.build);
@@ -52,7 +53,9 @@ const requiredFiles=[
  'src/lib/providers/theOddsApi.ts',
  'src/lib/providers/polymarket.ts',
  'src/lib/runtimeMigrations.ts',
- 'src/app/api/release/bootstrap/route.ts'
+ 'src/app/api/release/bootstrap/route.ts',
+ 'scripts/cloudflare-preflight.mjs',
+ 'scripts/validate-cloudflare-build.mjs'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -61,6 +64,12 @@ add('runtime migration bootstrap',read('src/app/api/release/bootstrap/route.ts')
 add('governance migration schema',read('db/v38.sql').includes('model_governance_snapshots')&&read('db/v38.sql').includes('model_governance_runs'),'v38 governance tables');
 add('governance runtime brake',read('src/lib/learnedWeights.ts').includes('loadGovernanceMultipliers'),'learned weights consume governance');
 add('governance scheduled rebuild',read('src/app/api/cron/recalibrate/route.ts').includes('runModelGovernance'),'recalibration runs governance');
+add('Cloudflare runtime platform identity',wrangler.includes('"DEPLOYMENT_PLATFORM": "cloudflare"'),'Cloudflare production platform is explicit');
+add('Cloudflare runtime environment identity',wrangler.includes('"DEPLOYMENT_ENV": "production"'),'Cloudflare production environment is explicit');
+add('Cloudflare model identity',wrangler.includes('"MODEL_VERSION": "edgeforce-v44"'),'edgeforce-v44');
+add('Cloudflare local preflight placeholder guard',read('scripts/cloudflare-preflight.mjs').includes('PASTE_YOUR_ACCOUNT_ID_HERE'),'placeholder account IDs are rejected');
+add('Cloudflare generated build validation',read('scripts/validate-cloudflare-build.mjs').includes('dist/server/wrangler.json'),'generated Worker config is validated');
+add('Cloudflare deploy script uses generated config',String(pkg.scripts?.['deploy:cloudflare']||'').includes('dist/server/wrangler.json')&&String(pkg.scripts?.['deploy:cloudflare']||'').includes('preflight:cloudflare'),'safe local Cloudflare deploy path');
 
 const requiredCrons=[
  '/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'
@@ -83,6 +92,11 @@ add('candidate workflow release audit',candidateWorkflow.includes('npm run relea
 add('production workflow release audit',productionWorkflow.includes('npm run release-audit'),'release audit required');
 add('direct preview promotion disabled',!candidateWorkflow.includes('vercel promote'),'canonical production deploy required');
 add('production final certification',productionWorkflow.includes('/api/release/certify?strict=1'),'strict final certification required');
+const cloudflareWorkflow=read('.github/workflows/deploy-cloudflare.yml');
+add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflight:cloudflare'),'preflight required');
+add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
+add('Cloudflare workflow model identity',cloudflareWorkflow.includes(expected.modelVersion),expected.modelVersion);
+add('Cloudflare workflow app identity',cloudflareWorkflow.includes(expected.appVersion),expected.appVersion);
 
 for(const workflow of [
  '.github/workflows/deploy-preview.yml',
