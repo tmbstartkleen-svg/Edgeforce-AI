@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "clean:build": "node scripts/clean-build.mjs",
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
@@ -17,7 +18,7 @@
     "release-audit": "node scripts/release-audit.mjs",
     "check:vinext": "vinext check",
     "dev:vinext": "vite dev",
-    "build:vinext": "vite build",
+    "build:vinext": "npm run clean:build && vite build",
     "preview:vinext": "vite preview",
     "deploy:cloudflare": "npm run preflight:cloudflare && npm run build:vinext && npm run validate:cloudflare-build && vinext-cloudflare deploy --skip-build --config dist/server/wrangler.json",
     "preflight:cloudflare": "node scripts/cloudflare-preflight.mjs",

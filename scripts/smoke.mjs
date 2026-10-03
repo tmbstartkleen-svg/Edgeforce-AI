@@ -228,6 +228,8 @@ assert(oddsRefreshPolicy.body?.reserve?.mode==='BOOTSTRAP_ONLY','quota reserve p
 
 const liveParlays=await get('/api/parlays?size=2&view=week');
 assert(liveParlays.res.ok&&liveParlays.body?.ok===true,'live parlay endpoint failed');
+assert(liveParlays.body?.build==='V48','live parlay route build identity mismatch');
+assert(liveParlays.body?.schemaVersion==='v48-recommendation-quality-1','live parlay route schema mismatch');
 assert(Array.isArray(liveParlays.body?.parlays),'live parlay response missing parlays array');
 assert(Array.isArray(liveParlays.body?.recommended),'recommended parlay board missing');
 assert(Array.isArray(liveParlays.body?.valueWatchlist),'value watchlist parlay board missing');
