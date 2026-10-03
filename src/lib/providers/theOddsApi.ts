@@ -27,6 +27,7 @@ export type TheOddsApiResult={
 };
 
 const base=()=>String(process.env.THE_ODDS_API_BASE_URL||'https://api.the-odds-api.com/v4').replace(/\/$/,'');
+let cache:{at:number;value:TheOddsApiResult}|null=null;
 const int=(v:string|undefined,fallback:number)=>{const n=Number(v);return Number.isFinite(n)?Math.floor(n):fallback};
 const csv=(v:string|undefined)=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);
 const priority=(key:string)=>{
@@ -77,6 +78,8 @@ async function mapBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>){
 }
 
 export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOddsApiResult>{
+ const cacheMs=Math.max(15000,int(process.env.THE_ODDS_API_CACHE_MS,120000));
+ if(cache&&Date.now()-cache.at<cacheMs)return cache.value;
  const key=config.apiKey||process.env.THE_ODDS_API_KEY;
  if(!key)return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{},error:'THE_ODDS_API_KEY is not configured'};
 
@@ -85,7 +88,8 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const maxSports=Math.max(1,Math.min(100,int(process.env.THE_ODDS_API_MAX_SPORTS,50)));
  const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
  const markets=process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals';
- const bookmakers=process.env.THE_ODDS_API_BOOKMAKERS||'draftkings';
+ const bookmakers=process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,betmgm,williamhill_us';
+ const regions=process.env.THE_ODDS_API_REGIONS||'us';
  const requested=csv(process.env.THE_ODDS_API_SPORT_KEYS);
  const now=new Date();
  const to=new Date(now.getTime()+lookaheadDays*86400000).toISOString();
@@ -123,7 +127,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   const batch=candidates.slice(i,i+3);
   const rows=await Promise.all(batch.map(async sport=>{
    const url=withKey(`/sports/${encodeURIComponent(sport.key)}/odds`,key,{
-    bookmakers,markets,oddsFormat:'american',dateFormat:'iso',commenceTimeFrom:now.toISOString(),commenceTimeTo:to
+    regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso',commenceTimeFrom:now.toISOString(),commenceTimeTo:to
    });
    const result=await jsonRequest<unknown[]>(url,timeoutMs);
    const events=Array.isArray(result.data)?result.data:[];
@@ -146,7 +150,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  if(stoppedForQuota)warnings.push(`Stopped live odds refresh with ${remaining} credits remaining to preserve the configured reserve of ${reserve}`);
  if(!data.length)warnings.push('The Odds API returned no DraftKings events for the selected sports/window');
 
- return {
+ const value:TheOddsApiResult={
   ok:data.length>0,
   data,
   attempts,
@@ -155,6 +159,8 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   sportsWithEvents:eventChecks.filter(x=>x.result.ok&&x.events.length>0).length,
   fetchedSports:attempts.length,
   quota:{remaining,used,last},
-  error:data.length?undefined:'No live DraftKings odds returned'
+  error:data.length?undefined:'No live sportsbook odds returned'
  };
+ if(value.ok)cache={at:Date.now(),value};
+ return value;
 }
