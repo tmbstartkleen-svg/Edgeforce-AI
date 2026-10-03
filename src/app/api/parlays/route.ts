@@ -7,7 +7,7 @@ import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 
 export const dynamic='force-dynamic';
-const PARLAY_SCHEMA_VERSION='v48-recommendation-quality-1';
+const PARLAY_SCHEMA_VERSION='v49-context-intelligence-1';
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const numberParam=(value:string|null,fallback:number,min:number,max:number)=>{
