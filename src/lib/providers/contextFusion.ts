@@ -1,6 +1,7 @@
-import type {Market} from '../types';
+import type {Market,ContextProvenance} from '../types';
 import {fetchWeatherContext,fetchInjuryContext,fetchStatsContext} from './context';
 import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
+import {fetchPublicSportsContext,type PublicContextRow} from './publicSportsContext';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -22,6 +23,7 @@ type ContextRow={
   usage?:number;
   statKey?:string;
  };
+ provenance?:ContextProvenance[];
 };
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
@@ -59,7 +61,7 @@ const FEATURE_KEYS=[
  'toss','pack','kicking','discipline','receive','attack','block','faceoff','mapPool','roster','patch'
 ];
 
-function normalizeRows(payload:unknown,kind:ContextKind):ContextRow[]{
+function normalizeRows(payload:unknown,kind:ContextKind,providerId?:string):ContextRow[]{
  return arr(payload).map(v=>{
   const r=obj(v);
   const nested=obj(r.features);
@@ -94,6 +96,8 @@ function normalizeRows(payload:unknown,kind:ContextKind):ContextRow[]{
    usage,
    statKey:str(r.statKey||r.stat_key||r.marketKey||r.market_key)||undefined
   }:undefined;
+  const fields=[...Object.keys(features),...(player?['playerAvailability']:[])];
+  const observedAt=new Date().toISOString();
   return {
    eventId:str(r.eventId||r.event_id||r.id),
    event:str(r.event||r.eventName||r.event_name),
@@ -101,7 +105,15 @@ function normalizeRows(payload:unknown,kind:ContextKind):ContextRow[]{
    away:str(r.away||r.awayTeam||r.away_team),
    sport:str(r.sport||r.league),
    features,
-   player
+   player,
+   provenance:fields.map(field=>({
+    source:kind,
+    providerId:providerId||kind,
+    field,
+    observedAt,
+    confidence:.80,
+    status:'LIVE' as const
+   }))
   };
  }).filter(x=>Object.keys(x.features).length>0||Boolean(x.player));
 }
@@ -113,11 +125,16 @@ function match(m:Market,r:ContextRow){
  return false;
 }
 
+function sourceNames(row:PublicContextRow){
+ return [...new Set([row.source,...row.provenance.map(x=>x.source)].filter(Boolean))];
+}
+
 export async function enrichMarketsWithContext(markets:Market[]){
- const [weather,injuries,stats]=await Promise.all([
+ const [weather,injuries,stats,publicNetwork]=await Promise.all([
   fetchWeatherContext(),
   fetchInjuryContext(),
-  fetchStatsContext()
+  fetchStatsContext(),
+  fetchPublicSportsContext(markets)
  ]);
  const sources=[
   {kind:'weather' as const,result:weather},
@@ -130,14 +147,34 @@ export async function enrichMarketsWithContext(markets:Market[]){
   providerId:s.result.providerId,
   attempts:s.result.attempts,
   qualityScore:s.result.quality?.qualityScore??(s.result.ok ? .7 : 0),
-  rows:s.result.ok?normalizeRows(s.result.data,s.kind):[]
+  rows:s.result.ok?normalizeRows(s.result.data,s.kind,s.result.providerId):[]
  }));
- const sourceQuality=Object.fromEntries(normalized.map(x=>[x.kind,x.qualityScore]));
+ const sourceQuality={
+  ...publicNetwork.sourceQuality,
+  ...Object.fromEntries(normalized.map(x=>[x.kind,x.qualityScore]))
+ };
+
  let matchedRows=0;
  const enriched=markets.map(m=>{
   const sportFeatures={...(m.sportFeatures||{})};
   const matchedKinds:string[]=[];
+  const provenance:ContextProvenance[]=[...(m.contextProvenance||[])];
   let playerContext=m.playerContext;
+
+  // Public sources fill gaps first. Configured providers below are authoritative overrides.
+  for(const row of publicNetwork.rows){
+   if(!match(m,row))continue;
+   if(row.player){
+    const name=row.player.name.toLowerCase();
+    const selection=m.selection.toLowerCase();
+    if(!selection.includes(name))continue;
+    playerContext={...playerContext,...row.player,name:row.player.name};
+   }
+   Object.assign(sportFeatures,row.features);
+   matchedKinds.push(...sourceNames(row));
+   provenance.push(...row.provenance);
+  }
+
   for(const source of normalized){
    let matched=false;
    for(const row of source.rows){
@@ -149,12 +186,15 @@ export async function enrichMarketsWithContext(markets:Market[]){
      playerContext={...playerContext,...row.player,name:row.player.name};
     }
     Object.assign(sportFeatures,row.features);
+    provenance.push(...(row.provenance||[]));
     matched=true;
    }
    if(matched)matchedKinds.push(source.kind);
   }
-  if(matchedKinds.length)matchedRows++;
-  const enrichedMarket={...m,sportFeatures,contextSources:matchedKinds,playerContext};
+
+  const contextSources=[...new Set(matchedKinds)];
+  if(contextSources.length)matchedRows++;
+  const enrichedMarket={...m,sportFeatures,contextSources,contextProvenance:provenance,playerContext};
   return {...enrichedMarket,contextQuality:assessContextQuality(enrichedMarket,sourceQuality)};
  });
  const qualitySummary=summarizeContextQuality(enriched);
@@ -164,6 +204,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    matchedRows,
    totalRows:markets.length,
    qualitySummary,
+   publicNetwork:publicNetwork.diagnostics,
    providers:normalized.map(x=>({
     kind:x.kind,ok:x.ok,providerId:x.providerId,rowCount:x.rows.length,
     qualityScore:x.qualityScore,attempts:x.attempts
