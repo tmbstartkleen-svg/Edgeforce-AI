@@ -14,13 +14,21 @@
     "validate-env": "node scripts/validate-env.mjs",
     "check-migrations": "node scripts/check-migrations.mjs",
     "remote-smoke": "node scripts/remote-smoke.mjs",
-    "release-audit": "node scripts/release-audit.mjs"
+    "release-audit": "node scripts/release-audit.mjs",
+    "check:vinext": "vinext check",
+    "dev:vinext": "vite dev",
+    "build:vinext": "vite build",
+    "preview:vinext": "vite preview",
+    "deploy:cloudflare": "vinext-cloudflare deploy --config wrangler.jsonc"
   },
   "dependencies": {
     "next": "16.3.6",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "postgres": "3.4.7"
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "postgres": "3.4.7",
+    "react-server-dom-webpack": "19.2.7",
+    "vinext": "1.0.1",
+    "@vinext/cloudflare": "1.0.1"
   },
   "devDependencies": {
     "@types/node": "24.8.1",
@@ -28,6 +36,12 @@
     "@types/react-dom": "19.2.2",
     "eslint": "9.38.0",
     "eslint-config-next": "16.3.6",
-    "typescript": "5.9.3"
-  }
+    "typescript": "5.9.3",
+    "@cloudflare/vite-plugin": "1.62.5",
+    "@vitejs/plugin-react": "6.1.0",
+    "@vitejs/plugin-rsc": "0.5.34",
+    "vite": "8.0.0",
+    "wrangler": "4.118.0"
+  },
+  "type": "module"
 }
