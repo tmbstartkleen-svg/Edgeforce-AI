@@ -204,7 +204,7 @@ export function assessContextQuality(
  const coverage=clamp(presentWeight/totalWeight);
  const criticalCoverage=critical.length?clamp(presentCritical/criticalWeight):coverage;
  const qualities=sources.map(x=>Number(sourceQuality[x])).filter(Number.isFinite).map(x=>clamp(x));
- const sourceScore=qualities.length?qualities.reduce((s,x)=>s+x,0)/qualities.length:(sources.length?.65:0);
+ const sourceScore=qualities.length?qualities.reduce((s,x)=>s+x,0)/qualities.length:(sources.length ? .65 : 0);
  const score=clamp(coverage*.55+criticalCoverage*.30+sourceScore*.15);
  const grade:ContextQualityGrade=score>=.88?'COMPLETE':score>=.72?'GOOD':score>=.50?'PARTIAL':score>0?'THIN':'NONE';
  const missingCritical=dimensions.filter(x=>x.critical&&!x.present).map(x=>x.key);
