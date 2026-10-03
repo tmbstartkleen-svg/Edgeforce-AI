@@ -175,11 +175,12 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
  }
 
  const markets=buildConsensusMarkets(panelMarkets as Array<Market & {sourceProviderId:string;marketRole:any;sourceProviderWeight:number}>,targetBook);
- const targetFound=markets.some(x=>x.consensus?.targetBookFound);
+ const targetRows=markets.filter(x=>x.consensus?.targetBookFound).length;
+ const targetCoverage=markets.length?targetRows/markets.length:0;
  const warnings=[
   ...panel.flatMap(x=>x.warnings.map(w=>`${x.config.name}: ${w}`)),
   ...attempts.filter(x=>!x.ok&&!x.skipped).map(x=>`${x.providerId}: ${x.error||'provider rejected'}`),
-  ...(targetFound?[]:[`Target bookmaker ${targetBook} not present in accepted consensus quotes; best/reference price displayed`]),
+  ...(targetCoverage===1?[]:[`Target bookmaker ${targetBook} present on ${targetRows}/${markets.length} consensus markets; best/reference price displayed where missing`]),
   ...(accepted.length<2?['Only one acceptable odds provider available; cross-provider consensus depth is limited']:[])
  ];
 
@@ -191,7 +192,7 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
   markets,panelMarkets,
   rawCount:panel.reduce((s,x)=>s+x.rawCount,0),
   warnings,attempts,quality,
-  degraded:attempts.some(x=>!x.ok)||accepted.length<2||!targetFound,
+  degraded:attempts.some(x=>!x.ok)||accepted.length<2||targetCoverage<.8,
   targetBook,
   providerPanel:panel.map(x=>({
    providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
