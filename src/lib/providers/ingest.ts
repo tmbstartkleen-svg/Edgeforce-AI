@@ -30,7 +30,7 @@ export async function ingestOdds(){
   return {
    ...live,
    source:'unavailable' as const,
-   markets:[],
+   markets:[] as typeof live.markets,
    degraded:true,
    warnings:[...live.warnings,stored.length
     ?'Stored odds were too stale; production demo fallback is disabled'
