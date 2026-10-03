@@ -413,9 +413,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V38</div>
-        <h1>Regime-Aware Uncertainty + Dynamic Confidence</h1>
-        <p>Edgeforce now calibrates each simulation against live market regime, cross-book agreement, historical reliability, source freshness, and model precision before ranking or sizing a position.</p>
+        <div className="eyebrow">EDGEFORCE AI • V39</div>
+        <h1>Portfolio Stress Testing + Drawdown Control</h1>
+        <p>Edgeforce now combines calibrated V38 probabilities with portfolio-level scenario simulations, 95% VaR/CVaR, correlated-loss shocks, and automatic drawdown/CVaR allocation brakes.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
