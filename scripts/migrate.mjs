@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import postgres from 'postgres';
 
-const url=process.env.DATABASE_URL;
+const url=process.env.DATABASE_URL||process.env.POSTGRES_URL||process.env.POSTGRES_PRISMA_URL||process.env.NEON_DATABASE_URL;
 if(!url){
  console.error('DATABASE_URL is required');
  process.exit(1);
