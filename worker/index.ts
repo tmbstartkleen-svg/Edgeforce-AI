@@ -6,6 +6,8 @@ type EdgeforceEnv={
  [key:string]:unknown;
 };
 
+export default worker;
+
 type ScheduledControllerLike={
  cron:string;
  scheduledTime:number;
@@ -45,7 +47,7 @@ async function runDaily(env:EdgeforceEnv,ctx:ExecutionContextLike){
  ]);
 }
 
-export default {
+const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
   return handler.fetch(request,env as any,ctx as any);
  },
