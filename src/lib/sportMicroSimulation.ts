@@ -71,7 +71,7 @@ function finalize(m:Market,runs:SimulationTier,samples:Sample[],engine:string,sc
  for(const s of samples){
   const h=hit(m,s);
   if(h===true||(h===undefined&&random.next()<clamp(m.modelProb)))hits++;
-  homeSum+=s.home;awaySum+=s.away;unitSum+=s.units;totals.push(s.home+s.away);
+  homeSum+=s.home;awaySum+=s.away;unitSum+=s.units;totals.push(s.marketTotal??s.home+s.away);
  }
  const n=Math.max(1,samples.length),p=hits/n,se=Math.sqrt(Math.max(1e-9,p*(1-p)/n)),q=quantileSummary(totals);
  return {runs,hits,probability:p,ciLow:Math.max(0,p-1.96*se),ciHigh:Math.min(1,p+1.96*se),volatility:q.stdDev,engine,projection:{
@@ -156,7 +156,8 @@ function tennis(m:Market,runs:SimulationTier){
  if(kind(m)==='SPREAD'&&text.includes('game'))return null;
  const n=actualRuns(runs),rng=seeded(`tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1),aServe=clamp(.625+strength*.045+feat(m,'serve')*.025+feat(m,'surface')*.012,.52,.76),bServe=clamp(.625-strength*.045+feat(m,'return')*.018,.52,.76),samples:Sample[]=[];
  for(let r=0;r<n;r++){let a=0,b=0,points=0,games=0;while(a<2&&b<2){const s=tennisSet(rng,aServe,bServe);points+=s.points;games+=s.games;if(s.aWon)a++;else b++}const marketTotal=text.includes('point')?points:text.includes('game')?games:a+b;samples.push({home:a,away:b,units:points,marketTotal})}
- return finalize(m,n,samples,'TENNIS_POINT_GAME_SET_MONTE_CARLO','sets','BERNOULLI','points',rng);
+ const scoreUnit=text.includes('point')?'points':text.includes('game')?'games':'sets';
+ return finalize(m,n,samples,'TENNIS_POINT_GAME_SET_MONTE_CARLO',scoreUnit,'BERNOULLI','points',rng);
 }
 
 function tableTennis(m:Market,runs:SimulationTier){
@@ -166,7 +167,8 @@ function tableTennis(m:Market,runs:SimulationTier){
  if(kind(m)==='SPREAD'&&text.includes('point'))return null;
  const n=actualRuns(runs),rng=seeded(`table-tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1)+feat(m,'serve')*.06+feat(m,'return')*.07,p=clamp(.5+strength*.12,.38,.62),samples:Sample[]=[];
  for(let r=0;r<n;r++){let a=0,b=0,points=0;while(a<3&&b<3){const g=tennisGame(rng,p,11);points+=g.points;if(g.aWon)a++;else b++}const marketTotal=text.includes('point')?points:a+b;samples.push({home:a,away:b,units:points,marketTotal})}
- return finalize(m,n,samples,'TABLE_TENNIS_POINT_GAME_MONTE_CARLO','games','BERNOULLI','points',rng);
+ const scoreUnit=text.includes('point')?'points':'games';
+ return finalize(m,n,samples,'TABLE_TENNIS_POINT_GAME_MONTE_CARLO',scoreUnit,'BERNOULLI','points',rng);
 }
 
 export function runSportMicroSimulation(m:Market,runs:SimulationTier):MicroSimulationResult|null{
