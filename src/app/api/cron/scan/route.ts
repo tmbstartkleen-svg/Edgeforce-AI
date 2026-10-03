@@ -4,6 +4,7 @@ import {applyQualityGate} from '@/lib/qualityGate';
 import {recordModelRuns} from '@/lib/persistence';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
+import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 import {recordAutomationRun} from '@/lib/automationHealth';
 import {auditMarketBatch} from '@/lib/dataQuality';
 
@@ -17,8 +18,9 @@ export async function GET(req:Request){
   const [ingestion,learnedWeights,dynamicCalibration]=await Promise.all([
    ingestOdds(),loadLearnedWeightMultipliers(),loadDynamicCalibrationProfiles()
   ]);
-  const audit=auditMarketBatch(ingestion.markets);
-  const scanned=weekTop30(ingestion.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
+  const context=await enrichMarketsWithContext(ingestion.markets);
+  const audit=auditMarketBatch(context.markets);
+  const scanned=weekTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
   const rows=applyQualityGate(scanned);
   const modelRunsWritten=await recordModelRuns(rows).catch(()=>0);
   await recordAutomationRun('scan','success',started,{
@@ -30,6 +32,7 @@ export async function GET(req:Request){
    providerId:ingestion.providerId,attempts:ingestion.attempts,qualified:rows.length,
    modelRunsWritten,learnedWeightCount:Object.keys(learnedWeights).length,
    dynamicCalibrationProfileCount:Object.keys(dynamicCalibration).length,
+   contextDiagnostics:context.diagnostics,
    dataQuality:audit,top:rows.slice(0,10)
   },{headers:{'Cache-Control':'no-store'}});
  }catch(error){
