@@ -437,7 +437,7 @@ export async function loadValidationMultipliers(){
    const skill=Number(row.brierSkillScore)||0;
    const scale=eligible
     ?clamp(1+Math.min(.04,Math.max(0,skill)*.20),.95,1.04)
-    :grade==='FAILED'?.55:grade==='PROVISIONAL'?.88:grade==='INSUFFICIENT'?.96:.92;
+    :grade==='FAILED' ? .55 : grade==='PROVISIONAL' ? .88 : grade==='INSUFFICIENT' ? .96 : .92;
    return [key,scale];
   }));
  }catch{
