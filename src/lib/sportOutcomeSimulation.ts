@@ -1,5 +1,6 @@
 import type {Market} from './types';
 import type {SimulationTier,SimulationResult} from './simulation';
+import {distributionForMarket,quantileSummary,type DistributionFamily} from './marketDistributions';
 
 export type SportOutcomeSimulationResult=SimulationResult & {
  engine:string;
@@ -11,10 +12,57 @@ export type SportOutcomeSimulationResult=SimulationResult & {
   selectionMean?:number;
   line?:number;
   unit?:string;
+  distributionFamily?:DistributionFamily;
+  distributionConfidence?:number;
+  p10?:number;
+  p50?:number;
+  p90?:number;
  };
 };
 
 type Rng={next:()=>number;normal:()=>number};
+
+function poisson(rng:Rng,lambda:number){
+ const L=Math.exp(-Math.max(.0001,lambda));
+ let k=0,p=1;
+ do{k++;p*=Math.max(1e-12,rng.next())}while(p>L&&k<1000);
+ return Math.max(0,k-1);
+}
+
+function gammaSample(rng:Rng,shape:number,scale:number){
+ if(shape<1){
+  const u=Math.max(1e-12,rng.next());
+  return gammaSample(rng,shape+1,scale)*Math.pow(u,1/shape);
+ }
+ const d=shape-1/3;
+ const c=1/Math.sqrt(9*d);
+ for(let i=0;i<100;i++){
+  const z=rng.normal();
+  const v=Math.pow(1+c*z,3);
+  if(v<=0)continue;
+  const u=rng.next();
+  if(u<1-.0331*z**4||Math.log(Math.max(1e-12,u))<.5*z*z+d*(1-v+Math.log(v)))return d*v*scale;
+ }
+ return shape*scale;
+}
+
+function sampleDistribution(rng:Rng,spec:ReturnType<typeof distributionForMarket>){
+ if(spec.family==='BERNOULLI')return rng.next()<spec.mean?1:0;
+ if(spec.family==='POISSON')return poisson(rng,spec.mean);
+ if(spec.family==='NEGATIVE_BINOMIAL'){
+  const shape=Math.max(.1,spec.shape||1);
+  const scale=Math.max(.0001,spec.mean/shape);
+  return poisson(rng,gammaSample(rng,shape,scale));
+ }
+ if(spec.family==='GAMMA')return gammaSample(rng,Math.max(.1,spec.shape||1),Math.max(.0001,spec.scale||spec.mean));
+ if(spec.family==='LOGNORMAL'){
+  const variance=spec.stdDev**2;
+  const mu=Math.log(Math.max(.0001,spec.mean**2/Math.sqrt(variance+spec.mean**2)));
+  const sigma=Math.sqrt(Math.log(1+variance/Math.max(.0001,spec.mean**2)));
+  return Math.exp(mu+sigma*rng.normal());
+ }
+ return spec.mean+spec.stdDev*rng.normal();
+}
 
 const clamp=(x:number,min=.001,max=.999)=>Math.max(min,Math.min(max,x));
 const feature=(m:Market,k:string,fallback=0)=>{
@@ -172,7 +220,7 @@ function simulateCombat(m:Market,runs:SimulationTier){
 
 function simulateProp(m:Market,runs:SimulationTier){
  const text=lower(`${m.market} ${m.selection}`);
- if(!(text.includes('player')||text.includes('prop')||rawFeature(m,'propMean')!==undefined||rawFeature(m,'projection')!==undefined))return null;
+ if(!(text.includes('player')||text.includes('prop')||rawFeature(m,'propMean')!==undefined||rawFeature(m,'projection')!==undefined||m.playerContext?.projection!==undefined))return null;
  const player=m.playerContext;
  const baseMean=player?.projection??rawFeature(m,'propMean')??rawFeature(m,'projection');
  const availability=player?.availability??1;
@@ -181,16 +229,27 @@ function simulateProp(m:Market,runs:SimulationTier){
  const sd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
- const sigma=Math.max(.1,Math.abs(sd??mean*.18));
- const rng=seeded(`prop|${m.id}|${m.startTime}`);
+ const spec=distributionForMarket(m,mean,sd);
+ const rng=seeded(`prop|${m.id}|${m.startTime}|${spec.family}`);
  const direction=text.includes('under')?'UNDER':'OVER';
  let hits=0;
+ const samples:number[]=[];
  for(let i=0;i<runs;i++){
-  const value=Math.max(0,mean+rng.normal()*sigma);
+  const raw=sampleDistribution(rng,spec);
+  const value=Math.max(0,raw);
+  samples.push(value);
   const hit=direction==='UNDER'?value<Math.abs(line):value>Math.abs(line);
   if(hit)hits++;
  }
- return finalize(runs,hits,'PLAYER_STAT_MONTE_CARLO',{selectionMean:mean,line:Math.abs(line),unit:player?.statKey||'stat'},sigma);
+ const q=quantileSummary(samples);
+ return finalize(runs,hits,'PLAYER_DISTRIBUTION_MONTE_CARLO',{
+  selectionMean:q.mean,
+  line:Math.abs(line),
+  unit:player?.statKey||'stat',
+  distributionFamily:spec.family,
+  distributionConfidence:spec.confidence,
+  p10:q.p10,p50:q.p50,p90:q.p90
+ },q.stdDev);
 }
 
 export function runSportOutcomeSimulation(m:Market,runs:SimulationTier,fallback:(m:Market,runs:SimulationTier)=>SimulationResult):SportOutcomeSimulationResult{
