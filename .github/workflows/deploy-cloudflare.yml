@@ -12,17 +12,100 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      EDGEFORCE_DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
+      THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify Cloudflare credentials
+
+      - name: Verify required deployment secrets
         run: |
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$EDGEFORCE_DATABASE_URL"
+          test -n "$THE_ODDS_API_KEY"
+
       - run: npm install
       - run: npm run check:vinext
       - run: npm run build:vinext
-      - name: Deploy Worker
-        run: npx wrangler deploy --config wrangler.jsonc
+
+      - name: Apply Neon/Postgres migrations through v38
+        run: npm run migrate
+        env:
+          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
+
+      - name: Generate Edgeforce runtime secrets
+        shell: bash
+        run: |
+          INGEST_SECRET=$(openssl rand -hex 32)
+          CRON_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$INGEST_SECRET"
+          echo "::add-mask::$CRON_SECRET"
+          echo "INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
+          echo "CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
+
+      - name: Deploy Cloudflare Worker with production secrets
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.118.0"
+          command: deploy --config wrangler.jsonc
+          secrets: |
+            DATABASE_URL
+            THE_ODDS_API_KEY
+            INGEST_SECRET
+            CRON_SECRET
+        env:
+          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          INGEST_SECRET: ${{ env.INGEST_SECRET }}
+          CRON_SECRET: ${{ env.CRON_SECRET }}
+
+      - name: Wait for Worker
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          test -n "$DEPLOYMENT_URL"
+          for i in {1..20}; do
+            if curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/live" >/dev/null; then
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
+
+      - name: Certify real sportsbook provider
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/providers/certify" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json"
+          echo
+
+      - name: Strict launch doctor
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
+
+      - name: Hosted V43 smoke test
+        run: npm run remote-smoke
+        env:
+          SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
+          EXPECTED_APP_VERSION: "43.0.0"
+
+      - name: Publish deployment URL
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: V43" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v43" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v38" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
