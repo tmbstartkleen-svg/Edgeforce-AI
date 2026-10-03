@@ -192,7 +192,7 @@ function bestEvent(m:Market,events:EspnEvent[]){
   const teamScore=Math.max(normal,swapped*.65);
   const time=new Date(event.date).getTime();
   const hours=Number.isFinite(target)&&Number.isFinite(time)?Math.abs(target-time)/3600000:6;
-  const timeScore=hours<=2?1:hours<=6?.7:hours<=18?.35:0;
+  const timeScore=hours<=2 ? 1 : hours<=6 ? .7 : hours<=18 ? .35 : 0;
   const score=teamScore*.8+timeScore*.2;
   if(score>=1.05&&(!best||score>best.score))best={score,event};
  }
@@ -380,8 +380,9 @@ function scheduleMaxEvents(){
 }
 
 export async function fetchPublicSportsContext(markets:Market[]){
- if(process.env.PUBLIC_CONTEXT_ENABLED==='false'){
-  return {rows:[] as PublicContextRow[],sourceQuality:{} as Record<string,number>,diagnostics:{enabled:false,matchedEvents:0,totalEvents:0,requests:0,warnings:['Public context network disabled']}};
+ const enabled=process.env.PUBLIC_CONTEXT_ENABLED==='true'||process.env.DEPLOYMENT_ENV==='production';
+ if(!enabled||process.env.PUBLIC_CONTEXT_ENABLED==='false'){
+  return {rows:[] as PublicContextRow[],sourceQuality:{} as Record<string,number>,diagnostics:{enabled:false,matchedEvents:0,totalEvents:0,requests:0,warnings:['Public context network disabled outside production unless explicitly enabled']}};
  }
 
  const warnings:string[]=[];
