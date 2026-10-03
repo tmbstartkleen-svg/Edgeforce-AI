@@ -1,5 +1,7 @@
-import type {Market} from '../types';
+import type {Market,MarketRole as CoreMarketRole} from '../types';
 import type {ProviderCapability} from '../providerRegistry';
+
+export type MarketRole=CoreMarketRole;
 
 export type ProviderConfig={
  id:string;
@@ -16,6 +18,8 @@ export type ProviderConfig={
  maxAgeMin:number;
  failureThreshold:number;
  quarantineMin:number;
+ marketRole:MarketRole;
+ consensusWeight:number;
 };
 
 export type ProviderFetchResult<T>={

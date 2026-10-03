@@ -10,8 +10,11 @@ export type BoardRow=Scanned & {
 export function scoreBoardRows(rows:Scanned[]):BoardRow[]{
   return rows.map(row=>{
     const freshness=row.freshness==='FRESH'?1:row.freshness==='AGING'?.7:.35;
-    const dailyScore=row.simProbability;
-    const weeklyScore=Math.max(0,Math.min(1,row.simProbability*.72+row.agreement*.18+freshness*.10));
+    const consensusAgreement=row.consensus?.agreement??.7;
+    const consensusDispersion=row.consensus?.dispersion??0;
+    const depthBonus=row.consensus?Math.min(.012,Math.max(0,row.consensus.bookCount-1)*.003):0;
+    const dailyScore=Math.max(0,Math.min(1,row.simProbability-consensusDispersion*.30+depthBonus));
+    const weeklyScore=Math.max(0,Math.min(1,row.simProbability*.68+row.agreement*.16+freshness*.08+consensusAgreement*.08-consensusDispersion*.18+depthBonus));
     const probabilityGap=row.simProbability-row.marketProb;
     const calendarDay=new Date(row.startTime).toISOString().slice(0,10);
     return {...row,dailyScore,weeklyScore,probabilityGap,calendarDay};

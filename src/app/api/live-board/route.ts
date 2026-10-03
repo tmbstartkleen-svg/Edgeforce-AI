@@ -108,6 +108,24 @@ export async function GET(req:Request){
     unmatched:rows.filter(x=>x.predictionMarketStatus==='NO_MATCH').length
   };
 
+  const consensusRows=rows.filter(x=>x.consensus);
+  const consensusCoverage={
+    targetBook:ingestion.targetBook||process.env.TARGET_BOOKMAKER||'DraftKings',
+    configuredFeeds:ingestion.providerPanel?.length||0,
+    acceptedFeeds:(ingestion.providerPanel||[]).filter(x=>x.acceptedMarkets>0).length,
+    rows:consensusRows.length,
+    multiBookRows:consensusRows.filter(x=>(x.consensus?.bookCount||0)>=2).length,
+    targetBookRows:consensusRows.filter(x=>x.consensus?.targetBookFound).length,
+    averageAgreement:consensusRows.length?consensusRows.reduce((s,x)=>s+(x.consensus?.agreement||0),0)/consensusRows.length:0,
+    averageDispersion:consensusRows.length?consensusRows.reduce((s,x)=>s+(x.consensus?.dispersion||0),0)/consensusRows.length:0,
+    priceShopOpportunities:consensusRows.filter(x=>(x.consensus?.bestOdds??x.odds)>x.odds).length,
+    outlierRows:consensusRows.filter(x=>(x.consensus?.outlierBooks.length||0)>0).length,
+    classifiedRows:consensusRows.filter(x=>x.consensus?.marketStructure!=='UNCLASSIFIED').length,
+    sharpOverPublic:consensusRows.filter(x=>x.consensus?.marketStructure==='SHARP_OVER_PUBLIC').length,
+    publicOverSharp:consensusRows.filter(x=>x.consensus?.marketStructure==='PUBLIC_OVER_SHARP').length,
+    aligned:consensusRows.filter(x=>x.consensus?.marketStructure==='ALIGNED').length
+  };
+
   await recordPerformance('/api/live-board',Date.now()-started,200,ingestion.providerId);
   return Response.json({
     generatedAt:new Date().toISOString(),
@@ -123,6 +141,9 @@ export async function GET(req:Request){
     providerDegraded:ingestion.degraded,
     providerQuality:ingestion.quality||null,
     providerAttempts:ingestion.attempts,
+    targetBook:ingestion.targetBook,
+    providerPanel:ingestion.providerPanel,
+    consensusCoverage,
     learnedWeightCount:Object.keys(learnedWeights).length,
     learnedSgpCorrelations,
     learnedSgpProfileCount:Object.keys(learnedSgpCorrelations).length,

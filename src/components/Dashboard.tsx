@@ -76,6 +76,17 @@ type LiveBoardResponse={
   providerDegraded?:boolean;
   providerQuality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}|null;
   providerAttempts?:Array<{providerId:string;ok:boolean;skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;error?:string}>;
+  targetBook?:string;
+  providerPanel?:Array<{
+    providerId:string;providerName:string;bookmaker:string;marketRole:string;
+    configuredWeight:number;effectiveWeight:number;acceptedMarkets:number;
+    qualityGrade?:string;qualityScore?:number;
+  }>;
+  consensusCoverage?:{
+    targetBook:string;configuredFeeds:number;acceptedFeeds:number;rows:number;multiBookRows:number;
+    targetBookRows:number;averageAgreement:number;averageDispersion:number;priceShopOpportunities:number;
+    outlierRows:number;classifiedRows:number;sharpOverPublic:number;publicOverSharp:number;aligned:number;
+  };
   warnings?:string[];
   contextRevision?:string;
   contextChanges?:Array<{
@@ -185,6 +196,7 @@ type DbStats={
     athletes?:number;
     player_game_stats?:number;
     market_snapshots?:number;
+    market_consensus_snapshots?:number;
     model_runs?:number;
     bet_results?:number;
   };
@@ -377,9 +389,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V36</div>
-        <h1>Sport Micro-Simulation + Joint Event Intelligence</h1>
-        <p>Market-specific probability distributions now drive supported player props and low-scoring team markets, with p10/p50/p90 uncertainty ranges layered on line movement, steam, CLV and automatic repricing.</p>
+        <div className="eyebrow">EDGEFORCE AI • V37</div>
+        <h1>Consensus Pricing + Sharp/Public Market Structure</h1>
+        <p>Cross-book no-vig consensus now anchors market probability while Edgeforce preserves the target-book wager price, tracks price dispersion, flags outliers, and shows explicitly configured sharp-vs-public book structure.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -400,6 +412,7 @@ export default function Dashboard(){
 
     {lastError&&<div className="v21Alert">{lastError}</div>}
     {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
+    {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     <section className="v21Hero">
@@ -418,7 +431,9 @@ export default function Dashboard(){
           <div><small>Sports</small><b>{board.sports.length}</b></div>
           <div><small>History</small><b>{board.history.sampleSize}</b></div>
           <div><small>Feed</small><b>{board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'READY'}</b></div>
-          <div><small>Repriced</small><b>{board.resimulatedMarketIds?.length||0}</b></div>
+          <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
+          <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
+          <div><small>Price shops</small><b>{board.consensusCoverage?.priceShopOpportunities??0}</b></div>
         </div>
       </div>
     </section>
@@ -485,7 +500,7 @@ export default function Dashboard(){
     <section className="v21Stats">
       <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
-      <div><small>AVG NO-VIG</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>sportsbook consensus baseline</span></div>
+      <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
       <div><small>STEAM</small><strong>{board.steamCount||0}</strong><span>material moves detected</span></div>
     </section>
 
@@ -503,7 +518,7 @@ export default function Dashboard(){
       <div className="tableWrap">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>No-vig %</th><th>PM %</th><th>Sim %</th><th>DK Edge</th><th>PM Edge</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Target Edge</th><th>PM Edge</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
             {filtered.map((x,i)=><tr key={x.id}>
@@ -512,9 +527,9 @@ export default function Dashboard(){
               <td><b>{x.event}</b><small>{x.selection}</small></td>
               <td><b>{x.period}</b><small>{dateLabel(x.startTime)}</small></td>
               <td>{x.market}</td>
-              <td><b>{fmtOdds(x.odds)}</b><small>{x.lineMovement?('open '+fmtOdds(x.lineMovement.openerOdds)+' • '+x.lineMovement.direction+(x.lineMovement.steam?' • '+x.lineMovement.steamStrength+' STEAM':'')):'no history'}</small></td>
+              <td><b>{fmtOdds(x.odds)}</b><small>{x.consensus?`${x.consensus.targetBookFound?x.consensus.targetBook:'target missing'} • best ${fmtOdds(x.consensus.bestOdds)} ${x.consensus.bestBook||''}`:x.sourceBook||board.targetBook||'single source'}</small><small>{x.lineMovement?('open '+fmtOdds(x.lineMovement.openerOdds)+' • '+x.lineMovement.direction+(x.lineMovement.steam?' • '+x.lineMovement.steamStrength+' STEAM':'')):'no history'}</small></td>
               <td>{fmtPct(x.rawImpliedProbability)}</td>
-              <td>{fmtPct(x.noVigProbability)}</td>
+              <td><b>{fmtPct(x.noVigProbability)}</b><small>{x.consensus?`${x.consensus.bookCount} books • ${fmtPct(x.consensus.agreement)} agree • ${x.consensus.marketStructure.replaceAll('_',' ')}`:'single-source baseline'}</small></td>
               <td><b>{x.predictionMarketProbability!==undefined?fmtPct(x.predictionMarketProbability):'—'}</b><small>{x.predictionMarketStatus==='MATCHED'?(x.predictionMarketVolume!==undefined?`vol ${Math.round(x.predictionMarketVolume).toLocaleString()}`:'matched'):x.predictionMarketStatus.replaceAll('_',' ')}</small></td>
               <td className="lime">{fmtPct(x.simProbability)}</td>
               <td className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</td>
@@ -713,6 +728,7 @@ export default function Dashboard(){
       <div><small>ATHLETES</small><b>{dbStats.counts?.athletes||0}</b></div>
       <div><small>PLAYER GAME STATS</small><b>{dbStats.counts?.player_game_stats||0}</b></div>
       <div><small>MARKET SNAPSHOTS</small><b>{dbStats.counts?.market_snapshots||0}</b></div>
+      <div><small>CONSENSUS SNAPSHOTS</small><b>{dbStats.counts?.market_consensus_snapshots||0}</b></div>
       <div><small>MODEL RUNS</small><b>{dbStats.counts?.model_runs||0}</b></div>
       <div><small>SETTLED RESULTS</small><b>{dbStats.counts?.bet_results||0}</b></div>
     </section>

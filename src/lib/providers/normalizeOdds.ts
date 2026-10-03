@@ -66,7 +66,11 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
    for(const outcomeValue of outcomes){
     const outcome=obj(outcomeValue);
     const odds=num(outcome.price,0);
-    const selection=str(outcome.name,'');
+    const baseSelection=str(outcome.name,'');
+    const point=num(outcome.point,Number.NaN);
+    const selection=Number.isFinite(point)&&marketKey!=='h2h'
+     ?`${baseSelection} ${point>0?'+':''}${point}`
+     :baseSelection;
     if(!odds||!selection||!startTime)continue;
     const rawImpliedProb=impliedProbability(odds);
     out.push({

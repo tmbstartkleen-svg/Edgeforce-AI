@@ -11,6 +11,7 @@ export async function GET(){
         (select count(*)::int from athletes) as athletes,
         (select count(*)::int from player_game_stats) as player_game_stats,
         (select count(*)::int from market_snapshots) as market_snapshots,
+        (select count(*)::int from market_consensus_snapshots) as market_consensus_snapshots,
         (select count(*)::int from model_runs) as model_runs,
         (select count(*)::int from bet_results) as bet_results,
         (select count(*)::int from bet_slips) as bet_slips,

@@ -2,6 +2,7 @@ import {db} from './db';
 import type {Market} from './types';
 import type {ContextChangeEvent} from './contextChanges';
 import {contextMarketKey} from './contextChanges';
+import {consensusMarketKey} from './marketConsensus';
 
 export async function saveMarketSnapshots(markets:Market[],provider='authorized-provider',bookmaker='DraftKings'){
   const sql=db();
@@ -15,7 +16,7 @@ export async function saveMarketSnapshots(markets:Market[],provider='authorized-
     `;
     await sql`
       insert into market_snapshots(event_id,provider,bookmaker,market_key,selection_key,american_odds,implied_probability,no_vig_probability,source_age_seconds,raw)
-      values(${m.id},${provider},${bookmaker},${m.market},${m.selection},${m.odds},${m.marketProb},${m.marketProb},${Math.round(m.sourceAgeMin*60)},${sql.json(m as any)})
+      values(${m.id},${m.sourceProviderId||provider},${m.sourceBook||bookmaker},${m.market},${m.selection},${m.odds},${m.rawImpliedProb??m.marketProb},${m.marketProb},${Math.round(m.sourceAgeMin*60)},${sql.json(m as any)})
     `;
     written++;
   }
@@ -37,6 +38,12 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
       coalesce(e.home_team_id,'Home') as home,
       coalesce(e.away_team_id,'Away') as away,
       ms.american_odds as odds,
+      ms.implied_probability::float as "rawImpliedProb",
+      coalesce(ms.raw->>'sourceBook',ms.bookmaker) as "sourceBook",
+      coalesce(ms.raw->>'sourceProviderId',ms.provider) as "sourceProviderId",
+      ms.raw->>'marketRole' as "marketRole",
+      coalesce((ms.raw->>'sourceProviderWeight')::float,1)::float as "sourceProviderWeight",
+      ms.raw->'consensus' as consensus,
       coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float as "marketProb",
       coalesce((ms.raw->>'modelProb')::float,coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float) as "modelProb",
       coalesce((ms.raw->>'confidence')::float,0.6) as confidence,
@@ -51,6 +58,48 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
   `;
   return rows as unknown as Market[];
 }
+
+export async function saveConsensusMarketSnapshots(markets:Market[],panelMarkets:Market[]){
+  const sql=db();
+  if(!sql||!markets.length)return {written:0,mode:'memory' as const};
+  const panel=new Map<string,Market[]>();
+  for(const quote of panelMarkets){
+   const k=consensusMarketKey(quote);
+   panel.set(k,[...(panel.get(k)||[]),quote]);
+  }
+  let written=0;
+  for(const market of markets){
+   const consensus=market.consensus;
+   if(!consensus)continue;
+   const quotes=(panel.get(consensusMarketKey(market))||[]).map(q=>({
+    providerId:q.sourceProviderId||null,
+    book:q.sourceBook||null,
+    role:q.marketRole||'NEUTRAL',
+    weight:q.sourceProviderWeight??1,
+    odds:q.odds,
+    probability:q.marketProb,
+    rawImpliedProbability:q.rawImpliedProb??null,
+    sourceAgeMin:q.sourceAgeMin
+   }));
+   await sql`
+    insert into market_consensus_snapshots(
+     event_id,market_key,selection_key,start_time,target_book,target_odds,target_book_found,
+     consensus_probability,consensus_fair_odds,provider_count,book_count,dispersion,agreement,
+     min_probability,max_probability,best_odds,best_book,sharp_probability,public_probability,
+     sharp_public_gap,market_structure,outlier_books,books,quotes
+    ) values(
+     ${market.id},${market.market},${market.selection},${market.startTime},${consensus.targetBook},${market.odds},${consensus.targetBookFound},
+     ${consensus.consensusProbability},${consensus.consensusFairOdds},${consensus.providerCount},${consensus.bookCount},
+     ${consensus.dispersion},${consensus.agreement},${consensus.minProbability},${consensus.maxProbability},
+     ${consensus.bestOdds},${consensus.bestBook??null},${consensus.sharpProbability??null},${consensus.publicProbability??null},
+     ${consensus.sharpPublicGap??null},${consensus.marketStructure},${sql.json(consensus.outlierBooks)},${sql.json(consensus.books)},${sql.json(quotes)}
+    )
+   `;
+   written++;
+  }
+  return {written,mode:'database' as const};
+}
+
 
 export async function lineHistory(eventId:string,marketKey:string,selectionKey:string,limit=100){
   const sql=db();
@@ -93,7 +142,11 @@ export async function recordModelRuns(rows:any[]){
           distributionConfidence:x.simProjection?.distributionConfidence??null,
           distributionQuantiles:{p10:x.simProjection?.p10??null,p50:x.simProjection?.p50??null,p90:x.simProjection?.p90??null},
           playerContext:x.playerContext||null,
-          modelVotes:x.modelVotes||[]
+          modelVotes:x.modelVotes||[],
+          consensus:x.consensus||null,
+          sourceBook:x.sourceBook||null,
+          sourceProviderId:x.sourceProviderId||null,
+          marketRole:x.marketRole||null
         })}
       )
     `;

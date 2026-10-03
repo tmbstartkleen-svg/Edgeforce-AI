@@ -1,10 +1,19 @@
-import type {ProviderConfig} from './types';
+import type {ProviderConfig,MarketRole} from './types';
 import type {ProviderCapability} from '../providerRegistry';
 
 const int=(v:string|undefined,fallback:number)=>{
  const n=Number(v);
  return Number.isFinite(n)?n:fallback;
 };
+
+function role(value:string|undefined):MarketRole{
+ const v=(value||'NEUTRAL').toUpperCase();
+ return v==='SHARP'||v==='PUBLIC'||v==='REFERENCE'?v:'NEUTRAL';
+}
+function weight(value:string|undefined,fallback=1){
+ const n=Number(value);
+ return Number.isFinite(n)?Math.max(.1,Math.min(5,n)):fallback;
+}
 
 function defaultMaxAge(capability:ProviderCapability){
  switch(capability){
@@ -31,10 +40,12 @@ function provider(prefix:string,name:string,capability:ProviderCapability,priori
   priority:int(process.env[`${prefix}_PRIORITY`],priority),
   timeoutMs:int(process.env[`${prefix}_TIMEOUT_MS`],8000),
   enabled:process.env[`${prefix}_ENABLED`]!=='false',
-  bookmaker:process.env[`${prefix}_BOOKMAKER`]||'DraftKings',
+  bookmaker:process.env[`${prefix}_BOOKMAKER`]||(capability==='ODDS'&&prefix==='ODDS_PROVIDER_PRIMARY'?'DraftKings':name),
   maxAgeMin:int(process.env[`${prefix}_MAX_AGE_MIN`],defaultMaxAge(capability)),
   failureThreshold:Math.max(1,int(process.env[`${prefix}_FAILURE_THRESHOLD`],int(process.env.PROVIDER_FAILURE_THRESHOLD,3))),
-  quarantineMin:Math.max(1,int(process.env[`${prefix}_QUARANTINE_MIN`],int(process.env.PROVIDER_QUARANTINE_MIN,5)))
+  quarantineMin:Math.max(1,int(process.env[`${prefix}_QUARANTINE_MIN`],int(process.env.PROVIDER_QUARANTINE_MIN,5))),
+  marketRole:role(process.env[`${prefix}_MARKET_ROLE`]),
+  consensusWeight:weight(process.env[`${prefix}_CONSENSUS_WEIGHT`],1)
  };
 }
 

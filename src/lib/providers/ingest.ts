@@ -1,12 +1,15 @@
 import {fetchNormalizedOdds} from './odds';
-import {saveMarketSnapshots} from '../persistence';
+import {saveMarketSnapshots,saveConsensusMarketSnapshots} from '../persistence';
 import {latestStoredMarkets} from '../persistence';
 import {demoMarkets} from '../demo';
 
 export async function ingestOdds(){
  const live=await fetchNormalizedOdds();
  if(live.mode==='live'&&live.markets.length){
-  await saveMarketSnapshots(live.markets,live.providerId||'authorized-provider','DraftKings').catch(()=>undefined);
+  await Promise.all([
+   saveMarketSnapshots(live.markets,live.providerId||'consensus-panel',live.targetBook||'DraftKings').catch(()=>undefined),
+   saveConsensusMarketSnapshots(live.markets,live.panelMarkets||[]).catch(()=>undefined)
+  ]);
   return {...live,source:'live' as const};
  }
  const stored=await latestStoredMarkets().catch(()=>[]);

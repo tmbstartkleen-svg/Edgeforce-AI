@@ -1,4 +1,26 @@
 export type RiskProfile='Conservative'|'Moderate'|'Aggressive';
+export type MarketRole='SHARP'|'PUBLIC'|'REFERENCE'|'NEUTRAL';
+
+export type MarketConsensus={
+ providerCount:number;
+ bookCount:number;
+ targetBook:string;
+ targetBookFound:boolean;
+ consensusProbability:number;
+ consensusFairOdds:number;
+ dispersion:number;
+ agreement:number;
+ minProbability:number;
+ maxProbability:number;
+ bestOdds:number;
+ bestBook?:string;
+ sharpProbability?:number;
+ publicProbability?:number;
+ sharpPublicGap?:number;
+ marketStructure:'SHARP_OVER_PUBLIC'|'PUBLIC_OVER_SHARP'|'ALIGNED'|'MIXED'|'UNCLASSIFIED';
+ outlierBooks:string[];
+ books:string[];
+};
 
 export type PlayerContext={
  name:string;
@@ -26,6 +48,10 @@ export type Market={
  odds:number;
  rawImpliedProb?:number;
  sourceBook?:string;
+ sourceProviderId?:string;
+ marketRole?:MarketRole;
+ sourceProviderWeight?:number;
+ consensus?:MarketConsensus;
  marketProb:number;
  modelProb:number;
  confidence:number;

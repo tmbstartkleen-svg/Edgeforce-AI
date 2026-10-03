@@ -10,6 +10,8 @@ export async function GET(){
   timeoutMs:p.timeoutMs,
   enabled:p.enabled,
   bookmaker:p.bookmaker,
+  marketRole:p.marketRole,
+  consensusWeight:p.consensusWeight,
   urlConfigured:Boolean(p.url),
   keyConfigured:Boolean(p.apiKey),
   health:providerHealth({...p,capabilities:[p.capability]})
