@@ -29,7 +29,7 @@ type LeagueSpec={
  outdoor:boolean;
 };
 
-type EspnEvent={
+export type EspnEvent={
  id:string;
  date:string;
  name:string;
@@ -49,7 +49,7 @@ type EspnEvent={
  raw:Record<string,unknown>;
 };
 
-type InjuryEntry={
+export type InjuryEntry={
  team:string;
  player:string;
  status:string;
@@ -149,7 +149,7 @@ function recordPct(competitor:Record<string,unknown>){
  return undefined;
 }
 
-function parseScoreboard(payload:unknown):EspnEvent[]{
+export function parseEspnScoreboard(payload:unknown):EspnEvent[]{
  const root=obj(payload);
  return arr(root.events).map(v=>{
   const e=obj(v);
@@ -181,7 +181,7 @@ function parseScoreboard(payload:unknown):EspnEvent[]{
  }).filter(x=>x.id&&x.home&&x.away);
 }
 
-function bestEvent(m:Market,events:EspnEvent[]){
+export function matchEspnEvent(m:Market,events:EspnEvent[]){
  const target=new Date(m.startTime).getTime();
  let best:{score:number;event:EspnEvent}|null=null;
  for(const event of events){
@@ -219,7 +219,7 @@ function statusFromNode(node:Record<string,unknown>){
  return str(status.name)||str(status.type)||str(status.description)||str(node.status)||str(node.injuryStatus);
 }
 
-function parseInjuries(payload:unknown){
+export function parseEspnInjuries(payload:unknown){
  const out:InjuryEntry[]=[];
  const seen=new Set<string>();
  const visit=(value:unknown,teamHint='')=>{
@@ -292,7 +292,7 @@ function hasStarterSignals(payload:unknown,positions:RegExp){
  return count;
 }
 
-function restDays(payload:unknown,targetIso:string){
+export function deriveRestDays(payload:unknown,targetIso:string){
  const target=new Date(targetIso).getTime();
  if(!Number.isFinite(target))return undefined;
  const dates:string[]=[];
@@ -411,18 +411,18 @@ export async function fetchPublicSportsContext(markets:Market[]){
   if(!events){
    const url=`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/scoreboard?dates=${date}`;
    const res=await fetchJson(url,5*60000);requests++;
-   events=res.ok?parseScoreboard(res.value):[];
+   events=res.ok?parseEspnScoreboard(res.value):[];
    scoreboardCache.set(boardKey,events);
    if(!res.ok)warnings.push(`ESPN scoreboard ${spec.key} failed: ${res.error||res.status}`);
   }
-  const found=bestEvent(market,events);
+  const found=matchEspnEvent(market,events);
   if(!found)continue;
 
   let injuries=injuryCache.get(spec.key);
   if(!injuries){
    const url=`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/injuries`;
    const res=await fetchJson(url,3*60000);requests++;
-   injuries=res.ok?parseInjuries(res.value):[];
+   injuries=res.ok?parseEspnInjuries(res.value):[];
    injuryCache.set(spec.key,injuries);
    if(!res.ok)warnings.push(`ESPN injuries ${spec.key} unavailable: ${res.error||res.status}`);
   }
@@ -482,8 +482,8 @@ export async function fetchPublicSportsContext(markets:Market[]){
     fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/teams/${event.awayId}/schedule`,30*60000)
    ]);
    requests+=2;
-   const homeRest=homeSchedule.ok?restDays(homeSchedule.value,market.startTime):undefined;
-   const awayRest=awaySchedule.ok?restDays(awaySchedule.value,market.startTime):undefined;
+   const homeRest=homeSchedule.ok?deriveRestDays(homeSchedule.value,market.startTime):undefined;
+   const awayRest=awaySchedule.ok?deriveRestDays(awaySchedule.value,market.startTime):undefined;
    if(homeRest!==undefined&&awayRest!==undefined){
     features.rest=clamp((homeRest-awayRest)/4);
     restRows++;
