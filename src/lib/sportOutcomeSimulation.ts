@@ -1,6 +1,7 @@
 import type {Market} from './types';
 import type {SimulationTier,SimulationResult} from './simulation';
 import {distributionForMarket,quantileSummary,type DistributionFamily} from './marketDistributions';
+import {runSportMicroSimulation} from './sportMicroSimulation';
 
 export type SportOutcomeSimulationResult=SimulationResult & {
  engine:string;
@@ -17,6 +18,8 @@ export type SportOutcomeSimulationResult=SimulationResult & {
   p10?:number;
   p50?:number;
   p90?:number;
+  microUnit?:string;
+  microUnitCount?:number;
  };
 };
 
@@ -270,6 +273,8 @@ function simulateProp(m:Market,runs:SimulationTier){
 export function runSportOutcomeSimulation(m:Market,runs:SimulationTier,fallback:(m:Market,runs:SimulationTier)=>SimulationResult):SportOutcomeSimulationResult{
  const prop=simulateProp(m,runs);
  if(prop)return prop;
+ const micro=runSportMicroSimulation(m,runs);
+ if(micro)return micro;
  const team=simulateTeamScoreMarket(m,runs);
  if(team)return team;
  const sets=simulateSetSport(m,runs);
