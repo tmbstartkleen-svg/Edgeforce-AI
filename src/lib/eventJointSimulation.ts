@@ -131,7 +131,7 @@ export function runEventJointSimulation(legs:JointSimulationLeg[],learned?:Learn
   const p=clamp(legs[0].simProbability,.001,.999);
   return {runs,hits:Math.round(p*runs),probability:p,independentProbability:p,correlationDelta:0,ciLow:p,ciHigh:p,pairCorrelations:[],matrixShrink:1,eventCount:1};
  }
- const matrix=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
+ const matrix:number[][]=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
  const pairCorrelations:PairCorrelation[]=[];
  for(let i=0;i<n;i++){
   for(let j=i+1;j<n;j++){
