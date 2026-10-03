@@ -23,6 +23,8 @@ jobs:
       - run: npm install
       - run: npm run lint
       - run: npm run build
+      - run: npm run check-migrations
+      - run: npm run release-audit
       - run: npm install --global vercel@62.1.0
       - name: Pull preview environment
         run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
