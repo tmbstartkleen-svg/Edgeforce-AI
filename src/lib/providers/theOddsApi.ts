@@ -31,6 +31,7 @@ let cache:{at:number;value:TheOddsApiResult}|null=null;
 const failureCacheMs=()=>Math.max(5000,int(process.env.THE_ODDS_API_FAILURE_CACHE_MS,30000));
 const int=(v:string|undefined,fallback:number)=>{const n=Number(v);return Number.isFinite(n)?Math.floor(n):fallback};
 const csv=(v:string|undefined)=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);
+const isoSeconds=(d:Date)=>d.toISOString().replace(/\.\d{3}Z$/,'Z');
 const priority=(key:string)=>{
  const order=[
   'americanfootball_nfl','americanfootball_ncaaf','baseball_mlb','basketball_nba','basketball_ncaab',
@@ -97,7 +98,8 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const regions=process.env.THE_ODDS_API_REGIONS||'us';
  const requested=csv(process.env.THE_ODDS_API_SPORT_KEYS);
  const now=new Date();
- const to=new Date(now.getTime()+lookaheadDays*86400000).toISOString();
+ const fromIso=isoSeconds(now);
+ const to=isoSeconds(new Date(now.getTime()+lookaheadDays*86400000));
 
  const sportsResponse=await jsonRequest<SportRow[]>(withKey('/sports/',key),timeoutMs);
  if(!sportsResponse.ok||!Array.isArray(sportsResponse.data)){
@@ -114,7 +116,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   .sort((a,b)=>priority(a.key)-priority(b.key)||a.key.localeCompare(b.key));
 
  const eventChecks=await mapBatches(sports,4,async sport=>{
-  const result=await jsonRequest<EventRow[]>(withKey(`/sports/${encodeURIComponent(sport.key)}/events`,key,{dateFormat:'iso',commenceTimeFrom:now.toISOString(),commenceTimeTo:to}),timeoutMs);
+  const result=await jsonRequest<EventRow[]>(withKey(`/sports/${encodeURIComponent(sport.key)}/events`,key,{dateFormat:'iso',commenceTimeFrom:fromIso,commenceTimeTo:to}),timeoutMs);
   const events=Array.isArray(result.data)?result.data.filter(x=>{
    const t=x.commence_time?new Date(x.commence_time).getTime():0;
    return t>=now.getTime()&&t<=new Date(to).getTime();
@@ -123,7 +125,14 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  },200);
  const candidates=eventChecks.filter(x=>x.result.ok&&x.events.length>0).map(x=>x.sport).slice(0,maxSports);
  const warnings:string[]=[];
- if(eventChecks.some(x=>!x.result.ok))warnings.push(`${eventChecks.filter(x=>!x.result.ok).length} free event-discovery request(s) failed`);
+ const failedDiscovery=eventChecks.filter(x=>!x.result.ok);
+ if(failedDiscovery.length){
+  const statusCounts=new Map<number,number>();
+  for(const row of failedDiscovery)statusCounts.set(row.result.status,(statusCounts.get(row.result.status)||0)+1);
+  const statusSummary=[...statusCounts.entries()].map(([status,count])=>`${status||0}:${count}`).join(',');
+  const sample=failedDiscovery.slice(0,3).map(x=>`${x.sport.key}=${x.result.status||0}:${x.result.error||'request failed'}`).join('; ');
+  warnings.push(`${failedDiscovery.length} free event-discovery request(s) failed${statusSummary?` [${statusSummary}]`:''}${sample?`; sample ${sample}`:''}`);
+ }
  if(candidates.length<eventChecks.filter(x=>x.result.ok&&x.events.length>0).length)warnings.push(`Sport scan capped at ${maxSports}; set THE_ODDS_API_MAX_SPORTS higher to expand coverage`);
 
  const data:unknown[]=[];
@@ -138,7 +147,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   const batch=candidates.slice(i,i+3);
   const rows=await Promise.all(batch.map(async sport=>{
    const url=withKey(`/sports/${encodeURIComponent(sport.key)}/odds`,key,{
-    regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso',commenceTimeFrom:now.toISOString(),commenceTimeTo:to
+    regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso',commenceTimeFrom:fromIso,commenceTimeTo:to
    });
    const result=await jsonRequest<unknown[]>(url,timeoutMs);
    const events=Array.isArray(result.data)?result.data:[];
