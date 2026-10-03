@@ -1,8 +1,5 @@
 import type {ProviderConfig} from './types';
 
-type SportRow={key:string;group?:string;title?:string;active?:boolean;has_outrights?:boolean};
-type EventRow={id:string;commence_time?:string};
-
 export type TheOddsApiAttempt={
  sportKey:string;
  events:number;
@@ -30,22 +27,6 @@ const base=()=>String(process.env.THE_ODDS_API_BASE_URL||'https://api.the-odds-a
 let cache:{at:number;value:TheOddsApiResult}|null=null;
 const failureCacheMs=()=>Math.max(5000,int(process.env.THE_ODDS_API_FAILURE_CACHE_MS,30000));
 const int=(v:string|undefined,fallback:number)=>{const n=Number(v);return Number.isFinite(n)?Math.floor(n):fallback};
-const csv=(v:string|undefined)=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);
-const isoSeconds=(d:Date)=>d.toISOString().replace(/\.\d{3}Z$/,'Z');
-const priority=(key:string)=>{
- const order=[
-  'americanfootball_nfl','americanfootball_ncaaf','baseball_mlb','basketball_nba','basketball_ncaab',
-  'basketball_wnba','icehockey_nhl','mma_mixed_martial_arts','soccer_usa_mls'
- ];
- const exact=order.indexOf(key);
- if(exact>=0)return exact;
- if(key.startsWith('tennis_'))return 20;
- if(key.startsWith('soccer_'))return 30;
- if(key.startsWith('basketball_'))return 40;
- if(key.startsWith('icehockey_'))return 50;
- if(key.startsWith('baseball_'))return 60;
- return 100;
-};
 const headerNum=(res:Response,name:string)=>{
  const n=Number(res.headers.get(name));
  return Number.isFinite(n)?n:undefined;
@@ -79,15 +60,6 @@ function withKey(path:string,key:string,params:Record<string,string>={}){
  url.searchParams.set('apiKey',key);
  for(const [k,v] of Object.entries(params))if(v)url.searchParams.set(k,v);
  return url.toString();
-}
-
-async function mapBatches<T,R>(items:T[],size:number,fn:(item:T)=>Promise<R>,pauseMs=0){
- const out:R[]=[];
- for(let i=0;i<items.length;i+=size){
-  out.push(...await Promise.all(items.slice(i,i+size).map(fn)));
-  if(pauseMs>0&&i+size<items.length)await new Promise(resolve=>setTimeout(resolve,pauseMs));
- }
- return out;
 }
 
 export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOddsApiResult>{
