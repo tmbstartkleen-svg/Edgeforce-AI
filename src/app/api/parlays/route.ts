@@ -7,7 +7,7 @@ import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 
 export const dynamic='force-dynamic';
-const PARLAY_SCHEMA_VERSION='v50-real-context-network-1';
+const PARLAY_SCHEMA_VERSION='v51-prediction-validation-1';
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const numberParam=(value:string|null,fallback:number,min:number,max:number)=>{
@@ -69,7 +69,7 @@ export async function GET(req:Request){
  return Response.json({
   ok:true,
   generatedAt:new Date().toISOString(),
-  build:'V50',
+  build:'V51',
   schemaVersion:PARLAY_SCHEMA_VERSION,
   source:ingestion.source,
   providerId:ingestion.providerId||null,
