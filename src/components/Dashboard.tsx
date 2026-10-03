@@ -214,6 +214,24 @@ type PortfolioApiResponse={
   };
 };
 
+type ModelDiagnosticsResponse={
+  ok:boolean;
+  source:string;
+  sampleSize:number;
+  summary:{
+    fragility:{robust:number;moderate:number;fragile:number};
+    averageAgreement:number;
+    averageEffectiveModelCount:number;
+    averageWeightConcentration:number;
+    averageAbsoluteEdge:number;
+    dominantModels:Array<{name:string;count:number}>;
+  };
+  mostFragile:Array<{
+    market:{id:string;sport:string;event:string;selection:string;market:string};
+    explanation:{edge:number;diagnostics:{fragility:string;fragilityRatio:number;dominantModel:string;dominantWeight:number;councilAgreement:number}};
+  }>;
+};
+
 type DbStats={
   configured:boolean;
   ok:boolean;
@@ -307,6 +325,7 @@ export default function Dashboard(){
   const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
+  const [modelDiagnostics,setModelDiagnostics]=useState<ModelDiagnosticsResponse|null>(null);
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -365,6 +384,21 @@ export default function Dashboard(){
         if(!res.ok)return;
         const json=await res.json() as CalibrationResponse;
         if(mounted)setCalibration(json);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),60000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/intelligence/model-diagnostics',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as ModelDiagnosticsResponse;
+        if(mounted)setModelDiagnostics(json);
       }catch{}
     };
     void load();
@@ -621,6 +655,30 @@ export default function Dashboard(){
             <div><b>{x.selection}</b><small>{x.sport} • score {pct(x.score)}</small><p>{x.reason}</p></div>
           </div>)}
           {!board.anomalies.length&&<p className="muted">No material anomaly signals in the current board.</p>}
+        </div>
+      </div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">V40 MODEL DIAGNOSTICS</div><h3>Fragility, concentration, disagreement, and ablation risk</h3></div>
+        <span className="miniBadge">{modelDiagnostics?.sampleSize||0} markets analyzed</span>
+      </div>
+      <div className="v21Stats">
+        <div><small>FRAGILE</small><strong>{modelDiagnostics?.summary.fragility.fragile||0}</strong><span>{modelDiagnostics?.summary.fragility.moderate||0} moderate • {modelDiagnostics?.summary.fragility.robust||0} robust</span></div>
+        <div><small>AVG AGREEMENT</small><strong>{modelDiagnostics?pct(modelDiagnostics.summary.averageAgreement):'—'}</strong><span>model council consistency</span></div>
+        <div><small>EFFECTIVE MODELS</small><strong>{modelDiagnostics?modelDiagnostics.summary.averageEffectiveModelCount.toFixed(1):'—'}</strong><span>after weight concentration</span></div>
+        <div><small>AVG ABS EDGE</small><strong>{modelDiagnostics?pct(modelDiagnostics.summary.averageAbsoluteEdge):'—'}</strong><span>ensemble vs market baseline</span></div>
+      </div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Most fragile markets</h4>
+          {(modelDiagnostics?.mostFragile||[]).slice(0,8).map(x=><div className="historyRow" key={x.market.id+x.market.market+x.market.selection}><span>{x.market.selection}</span><b>{x.explanation.diagnostics.fragility}</b><small>{x.market.sport} • ratio {x.explanation.diagnostics.fragilityRatio.toFixed(2)} • agreement {pct(x.explanation.diagnostics.councilAgreement)}</small></div>)}
+          {!modelDiagnostics?.mostFragile?.length&&<div className="historyRow"><span>No diagnostics yet</span><b>—</b><small>diagnostics populate from current market rows</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Dominant model frequency</h4>
+          {(modelDiagnostics?.summary.dominantModels||[]).slice(0,8).map(x=><div className="historyRow" key={x.name}><span>{x.name}</span><b>{x.count}</b><small>markets where this model has the largest normalized weight</small></div>)}
         </div>
       </div>
     </section>
