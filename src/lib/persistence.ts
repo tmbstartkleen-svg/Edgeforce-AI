@@ -89,6 +89,9 @@ export async function recordModelRuns(rows:any[]){
           contextSources:x.contextSources||[],
           simEngine:x.simEngine,
           simProjection:x.simProjection||{},
+          distributionFamily:x.simProjection?.distributionFamily||null,
+          distributionConfidence:x.simProjection?.distributionConfidence??null,
+          distributionQuantiles:{p10:x.simProjection?.p10??null,p50:x.simProjection?.p50??null,p90:x.simProjection?.p90??null},
           playerContext:x.playerContext||null,
           modelVotes:x.modelVotes||[]
         })}
