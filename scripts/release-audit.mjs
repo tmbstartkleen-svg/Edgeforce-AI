@@ -97,6 +97,8 @@ add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflig
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
 add('Cloudflare workflow model identity',cloudflareWorkflow.includes(expected.modelVersion),expected.modelVersion);
 add('Cloudflare workflow app identity',cloudflareWorkflow.includes(expected.appVersion),expected.appVersion);
+const cloudflareVerifyWorkflow=read('.github/workflows/verify-cloudflare.yml');
+add('Cloudflare verify generated config',cloudflareVerifyWorkflow.includes('npm run validate:cloudflare-build'),'generated Worker config validated in CI');
 
 for(const workflow of [
  '.github/workflows/deploy-preview.yml',
