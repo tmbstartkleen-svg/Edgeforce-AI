@@ -33,7 +33,7 @@ async function cachedOdds(force=false){
   const now=Date.now();
   if(!force&&oddsCache&&now-oddsCache.at<SOURCE_TTL_MS)return oddsCache.value;
 
-  const ingestion=await ingestOdds();
+  const ingestion=await ingestOdds({forceLive:force});
   const context=await enrichMarketsWithContext(ingestion.markets);
   const previousStored=await loadContextMarketStates().catch(()=>[]);
   const previous=previousStored.length?previousStored:lastContextMarkets;
@@ -149,6 +149,7 @@ export async function GET(req:Request){
     limit,
     risk,
     source:ingestion.source,
+    persistedReuseAgeMin:ingestion.reuseAgeMin??null,
     providerId:ingestion.providerId,
     providerName:ingestion.providerName,
     providerMode:ingestion.mode,
