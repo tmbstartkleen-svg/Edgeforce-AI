@@ -2,6 +2,40 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
+## Current build — V46 Unified Event-State Prediction
+
+V46 upgrades same-game pricing from probability-only correlation to shared event-state simulation whenever the selected markets are structurally supported.
+
+### Shared event-state simulation
+- same-event moneyline, spread, total and supported player-prop legs are evaluated inside the same simulated game state
+- shared pace and team-performance shocks propagate into team scores and player outcomes
+- player props use provider projection, standard deviation, availability and starter state when present
+- low-scoring sports use discrete scoring behavior; higher-scoring sports use shared continuous event factors
+- joint parlay probability is measured directly from scenario co-occurrence rather than reconstructed only from marginal leg probabilities
+- pair correlations are estimated empirically from the shared simulated outcomes
+
+### Safe fallback
+- unsupported sports, partial markets, missing player projections and multi-event combinations retain the existing Gaussian-copula / learned-correlation fallback
+- API responses identify the joint engine as `SHARED_EVENT_STATE` or `GAUSSIAN_COPULA_FALLBACK`
+- parlay objects expose scenario coverage so downstream UI can distinguish empirical event-state pricing from fallback correlation
+
+### Validation
+- deterministic regression coverage requires an NBA moneyline + total + player-prop same-game set to route through `SHARED_EVENT_STATE`
+- the existing positive/negative learned-correlation regression remains in place for fallback behavior
+- release audit requires the shared event-state engine and regression route
+
+### Release identity
+- build: `V46`
+- app: `46.0.0`
+- package: `0.46.0`
+- model: `edgeforce-v46`
+- migration: `v38` (no schema change required)
+
+### Guardrails
+- shared event-state simulation is an estimate, not a guarantee of game outcomes or parlay success
+- unsupported markets are not forced into the event-state engine
+- empirical correlations are model-derived unless learned from settled historical wagers
+- real-data, calibration, governance, portfolio, security and production controls from V45 remain active
 
 ## Current build — V45 Real Data Autopilot
 
