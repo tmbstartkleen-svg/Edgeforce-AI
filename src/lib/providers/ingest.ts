@@ -24,6 +24,19 @@ export async function ingestOdds(){
    warnings:[...live.warnings,`Live odds unavailable; using stored markets no older than ${maxStoredAge} minutes`]
   };
  }
+ const production=(process.env.DEPLOYMENT_ENV==='production'||process.env.VERCEL_ENV==='production');
+ const allowDemo=process.env.ALLOW_DEMO_DATA==='true'||!production;
+ if(!allowDemo){
+  return {
+   ...live,
+   source:'unavailable' as const,
+   markets:[],
+   degraded:true,
+   warnings:[...live.warnings,stored.length
+    ?'Stored odds were too stale; production demo fallback is disabled'
+    :'No live or fresh stored odds are available; production demo fallback is disabled']
+  };
+ }
  return {
   ...live,
   source:'demo' as const,
