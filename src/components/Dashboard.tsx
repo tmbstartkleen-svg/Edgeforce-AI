@@ -539,7 +539,7 @@ export default function Dashboard(){
           </select>
         </div>
         {probabilitySet?<div className="setBody">
-          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>{probabilitySet.jointSimulationRuns.toLocaleString()} correlated sims • independent {pct(probabilitySet.independentProbability)}</span></div>
+          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>{probabilitySet.jointSimulationRuns.toLocaleString()} correlated sims • independent {pct(probabilitySet.independentProbability)} • {probabilitySet.learnedPairCount} learned pairs</span></div>
           <div className="legList">{probabilitySet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
         </div>:<p className="muted">Not enough qualified rows for this leg count under the current filters.</p>}
       </div>
@@ -547,7 +547,7 @@ export default function Dashboard(){
       <div className="v21Card">
         <div className="v21CardHead"><div><div className="eyebrow">MULTI-SPORT</div><h3>Cross-sport probability set</h3></div><span className="miniBadge">{parlaySize} legs</span></div>
         {mixedSet?<div className="setBody">
-          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(mixedSet.combinedProbability)}</strong><span>{mixedSet.jointSimulationRuns.toLocaleString()} correlated sims • {mixedSet.eventCount} events</span></div>
+          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(mixedSet.combinedProbability)}</strong><span>{mixedSet.jointSimulationRuns.toLocaleString()} correlated sims • {mixedSet.eventCount} events • {mixedSet.learnedPairCount} learned pairs</span></div>
           <div className="legList">{mixedSet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
         </div>:<p className="muted">Not enough rows to form this set.</p>}
       </div>
