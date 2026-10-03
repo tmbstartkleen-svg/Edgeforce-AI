@@ -110,9 +110,11 @@ export function buildConsensusMarkets(quotes:Quote[],targetBook='DraftKings'){
    outlierBooks,
    books:books.map(x=>x.sourceBook||x.sourceProviderId)
   };
+  const sourceWasMarketBaseline=Math.abs(target.modelProb-target.marketProb)<.0005;
   markets.push({
    ...target,
    marketProb:robust.probability,
+   modelProb:sourceWasMarketBaseline?robust.probability:target.modelProb,
    consensus,
    sourceBook:target.sourceBook||targetBook,
    confidence:clamp(target.confidence*(.82+.18*agreement),.2,.99)
