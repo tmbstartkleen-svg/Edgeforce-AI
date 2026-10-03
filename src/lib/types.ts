@@ -23,6 +23,16 @@ export type MarketConsensus={
  books:string[];
 };
 
+export type ContextProvenance={
+ source:string;
+ providerId:string;
+ field:string;
+ observedAt:string;
+ confidence:number;
+ status:'LIVE'|'FORECAST'|'CONFIRMED'|'INDOOR'|'CACHED'|'DEGRADED';
+ detail?:Record<string,unknown>;
+};
+
 export type PlayerContext={
  name:string;
  team?:string;
@@ -59,7 +69,8 @@ export type Market={
  sourceAgeMin:number;
  period:'AM'|'PM';
  sportFeatures?:Record<string,number>;
- contextSources?:string[];
+contextSources?:string[];
+ contextProvenance?:ContextProvenance[];
  playerContext?:PlayerContext;
  contextQuality?:ContextQuality;
 };
