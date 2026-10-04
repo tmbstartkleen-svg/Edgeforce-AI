@@ -64,7 +64,7 @@ export default function ChampionDriftPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V60 CHAMPION DRIFT + AUTO-ROLLBACK</div>
+    <div className="eyebrow">V61 CHAMPION DRIFT + AUTO-ROLLBACK</div>
     <h3>Settled live performance, market-relative decay, quarantine, and native-model fallback</h3>
    </div>
    <div className="panelMeta">
