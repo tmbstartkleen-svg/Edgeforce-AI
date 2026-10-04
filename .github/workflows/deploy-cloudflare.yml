@@ -108,6 +108,14 @@ jobs:
           curl --fail --silent --show-error "$DEPLOYMENT_URL/predictions" > /dev/null
           curl --fail --silent --show-error "$DEPLOYMENT_URL/manifest.webmanifest" > /dev/null
 
+      - name: Prime prediction intelligence warehouse
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/cron/predictions" \
+            -H "Authorization: Bearer $CRON_SECRET" > /tmp/prediction-warehouse.json
+          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({contracts:d.fetched?.contracts||0,trades:d.fetched?.kalshiTrades+d.fetched?.polymarketTrades,warehouse:d.warehouse}))"
+
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
@@ -127,5 +135,8 @@ jobs:
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Build: V51" >> "$GITHUB_STEP_SUMMARY"
           echo "- Model: edgeforce-v51" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v39" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"\n          echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"\n          echo "- iPhone PWA: /mobile" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v40" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"
+          echo "- iPhone PWA: /mobile" >> "$GITHUB_STEP_SUMMARY"

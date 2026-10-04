@@ -1,7 +1,7 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
 
-export type AutomationJobName='heartbeat'|'settle'|'scan'|'decision'|'recalibrate';
+export type AutomationJobName='heartbeat'|'settle'|'scan'|'decision'|'recalibrate'|'prediction-intelligence';
 export type AutomationRunStatus='success'|'failed';
 export type AutomationHealthState='HEALTHY'|'STALE'|'FAILED'|'PENDING';
 
@@ -21,7 +21,8 @@ export const AUTOMATION_JOBS:Array<{jobName:AutomationJobName;maxGapHours:number
  {jobName:'settle',maxGapHours:30,description:'automatic wager/result settlement'},
  {jobName:'scan',maxGapHours:30,description:'odds scan and model-run persistence'},
  {jobName:'decision',maxGapHours:30,description:'decision journal and alerts'},
- {jobName:'recalibrate',maxGapHours:30,description:'model and SGP recalibration'}
+ {jobName:'recalibrate',maxGapHours:30,description:'model and SGP recalibration'},
+ {jobName:'prediction-intelligence',maxGapHours:3,description:'Kalshi/Polymarket market, trade and trader intelligence collection'}
 ];
 
 export function evaluateAutomationRecords(records:AutomationRunRecord[],now=new Date()){

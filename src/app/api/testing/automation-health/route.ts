@@ -4,9 +4,9 @@ export const dynamic='force-dynamic';
 
 export async function GET(){
  const now=new Date('2026-10-03T12:00:00Z');
- const healthyRecords:AutomationRunRecord[]=AUTOMATION_JOBS.map((job,i)=>({
-  jobName:job.jobName,status:'success',releaseVersion:'41.0.0',
-  startedAt:new Date(now.getTime()-(i+1)*3600000).toISOString()
+ const healthyRecords:AutomationRunRecord[]=AUTOMATION_JOBS.map(job=>({
+  jobName:job.jobName,status:'success',releaseVersion:'51.0.0',
+  startedAt:new Date(now.getTime()-Math.max(.25,Math.min(1,job.maxGapHours/2))*3600000).toISOString()
  }));
  const healthy=evaluateAutomationRecords(healthyRecords,now);
  const mixed=evaluateAutomationRecords([

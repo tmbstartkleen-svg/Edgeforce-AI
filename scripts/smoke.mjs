@@ -35,7 +35,7 @@ assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='51.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v51','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===39,'unexpected migration version');
+assert(health.body?.migrationVersion===40,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -94,6 +94,14 @@ assert(health.body?.longshotIsolation===true,'longshot isolation flag missing');
 assert(health.body?.negativeEvParlayRejection===true,'negative-EV parlay rejection flag missing');
 assert(health.body?.persistedLiveSnapshotReuse===true,'persisted live snapshot reuse flag missing');
 assert(health.body?.publicPredictionMarketFallback===true,'public prediction market fallback flag missing');
+assert(health.body?.allMarketPredictionTerminal===true,'all-market prediction terminal flag missing');
+assert(health.body?.predictionMarketWarehouse===true,'prediction market warehouse flag missing');
+assert(health.body?.predictionMarketTradeTape===true,'prediction trade tape flag missing');
+assert(health.body?.predictionMarketMovers===true,'prediction market movers flag missing');
+assert(health.body?.predictionTraderIntelligence===true,'prediction trader intelligence flag missing');
+assert(health.body?.polymarketPublicLeaderboard===true,'Polymarket public leaderboard flag missing');
+assert(health.body?.iPhonePredictionPwa===true,'iPhone prediction PWA flag missing');
+assert(health.body?.cloudflarePredictionCollector===true,'Cloudflare prediction collector flag missing');
 assert(health.body?.runtimeNeonMigrationBootstrap===true,'runtime Neon migration bootstrap flag missing');
 assert(health.body?.cloudflareRuntimeIdentity===true,'Cloudflare runtime identity flag missing');
 assert(health.body?.cloudflareDeployPreflight===true,'Cloudflare deployment preflight flag missing');
@@ -111,7 +119,7 @@ assert(releaseReady.body?.version==='51.0.0','release readiness version mismatch
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
 assert(deployment.body?.version==='51.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v39','deployment migration identity mismatch');
+assert(deployment.body?.checks?.migrations==='v40','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
@@ -276,6 +284,12 @@ assert(oddsRefreshPolicy.res.ok&&oddsRefreshPolicy.body?.ok===true,'adaptive odd
 assert(oddsRefreshPolicy.body?.expanded?.mode==='EXPANDED','expanded refresh policy regressed');
 assert(oddsRefreshPolicy.body?.reserve?.mode==='BOOTSTRAP_ONLY','quota reserve policy regressed');
 
+const predictionIntelligence=await get('/api/testing/prediction-intelligence');
+assert(predictionIntelligence.res.ok&&predictionIntelligence.body?.ok===true,'prediction intelligence regression failed');
+assert(predictionIntelligence.body?.category==='ECONOMICS','prediction category classifier regressed');
+assert(predictionIntelligence.body?.mover?.probabilityChange>0.14,'prediction mover calculation regressed');
+assert(predictionIntelligence.body?.signal?.rank===5,'prediction trader leaderboard join regressed');
+
 const liveParlays=await get('/api/parlays?size=2&view=week');
 assert(liveParlays.res.ok&&liveParlays.body?.ok===true,'live parlay endpoint failed');
 assert(liveParlays.body?.build==='V51','live parlay route build identity mismatch');
@@ -332,5 +346,5 @@ assert(String(health.res.headers.get('cache-control')||'').includes('no-store'),
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','context-quality','context-intelligence','public-context-network','validation-lab-regression','validation-lab','recommendation-quality','parlay-fallback','odds-refresh-policy','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','context-quality','context-intelligence','public-context-network','validation-lab-regression','validation-lab','recommendation-quality','parlay-fallback','odds-refresh-policy','prediction-intelligence','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
