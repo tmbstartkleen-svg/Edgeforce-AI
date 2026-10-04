@@ -269,7 +269,7 @@ export async function runExternalMlTournament(){
       ${candidate.holdoutBrier},${candidate.holdoutLogLoss},${candidate.holdoutAccuracy},
       ${candidate.marketBaselineBrier},${candidate.marketBaselineLogLoss},${candidate.brierSkillScore},
       ${candidate.calibrationError},${candidate.compositeScore},${sql.json(group.featureNames||[])},
-      ${sql.json(candidate.featureImportance||{})},${sql.json(candidate.hyperparameters||{})},
+      ${sql.json(candidate.featureImportance||{})},${sql.json((candidate.hyperparameters||{}) as any)},
       ${candidate.artifactUri||null},${sql.json({trainingSeconds:candidate.trainingSeconds??null,eligible:candidate.eligible})},
       ${reason},${RELEASE.modelVersion},now()
      ) returning id
