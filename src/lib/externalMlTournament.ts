@@ -4,6 +4,7 @@ import {
  canonicalTrainingSport,trainingFeatureNames,trainingFeatureVectorFromHistory,
  type TrainingHistoryRow
 } from './trainedSportModels';
+import {mlServiceCircuitAllows,probeMlService,recordMlServiceFailure,recordMlServiceSuccess} from './mlServiceHealth';
 
 type ServiceCandidate={
  algorithm:string;
@@ -102,6 +103,7 @@ async function currentChampion(sport:string,marketKey:string){
 async function callTrainingService(groups:Array<{sport:string;marketKey:string;featureNames:string[];rows:Array<{occurredAt:string;features:number[];outcome:0|1;marketProbability:number}>}>){
  const url=String(process.env.ML_TRAINING_SERVICE_URL||'').trim();
  if(!url)return {configured:false,ok:false,error:'ML_TRAINING_SERVICE_URL is not configured'} as const;
+ if(!mlServiceCircuitAllows())return {configured:true,ok:false,error:'ML service circuit breaker is open'} as const;
  const key=String(process.env.ML_TRAINING_SERVICE_KEY||process.env.EXPERT_MODEL_SERVICE_KEY||'').trim();
  const controller=new AbortController();
  const timeoutMs=Math.max(15000,Number(process.env.ML_TRAINING_TIMEOUT_MS||900000));
@@ -124,8 +126,10 @@ async function callTrainingService(groups:Array<{sport:string;marketKey:string;f
   });
   const body=await res.json().catch(()=>({})) as ServiceTrainResponse&{detail?:unknown};
   if(!res.ok||body.ok===false)throw new Error(`training service HTTP ${res.status}: ${JSON.stringify(body.detail||body).slice(0,500)}`);
+  await recordMlServiceSuccess({serviceVersion:body.serviceVersion||null,algorithms:body.algorithmsAvailable||{}});
   return {configured:true,ok:true,body} as const;
  }catch(error){
+  await recordMlServiceFailure(error);
   return {configured:true,ok:false,error:error instanceof Error?error.message:'training service failed'} as const;
  }finally{
   clearTimeout(timer);
@@ -182,6 +186,8 @@ export async function runExternalMlTournament(){
  if(!sql)return {ok:true,mode:'dry-run' as const,configured:Boolean(process.env.ML_TRAINING_SERVICE_URL),rows:0,groups:0,candidates:0,promoted:0};
  const url=String(process.env.ML_TRAINING_SERVICE_URL||'').trim();
  if(!url)return {ok:true,mode:'unconfigured' as const,configured:false,rows:0,groups:0,candidates:0,promoted:0};
+ const health=await probeMlService();
+ if(!health.ok)return {ok:false,mode:'service-unhealthy' as const,configured:true,rows:0,groups:0,candidates:0,promoted:0,error:health.error};
 
  const lookback=Math.max(1000,Number(process.env.ML_TOURNAMENT_LOOKBACK_ROWS||30000));
  const minSample=Math.max(80,Number(process.env.ML_TOURNAMENT_MIN_SAMPLE||120));
