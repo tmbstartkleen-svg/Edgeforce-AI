@@ -2,7 +2,42 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V51 Prediction Validation Laboratory
+## Current build — V52 Live Comeback / Halftime Buy-Low Watch
+
+V52 adds a first-class live comeback module to the existing EdgeForce 2 system without removing the V51 validation, context, parlay, prediction-market, portfolio, or calibration capabilities.
+
+### Live comeback intelligence
+- watches supported live-window markets for meaningful probability moves against a selection
+- requires the EdgeForce simulation to remain materially above the current market probability
+- uses dynamic confidence, model agreement, line-history depth, context readiness, freshness, and regime stability
+- separates stronger `BUY_LOW_REVIEW` setups from developing `WATCH` setups
+- surfaces the module directly on the main dashboard and at `GET /api/live-comeback`
+
+### Hard guardrail
+V52 does **not** infer score, clock/period, possession/server, or live injury state from odds movement. Every `BUY_LOW_REVIEW` row is marked `requiresGameStateConfirmation: true`. The signal means the price/model conditions cleared the review gates, not that an entry is automatically safe or profitable.
+
+### Default buy-low review gates
+- supported sport and likely live time window
+- ELITE or STRONG grade
+- simulation probability at least 62%
+- dynamic confidence at least 58%
+- simulation-to-market edge at least 8 percentage points
+- adverse market move at least 3 percentage points
+- fresh data, stable/non-dislocated regime, recommendation-ready context, and at least two line snapshots
+
+### Validation
+- deterministic `GET /api/testing/live-comeback` regression verifies a strong setup is promoted, a weak setup is rejected, and game-state confirmation remains mandatory
+- local and hosted smoke checks cover the new endpoint
+- release audit requires the engine, API, test route, and dashboard panel
+
+### Release identity
+- build: `V52`
+- app: `52.0.0`
+- package: `0.52.0`
+- model: `edgeforce-v52`
+- migration: `v42` (no schema change)
+
+## Previous build — V51 Prediction Validation Laboratory
 
 V51 adds an evidence-grade validation layer that measures whether Edgeforce predictions improve out of sample before learned models retain full runtime influence.
 

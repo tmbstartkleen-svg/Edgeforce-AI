@@ -1,16 +1,24 @@
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'51.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'52.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
-const paths=['/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
+const paths=['/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
 
 for(const path of paths){
  const started=Date.now();
- const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/51'}});
+ const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/52'}});
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
+ if(path==='/api/testing/live-comeback'){
+  const json=JSON.parse(body);
+  if(json.ok!==true||json.assertions?.gameStateGuardrail!==true)throw new Error('live comeback regression mismatch');
+ }
+ if(path==='/api/live-comeback'){
+  const json=JSON.parse(body);
+  if(json.ok!==true||json.build!=='V52'||json.schemaVersion!=='v52-live-comeback-1'||json.gameStateVerified!==false)throw new Error('live comeback API mismatch');
+ }
  if(path==='/api/intelligence/validation-lab'){
   const json=JSON.parse(body);
   if(json.ok!==true||json.build!=='V51'||!json.report?.overall)throw new Error('validation laboratory mismatch');
