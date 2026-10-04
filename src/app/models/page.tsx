@@ -11,7 +11,7 @@ export default function ExpertModelsPage(){
    <div>
     <div className="eyebrow">EDGEFORCE AI • V53</div>
     <h1>Expert Modeling Suite</h1>
-    <p>Inspect professional quantitative model families, external ML software, licensed sports-data connectors, and the current slate's active expert-model consensus.</p>
+    <p>Inspect professional quantitative model families, external ML software, licensed sports-data connectors, and active expert-model consensus for the current slate.</p>
    </div>
   </header>
   <ExpertModelSuitePanel/>
