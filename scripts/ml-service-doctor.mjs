@@ -1,6 +1,6 @@
 const base=String(process.env.ML_SERVICE_BASE_URL||'').replace(/\/$/,'');
 const key=String(process.env.ML_SERVICE_KEY||'');
-const expectedVersion=String(process.env.EXPECTED_ML_SERVICE_VERSION||'edgeforce-ml-service-v59');
+const expectedVersion=String(process.env.EXPECTED_ML_SERVICE_VERSION||'edgeforce-ml-service-v60');
 const expectedCommit=String(process.env.EXPECTED_ML_COMMIT||'').trim();
 
 function fail(message,details){
@@ -51,11 +51,20 @@ if(!predict.res.ok||predict.body?.ok!==true||predict.body?.schemaVersion!=='edge
  fail('ML prediction handshake failed',{status:predict.res.status,body:predict.body});
 }
 
+const shadow=await jsonFetch('/shadow-predict',{
+ method:'POST',
+ body:JSON.stringify({schemaVersion:'edgeforce-ml-shadow-predict-v1',markets:[]})
+});
+if(!shadow.res.ok||shadow.body?.ok!==true||shadow.body?.schemaVersion!=='edgeforce-ml-shadow-predict-result-v1'){
+ fail('ML shadow prediction handshake failed',{status:shadow.res.status,body:shadow.body});
+}
+
 console.log(JSON.stringify({
  ok:true,
  serviceVersion:health.body.serviceVersion,
  deployment:health.body.deployment||null,
  algorithms,
  predictionSchema:predict.body.schemaVersion,
+ shadowPredictionSchema:shadow.body.schemaVersion,
  warnings:predict.body.warnings||[]
 },null,2));
