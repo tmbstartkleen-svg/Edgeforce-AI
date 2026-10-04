@@ -227,6 +227,17 @@ export async function runChampionDriftMonitor(){
       where sport=\${champion.sport} and market_key=\${champion.marketKey}
        and service_model_id=\${champion.serviceModelId} and active=true
      \`;
+     await sql\`
+      insert into external_ml_champion_history(
+       sport,market_key,algorithm,service_model_id,action,composite_score,brier_skill_score,
+       holdout_brier,holdout_log_loss,calibration_error,reason,model_version,metadata,recorded_at
+      ) select sport,market_key,algorithm,service_model_id,'QUARANTINED',composite_score,brier_skill_score,
+       holdout_brier,holdout_log_loss,calibration_error,\${reason},\${RELEASE.modelVersion},
+       \${sql.json({liveSampleSize:metrics.sampleSize,liveBrier:metrics.liveBrier,liveBrierSkillScore:metrics.liveBrierSkillScore,liveCalibrationError:metrics.liveCalibrationError,driftScore:metrics.driftScore} as any)},now()
+      from external_ml_champions
+      where sport=\${champion.sport} and market_key=\${champion.marketKey}
+       and service_model_id=\${champion.serviceModelId}
+     \`;
      quarantined++;action='QUARANTINED';
      reason+='; hosted champion retired and EdgeForce reverted to native-model fallback';
     }else{
