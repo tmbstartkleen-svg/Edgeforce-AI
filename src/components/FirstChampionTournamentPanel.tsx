@@ -58,7 +58,7 @@ export default function FirstChampionTournamentPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V60 FIRST CHAMPION TOURNAMENT</div>
+    <div className="eyebrow">V61 FIRST CHAMPION TOURNAMENT</div>
     <h3>Sport-by-sport heavyweight ML winners, runner-ups, artifact verification, and promotion history</h3>
    </div>
    <div className="panelMeta">
