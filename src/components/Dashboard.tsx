@@ -985,6 +985,24 @@ export default function Dashboard(){
           </div>)}
           {!crossVenueSignals.length&&<div className="historyRow"><span>No comparable exchange quotes</span><b>—</b><small>Kalshi/Polymarket matching will populate this when both venues quote the same outcome.</small></div>}
         </div>
+        <div className="historyBox">
+          <h4>Model / analyst leaderboard</h4>
+          {[...calibration.models].sort((a,b)=>b.decayedScore-a.decayedScore||b.sampleSize-a.sampleSize).slice(0,8).map(x=><div className="historyRow" key={'analyst-'+x.modelName+'-'+x.sport+'-'+x.marketKey}>
+            <span>{x.modelName}</span>
+            <b>{pct(x.decayedScore)}</b>
+            <small>{x.sport} • {x.marketKey} • {x.sampleSize} settled • {x.confidenceLabel}{x.brierScore!==undefined?' • Brier '+x.brierScore.toFixed(3):''}</small>
+          </div>)}
+          {!calibration.models.length&&<div className="historyRow"><span>No verified model history yet</span><b>—</b><small>Analyst/model ranking only appears after settled outcomes create evidence.</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Sports profit leaderboard</h4>
+          {board.history.sports.slice(0,8).map(x=><div className="historyRow" key={'profit-sport-'+x.key}>
+            <span>{x.key}</span>
+            <b>{pct(x.roi||0)}</b>
+            <small>{x.hits}-{x.misses} • hit {pct(x.hitRate)} • net {money(x.net)} • {x.count} tracked slips</small>
+          </div>)}
+          {!board.history.sports.length&&<div className="historyRow"><span>No settled sport history yet</span><b>—</b><small>ROI rankings remain blank until real results settle.</small></div>}
+        </div>
       </div>
       <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model's present fair value for a long position.</div>
     </section>
