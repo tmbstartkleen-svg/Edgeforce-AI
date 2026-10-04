@@ -14,8 +14,8 @@ export async function recordMlDeploymentAttestation(input:{deploymentId?:string|
 
  const payload={
   ok:accepted&&health.ok,
-  build:'V57',
-  schemaVersion:'v57-ml-deployment-attestation-1',
+  build:'V58',
+  schemaVersion:'v58-ml-deployment-attestation-1',
   modelVersion:RELEASE.modelVersion,
   deploymentStatus:state,
   healthOk:Boolean(health.ok),
