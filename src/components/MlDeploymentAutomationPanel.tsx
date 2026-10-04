@@ -47,7 +47,7 @@ export default function MlDeploymentAutomationPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V58 ML DEPLOYMENT AUTOMATION</div>
+    <div className="eyebrow">V59 ML DEPLOYMENT AUTOMATION</div>
     <h3>Render deploy → commit verification → Vercel wiring → activation → durable attestation</h3>
    </div>
    <div className="panelMeta">
@@ -83,6 +83,6 @@ export default function MlDeploymentAutomationPanel(){
    </div>
   </div>
 
-  <div className="historyNote">V57 separates infrastructure success from model success. A Render deployment may be healthy while EdgeForce remains READY_AWAITING_EVIDENCE; that is an acceptable safe state until a challenger earns promotion on holdout results.</div>
+  <div className="historyNote">V59 preserves the separation between infrastructure success from model success. A Render deployment may be healthy while EdgeForce remains READY_AWAITING_EVIDENCE; that is an acceptable safe state until a challenger earns promotion on holdout results.</div>
  </section>;
 }

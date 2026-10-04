@@ -28,5 +28,5 @@ export async function GET(){
   awaitsChampion:waiting.launchReady===false&&waiting.grade==='AWAITING_CHAMPION'
  };
  const ok=Object.values(assertions).every(Boolean);
- return Response.json({ok,build:'V58',assertions,leaderboard,changes,verified,mismatch,waiting},{status:ok?200:500,headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok,build:'V59',assertions,leaderboard,changes,verified,mismatch,waiting},{status:ok?200:500,headers:{'Cache-Control':'no-store'}});
 }

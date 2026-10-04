@@ -1,4 +1,4 @@
-# EdgeForce V57 ML Tournament Service
+# EdgeForce V59 ML Tournament Service
 
 Containerized Python service for heavyweight sport-specific model training and champion inference.
 
@@ -20,6 +20,7 @@ Unavailable optional libraries are reported by `GET /health` and are never false
 - `GET /health`
 - `POST /train` using schema `edgeforce-ml-train-v1`
 - `POST /promote` using schema `edgeforce-ml-promote-v1`
+- `POST /retire` using schema `edgeforce-ml-retire-v1`
 - `POST /predict` using schema `edgeforce-ml-predict-v1`
 
 Set `ML_SERVICE_KEY` to require Bearer authentication.
@@ -32,7 +33,7 @@ Set `MODEL_STORE_DIR` to a persistent volume. The service writes serialized arti
 
 ```bash
 docker build -f ml-service/Dockerfile -t edgeforce-ml .
-docker run --rm -p 8080:8080 \
+docker run --rm -p 8080:10000 \
   -e ML_SERVICE_KEY=change-me \
   -v edgeforce-models:/data/models \
   edgeforce-ml
@@ -46,6 +47,7 @@ ML_PREDICTION_SERVICE_KEY=change-me
 ML_TRAINING_SERVICE_URL=http://localhost:8080/train
 ML_TRAINING_SERVICE_KEY=change-me
 ML_PROMOTION_SERVICE_URL=http://localhost:8080/promote
+ML_RETIRE_SERVICE_URL=http://localhost:8080/retire
 ```
 
 The EdgeForce web/Worker runtime remains separate from this Python service.
@@ -71,6 +73,7 @@ ML_PREDICTION_SERVICE_KEY=<same ML_SERVICE_KEY>
 ML_TRAINING_SERVICE_URL=https://<service>.onrender.com/train
 ML_TRAINING_SERVICE_KEY=<same ML_SERVICE_KEY>
 ML_PROMOTION_SERVICE_URL=https://<service>.onrender.com/promote
+ML_RETIRE_SERVICE_URL=https://<service>.onrender.com/retire
 ```
 
 Then call EdgeForce `POST /api/ml/activate`. V56 will health-check, verify the prediction schema, run the tournament, and only report `ACTIVE` if at least one champion is promoted.
@@ -98,3 +101,18 @@ The API path requests an exact commit deployment. The service exposes Render's `
 After service verification, V57 ensures the Edgeforce production runtime has the ML endpoints and credentials, runs the existing hardened Edgeforce production deployment, executes the ML activation workflow, and records `/api/ml/deploy-attest`.
 
 A healthy service with no promoted champion is reported as `READY_AWAITING_EVIDENCE`, not `ACTIVE`.
+
+
+## V59 champion retirement
+
+V59 adds authenticated `POST /retire`.
+
+The endpoint accepts:
+- sport
+- market key
+- exact service model ID
+- retirement reason
+
+It refuses retirement when the requested model ID no longer matches the active champion manifest. A successful retirement archives the manifest under `MODEL_STORE_DIR/retired` before removing the active manifest. The serialized `.joblib` artifact remains on persistent storage for audit and future analysis.
+
+Edgeforce calls this endpoint only after the live drift monitor records repeated critical degradation with new settled evidence.

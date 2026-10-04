@@ -2,6 +2,7 @@ import {fetchResultsContext} from './providers/context';
 import {reconcileLedgerResults} from './ledger';
 import {recordPredictionFeedback} from './predictionFeedback';
 import {settlePlayerPropPredictions} from './playerWarehouse';
+import {settleExternalMlPredictionFeedback} from './mlChampionDrift';
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const str=(v:unknown)=>typeof v==='string'?v:'';
@@ -41,10 +42,11 @@ export async function runAutomaticSettlement(){
  }
  const raw=rows(provider.data);
  const normalized=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
- const [reconciliation,feedback,playerProps]=await Promise.all([
+ const [reconciliation,feedback,playerProps,externalMl]=await Promise.all([
   reconcileLedgerResults(normalized),
   recordPredictionFeedback(normalized),
-  settlePlayerPropPredictions(normalized)
+  settlePlayerPropPredictions(normalized),
+  settleExternalMlPredictionFeedback(normalized)
  ]);
  return {
   ok:true,
@@ -57,6 +59,8 @@ export async function runAutomaticSettlement(){
   predictionFeedbackWritten:feedback.written,
   predictionRunsMatched:feedback.matchedRuns,
   playerPropMatches:playerProps.matched,
-  playerPropsSettled:playerProps.settled
+  playerPropsSettled:playerProps.settled,
+  externalMlMatched:externalMl.matched,
+  externalMlSettled:externalMl.settled
  };
 }

@@ -1,6 +1,6 @@
 const base=String(process.env.ML_SERVICE_BASE_URL||'').replace(/\/$/,'');
 const key=String(process.env.ML_SERVICE_KEY||'');
-const expectedVersion=String(process.env.EXPECTED_ML_SERVICE_VERSION||'edgeforce-ml-service-v57');
+const expectedVersion=String(process.env.EXPECTED_ML_SERVICE_VERSION||'edgeforce-ml-service-v59');
 const expectedCommit=String(process.env.EXPECTED_ML_COMMIT||'').trim();
 
 function fail(message,details){

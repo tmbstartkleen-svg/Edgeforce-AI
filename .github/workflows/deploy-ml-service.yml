@@ -33,7 +33,7 @@ jobs:
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
       EDGEFORCE_BASE_URL: ${{ secrets.EDGEFORCE_PRODUCTION_URL }}
-      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v58
+      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v59
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
       VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
@@ -126,6 +126,7 @@ jobs:
           set_var ML_TRAINING_SERVICE_URL "$base/train" config
           set_var ML_TRAINING_SERVICE_KEY "$ML_SERVICE_KEY" secret
           set_var ML_PROMOTION_SERVICE_URL "$base/promote" config
+          set_var ML_RETIRE_SERVICE_URL "$base/retire" config
           set_var ML_ACTIVATION_SECRET "$ML_ACTIVATION_SECRET" secret
 
       - name: Dispatch hardened Edgeforce production deploy
@@ -142,7 +143,7 @@ jobs:
           set -euo pipefail
           for i in {1..90}; do
             if curl --fail --silent --show-error "$EDGEFORCE_BASE_URL/api/diagnostics" > /tmp/edgeforce-diagnostics.json 2>/dev/null; then
-              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v58'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
+              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v59'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
                 cat /tmp/edgeforce-diagnostics.json
                 exit 0
               fi
@@ -165,7 +166,7 @@ jobs:
       - name: Record deployment attestation
         shell: bash
         run: |
-          curl --fail --silent --show-error -X POST "$EDGEFORCE_BASE_URL/api/ml/deploy-attest"             -H "Authorization: Bearer $ML_ACTIVATION_SECRET"             -H "Content-Type: application/json"             --data "{"deploymentId":"${{ steps.render.outputs.deploy_id }}"}"             | tee /tmp/ml-deploy-attestation.json
+          curl --fail --silent --show-error -X POST "$EDGEFORCE_BASE_URL/api/ml/deploy-attest"             -H "Authorization: Bearer $ML_ACTIVATION_SECRET"             -H "Content-Type: application/json"             --data '{"deploymentId":"${{ steps.render.outputs.deploy_id }}"}'             | tee /tmp/ml-deploy-attestation.json
 
       - name: Publish ML deployment summary
         shell: bash

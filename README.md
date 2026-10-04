@@ -2,7 +2,110 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V58 First Champion Tournament
+## Current build — V59 Champion Drift + Auto-Rollback
+
+V59 closes the production feedback loop for promoted heavyweight external-ML champions. After a champion is promoted, Edgeforce now grades its **live settled predictions** against real outcomes and the contemporaneous market baseline, detects degradation, and can safely remove a failing external champion without disabling the native Edgeforce stack.
+
+### Settled live champion evidence
+External ML prediction snapshots now retain:
+- champion algorithm and service model ID
+- predicted probability and confidence
+- sportsbook / market baseline probability
+- settlement outcome
+- settlement timestamp
+- closing odds when available
+
+The normal results-settlement pipeline now settles matching external-ML prediction snapshots at the same time it grades Model Council and player-prop predictions.
+
+### Live drift metrics
+For each active external champion V59 measures a configurable recent window using:
+- live Brier score
+- live log loss
+- live calibration error
+- live Brier Skill Score versus the market baseline
+- Brier degradation versus the champion's original untouched holdout
+- a normalized drift score
+
+Default evidence controls:
+- minimum settled sample: `30`
+- recent window: `100`
+- watch Brier Skill: below `0`
+- watch Brier degradation: `+0.03`
+- watch calibration error: `0.11`
+- critical Brier Skill: `-0.08`
+- critical Brier degradation: `+0.06`
+- critical calibration error: `0.16`
+
+All thresholds are configurable through the V59 ML champion drift environment variables.
+
+### Two-strike quarantine
+A single poor evaluation cannot automatically remove a champion.
+
+1. a champion must first reach the minimum settled sample
+2. the first critical evaluation records `CRITICAL` but takes no destructive action
+3. a second critical evaluation must contain **new settled evidence**
+4. only then does V59 request hosted champion retirement
+5. the service verifies that the exact model ID is still the active manifest
+6. only after hosted retirement succeeds does Edgeforce mark the database champion `QUARANTINED`
+
+Repeated checks against an unchanged sample do not count as an additional strike.
+
+### Service-first rollback
+The Python service adds authenticated `POST /retire` using schema `edgeforce-ml-retire-v1`.
+
+Retirement:
+- verifies the requested model is still the exact current champion
+- archives the champion manifest under persistent `MODEL_STORE_DIR/retired`
+- removes the active manifest
+- leaves the serialized model artifact intact for audit/research
+
+After retirement, the external expert produces no prediction for that sport/market and Edgeforce automatically continues with the native model stack. A later tournament can re-promote a new evidence-qualified champion and re-open that champion slot.
+
+### Scheduled governance
+Daily recalibration now runs the external champion drift monitor **before** the next heavyweight tournament. This serialization prevents the monitor and tournament from mutating the same champion slot concurrently.
+
+The order is:
+1. native recalibration / validation / sport-model training
+2. external champion drift evaluation and any safe quarantine
+3. external ML challenger tournament and possible evidence-backed promotion
+
+### Durable monitoring
+Migration `v48` adds:
+- settled fields to `external_ml_prediction_snapshots`
+- active/quarantine/live-metric fields to `external_ml_champions`
+- `ml_champion_monitor_runs`
+- `ml_champion_monitor_snapshots`
+
+Every monitor run retains the state, sample size, live metrics, prior critical evidence, action, reason, and drift score.
+
+### APIs and UI
+- status: `GET /api/intelligence/ml-drift`
+- authenticated run: `POST /api/ml/drift-monitor`
+- deterministic regression: `GET /api/testing/ml-champion-drift`
+- dashboard: **V59 Champion Drift + Auto-Rollback**
+- modeling workspace: `/models`
+
+### Release identity
+- build: `V59`
+- app: `59.0.0`
+- package: `0.59.0`
+- model: `edgeforce-v59`
+- migration: `v48`
+- ML service: `edgeforce-ml-service-v59`
+
+### Guardrails
+- insufficient live samples cannot quarantine a champion
+- WATCH state never automatically quarantines
+- one CRITICAL evaluation never automatically quarantines
+- repeated checks without new settled evidence cannot create a second strike
+- hosted retirement must succeed before database deactivation
+- if retirement fails, the champion remains active and the failure is recorded
+- native Edgeforce models remain available when external ML is quarantined
+- a later tournament must independently earn promotion before external inference resumes
+- a quarantined sport/market remains on native fallback for the configured post-quarantine cooldown before external promotion can resume
+- historical or live model performance does not guarantee betting profit
+
+## Previous build — V58 First Champion Tournament
 
 V58 completes the evidence layer required for the first heavyweight external-ML tournament and adds a sport-by-sport champion scoreboard.
 

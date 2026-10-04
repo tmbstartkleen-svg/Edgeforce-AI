@@ -206,7 +206,7 @@ export async function runFirstChampionTournament(){
   }
 
   return {
-   ok:true,build:'V58',schemaVersion:'v58-first-champion-tournament-1',
+   ok:true,build:'V59',schemaVersion:'v59-first-champion-tournament-1',
    runId,startedAt:startedAt.toISOString(),tournamentRunId,
    activation:activation.readiness,evidence,leaderboard,champions,changes,artifacts,
    summary:{
@@ -231,7 +231,7 @@ export async function firstChampionTournamentStatus(){
  const sql=db();
  const tournament=await externalMlTournamentStatus();
  if(!sql)return {
-  ok:true,build:'V58',schemaVersion:'v58-first-champion-tournament-1',
+  ok:true,build:'V59',schemaVersion:'v59-first-champion-tournament-1',
   latest:null,championHistory:[],tournament
  };
  try{
@@ -256,12 +256,12 @@ export async function firstChampionTournamentStatus(){
    from external_ml_champion_history order by recorded_at desc limit 500
   `;
   return {
-   ok:true,build:'V58',schemaVersion:'v58-first-champion-tournament-1',
+   ok:true,build:'V59',schemaVersion:'v59-first-champion-tournament-1',
    latest:latest||null,championHistory:history,tournament
   };
  }catch(error){
   return {
-   ok:false,build:'V58',schemaVersion:'v58-first-champion-tournament-1',
+   ok:false,build:'V59',schemaVersion:'v59-first-champion-tournament-1',
    latest:null,championHistory:[],tournament,
    error:error instanceof Error?error.message:'first champion tournament status failed'
   };

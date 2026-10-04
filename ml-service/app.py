@@ -38,7 +38,7 @@ try:
 except Exception:
     pm = None
 
-SERVICE_VERSION = "edgeforce-ml-service-v58"
+SERVICE_VERSION = "edgeforce-ml-service-v59"
 MODEL_DIR = Path(os.getenv("MODEL_STORE_DIR", "./model_store")).resolve()
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 API_KEY = os.getenv("ML_SERVICE_KEY", "")
@@ -94,6 +94,14 @@ class PromoteRequest(BaseModel):
     artifactUri: str
     compositeScore: float
     brierSkillScore: float
+
+
+class RetireRequest(BaseModel):
+    schemaVersion: str
+    sport: str
+    marketKey: str
+    serviceModelId: str
+    reason: str = ""
 
 
 def require_auth(authorization: str | None) -> None:
@@ -540,6 +548,47 @@ def promote(req: PromoteRequest, authorization: str | None = Header(default=None
         "sport": req.sport,
         "marketKey": req.marketKey,
         "serviceModelId": req.serviceModelId,
+    }
+
+
+@app.post("/retire")
+def retire(req: RetireRequest, authorization: str | None = Header(default=None)):
+    require_auth(authorization)
+    if req.schemaVersion != "edgeforce-ml-retire-v1":
+        raise HTTPException(status_code=400, detail="unsupported schemaVersion")
+    path = champion_manifest_path(req.sport, req.marketKey)
+    if not path.exists():
+        return {
+            "ok": True,
+            "schemaVersion": "edgeforce-ml-retire-result-v1",
+            "serviceVersion": SERVICE_VERSION,
+            "retired": False,
+            "reason": "no exact champion manifest present",
+        }
+    manifest = json.loads(path.read_text())
+    current_id = str(manifest.get("serviceModelId") or "")
+    if current_id != req.serviceModelId:
+        raise HTTPException(status_code=409, detail="champion model changed before retirement")
+    retired_dir = MODEL_DIR / "retired"
+    retired_dir.mkdir(parents=True, exist_ok=True)
+    retired_path = retired_dir / f"{path.stem}-{int(time.time())}.json"
+    retired_payload = {
+        **manifest,
+        "retiredAt": time.time(),
+        "retireReason": req.reason,
+        "serviceVersion": SERVICE_VERSION,
+    }
+    retired_path.write_text(json.dumps(retired_payload, indent=2))
+    path.unlink()
+    return {
+        "ok": True,
+        "schemaVersion": "edgeforce-ml-retire-result-v1",
+        "serviceVersion": SERVICE_VERSION,
+        "retired": True,
+        "sport": req.sport,
+        "marketKey": req.marketKey,
+        "serviceModelId": req.serviceModelId,
+        "archive": str(retired_path),
     }
 
 

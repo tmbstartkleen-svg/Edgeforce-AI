@@ -11,6 +11,7 @@ import {
 import {RELEASE} from './releaseManifest';
 import {getModelGovernanceStatus} from './modelGovernance';
 import {getValidationLabStatus} from './validationLab';
+import {championDriftStatus} from './mlChampionDrift';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -30,6 +31,7 @@ export type ProductionCertificationReport={
  automation:Awaited<ReturnType<typeof getAutomationHealth>>;
  modelGovernance:Awaited<ReturnType<typeof getModelGovernanceStatus>>;
  modelValidation:Awaited<ReturnType<typeof getValidationLabStatus>>;
+ championDrift:Awaited<ReturnType<typeof championDriftStatus>>;
  security:{
   ok:boolean;
   missingHeaders:string[];
@@ -79,14 +81,15 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
   getAutomationHealth(),
   getOpsStatus(),
   getModelGovernanceStatus(),
-  getValidationLabStatus()
+  getValidationLabStatus(),
+  championDriftStatus()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -124,6 +127,11 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(modelValidation.report.evidence.failed>0)warnings.push(`model validation: ${modelValidation.report.evidence.failed} model group(s) failed evidence gates and are runtime-braked`);
  if(modelValidation.report.sampleSize>=75&&modelValidation.report.evidence.promotionEligible===0)warnings.push('model validation: settled history exists but no model group is currently evidence-qualified');
 
+ if(championDrift.latestRun?.status==='failed')blockers.push('external ML champion drift: latest monitor run failed');
+ if(!championDrift.latestRun)warnings.push('external ML champion drift: no completed monitor run yet');
+ if(Number(championDrift.latestRun?.critical||0)>0)warnings.push('external ML champion drift: '+Number(championDrift.latestRun?.critical||0)+' champion(s) are in CRITICAL confirmation state');
+ if(Number(championDrift.latestRun?.quarantined||0)>0)warnings.push('external ML champion drift: '+Number(championDrift.latestRun?.quarantined||0)+' champion(s) were quarantined and reverted to native fallback');
+
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
  if(strict&&ingestion.source!=='live')blockers.push(`data: strict production certification requires live odds, current source is ${ingestion.source}`);
  if(strict&&ingestion.markets.length===0)blockers.push('data: no sportsbook markets available for strict production certification');
@@ -160,7 +168,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    migrationVersion:RELEASE.migrationVersion,commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null,
    environment
   },
-  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,security,
+  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,security,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
