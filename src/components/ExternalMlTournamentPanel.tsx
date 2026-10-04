@@ -56,7 +56,7 @@ export default function ExternalMlTournamentPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V59 EXTERNAL ML TOURNAMENT</div>
+    <div className="eyebrow">V60 EXTERNAL ML TOURNAMENT</div>
     <h3>XGBoost, LightGBM, CatBoost, Random Forest, stacking, and Bayesian challengers compete before promotion</h3>
    </div>
    <div className="panelMeta">
