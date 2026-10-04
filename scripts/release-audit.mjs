@@ -126,7 +126,8 @@ const requiredFiles=[
  'src/app/api/intelligence/ml-champions/route.ts',
  'src/app/api/ml/first-tournament/route.ts',
  'src/app/api/testing/ml-first-tournament/route.ts',
- 'src/components/FirstChampionTournamentPanel.tsx'
+ 'src/components/FirstChampionTournamentPanel.tsx',
+ 'scripts/ml-first-tournament-doctor.mjs'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -170,6 +171,7 @@ add('V58 artifact verification gate',read('src/lib/mlFirstTournament.ts').includ
 add('V58 champion history',read('src/lib/mlFirstTournament.ts').includes('external_ml_champion_history')&&read('db/v47.sql').includes('external_ml_champion_history'),'promotion/replacement history is durable');
 add('V58 first tournament API',read('src/app/api/ml/first-tournament/route.ts').includes('runFirstChampionTournament')&&read('src/app/api/intelligence/ml-champions/route.ts').includes('firstChampionTournamentStatus'),'launch and intelligence APIs exist');
 add('V58 first tournament regression',read('src/app/api/testing/ml-first-tournament/route.ts').includes('blocksMissingArtifact')&&read('src/app/api/testing/ml-first-tournament/route.ts').includes('awaitsChampion'),'ranking and fail-closed evidence states are tested');
+add('V58 deployment finishes in first tournament',read('.github/workflows/deploy-ml-service.yml').includes('ml-first-tournament-doctor.mjs')&&read('scripts/ml-first-tournament-doctor.mjs').includes('/api/ml/first-tournament'),'hosted ML deployment records first-tournament evidence');
 add('V58 first tournament dashboard',read('src/components/Dashboard.tsx').includes('FirstChampionTournamentPanel')&&read('src/components/FirstChampionTournamentPanel.tsx').includes('V58 FIRST CHAMPION TOURNAMENT'),'sport-by-sport winners are visible');
 add('V57 Render deployment identity',read('ml-service/app.py').includes('edgeforce-ml-service-v58')&&read('ml-service/app.py').includes('RENDER_GIT_COMMIT')&&read('ml-service/app.py').includes('RENDER_SERVICE_ID'),'ML health exposes exact hosted service identity');
 add('V57 deployed-service doctor',read('scripts/ml-service-doctor.mjs').includes('EXPECTED_ML_COMMIT')&&read('scripts/ml-service-doctor.mjs').includes('edgeforce-ml-predict-result-v1'),'service doctor verifies exact commit and inference contract');
