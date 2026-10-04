@@ -203,7 +203,7 @@ export async function runChampionDriftMonitor(){
   for(const champion of await championRows()){
    const settled=await recentSettled(champion.serviceModelId,window);
    const metrics=championLiveMetrics(settled,champion.holdoutBrier);
-   const priorCritical=await previousCriticalRuns(champion.serviceModelId);
+   const priorCritical=await previousCriticalRuns(champion.serviceModelId,metrics.sampleSize);
    const decision=championDriftDecision({...metrics,previousCriticalRuns:priorCritical,minSample});
    let action:string=decision.action;
    const state=decision.state;
