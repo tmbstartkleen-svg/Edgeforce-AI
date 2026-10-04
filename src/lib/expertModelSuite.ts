@@ -240,6 +240,19 @@ function sharpConsensus(m:Market):ExpertModelOutput|null{
  };
 }
 
+function trainedSportMl(m:Market):ExpertModelOutput|null{
+ const p=raw(m,'trainedSportMlProbability');
+ if(p===undefined||p<=0||p>=1)return null;
+ const confidence=Math.max(.20,Math.min(.97,raw(m,'trainedSportMlConfidence')??.65));
+ const coverage=Math.max(0,Math.min(1,raw(m,'trainedSportMlCoverage')??0));
+ return {
+  id:'trained-sport-ml',name:'Trained Sport ML',family:'MACHINE_LEARNING',
+  probability:clamp(p),weight:.18,confidence:confidence*(.85+.15*coverage),source:'NATIVE',
+  inputs:['settled EdgeForce history','sport-specific feature vector','chronological holdout validation'],
+  explanation:'Promoted sport-specific model trained on settled EdgeForce predictions. It only enters the council after beating the market baseline out of sample.'
+ };
+}
+
 function externalMl(m:Market):ExpertModelOutput|null{
  const p=raw(m,'externalExpertProbability');
  if(p===undefined||p<=0||p>=1)return null;
@@ -255,7 +268,7 @@ function externalMl(m:Market):ExpertModelOutput|null{
 export function runExpertModels(m:Market):ExpertModelOutput[]{
  return [
   marketBayes(m),eloModel(m),glickoModel(m),bradleyTerry(m),poissonOutcome(m),
-  skellamOutcome(m),dixonColes(m),xgModel(m),playerProjection(m),sharpConsensus(m),externalMl(m)
+  skellamOutcome(m),dixonColes(m),xgModel(m),playerProjection(m),sharpConsensus(m),trainedSportMl(m),externalMl(m)
  ].filter((x):x is ExpertModelOutput=>Boolean(x));
 }
 
