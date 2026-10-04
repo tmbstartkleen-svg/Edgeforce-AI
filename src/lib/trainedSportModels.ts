@@ -203,7 +203,10 @@ function fitLogistic(rows:Example[],means:number[],scales:number[]){
   const grad=Array(width).fill(0) as number[];
   let gradB=0;
   const lr=baseLr/Math.sqrt(1+step/140);
-  for(const row of rows){
+  const batchSize=Math.min(rows.length,Math.max(32,Number(process.env.TRAINED_MODEL_BATCH_SIZE||256)));
+  const start=rows.length?((step*batchSize)%rows.length):0;
+  for(let k=0;k<batchSize;k++){
+   const row=rows[(start+k)%rows.length];
    const z=standardized(row.x,means,scales);
    let score=intercept;
    for(let j=0;j<width;j++)score+=weights[j]*z[j];
@@ -211,7 +214,7 @@ function fitLogistic(rows:Example[],means:number[],scales:number[]){
    gradB+=error;
    for(let j=0;j<width;j++)grad[j]+=error*z[j];
   }
-  const n=Math.max(1,rows.length);
+  const n=Math.max(1,batchSize);
   intercept-=lr*gradB/n;
   for(let j=0;j<width;j++)weights[j]-=lr*(grad[j]/n+l2*weights[j]);
  }
@@ -231,14 +234,17 @@ function fitCalibration(rows:Example[],predict:(x:number[])=>number){
  const lr=.025;
  for(let step=0;step<350;step++){
   let ga=0,gb=0;
-  for(const row of rows){
+  const batchSize=Math.min(rows.length,Math.max(24,Number(process.env.TRAINED_MODEL_BATCH_SIZE||256)));
+  const start=rows.length?((step*batchSize)%rows.length):0;
+  for(let k=0;k<batchSize;k++){
+   const row=rows[(start+k)%rows.length];
    const score=logit(predict(row.x));
    const p=sigmoid(a*score+b);
    const e=p-row.y;
    ga+=e*score;
    gb+=e;
   }
-  const n=Math.max(1,rows.length);
+  const n=Math.max(1,batchSize);
   a-=lr*(ga/n+.002*(a-1));
   b-=lr*gb/n;
  }
@@ -462,6 +468,7 @@ export async function trainAndPersistSportModels(){
  const minSample=Math.max(40,Number(process.env.TRAINED_MODEL_MIN_SAMPLE||80));
  const minHoldout=Math.max(12,Number(process.env.TRAINED_MODEL_MIN_HOLDOUT||20));
  const lookback=Math.max(500,Number(process.env.TRAINED_MODEL_LOOKBACK_ROWS||30000));
+ const maxGroupRows=Math.max(minSample,Number(process.env.TRAINED_MODEL_MAX_GROUP_ROWS||4000));
  const [run]=await sql`
   insert into trained_model_runs(model_version,status,started_at)
   values(${RELEASE.modelVersion},'running',now())
@@ -482,7 +489,7 @@ export async function trainAndPersistSportModels(){
    features:obj(r.features)
   })) as TrainingHistoryRow[];
   const groups=trainingGroups(history,minSample);
-  const artifacts=groups.map(g=>trainSportArtifact(g.list,g.sport,g.marketKey,{minSample,minHoldout}));
+  const artifacts=groups.map(g=>trainSportArtifact(g.list.slice(0,maxGroupRows),g.sport,g.marketKey,{minSample,minHoldout}));
 
   for(const a of artifacts){
    await sql`
@@ -513,7 +520,7 @@ export async function trainAndPersistSportModels(){
     rows_seen=${history.length},groups_evaluated=${groups.length},
     artifacts_trained=${artifacts.length},artifacts_promoted=${promoted},
     sports=${sql.json(sports)},metrics=${sql.json({
-     minSample,minHoldout,lookback,
+     minSample,minHoldout,lookback,maxGroupRows,
      top:artifacts.sort((a,b)=>b.brierSkillScore-a.brierSkillScore).slice(0,30).map(a=>({
       sport:a.sport,marketKey:a.marketKey,sampleSize:a.sampleSize,holdoutSize:a.holdoutSize,
       brierSkillScore:a.brierSkillScore,holdoutBrier:a.holdoutBrier,marketBaselineBrier:a.marketBaselineBrier,
