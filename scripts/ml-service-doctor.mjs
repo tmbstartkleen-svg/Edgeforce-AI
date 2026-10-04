@@ -34,6 +34,7 @@ const health=await jsonFetch('/health');
 if(!health.res.ok||health.body?.ok!==true)fail('ML health check failed',{status:health.res.status,body:health.body});
 if(health.body?.serviceVersion!==expectedVersion)fail('ML service version mismatch',{expectedVersion,actual:health.body?.serviceVersion});
 const commit=String(health.body?.deployment?.gitCommit||'');
+if(expectedCommit&&!commit)fail('ML service did not expose a Render git commit',{expectedCommit,deployment:health.body?.deployment||null});
 if(expectedCommit&&commit&&!commit.startsWith(expectedCommit)&&!expectedCommit.startsWith(commit)){
  fail('ML service commit mismatch',{expectedCommit,actual:commit});
 }
