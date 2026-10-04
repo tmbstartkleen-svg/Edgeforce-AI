@@ -35,7 +35,7 @@ assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='51.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v51','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===41,'unexpected migration version');
+assert(health.body?.migrationVersion===42,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
