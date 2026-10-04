@@ -127,6 +127,8 @@ export async function GET(){
   predictionMarketTradeTape:true,
   predictionMarketMovers:true,
   predictionTraderIntelligence:true,
+  predictionDecisionSignals:true,
+  durablePredictionSignalHistory:true,
   polymarketPublicLeaderboard:true,
   iPhonePredictionPwa:true,
   cloudflarePredictionCollector:true,
