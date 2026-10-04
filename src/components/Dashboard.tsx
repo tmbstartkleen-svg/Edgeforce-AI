@@ -7,6 +7,7 @@ import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
+import {buildTradeSignal} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -699,6 +700,13 @@ export default function Dashboard(){
   const pmCount=filtered.filter(x=>x.period==='PM').length;
   const topGap=[...filtered].sort((a,b)=>Math.abs(b.probabilityGap)-Math.abs(a.probabilityGap)).slice(0,10);
   const predictions=[...board.predictions.contracts].sort((a,b)=>Math.abs(b.probabilityDifference)-Math.abs(a.probabilityDifference)).slice(0,12);
+  const proSignals=useMemo(()=>filtered
+    .map(row=>({row,signal:buildTradeSignal(row)}))
+    .sort((a,b)=>b.signal.score-a.signal.score||b.signal.expectedValue-a.signal.expectedValue),[filtered]);
+  const actionableSignals=proSignals.filter(x=>x.signal.action==='BUY'||x.signal.action==='BET');
+  const exitSignals=proSignals.filter(x=>x.signal.action==='REDUCE');
+  const watchSignals=proSignals.filter(x=>x.signal.action==='WATCH');
+  const nowSignals=actionableSignals.filter(x=>x.signal.timing==='NOW');
 
   return <main className="v21">
     <header className="v21Top">
@@ -905,6 +913,62 @@ export default function Dashboard(){
           </div>
         </div>
       </div>
+    </section>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div>
+          <div className="eyebrow">V52 PRO SIGNALS • MARKET COMMAND CENTER</div>
+          <h3>Entry, patience, hold, and exit decisions from model edge + venue pricing + steam + confidence</h3>
+        </div>
+        <div className="panelMeta">
+          <span>{actionableSignals.length} enter</span>
+          <span>{nowSignals.length} timing now</span>
+          <span>{exitSignals.length} reduce / exit</span>
+        </div>
+      </div>
+      <div className="v21Stats">
+        <div><small>TOP SIGNAL</small><strong>{proSignals[0]?.signal.score??0}/100</strong><span>{proSignals[0]?proSignals[0].row.selection:'No qualified signal'}</span></div>
+        <div><small>ENTER</small><strong>{actionableSignals.length}</strong><span>BUY on exchanges • BET on sportsbooks</span></div>
+        <div><small>WATCH</small><strong>{watchSignals.length}</strong><span>positive edge, gate not fully cleared</span></div>
+        <div><small>REDUCE / EXIT</small><strong>{exitSignals.length}</strong><span>market price above current model fair value</span></div>
+      </div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Highest conviction entries</h4>
+          {actionableSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-enter-'+row.id}>
+            <span>{signal.action+' '+row.selection}</span>
+            <b>{signal.score}/100</b>
+            <small>{row.sport+' • '+signal.venue+' • '+signal.timing+' • fair '+fmtPct(signal.fairProbability)+' • market '+fmtPct(signal.marketProbability)+' • EV '+(signal.expectedValue>=0?'+':'')+fmtPct(signal.expectedValue)}</small>
+          </div>)}
+          {!actionableSignals.length&&<div className="historyRow"><span>No entry clears the current gates</span><b>HOLD</b><small>The engine will not manufacture a BUY/BET signal.</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Price discipline + exits</h4>
+          {proSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-price-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{signal.venueType==='PREDICTION_EXCHANGE'?'≤ '+Math.round(signal.entryMaxProbability*100)+'¢':fmtOdds(signal.entryMinAmericanOdds)}</b>
+            <small>{signal.venue+' entry ceiling • reduce long YES near '+Math.round(signal.reduceAtProbability*100)+'¢ • '+(signal.riskFlags.length?signal.riskFlags.slice(0,2).join(' • '):'no primary risk flag')}</small>
+          </div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Timing + steam</h4>
+          {proSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-timing-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{signal.timing}</b>
+            <small>{(row.lineMovement?.steam?row.lineMovement.steamStrength+' steam '+row.lineMovement.direction.toLowerCase()+' • ':'')+'edge '+(signal.edge>=0?'+':'')+fmtPct(signal.edge)+' • confidence '+fmtPct(signal.confidence)}</small>
+          </div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Venue router</h4>
+          {proSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-venue-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{signal.venue}</b>
+            <small>{signal.venueType.replaceAll('_',' ')+' • '+(row.predictionVenueQuotes?.length||0)+' prediction venue quote(s) matched • best EV '+(signal.expectedValue>=0?'+':'')+fmtPct(signal.expectedValue)}</small>
+          </div>)}
+        </div>
+      </div>
+      <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model's present fair value for a long position.</div>
     </section>
 
     <section className="v21Panel">
