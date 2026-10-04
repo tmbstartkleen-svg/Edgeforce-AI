@@ -15,6 +15,8 @@ type Summary={
  movers:number;
  rankedTraders:number;
  smartTraders:number;
+ highPriorityOpportunities:number;
+ arbitrageCandidates:number;
  warehouseMarkets:number;
  warehouseSnapshots:number;
  warehouseTrades:number;
@@ -49,9 +51,23 @@ type TraderSignal={
  convictionMultiple:number;smartScore:number;
  latestTrade:{marketId:string;title:string;direction:string;price:number;notional:number;timestamp:string};
 };
+type Opportunity={
+ venue:string;contractId:string;title:string;probability:number;
+ bidProbability?:number;askProbability?:number;spread?:number;
+ volume?:number;liquidity?:number;marketQuality:number;depthScore:number;spreadScore:number;
+ divergenceScore:number;flowScore:number;momentumScore:number;traderScore:number;
+ researchScore:number;priority:'HIGH'|'MEDIUM'|'LOW';directionalBias:'YES'|'NO'|'NEUTRAL';
+ crossVenueGap?:number;notes:string[];
+};
+type ArbitrageCandidate={
+ lowVenue:string;highVenue:string;lowContractId:string;highContractId:string;title:string;
+ similarity:number;matchQuality:'STRONG'|'HEURISTIC';buyYesAsk:number;buyNoAsk:number;
+ grossCost:number;grossEdge:number;settlementMismatchRisk:'LOWER'|'HIGH';executionReady:false;note:string;
+};
 type TerminalResponse={
  ok:boolean;generatedAt:string;summary:Summary;categories:Category[];markets:Market[];
  smartFlow:Array<Trade&{convictionMultiple:number}>;movers:Mover[];traderSignals:TraderSignal[];
+ opportunities:Opportunity[];arbitrageCandidates:ArbitrageCandidate[];
  crossVenueGaps:Gap[];tradeTape:Trade[];
  warehouse?:{configured:boolean;markets:number;snapshots:number;trades:number;traders:number};
  warnings:string[];
@@ -61,9 +77,9 @@ const empty:TerminalResponse={
  ok:false,generatedAt:'',summary:{
   contracts:0,kalshiContracts:0,polymarketContracts:0,recentTrades:0,tradeNotional24h:0,
   smartFlowSignals:0,crossVenueMatches:0,strongCrossVenueMatches:0,movers:0,rankedTraders:0,
-  smartTraders:0,warehouseMarkets:0,warehouseSnapshots:0,warehouseTrades:0,warehouseTraders:0
+  smartTraders:0,highPriorityOpportunities:0,arbitrageCandidates:0,warehouseMarkets:0,warehouseSnapshots:0,warehouseTrades:0,warehouseTraders:0
  },
- categories:[],markets:[],smartFlow:[],movers:[],traderSignals:[],crossVenueGaps:[],tradeTape:[],warnings:[]
+ categories:[],markets:[],smartFlow:[],movers:[],traderSignals:[],opportunities:[],arbitrageCandidates:[],crossVenueGaps:[],tradeTape:[],warnings:[]
 };
 
 function pct(n:number){return (n*100).toFixed(1)+'%'}
@@ -87,7 +103,7 @@ function timeAgo(value:string){
 export default function MobilePredictionTerminal(){
  const [data,setData]=useState<TerminalResponse>(empty);
  const [category,setCategory]=useState('ALL');
- const [tab,setTab]=useState<'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('FLOW');
+ const [tab,setTab]=useState<'EDGE'|'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('EDGE');
  const [error,setError]=useState('');
 
  useEffect(()=>{
@@ -136,6 +152,8 @@ export default function MobilePredictionTerminal(){
     <div><small>Poly</small><b>{data.summary.polymarketContracts.toLocaleString()}</b></div>
     <div><small>24H flow</small><b>{money(data.summary.tradeNotional24h)}</b></div>
     <div><small>Signals</small><b>{data.summary.smartFlowSignals}</b></div>
+    <div><small>High edge</small><b>{data.summary.highPriorityOpportunities}</b></div>
+    <div><small>Arb watch</small><b>{data.summary.arbitrageCandidates}</b></div>
    </div>
   </section>
 
@@ -149,6 +167,7 @@ export default function MobilePredictionTerminal(){
   </section>
 
   <nav className="pmTabs">
+   <button className={tab==='EDGE'?'active':''} onClick={()=>setTab('EDGE')}>Edge</button>
    <button className={tab==='FLOW'?'active':''} onClick={()=>setTab('FLOW')}>Smart Flow</button>
    <button className={tab==='MOVERS'?'active':''} onClick={()=>setTab('MOVERS')}>Movers</button>
    <button className={tab==='TRADERS'?'active':''} onClick={()=>setTab('TRADERS')}>Traders</button>
@@ -156,6 +175,39 @@ export default function MobilePredictionTerminal(){
    <button className={tab==='MARKETS'?'active':''} onClick={()=>setTab('MARKETS')}>Markets</button>
    <button className={tab==='TAPE'?'active':''} onClick={()=>setTab('TAPE')}>Tape</button>
   </nav>
+
+
+  {tab==='EDGE'&&<section className="pmStack">
+   <div className="pmSectionHead"><div><small>RESEARCH PRIORITY</small><h2>Prediction edge board</h2></div><span>{data.opportunities.length}</span></div>
+   {data.opportunities.slice(0,40).map(row=><article className="pmCard" key={row.venue+'-'+row.contractId}>
+    <div className="pmCardTop">
+     <span className={'pmVenue '+row.venue.toLowerCase()}>{row.venue}</span>
+     <b className="pmGap">{pct(row.researchScore)}</b>
+    </div>
+    <h3>{row.title}</h3>
+    <div className="pmMetrics">
+     <div><small>Priority</small><b>{row.priority}</b></div>
+     <div><small>Bias</small><b className={row.directionalBias==='YES'?'up':row.directionalBias==='NO'?'down':''}>{row.directionalBias}</b></div>
+     <div><small>Market quality</small><b>{pct(row.marketQuality)}</b></div>
+     <div><small>Venue gap</small><b>{row.crossVenueGap===undefined?'—':(row.crossVenueGap*100).toFixed(1)+' pts'}</b></div>
+    </div>
+    <p>{row.notes.join(' • ')}</p>
+   </article>)}
+   {!data.opportunities.length&&<div className="pmEmpty">No ranked prediction opportunities are available yet.</div>}
+
+   <div className="pmSectionHead"><div><small>PRICE LOCK WATCH</small><h2>Cross-venue arb research</h2></div><span>{data.arbitrageCandidates.length}</span></div>
+   {data.arbitrageCandidates.slice(0,20).map((row,index)=><article className="pmCard" key={row.lowContractId+'-'+row.highContractId+'-'+index}>
+    <div className="pmCardTop"><span className="pmMatch strong">STRONG MATCH</span><b className="pmGap">{(row.grossEdge*100).toFixed(2)}%</b></div>
+    <h3>{row.title}</h3>
+    <div className="pmCompare">
+     <div><small>Buy YES</small><b>{row.lowVenue} @ {pct(row.buyYesAsk)}</b></div>
+     <div><small>Buy NO</small><b>{row.highVenue} @ {pct(row.buyNoAsk)}</b></div>
+     <div><small>Gross cost</small><b>{pct(row.grossCost)}</b></div>
+    </div>
+    <p>{row.note} Settlement mismatch risk: {row.settlementMismatchRisk.toLowerCase()}.</p>
+   </article>)}
+   {!data.arbitrageCandidates.length&&<div className="pmEmpty">No executable-looking strong-match price locks in the current snapshot.</div>}
+  </section>}
 
   {tab==='FLOW'&&<section className="pmStack">
    <div className="pmSectionHead"><div><small>CONVICTION</small><h2>Smart-money flow</h2></div><span>{data.smartFlow.length}</span></div>

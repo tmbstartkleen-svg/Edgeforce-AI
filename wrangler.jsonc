@@ -63,6 +63,7 @@
   "account_id": "de9b84b39940a0b5b622ae5d27b415dc",
   "triggers": {
     "crons": [
+      "*/5 * * * *",
       "0 * * * *",
       "15 6 * * *"
     ]
