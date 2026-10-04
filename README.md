@@ -102,6 +102,7 @@ Every monitor run retains the state, sample size, live metrics, prior critical e
 - if retirement fails, the champion remains active and the failure is recorded
 - native Edgeforce models remain available when external ML is quarantined
 - a later tournament must independently earn promotion before external inference resumes
+- a quarantined sport/market remains on native fallback for the configured post-quarantine cooldown before external promotion can resume
 - historical or live model performance does not guarantee betting profit
 
 ## Previous build — V58 First Champion Tournament
