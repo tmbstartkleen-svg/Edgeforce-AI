@@ -1,6 +1,6 @@
 import type {PredictionContract} from './predictionMarkets';
 import type {CrossVenueGap,MarketMover,PredictionTrade} from './predictionFlow';
-import type {ReturnTypeOfTraderSignal} from './predictionAnalyticsTypes';
+import type {buildTraderSignals} from './predictionTraderIntelligence';
 
 const clamp=(n:number,min=0,max=1)=>Math.max(min,Math.min(max,n));
 const logScore=(n:number,scale=6)=>clamp(Math.log10(1+Math.max(0,n))/scale);
@@ -49,7 +49,7 @@ export type CrossVenueArbitrageCandidate={
  note:string;
 };
 
-type TraderSignalLike=ReturnTypeOfTraderSignal;
+type TraderSignalLike=ReturnType<typeof buildTraderSignals>[number];
 
 function flowByMarket(trades:PredictionTrade[]){
  const map=new Map<string,{gross:number;net:number}>();
