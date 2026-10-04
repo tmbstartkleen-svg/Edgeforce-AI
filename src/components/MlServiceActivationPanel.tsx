@@ -74,7 +74,7 @@ export default function MlServiceActivationPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V56 ML SERVICE ACTIVATION</div>
+    <div className="eyebrow">V57 ML SERVICE ACTIVATION</div>
     <h3>Deployment, health, tournament readiness, and live champion activation</h3>
    </div>
    <div className="panelMeta">
