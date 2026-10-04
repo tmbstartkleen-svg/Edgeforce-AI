@@ -1,5 +1,6 @@
 import type {Market} from './types';
 import {canonicalTrainingSport,trainingFeatureNames,trainingFeatureVectorFromMarket} from './trainedSportModels';
+import {mlServiceCircuitAllows,recordMlServiceFailure,recordMlServiceSuccess} from './mlServiceHealth';
 
 type ExternalPrediction={
  marketId:string;
@@ -25,6 +26,10 @@ export async function enrichMarketsWithExternalExpertModels(markets:Market[]){
  if(!url)return {
   markets,
   diagnostics:{configured:false,ok:false,rows:0,models:[],warnings:['No external ML prediction service is configured']}
+ };
+ if(tournamentUrl&&!mlServiceCircuitAllows())return {
+  markets,
+  diagnostics:{configured:true,ok:false,mode:'V56_CIRCUIT_OPEN',rows:0,models:[],warnings:['External ML circuit breaker is open; native EdgeForce models remain active']}
  };
 
  const controller=new AbortController();
@@ -96,6 +101,7 @@ export async function enrichMarketsWithExternalExpertModels(markets:Market[]){
     }
    };
   });
+  if(tournamentMode)await recordMlServiceSuccess({serviceVersion:body.modelVersion||null});
   return {
    markets:enriched,
    diagnostics:{
@@ -105,6 +111,7 @@ export async function enrichMarketsWithExternalExpertModels(markets:Market[]){
    }
   };
  }catch(error){
+  if(tournamentUrl)await recordMlServiceFailure(error);
   return {
    markets,
    diagnostics:{
