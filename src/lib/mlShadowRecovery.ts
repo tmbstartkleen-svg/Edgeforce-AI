@@ -252,7 +252,8 @@ export async function startShadowLeague(inputs:ShadowCandidateInput[]){
  `;
  const existingIds=new Set((existing as any[]).map(row=>String(row.serviceModelId)));
  let slots=Math.max(0,leagueMax-existing.length);
- let started=0,retained=existing.length;
+ let started=0;
+ const retained=existing.length;
  const ranked=[...inputs].sort((a,b)=>b.compositeScore-a.compositeScore||b.brierSkillScore-a.brierSkillScore);
  for(let i=0;i<ranked.length&&slots>0;i++){
   const input=ranked[i];
@@ -450,7 +451,7 @@ async function activeChampionExists(sport:string,marketKey:string){
  return rows.length>0;
 }
 
-async function promoteShadow(challenger:ShadowRow,reason:string){
+async function promoteShadow(challenger:ShadowRow,_reason:string){
  const url=promotionUrl();
  if(!url)return {ok:false,error:'ML promotion endpoint is not configured'};
  if(await activeChampionExists(challenger.sport,challenger.marketKey))return {ok:false,error:'An active external champion already occupies this slot'};
