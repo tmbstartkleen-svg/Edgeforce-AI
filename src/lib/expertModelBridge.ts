@@ -1,4 +1,5 @@
 import type {Market} from './types';
+import {canonicalTrainingSport,trainingFeatureNames,trainingFeatureVectorFromMarket} from './trainedSportModels';
 
 type ExternalPrediction={
  marketId:string;
@@ -17,18 +18,31 @@ type ExternalResponse={
 function clamp(n:number,min=0,max=1){return Math.max(min,Math.min(max,n))}
 
 export async function enrichMarketsWithExternalExpertModels(markets:Market[]){
- const url=String(process.env.EXPERT_MODEL_SERVICE_URL||'').trim();
- const key=String(process.env.EXPERT_MODEL_SERVICE_KEY||'').trim();
+ const tournamentUrl=String(process.env.ML_PREDICTION_SERVICE_URL||'').trim();
+ const legacyUrl=String(process.env.EXPERT_MODEL_SERVICE_URL||'').trim();
+ const url=tournamentUrl||legacyUrl;
+ const key=String(process.env.ML_PREDICTION_SERVICE_KEY||process.env.EXPERT_MODEL_SERVICE_KEY||'').trim();
  if(!url)return {
   markets,
-  diagnostics:{configured:false,ok:false,rows:0,models:[],warnings:['EXPERT_MODEL_SERVICE_URL is not configured']}
+  diagnostics:{configured:false,ok:false,rows:0,models:[],warnings:['No external ML prediction service is configured']}
  };
 
  const controller=new AbortController();
  const timeoutMs=Math.max(1500,Number(process.env.EXPERT_MODEL_SERVICE_TIMEOUT_MS||7000));
  const timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
-  const payload={
+  const tournamentMode=Boolean(tournamentUrl);
+  const payload=tournamentMode?{
+   schemaVersion:'edgeforce-ml-predict-v1',
+   markets:markets.slice(0,500).map(m=>{
+    const sport=canonicalTrainingSport(m.sport||m.league);
+    const featureNames=trainingFeatureNames(sport);
+    return {
+     id:m.id,sport,market:m.market,featureNames,
+     features:trainingFeatureVectorFromMarket(m,featureNames)
+    };
+   })
+  }:{
    schemaVersion:'edgeforce-expert-v1',
    generatedAt:new Date().toISOString(),
    markets:markets.slice(0,500).map(m=>({
@@ -85,7 +99,8 @@ export async function enrichMarketsWithExternalExpertModels(markets:Market[]){
   return {
    markets:enriched,
    diagnostics:{
-    configured:true,ok:true,rows:groups.size,models:[...models].sort(),
+    configured:true,ok:true,mode:tournamentMode?'V55_TOURNAMENT':'LEGACY',
+    rows:groups.size,models:[...models].sort(),
     modelVersion:body.modelVersion||null,warnings:body.warnings||[]
    }
   };
@@ -93,7 +108,8 @@ export async function enrichMarketsWithExternalExpertModels(markets:Market[]){
   return {
    markets,
    diagnostics:{
-    configured:true,ok:false,rows:0,models:[],
+    configured:true,ok:false,mode:tournamentUrl?'V55_TOURNAMENT':'LEGACY',
+    rows:0,models:[],
     warnings:[error instanceof Error?error.message:'external expert model service failed']
    }
   };

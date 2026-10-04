@@ -2,7 +2,118 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V54 Trained Sport-Specific ML
+## Current build — V55 External ML Tournament Engine
+
+V55 adds a separate containerized Python training/inference service for heavyweight machine-learning algorithms while keeping the production Edgeforce web/Worker runtime lightweight.
+
+### Algorithm tournament
+For each eligible sport and sport/market group, the service can train and compare:
+- L2 logistic regression
+- Random Forest
+- histogram gradient boosting
+- XGBoost
+- LightGBM
+- CatBoost
+- stacking ensembles
+- PyMC Bayesian logistic regression
+
+The service reports unavailable libraries explicitly; an algorithm is never marked active merely because it appears in the catalog.
+
+### Leakage-safe dataset
+V55 reuses V54's stable feature contract:
+- sportsbook implied probability
+- multi-book consensus probability
+- consensus agreement / dispersion
+- sharp and public probabilities
+- sharp-public gap
+- context score / coverage / critical coverage
+- sport-specific pre-outcome features
+
+Previous Model Council / Expert Suite votes are excluded from the tournament feature vector so the heavyweight models do not train on their own downstream output.
+
+### Chronological tournament evaluation
+Every algorithm receives time-ordered rows and is evaluated with:
+- 70% fit window
+- 15% probability-calibration window
+- 15% untouched holdout
+- Brier score
+- log loss
+- accuracy
+- calibration error
+- sportsbook baseline Brier/log loss
+- Brier Skill Score versus the sportsbook
+- a composite market-relative tournament score
+
+### Champion / challenger promotion
+The Python service does **not** promote its own winner.
+
+1. the service returns all candidates and a candidate winner
+2. Edgeforce compares that winner with the incumbent external-ML champion
+3. the challenger must clear `ML_TOURNAMENT_PROMOTION_MARGIN`
+4. Edgeforce explicitly calls the service's `/promote` endpoint
+5. only then is the service champion manifest changed
+6. the corresponding Edgeforce champion record is updated
+
+If promotion fails or the service is unavailable, the incumbent remains production champion.
+
+### Runtime inference
+- `ML_PREDICTION_SERVICE_URL` points to the service `/predict` endpoint
+- only the promoted champion for the sport/market is used
+- its calibrated probability enters the existing **External ML** expert vote
+- live champion predictions are persisted for subsequent validation and drift analysis
+- the legacy V53 external prediction contract remains available as a fallback
+
+### Durable registry
+Migration `v44` adds:
+- `external_ml_tournament_runs`
+- `external_ml_candidates`
+- `external_ml_champions`
+- `external_ml_prediction_snapshots`
+
+Every algorithm result, holdout score, promotion decision and production champion is inspectable.
+
+### Service deployment
+The heavyweight service lives under `ml-service/` with:
+- FastAPI application
+- pinned Python requirements
+- Dockerfile
+- persistent `MODEL_STORE_DIR` volume support
+- Bearer authentication through `ML_SERVICE_KEY`
+- `/health`, `/train`, `/promote`, and `/predict` endpoints
+
+A production deployment must use persistent storage for serialized model artifacts. Edgeforce stores champion metadata, while the service retains the corresponding trained model files.
+
+### Edgeforce APIs and UI
+- dashboard: **V55 External ML Tournament**
+- modeling workspace: `/models`
+- status: `GET /api/intelligence/ml-tournament`
+- authenticated tournament run: `POST /api/ml/tournament`
+- deterministic promotion regression: `GET /api/testing/ml-tournament`
+
+### Default tournament controls
+- `ML_TOURNAMENT_MIN_SAMPLE=120`
+- `ML_TOURNAMENT_LOOKBACK_ROWS=30000`
+- `ML_TOURNAMENT_MAX_GROUP_ROWS=6000`
+- `ML_TOURNAMENT_GROUPS_PER_REQUEST=2`
+- `ML_TOURNAMENT_PROMOTION_MARGIN=0.01`
+- `ML_TRAINING_TIMEOUT_MS=900000`
+
+### Release identity
+- build: `V55`
+- app: `55.0.0`
+- package: `0.55.0`
+- model: `edgeforce-v55`
+- migration: `v44`
+
+### Guardrails
+- external service failure is isolated from native Edgeforce recalibration
+- training alone cannot alter production champion state
+- all challengers are evaluated on untouched chronological holdout data
+- promotion requires market-relative evidence plus an incumbent-improvement margin
+- model artifacts must persist outside ephemeral container storage
+- historical performance does not guarantee future profitability
+
+## Previous build — V54 Trained Sport-Specific ML
 
 V54 turns Edgeforce's settled prediction history into independently trained sport-specific machine-learning models. Promoted models become a new **Trained Sport ML** vote inside the V53 Expert Model Council; held models remain diagnostic-only.
 
