@@ -35,8 +35,11 @@ async function runHourly(env:EdgeforceEnv,ctx:ExecutionContextLike){
   callInternal('/api/cron/decision',env,ctx,'CRON_SECRET'),
   callInternal('/api/cron/settle',env,ctx,'CRON_SECRET'),
   callInternal('/api/cron/heartbeat',env,ctx,'CRON_SECRET'),
-  callInternal('/api/cron/predictions',env,ctx,'CRON_SECRET'),
  ]);
+}
+
+async function runPredictions(env:EdgeforceEnv,ctx:ExecutionContextLike){
+ await callInternal('/api/cron/predictions',env,ctx,'CRON_SECRET');
 }
 
 async function runDaily(env:EdgeforceEnv,ctx:ExecutionContextLike){
@@ -51,7 +54,10 @@ const worker={
   return handler.fetch(request,env as any,ctx as any);
  },
  async scheduled(controller:ScheduledControllerLike,env:EdgeforceEnv,ctx:ExecutionContextLike){
-  const task=controller.cron==='15 6 * * *'?runDaily(env,ctx):runHourly(env,ctx);
+  const task=
+   controller.cron==='15 6 * * *'?runDaily(env,ctx):
+   controller.cron==='*/5 * * * *'?runPredictions(env,ctx):
+   runHourly(env,ctx);
   ctx.waitUntil(task);
  },
 };
