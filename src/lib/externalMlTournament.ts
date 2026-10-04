@@ -5,6 +5,7 @@ import {
  type TrainingHistoryRow
 } from './trainedSportModels';
 import {mlServiceCircuitAllows,probeMlService,recordMlServiceFailure,recordMlServiceSuccess} from './mlServiceHealth';
+import {startShadowChallenger} from './mlShadowRecovery';
 
 type ServiceCandidate={
  algorithm:string;
@@ -102,7 +103,7 @@ async function currentChampion(sport:string,marketKey:string){
 
 async function quarantinePromotionBlock(sport:string,marketKey:string){
  const sql=db();
- if(!sql)return {blocked:false,until:null as string|null,hours:0};
+ if(!sql)return {blocked:false,quarantined:false,until:null as string|null,hours:0};
  const hours=Math.max(1,Number(process.env.ML_CHAMPION_QUARANTINE_COOLDOWN_HOURS||24));
  try{
   const rows=await sql`
@@ -111,12 +112,12 @@ async function quarantinePromotionBlock(sport:string,marketKey:string){
    where sport=${sport} and market_key=${marketKey} and action='QUARANTINED'
    order by recorded_at desc limit 1
   `;
-  if(!rows.length)return {blocked:false,until:null as string|null,hours};
+  if(!rows.length)return {blocked:false,quarantined:false,until:null as string|null,hours};
   const at=new Date((rows[0] as any).recordedAt).getTime();
   const until=at+hours*3600000;
-  return {blocked:Date.now()<until,until:new Date(until).toISOString(),hours};
+  return {blocked:Date.now()<until,quarantined:true,until:new Date(until).toISOString(),hours};
  }catch{
-  return {blocked:false,until:null as string|null,hours};
+  return {blocked:false,quarantined:false,until:null as string|null,hours};
  }
 }
 
@@ -260,15 +261,18 @@ export async function runExternalMlTournament(){
    Object.assign(algorithmsAvailable,service.body.algorithmsAvailable||{});
    responseGroups.push(...(Array.isArray(service.body.groups)?service.body.groups:[]));
   }
-  let candidatesEvaluated=0,promoted=0,challengers=0;
+  let candidatesEvaluated=0,promoted=0,challengers=0,shadowsStarted=0,shadowsRetained=0;
 
   for(const group of responseGroups){
    const incumbent=await currentChampion(group.sport,group.marketKey);
-   const cooldown=!incumbent?await quarantinePromotionBlock(group.sport,group.marketKey):{blocked:false,until:null,hours:0};
+   const recovery=!incumbent
+    ?await quarantinePromotionBlock(group.sport,group.marketKey)
+    :{blocked:false,quarantined:false,until:null as string|null,hours:0};
+   const shadowRequired=!incumbent&&recovery.quarantined;
    const winner=group.champion||null;
    const decision=winner
-    ?(cooldown.blocked
-      ?{promote:false,reason:'External ML slot is in post-quarantine cooldown until '+cooldown.until}
+    ?(shadowRequired
+      ?{promote:false,reason:'Post-quarantine slot requires V60 live shadow recovery before external ML can return'}
       :promotionDecision(winner,incumbent,promotionMargin))
     :{promote:false,reason:'No eligible service winner'};
    let promotionResult:{ok:boolean;error?:string}|null=null;
@@ -280,7 +284,7 @@ export async function runExternalMlTournament(){
    const candidateIds=new Map<string,number>();
    for(const candidate of group.candidates||[]){
     let role='HELD';
-    if(winner&&candidate.serviceModelId===winner.serviceModelId)role=decision.promote?'CHAMPION':'CHALLENGER';
+    if(winner&&candidate.serviceModelId===winner.serviceModelId)role=decision.promote?'CHAMPION':shadowRequired?'SHADOW':'CHALLENGER';
     else if(candidate.eligible)role='MONITORED';
     if(role==='CHALLENGER')challengers++;
     const reason=winner&&candidate.serviceModelId===winner.serviceModelId
@@ -307,6 +311,20 @@ export async function runExternalMlTournament(){
     `;
     candidateIds.set(candidate.serviceModelId,Number(inserted[0]?.id||0));
     candidatesEvaluated++;
+   }
+
+   if(winner&&shadowRequired){
+    const candidateId=candidateIds.get(winner.serviceModelId)||null;
+    const shadow=await startShadowChallenger({
+     sport:group.sport,marketKey:group.marketKey,algorithm:winner.algorithm,
+     serviceModelId:winner.serviceModelId,artifactUri:winner.artifactUri||null,
+     candidateId,tournamentRunId:Number(run.id),
+     holdoutBrier:winner.holdoutBrier,holdoutLogLoss:winner.holdoutLogLoss,
+     calibrationError:winner.calibrationError,brierSkillScore:winner.brierSkillScore,
+     compositeScore:winner.compositeScore
+    });
+    if(shadow.started)shadowsStarted++;
+    if(shadow.retained)shadowsRetained++;
    }
 
    if(winner&&decision.promote&&promotionResult?.ok){
@@ -342,7 +360,7 @@ export async function runExternalMlTournament(){
     metrics=${sql.json({
      algorithmsAvailable:algorithmsAvailable,
      promotionMargin,minSample,maxRows,
-     serviceGroups:responseGroups.length,groupBatchSize
+     serviceGroups:responseGroups.length,groupBatchSize,shadowsStarted,shadowsRetained
     })}
    where id=${run.id}
   `;
@@ -350,7 +368,7 @@ export async function runExternalMlTournament(){
   return {
    ok:true,mode:'service' as const,configured:true,runId:Number(run.id),
    serviceVersion:serviceVersion,rows:history.length,groups:payload.length,
-   candidates:candidatesEvaluated,promoted,challengers,
+   candidates:candidatesEvaluated,promoted,challengers,shadowsStarted,shadowsRetained,
    algorithmsAvailable:algorithmsAvailable
   };
  }catch(error){

@@ -38,7 +38,7 @@ try:
 except Exception:
     pm = None
 
-SERVICE_VERSION = "edgeforce-ml-service-v59"
+SERVICE_VERSION = "edgeforce-ml-service-v60"
 MODEL_DIR = Path(os.getenv("MODEL_STORE_DIR", "./model_store")).resolve()
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 API_KEY = os.getenv("ML_SERVICE_KEY", "")
@@ -83,6 +83,15 @@ class PredictMarket(BaseModel):
 class PredictRequest(BaseModel):
     schemaVersion: str
     markets: list[PredictMarket]
+
+
+class ShadowPredictMarket(PredictMarket):
+    serviceModelId: str
+
+
+class ShadowPredictRequest(BaseModel):
+    schemaVersion: str
+    markets: list[ShadowPredictMarket]
 
 
 class PromoteRequest(BaseModel):
@@ -589,6 +598,57 @@ def retire(req: RetireRequest, authorization: str | None = Header(default=None))
         "marketKey": req.marketKey,
         "serviceModelId": req.serviceModelId,
         "archive": str(retired_path),
+    }
+
+
+@app.post("/shadow-predict")
+def shadow_predict(req: ShadowPredictRequest, authorization: str | None = Header(default=None)):
+    require_auth(authorization)
+    if req.schemaVersion != "edgeforce-ml-shadow-predict-v1":
+        raise HTTPException(status_code=400, detail="unsupported schemaVersion")
+
+    predictions: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    cache: dict[str, dict[str, Any]] = {}
+
+    for market in req.markets:
+        model_id = market.serviceModelId
+        try:
+            artifact = cache.get(model_id)
+            if artifact is None:
+                artifact = load_artifact(model_id)
+                cache[model_id] = artifact
+            if artifact["featureNames"] != market.featureNames:
+                warnings.append(f"feature contract mismatch for {market.id}/{model_id}")
+                continue
+            if str(artifact.get("sport") or "") != market.sport:
+                warnings.append(f"sport contract mismatch for {market.id}/{model_id}")
+                continue
+            artifact_market = str(artifact.get("marketKey") or "*")
+            if artifact_market not in ("*", market.market):
+                warnings.append(f"market contract mismatch for {market.id}/{model_id}")
+                continue
+            x = np.asarray([market.features], dtype=float)
+            p = float(calibrated_probability(artifact["estimator"], artifact["calibrator"], x)[0])
+            predictions.append({
+                "marketId": market.id,
+                "probability": p,
+                "confidence": 0.60,
+                "model": artifact["algorithm"],
+                "version": model_id,
+                "serviceModelId": model_id,
+                "shadow": True,
+            })
+        except Exception as exc:
+            warnings.append(f"{market.id}/{model_id}: {str(exc)[:240]}")
+
+    return {
+        "ok": True,
+        "schemaVersion": "edgeforce-ml-shadow-predict-result-v1",
+        "serviceVersion": SERVICE_VERSION,
+        "modelVersion": SERVICE_VERSION,
+        "predictions": predictions,
+        "warnings": warnings[:100],
     }
 
 

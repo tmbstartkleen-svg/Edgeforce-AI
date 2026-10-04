@@ -72,7 +72,7 @@ jobs:
             --prod
             --yes
             --token="$VERCEL_TOKEN"
-            --env MODEL_VERSION=edgeforce-v59
+            --env MODEL_VERSION=edgeforce-v60
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -96,6 +96,7 @@ jobs:
               --env ML_TRAINING_SERVICE_KEY="$ML_SERVICE_KEY"
               --env ML_PROMOTION_SERVICE_URL="$base/promote"
               --env ML_RETIRE_SERVICE_URL="$base/retire"
+              --env ML_SHADOW_PREDICTION_SERVICE_URL="$base/shadow-predict"
             )
           fi
           if [ -n "$ML_ACTIVATION_SECRET" ]; then
@@ -143,7 +144,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "59.0.0"
+          EXPECTED_APP_VERSION: "60.0.0"
 
       - name: Record production release attestation
         env:

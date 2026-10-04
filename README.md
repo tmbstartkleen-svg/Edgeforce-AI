@@ -2,7 +2,89 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V59 Champion Drift + Auto-Rollback
+## Current build — V60 Shadow Challenger + Live Recovery
+
+V60 adds a zero-weight recovery lane for external ML after V59 quarantine. A quarantined sport/market can no longer return to production merely because a fresh model wins another historical holdout tournament.
+
+### Shadow-only challenger path
+After quarantine:
+1. a later heavyweight tournament may identify an eligible replacement candidate
+2. Edgeforce registers that winner as a shadow challenger instead of promoting it
+3. the Python service scores the exact serialized artifact through authenticated `POST /shadow-predict`
+4. shadow probabilities are persisted separately and never enter Expert Suite, Model Council, simulations, parlays, or stake sizing
+5. results settlement grades those predictions after the real event finishes
+
+### Live recovery evidence
+Each shadow challenger is compared against:
+- sportsbook / market baseline Brier
+- a native-only Edgeforce Model Council probability with the external expert explicitly removed
+- its original untouched holdout Brier
+- live calibration error
+- live log loss
+
+Default recovery controls require:
+- 50 settled shadow predictions
+- positive Brier Skill versus the market
+- positive Brier Skill versus native Edgeforce
+- live calibration error no worse than 0.10
+- live Brier degradation versus holdout no worse than +0.04
+- two passing evaluations with a larger settled sample
+- expiry of the V59 post-quarantine cooldown
+
+A materially failing challenger is marked `REJECTED`, freeing the slot for a later tournament candidate.
+
+### Artifact-gated recovery
+Even after live evidence passes twice, Edgeforce still calls the hosted `/promote` endpoint. The external service must find the exact serialized artifact before a champion manifest can be restored.
+
+Only then does Edgeforce:
+- reactivate the external champion row
+- mark the shadow challenger `RECOVERED`
+- append a `RECOVERED` champion-history event
+- allow that external model to participate in production again
+
+### Scheduled governance order
+Daily recalibration is serialized as:
+1. active champion drift / quarantine
+2. shadow challenger recovery evaluation
+3. new external ML tournament
+
+This prevents recovery and new challenger creation from racing the same sport/market slot.
+
+### Durable registry
+Migration `v49` adds:
+- `external_ml_shadow_challengers`
+- `external_ml_shadow_prediction_snapshots`
+- `ml_shadow_recovery_runs`
+- `ml_shadow_recovery_snapshots`
+
+### APIs and UI
+- intelligence: `GET /api/intelligence/ml-shadow-recovery`
+- authenticated run: `POST /api/ml/shadow-recovery`
+- regression: `GET /api/testing/ml-shadow-recovery`
+- dashboard: **V60 Shadow Challenger + Live Recovery**
+- modeling workspace: `/models`
+
+### Release identity
+- build: `V60`
+- app: `60.0.0`
+- package: `0.60.0`
+- model: `edgeforce-v60`
+- migration: `v49`
+- ML service: `edgeforce-ml-service-v60`
+
+### Guardrails
+- shadow predictions have zero production voting weight
+- a post-quarantine tournament winner cannot bypass live recovery
+- insufficient samples cannot restore external ML
+- one passing recovery evaluation cannot restore external ML
+- unchanged evidence cannot create the second confirmation
+- cooldown blocks promotion even when current live evidence passes
+- badly degrading challengers are rejected
+- hosted artifact promotion must succeed before database reactivation
+- native Edgeforce remains the production fallback throughout recovery
+- no model performance result guarantees betting profit
+
+## Previous build — V59 Champion Drift + Auto-Rollback
 
 V59 closes the production feedback loop for promoted heavyweight external-ML champions. After a champion is promoted, Edgeforce now grades its **live settled predictions** against real outcomes and the contemporaneous market baseline, detects degradation, and can safely remove a failing external champion without disabling the native Edgeforce stack.
 

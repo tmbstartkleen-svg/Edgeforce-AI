@@ -6,6 +6,7 @@ import {runValidationLab} from '@/lib/validationLab';
 import {trainAndPersistSportModels} from '@/lib/trainedSportModels';
 import {runExternalMlTournament} from '@/lib/externalMlTournament';
 import {runChampionDriftMonitor} from '@/lib/mlChampionDrift';
+import {runShadowRecovery} from '@/lib/mlShadowRecovery';
 
 export const dynamic='force-dynamic';
 
@@ -22,6 +23,7 @@ export async function GET(req:Request){
    trainAndPersistSportModels()
   ]);
   const championDrift=await runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}));
+  const shadowRecovery=await runShadowRecovery().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'shadow recovery failed'}));
   const externalMlTournament=await runExternalMlTournament().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'external ML tournament failed'}));
   await recordAutomationRun('recalibrate','success',started,{
    calibrationMode:(modelCalibration as any).mode||null,
@@ -40,9 +42,13 @@ export async function GET(req:Request){
    externalMlPromoted:(externalMlTournament as any).promoted??null,
    championDriftChecked:(championDrift as any).champions??null,
    championDriftCritical:(championDrift as any).critical??null,
-   championDriftQuarantined:(championDrift as any).quarantined??null
+   championDriftQuarantined:(championDrift as any).quarantined??null,
+   shadowRecoveryChecked:(shadowRecovery as any).challengers??null,
+   shadowRecoveryReady:(shadowRecovery as any).readyConfirm??null,
+   shadowRecoveryRecovered:(shadowRecovery as any).recovered??null,
+   shadowRecoveryRejected:(shadowRecovery as any).rejected??null
   });
-  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,externalMlTournament,championDrift,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'recalibration failed';
   await recordAutomationRun('recalibrate','failed',started,{},message);

@@ -26,7 +26,7 @@ export async function POST(req:Request){
   return Response.json(result,{status,headers:{'Cache-Control':'no-store'}});
  }catch(error){
   return Response.json({
-   ok:false,build:'V59',schemaVersion:'v59-first-champion-tournament-1',
+   ok:false,build:'V60',schemaVersion:'v60-first-champion-tournament-1',
    error:error instanceof Error?error.message:'first champion tournament failed'
   },{status:500,headers:{'Cache-Control':'no-store'}});
  }

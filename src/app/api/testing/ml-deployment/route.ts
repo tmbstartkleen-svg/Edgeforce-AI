@@ -5,7 +5,7 @@ export const dynamic='force-dynamic';
 export async function GET(){
  const sample={
   modelVersion:RELEASE.modelVersion,
-  serviceVersion:'edgeforce-ml-service-v59',
+  serviceVersion:'edgeforce-ml-service-v60',
   deploymentStatus:'ACTIVE',
   healthOk:true,
   predictionHandshakeOk:true,
@@ -15,13 +15,13 @@ export async function GET(){
   provider:'render'
  };
  const assertions={
-  releaseIdentity:sample.modelVersion==='edgeforce-v59',
-  serviceIdentity:sample.serviceVersion==='edgeforce-ml-service-v59',
+  releaseIdentity:sample.modelVersion==='edgeforce-v60',
+  serviceIdentity:sample.serviceVersion==='edgeforce-ml-service-v60',
   activeRequiresHealth:sample.activationState!=='ACTIVE'||sample.healthOk,
   activeRequiresHandshake:sample.activationState!=='ACTIVE'||sample.predictionHandshakeOk,
   activeRequiresChampion:sample.activationState!=='ACTIVE'||sample.championsActive>0,
   renderTrace:Boolean(sample.provider==='render'&&sample.gitCommit)
  };
  const ok=Object.values(assertions).every(Boolean);
- return Response.json({ok,build:'V59',assertions,sample},{status:ok?200:500,headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok,build:'V60',assertions,sample},{status:ok?200:500,headers:{'Cache-Control':'no-store'}});
 }

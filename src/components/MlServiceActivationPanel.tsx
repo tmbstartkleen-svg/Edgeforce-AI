@@ -74,7 +74,7 @@ export default function MlServiceActivationPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V59 ML SERVICE ACTIVATION</div>
+    <div className="eyebrow">V60 ML SERVICE ACTIVATION</div>
     <h3>Deployment, health, tournament readiness, and live champion activation</h3>
    </div>
    <div className="panelMeta">
@@ -121,6 +121,6 @@ export default function MlServiceActivationPanel(){
    </div>):<div className="historyBox"><h4>No verified service yet</h4><div className="historyRow"><span>Algorithms</span><b>PENDING</b><small>EdgeForce will not label external algorithms live until /health reports them.</small></div></div>}
   </div>
 
-  <div className="historyNote">The V59 activation state is intentionally conservative. Deploying the container does not activate its predictions by itself. EdgeForce stays on native models until health, contract, tournament and champion gates all pass.</div>
+  <div className="historyNote">The V60 activation state is intentionally conservative. Deploying the container does not activate its predictions by itself. EdgeForce stays on native models until health, contract, tournament and champion gates all pass.</div>
  </section>;
 }

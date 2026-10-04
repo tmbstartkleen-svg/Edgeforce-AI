@@ -10,6 +10,7 @@ import {auditMarketBatch} from '@/lib/dataQuality';
 import {recordPlayerPropSnapshots,syncPlayerWarehouseFromStatsProvider} from '@/lib/playerWarehouse';
 import {recordTrainedModelPredictionSnapshots} from '@/lib/trainedSportModels';
 import {recordExternalMlPredictionSnapshots} from '@/lib/externalMlTournament';
+import {recordShadowChallengerPredictions} from '@/lib/mlShadowRecovery';
 
 export const dynamic='force-dynamic';
 
@@ -29,21 +30,22 @@ export async function GET(req:Request){
   const audit=auditMarketBatch(context.markets);
   const scanned=weekTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
   const rows=applyQualityGate(scanned);
-  const [modelRunsWritten,playerPropSnapshots,trainedModelSnapshots,externalMlSnapshots]=await Promise.all([
+  const [modelRunsWritten,playerPropSnapshots,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots]=await Promise.all([
    recordModelRuns(rows).catch(()=>0),
    recordPlayerPropSnapshots(scanned).catch(()=>0),
    recordTrainedModelPredictionSnapshots(context.markets).catch(()=>0),
-   recordExternalMlPredictionSnapshots(context.markets).catch(()=>0)
+   recordExternalMlPredictionSnapshots(context.markets).catch(()=>0),
+   recordShadowChallengerPredictions(context.markets).catch(error=>({written:0,requested:0,challengers:0,mode:'failed',error:error instanceof Error?error.message:'shadow prediction failed'}))
   ]);
   await recordAutomationRun('scan','success',started,{
    source:ingestion.source,providerId:ingestion.providerId,qualified:rows.length,modelRunsWritten,
-   playerPropSnapshots,trainedModelSnapshots,externalMlSnapshots,playerSync,
+   playerPropSnapshots,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,playerSync,
    dataQualityGrade:audit.grade,dataQualityScore:audit.score
   });
   return Response.json({
    ok:true,ranAt:new Date().toISOString(),source:ingestion.source,mode:ingestion.mode,
    providerId:ingestion.providerId,attempts:ingestion.attempts,qualified:rows.length,
-   modelRunsWritten,playerPropSnapshots,trainedModelSnapshots,externalMlSnapshots,playerSync,learnedWeightCount:Object.keys(learnedWeights).length,
+   modelRunsWritten,playerPropSnapshots,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,playerSync,learnedWeightCount:Object.keys(learnedWeights).length,
    dynamicCalibrationProfileCount:Object.keys(dynamicCalibration).length,
    contextDiagnostics:context.diagnostics,
    dataQuality:audit,top:rows.slice(0,10)

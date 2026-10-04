@@ -1,4 +1,4 @@
-# EdgeForce V59 ML Tournament Service
+# EdgeForce V60 ML Tournament Service
 
 Containerized Python service for heavyweight sport-specific model training and champion inference.
 
@@ -21,6 +21,7 @@ Unavailable optional libraries are reported by `GET /health` and are never false
 - `POST /train` using schema `edgeforce-ml-train-v1`
 - `POST /promote` using schema `edgeforce-ml-promote-v1`
 - `POST /retire` using schema `edgeforce-ml-retire-v1`
+- `POST /shadow-predict` using schema `edgeforce-ml-shadow-predict-v1`
 - `POST /predict` using schema `edgeforce-ml-predict-v1`
 
 Set `ML_SERVICE_KEY` to require Bearer authentication.
@@ -48,6 +49,7 @@ ML_TRAINING_SERVICE_URL=http://localhost:8080/train
 ML_TRAINING_SERVICE_KEY=change-me
 ML_PROMOTION_SERVICE_URL=http://localhost:8080/promote
 ML_RETIRE_SERVICE_URL=http://localhost:8080/retire
+ML_SHADOW_PREDICTION_SERVICE_URL=http://localhost:8080/shadow-predict
 ```
 
 The EdgeForce web/Worker runtime remains separate from this Python service.
@@ -74,6 +76,7 @@ ML_TRAINING_SERVICE_URL=https://<service>.onrender.com/train
 ML_TRAINING_SERVICE_KEY=<same ML_SERVICE_KEY>
 ML_PROMOTION_SERVICE_URL=https://<service>.onrender.com/promote
 ML_RETIRE_SERVICE_URL=https://<service>.onrender.com/retire
+ML_SHADOW_PREDICTION_SERVICE_URL=https://<service>.onrender.com/shadow-predict
 ```
 
 Then call EdgeForce `POST /api/ml/activate`. V56 will health-check, verify the prediction schema, run the tournament, and only report `ACTIVE` if at least one champion is promoted.
@@ -116,3 +119,14 @@ The endpoint accepts:
 It refuses retirement when the requested model ID no longer matches the active champion manifest. A successful retirement archives the manifest under `MODEL_STORE_DIR/retired` before removing the active manifest. The serialized `.joblib` artifact remains on persistent storage for audit and future analysis.
 
 Edgeforce calls this endpoint only after the live drift monitor records repeated critical degradation with new settled evidence.
+
+
+## V60 shadow inference
+
+`POST /shadow-predict` loads a serialized model by exact `serviceModelId` without reading or creating a production champion manifest. It exists only for live challenger evaluation.
+
+Shadow inference:
+- uses the same feature contract and calibration object as production inference
+- never changes the active champion manifest
+- returns schema `edgeforce-ml-shadow-predict-result-v1`
+- is expected to be called only by Edgeforce's V60 recovery engine
