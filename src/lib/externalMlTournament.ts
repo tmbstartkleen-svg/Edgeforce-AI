@@ -365,3 +365,40 @@ export async function externalMlTournamentStatus(){
   return {ok:false,source:'database' as const,latestRun:null,champions:[],candidates:[],summary:{champions:0,sports:0,candidates:0},error:error instanceof Error?error.message:'external ML tournament status failed'};
  }
 }
+
+
+export async function recordExternalMlPredictionSnapshots(markets:import('./types').Market[]){
+ const sql=db();
+ if(!sql||!markets.length)return 0;
+ const rows=await sql`
+  select sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId"
+  from external_ml_champions
+ `.catch(()=>[]);
+ const exact=new Map<string,any>();
+ const broad=new Map<string,any>();
+ for(const row of rows as any[]){
+  const key=`${String(row.sport)}|${String(row.marketKey).toLowerCase()}`;
+  exact.set(key,row);
+  if(String(row.marketKey)==='*')broad.set(String(row.sport),row);
+ }
+ let written=0;
+ for(const market of markets){
+  const probability=Number(market.sportFeatures?.externalExpertProbability);
+  const confidence=Number(market.sportFeatures?.externalExpertConfidence);
+  if(!Number.isFinite(probability)||probability<=0||probability>=1)continue;
+  const sport=canonicalTrainingSport(market.sport||market.league);
+  const champion=exact.get(`${sport}|${market.market.toLowerCase()}`)||broad.get(sport);
+  if(!champion)continue;
+  await sql`
+   insert into external_ml_prediction_snapshots(
+    market_id,sport,market_key,algorithm,service_model_id,probability,confidence,observed_at,metadata
+   ) values(
+    ${market.id},${sport},${market.market},${String(champion.algorithm)},${String(champion.serviceModelId)},
+    ${probability},${Number.isFinite(confidence)?confidence:0},now(),
+    ${sql.json({selection:market.selection,event:market.event,odds:market.odds,marketProbability:market.marketProb,modelVersion:RELEASE.modelVersion})}
+   )
+  `;
+  written++;
+ }
+ return written;
+}
