@@ -530,8 +530,8 @@ export async function runShadowRecovery(){
     })),
     {minCompetitors,minSample,minMargin:minScoreMargin}
    );
-   if(leagueDecision.winnerId)leagueWinnersReady++;
    const leader=evaluated.find(row=>row.challenger.id===leagueDecision.winnerId)||ranked[0]||null;
+   if(leader&&(leader.baseDecision.state==='READY_CONFIRM'||leader.baseDecision.action==='PROMOTE'))leagueWinnersReady++;
    const runner=evaluated.find(row=>row.challenger.id===leagueDecision.runnerUpId)||ranked[1]||null;
    const margin=leagueDecision.margin;
 
