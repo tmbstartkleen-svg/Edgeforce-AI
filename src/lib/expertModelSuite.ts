@@ -33,8 +33,6 @@ const raw=(m:Market,key:string)=>{
  const n=Number(m.sportFeatures?.[key]);
  return Number.isFinite(n)?n:undefined;
 };
-const has=(m:Market,...keys:string[])=>keys.some(k=>raw(m,k)!==undefined);
-const logit=(p:number)=>Math.log(clamp(p)/(1-clamp(p)));
 const logistic=(x:number)=>1/(1+Math.exp(-x));
 const selectionText=(m:Market)=>`${m.selection} ${m.market}`.toLowerCase();
 const isHome=(m:Market)=>m.home&&m.home.toLowerCase()!=='home'&&selectionText(m).includes(m.home.toLowerCase());
