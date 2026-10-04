@@ -3,6 +3,7 @@ import {rebuildLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {recordAutomationRun} from '@/lib/automationHealth';
 import {runModelGovernance} from '@/lib/modelGovernance';
 import {runValidationLab} from '@/lib/validationLab';
+import {trainAndPersistSportModels} from '@/lib/trainedSportModels';
 
 export const dynamic='force-dynamic';
 
@@ -11,11 +12,12 @@ export async function GET(req:Request){
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
  const started=Date.now();
  try{
-  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation]=await Promise.all([
+  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels]=await Promise.all([
    runRecalibration(),
    rebuildLearnedSgpCorrelations(),
    runModelGovernance(),
-   runValidationLab()
+   runValidationLab(),
+   trainAndPersistSportModels()
   ]);
   await recordAutomationRun('recalibrate','success',started,{
    calibrationMode:(modelCalibration as any).mode||null,
@@ -25,9 +27,12 @@ export async function GET(req:Request){
    governanceDrifting:(modelGovernance as any).summary?.drifting??null,
    governanceCritical:(modelGovernance as any).summary?.critical??null,
    validationRows:(predictionValidation as any).report?.sampleSize??null,
-   validationEligible:(predictionValidation as any).report?.evidence?.promotionEligible??null
+   validationEligible:(predictionValidation as any).report?.evidence?.promotionEligible??null,
+   trainedRows:(trainedSportModels as any).rows??null,
+   trainedArtifacts:(trainedSportModels as any).artifacts?.length??null,
+   trainedPromoted:(trainedSportModels as any).promoted??null
   });
-  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'recalibration failed';
   await recordAutomationRun('recalibrate','failed',started,{},message);
