@@ -50,6 +50,7 @@ export async function GET(){
   nativeExpertModels:true,
   externalMlModelBridge:true,
   premiumSportsDataConnectorCatalog:true,
+  normalizedPremiumSportsDataBridge:true,
   expertModelCouncilIntegration:true,
   lineMovementTracking:true,
   steamDetection:true,
