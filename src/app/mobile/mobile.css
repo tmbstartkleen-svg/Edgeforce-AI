@@ -55,3 +55,12 @@ html,body{min-height:100%;background:#050505}
 .pmFooter a{color:#f1d487;text-decoration:none}
 @media(min-width:620px){.pmHeroStats{grid-template-columns:repeat(4,1fr)}.pmMetrics{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:390px){.pmMetrics{grid-template-columns:1fr 1fr}.pmCompare{grid-template-columns:1fr 1fr 1fr}.pmTop h1{font-size:23px}.pmTabs button{font-size:8px}}
+
+@media(min-width:900px){
+ .pmMobile{max-width:1180px;padding:26px 28px 60px}
+ .pmHero{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;align-items:end}
+ .pmHeroStats{margin-top:0;grid-template-columns:repeat(2,1fr)}
+ .pmStack{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+ .pmSectionHead,.pmEmpty{grid-column:1/-1}
+ .pmTabs{top:0}
+}
