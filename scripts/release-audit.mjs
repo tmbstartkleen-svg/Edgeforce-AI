@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V60',
- appVersion:'60.0.0',
- packageVersion:'0.60.0',
- modelVersion:'edgeforce-v60',
- migrationVersion:49
+ build:'V61',
+ appVersion:'61.0.0',
+ packageVersion:'0.61.0',
+ modelVersion:'edgeforce-v61',
+ migrationVersion:50
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -177,6 +177,15 @@ add('prediction trader intelligence',read('src/lib/predictionTraderIntelligence.
 add('prediction market movers',read('src/lib/predictionFlow.ts').includes('marketMovers')&&read('src/app/api/prediction-terminal/route.ts').includes('movers'),'market mover analytics exposed');
 add('prediction warehouse persistence',read('src/lib/predictionPersistence.ts').includes('prediction_market_snapshots')&&read('src/app/api/cron/predictions/route.ts').includes('persistPredictionTrades'),'Cloudflare collector persists market and trade history');
 add('iPhone prediction PWA',read('src/app/manifest.ts').includes("start_url:'/mobile'")&&read('src/components/MobilePredictionTerminal.tsx').includes('iPhone install'),'installable mobile prediction terminal');
+add('shadow league migration schema',read('db/v50.sql').includes('external_ml_shadow_leagues')&&read('db/v50.sql').includes('league_rank')&&read('db/v50.sql').includes('league_winners_ready'),'v50 multi-challenger shadow league registry');
+add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
+add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
+add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
+add('V61 winner margin gate',read('src/lib/mlShadowRecovery.ts').includes('ML_SHADOW_LEAGUE_MIN_SCORE_MARGIN')&&read('src/lib/mlShadowRecovery.ts').includes('below required'),'close live races cannot auto-promote');
+add('V61 minimum competitors',read('src/lib/mlShadowRecovery.ts').includes('ML_SHADOW_LEAGUE_MIN_COMPETITORS')&&read('src/lib/mlShadowRecovery.ts').includes('live-qualified league competitors'),'single challenger cannot win a multi-model recovery league');
+add('V61 winner-only promotion',read('src/lib/mlShadowRecovery.ts').includes("recovery:'V61_MULTI_CHALLENGER_SHADOW_LEAGUE'")&&read('src/lib/mlShadowRecovery.ts').includes("row.state='LEAGUE_LOST'"),'only the live league winner can return to production');
+add('V61 production certification',read('src/lib/productionCertification.ts').includes('shadowRecoveryStatus')&&read('src/lib/productionCertification.ts').includes('external ML shadow league'),'production certification consumes live league state');
+add('V61 shadow league regression',read('src/app/api/testing/ml-shadow-recovery/route.ts').includes('clearLeagueWinnerPromotes')&&read('src/app/api/testing/ml-shadow-recovery/route.ts').includes('closeLeagueRaceHolds')&&read('src/app/api/testing/ml-shadow-recovery/route.ts').includes('minimumCompetitorsRequired'),'league promotion gates are regression tested');
 add('V60 shadow prediction endpoint',read('ml-service/app.py').includes('@app.post("/shadow-predict")')&&read('ml-service/app.py').includes('edgeforce-ml-shadow-predict-result-v1'),'hosted service can score exact challenger artifacts without champion manifests');
 add('V60 shadow tournament routing',read('src/lib/externalMlTournament.ts').includes('startShadowChallenger')&&read('src/lib/externalMlTournament.ts').includes('Post-quarantine slot requires V60 live shadow recovery'),'quarantined slots cannot return through holdout-only promotion');
 add('V60 zero-weight shadow collection',read('src/app/api/cron/scan/route.ts').includes('recordShadowChallengerPredictions')&&read('src/lib/mlShadowRecovery.ts').includes('productionWeight:0'),'shadow predictions are collected without entering production votes');
@@ -187,9 +196,9 @@ add('V60 shadow rejection',read('src/lib/mlShadowRecovery.ts').includes("state:'
 add('V60 shadow settlement',read('src/lib/resultProvider.ts').includes('settleShadowPredictionFeedback'),'results settlement grades shadow challengers');
 add('V60 recovery sequencing',read('src/app/api/cron/recalibrate/route.ts').indexOf('const shadowRecovery=await runShadowRecovery')<read('src/app/api/cron/recalibrate/route.ts').indexOf('const externalMlTournament=await runExternalMlTournament'),'shadow recovery is evaluated before the next tournament');
 add('V60 artifact-gated recovery',read('src/lib/mlShadowRecovery.ts').includes("schemaVersion:'edgeforce-ml-promote-v1'")&&read('ml-service/app.py').includes('model artifact not found'),'live-qualified recovery still requires hosted artifact promotion');
-add('V60 shadow API',read('src/app/api/intelligence/ml-shadow-recovery/route.ts').includes('v60-shadow-recovery-1')&&read('src/app/api/ml/shadow-recovery/route.ts').includes('runShadowRecovery'),'shadow recovery status and authenticated runner exist');
+add('V60 shadow API',read('src/app/api/intelligence/ml-shadow-recovery/route.ts').includes('v61-shadow-league-1')&&read('src/app/api/ml/shadow-recovery/route.ts').includes('runShadowRecovery'),'shadow recovery status and authenticated runner exist');
 add('V60 shadow regression',read('src/app/api/testing/ml-shadow-recovery/route.ts').includes('repeatedFreshPassPromotes')&&read('src/app/api/testing/ml-shadow-recovery/route.ts').includes('badShadowRejected'),'shadow recovery decisions are regression tested');
-add('V60 shadow dashboard',read('src/components/Dashboard.tsx').includes('ShadowRecoveryPanel')&&read('src/components/ShadowRecoveryPanel.tsx').includes('V60 SHADOW CHALLENGER + LIVE RECOVERY'),'shadow recovery is visible');
+add('V60 shadow dashboard',read('src/components/Dashboard.tsx').includes('ShadowRecoveryPanel')&&read('src/components/ShadowRecoveryPanel.tsx').includes('V61 MULTI-CHALLENGER SHADOW LEAGUE'),'shadow recovery is visible');
 add('V59 champion live settlement',read('src/lib/resultProvider.ts').includes('settleExternalMlPredictionFeedback')&&read('src/lib/mlChampionDrift.ts').includes('update external_ml_prediction_snapshots'),'settled outcomes feed external champion evidence');
 add('V59 market baseline snapshots',read('src/lib/externalMlTournament.ts').includes('market_baseline_probability')&&read('db/v48.sql').includes('market_baseline_probability'),'live champion predictions preserve market baseline');
 add('V59 drift metrics',read('src/lib/mlChampionDrift.ts').includes('championLiveMetrics')&&read('src/lib/mlChampionDrift.ts').includes('liveBrierSkillScore')&&read('src/lib/mlChampionDrift.ts').includes('liveCalibrationError'),'Brier, log loss, calibration and market-relative skill are measured');
@@ -212,7 +221,7 @@ add('V58 first tournament API',read('src/app/api/ml/first-tournament/route.ts').
 add('V58 first tournament regression',read('src/app/api/testing/ml-first-tournament/route.ts').includes('blocksMissingArtifact')&&read('src/app/api/testing/ml-first-tournament/route.ts').includes('awaitsChampion'),'ranking and fail-closed evidence states are tested');
 add('V58 deployment finishes in first tournament',read('.github/workflows/deploy-ml-service.yml').includes('ml-first-tournament-doctor.mjs')&&read('scripts/ml-first-tournament-doctor.mjs').includes('/api/ml/first-tournament'),'hosted ML deployment records first-tournament evidence');
 add('V58 first tournament dashboard',read('src/components/Dashboard.tsx').includes('FirstChampionTournamentPanel')&&read('src/components/FirstChampionTournamentPanel.tsx').includes('V60 FIRST CHAMPION TOURNAMENT'),'sport-by-sport winners are visible');
-add('V57 Render deployment identity',read('ml-service/app.py').includes('edgeforce-ml-service-v60')&&read('ml-service/app.py').includes('RENDER_GIT_COMMIT')&&read('ml-service/app.py').includes('RENDER_SERVICE_ID'),'ML health exposes exact hosted service identity');
+add('V57 Render deployment identity',read('ml-service/app.py').includes('edgeforce-ml-service-v61')&&read('ml-service/app.py').includes('RENDER_GIT_COMMIT')&&read('ml-service/app.py').includes('RENDER_SERVICE_ID'),'ML health exposes exact hosted service identity');
 add('V57 deployed-service doctor',read('scripts/ml-service-doctor.mjs').includes('EXPECTED_ML_COMMIT')&&read('scripts/ml-service-doctor.mjs').includes('edgeforce-ml-predict-result-v1'),'service doctor verifies exact commit and inference contract');
 add('V57 activation doctor',read('scripts/ml-activation-doctor.mjs').includes('READY_AWAITING_EVIDENCE')&&read('scripts/ml-activation-doctor.mjs').includes('ML_ACTIVATION_SECRET'),'post-deploy activation only accepts safe terminal states');
 add('V57 Render API deploy',read('.github/workflows/deploy-ml-service.yml').includes('api.render.com/v1/services/$RENDER_SERVICE_ID/deploys')&&read('.github/workflows/deploy-ml-service.yml').includes('RENDER_DEPLOY_HOOK_URL'),'workflow supports exact Render API deploy plus deploy-hook fallback');
