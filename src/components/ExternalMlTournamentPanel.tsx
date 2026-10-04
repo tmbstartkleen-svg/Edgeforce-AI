@@ -56,7 +56,7 @@ export default function ExternalMlTournamentPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V58 EXTERNAL ML TOURNAMENT</div>
+    <div className="eyebrow">V59 EXTERNAL ML TOURNAMENT</div>
     <h3>XGBoost, LightGBM, CatBoost, Random Forest, stacking, and Bayesian challengers compete before promotion</h3>
    </div>
    <div className="panelMeta">
@@ -92,7 +92,7 @@ export default function ExternalMlTournamentPanel(){
       <td>{pct(x.calibrationError)}</td>
       <td>{x.compositeScore.toFixed(3)}</td>
      </tr>)}
-     {!data?.champions?.length&&<tr><td colSpan={8} className="emptyRow">No external ML champion has been promoted yet. Configure the V55 Python service and run the tournament after enough settled history exists.</td></tr>}
+     {!data?.champions?.length&&<tr><td colSpan={8} className="emptyRow">No external ML champion has been promoted yet. Configure the external Python service and run the tournament after enough settled history exists.</td></tr>}
     </tbody>
    </table>
   </div>
