@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
+import {buildTradeSignal} from '@/lib/tradeSignals';
 
 type Summary={
  contracts:number;
@@ -57,6 +58,16 @@ type TerminalResponse={
  warnings:string[];
 };
 
+type SportsSignalRow={
+ id:string;sport:string;event:string;selection:string;market:string;simProbability:number;
+ dynamicConfidence:number;grade:'ELITE'|'STRONG'|'WATCH'|'PASS';regime:string;freshness:string;
+ contextQuality?:{recommendationReady?:boolean;coverage?:number};
+ bestExecutionVenue?:{venue:string;type:'SPORTSBOOK'|'PREDICTION_EXCHANGE';edge:number;expectedValue:number;marketProbability:number;americanOdds?:number;feeAdjusted:boolean};
+ bestPredictionVenue?:{volume?:number;liquidity?:number;status:string};
+ lineMovement?:{direction:'TOWARD'|'AWAY'|'FLAT';steam:boolean;steamStrength:'NONE'|'WATCH'|'STRONG';probabilityMove:number;snapshotCount:number}|null;
+};
+type SportsBoardResponse={rows:SportsSignalRow[];generatedAt:string};
+
 const empty:TerminalResponse={
  ok:false,generatedAt:'',summary:{
   contracts:0,kalshiContracts:0,polymarketContracts:0,recentTrades:0,tradeNotional24h:0,
@@ -87,7 +98,8 @@ function timeAgo(value:string){
 export default function MobilePredictionTerminal(){
  const [data,setData]=useState<TerminalResponse>(empty);
  const [category,setCategory]=useState('ALL');
- const [tab,setTab]=useState<'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('FLOW');
+ const [tab,setTab]=useState<'SIGNALS'|'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('SIGNALS');
+ const [sportsRows,setSportsRows]=useState<SportsSignalRow[]>([]);
  const [error,setError]=useState('');
 
  useEffect(()=>{
@@ -97,10 +109,14 @@ export default function MobilePredictionTerminal(){
    if(busy)return;
    busy=true;
    try{
-    const res=await fetch('/api/prediction-terminal?markets=300&trades=300',{cache:'no-store'});
-    if(!res.ok)throw new Error('Prediction terminal request failed');
-    const json=await res.json() as TerminalResponse;
-    if(active){setData(json);setError('')}
+    const [terminalRes,sportsRes]=await Promise.all([
+     fetch('/api/prediction-terminal?markets=300&trades=300',{cache:'no-store'}),
+     fetch('/api/live-board?view=today&limit=30&risk=Moderate',{cache:'no-store'})
+    ]);
+    if(!terminalRes.ok)throw new Error('Prediction terminal request failed');
+    const json=await terminalRes.json() as TerminalResponse;
+    const sportsJson=sportsRes.ok?await sportsRes.json() as SportsBoardResponse:null;
+    if(active){setData(json);setSportsRows(sportsJson?.rows||[]);setError('')}
    }catch(e){
     if(active)setError(e instanceof Error?e.message:'Unable to refresh');
    }finally{busy=false}
@@ -111,6 +127,9 @@ export default function MobilePredictionTerminal(){
  },[]);
 
  const markets=useMemo(()=>category==='ALL'?data.markets:data.markets.filter(x=>x.category===category),[data.markets,category]);
+ const sportsSignals=useMemo(()=>sportsRows
+  .map(row=>({row,signal:buildTradeSignal(row)}))
+  .sort((a,b)=>b.signal.score-a.signal.score||b.signal.expectedValue-a.signal.expectedValue),[sportsRows]);
  const latest=data.generatedAt?timeAgo(data.generatedAt):'—';
 
  return <main className="pmMobile">
@@ -149,6 +168,7 @@ export default function MobilePredictionTerminal(){
   </section>
 
   <nav className="pmTabs">
+   <button className={tab==='SIGNALS'?'active':''} onClick={()=>setTab('SIGNALS')}>Pro Signals</button>
    <button className={tab==='FLOW'?'active':''} onClick={()=>setTab('FLOW')}>Smart Flow</button>
    <button className={tab==='MOVERS'?'active':''} onClick={()=>setTab('MOVERS')}>Movers</button>
    <button className={tab==='TRADERS'?'active':''} onClick={()=>setTab('TRADERS')}>Traders</button>
@@ -156,6 +176,22 @@ export default function MobilePredictionTerminal(){
    <button className={tab==='MARKETS'?'active':''} onClick={()=>setTab('MARKETS')}>Markets</button>
    <button className={tab==='TAPE'?'active':''} onClick={()=>setTab('TAPE')}>Tape</button>
   </nav>
+
+  {tab==='SIGNALS'&&<section className="pmStack">
+   <div className="pmSectionHead"><div><small>EDGEFORCE SPORTS</small><h2>Buy / bet / exit signals</h2></div><span>{sportsSignals.length}</span></div>
+   {sportsSignals.slice(0,30).map(({row,signal})=><article className="pmCard" key={'sports-signal-'+row.id}>
+    <div className="pmCardTop"><span className={'pmMatch '+(signal.action==='BUY'||signal.action==='BET'?'strong':'heuristic')}>{signal.action} · {signal.timing}</span><b className="pmGap">{signal.score}/100</b></div>
+    <h3>{row.selection}</h3>
+    <div className="pmMetrics">
+     <div><small>Sport</small><b>{row.sport}</b></div>
+     <div><small>Fair</small><b>{pct(signal.fairProbability)}</b></div>
+     <div><small>Market</small><b>{pct(signal.marketProbability)}</b></div>
+     <div><small>EV</small><b className={signal.expectedValue>=0?'up':'down'}>{signal.expectedValue>=0?'+':''}{pct(signal.expectedValue)}</b></div>
+    </div>
+    <p>{signal.venue} · entry {signal.venueType==='PREDICTION_EXCHANGE'?'≤ '+Math.round(signal.entryMaxProbability*100)+'¢':'at/above '+signal.entryMinAmericanOdds+' odds'} · confidence {pct(signal.confidence)}{row.lineMovement?.steam?' · '+row.lineMovement.steamStrength+' steam '+row.lineMovement.direction.toLowerCase():''}</p>
+   </article>)}
+   {!sportsSignals.length&&<div className="pmEmpty">No qualified sports signals are available in the current board.</div>}
+  </section>}
 
   {tab==='FLOW'&&<section className="pmStack">
    <div className="pmSectionHead"><div><small>CONVICTION</small><h2>Smart-money flow</h2></div><span>{data.smartFlow.length}</span></div>
