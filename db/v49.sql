@@ -6,6 +6,7 @@ create table if not exists external_ml_shadow_challengers (
   market_key text not null default '*',
   algorithm text not null,
   service_model_id text not null,
+  artifact_uri text,
   candidate_id bigint references external_ml_candidates(id) on delete set null,
   source_tournament_run_id bigint references external_ml_tournament_runs(id) on delete set null,
   status text not null default 'SHADOW',
