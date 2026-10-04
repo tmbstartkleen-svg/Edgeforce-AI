@@ -478,7 +478,7 @@ async function promoteShadow(challenger:ShadowRow,reason:string){
 
 export async function runShadowRecovery(){
  const sql=db();
- if(!sql)return {ok:true,mode:'dry-run' as const,challengers:0,insufficient:0,shadow:0,readyConfirm:0,recovered:0,rejected:0,promotionFailed:0,rows:[]};
+ if(!sql)return {ok:true,mode:'dry-run' as const,leagues:0,challengers:0,insufficient:0,shadow:0,readyConfirm:0,recovered:0,rejected:0,promotionFailed:0,leagueWinnersReady:0,rows:[]};
  const [run]=await sql`
   insert into ml_shadow_recovery_runs(model_version,status,started_at)
   values(${RELEASE.modelVersion},'running',now())
@@ -486,36 +486,80 @@ export async function runShadowRecovery(){
  `;
  const window=Math.max(25,Number(process.env.ML_SHADOW_RECOVERY_WINDOW||150));
  const minSample=Math.max(25,Number(process.env.ML_SHADOW_RECOVERY_MIN_SAMPLE||50));
- let insufficient=0,shadow=0,readyConfirm=0,recovered=0,rejected=0,promotionFailed=0;
+ const minScoreMargin=Math.max(0,Number(process.env.ML_SHADOW_LEAGUE_MIN_SCORE_MARGIN||.005));
+ let insufficient=0,shadow=0,readyConfirm=0,recovered=0,rejected=0,promotionFailed=0,leagueWinnersReady=0;
  const output:any[]=[];
  try{
-  for(const challenger of await activeShadowRows()){
-   const metrics=shadowRecoveryMetrics(await settledRows(challenger.id,window),challenger.holdoutBrier);
-   const confirmations=await priorConfirmations(challenger.id,metrics.sampleSize);
-   const quarantine=await quarantineState(challenger.sport,challenger.marketKey);
-   const decision=shadowRecoveryDecision({...metrics,priorConfirmations:confirmations,cooldownActive:quarantine.cooldownActive,minSample});
-   let state:string=decision.state;
-   let action:string=decision.action;
-   let reason=decision.reason;
+  const active=await activeShadowRows();
+  const grouped=new Map<string,ShadowRow[]>();
+  for(const challenger of active){
+   const key=challenger.leagueId?String(challenger.leagueId):challenger.sport+'|'+challenger.marketKey;
+   grouped.set(key,[...(grouped.get(key)||[]),challenger]);
+  }
 
-   if(state==='INSUFFICIENT')insufficient++;
-   else if(state==='READY_CONFIRM')readyConfirm++;
-   else if(state==='REJECTED')rejected++;
-   else shadow++;
-
-   if(action==='REJECT'){
-    await sql`
-     update external_ml_shadow_challengers set status='REJECTED',recovery_eligible=false,
-      decision_reason=${reason},last_evaluated_at=now(),completed_at=now(),
-      settled_sample_size=${metrics.sampleSize},live_brier=${metrics.liveBrier},
-      live_log_loss=${metrics.liveLogLoss},live_calibration_error=${metrics.liveCalibrationError},
-      market_brier=${metrics.marketBrier},native_brier=${metrics.nativeBrier},
-      market_brier_skill_score=${metrics.marketBrierSkillScore},native_brier_skill_score=${metrics.nativeBrierSkillScore},
-      brier_degradation=${metrics.brierDegradation},confirmations=${confirmations}
-     where id=${challenger.id}
+  for(const challengers of grouped.values()){
+   const first=challengers[0];
+   let minCompetitors=Math.max(2,Number(process.env.ML_SHADOW_LEAGUE_MIN_COMPETITORS||2));
+   if(first.leagueId){
+    const leagueRows=await sql`
+     select min_competitors as "minCompetitors"
+     from external_ml_shadow_leagues where id=${first.leagueId} limit 1
     `;
-   }else if(action==='PROMOTE'){
-    const promoted=await promoteShadow(challenger,reason);
+    if(leagueRows.length)minCompetitors=Math.max(2,Number((leagueRows[0] as any).minCompetitors||minCompetitors));
+   }
+   const evaluated:any[]=[];
+   for(const challenger of challengers){
+    const metrics=shadowRecoveryMetrics(await settledRows(challenger.id,window),challenger.holdoutBrier);
+    const confirmations=await priorConfirmations(challenger.id,metrics.sampleSize);
+    const quarantine=await quarantineState(challenger.sport,challenger.marketKey);
+    const baseDecision=shadowRecoveryDecision({...metrics,priorConfirmations:confirmations,cooldownActive:quarantine.cooldownActive,minSample});
+    evaluated.push({
+     challenger,...metrics,confirmations,quarantine,baseDecision,
+     score:shadowLeagueScore(metrics),rank:0,state:baseDecision.state as string,
+     action:baseDecision.action as string,reason:baseDecision.reason as string,winnerMargin:null as number|null
+    });
+   }
+
+   const ranked=[...evaluated].filter(row=>row.baseDecision.state!=='REJECTED')
+    .sort((a,b)=>b.score-a.score||b.sampleSize-a.sampleSize||a.challenger.id-b.challenger.id);
+   ranked.forEach((row,index)=>{row.rank=index+1});
+   const leagueDecision=shadowLeagueWinnerDecision(
+    evaluated.map(row=>({
+     id:row.challenger.id,sampleSize:row.sampleSize,score:row.score,
+     recoveryAction:row.baseDecision.action,state:row.baseDecision.state
+    })),
+    {minCompetitors,minSample,minMargin:minScoreMargin}
+   );
+   if(leagueDecision.winnerId)leagueWinnersReady++;
+   const leader=evaluated.find(row=>row.challenger.id===leagueDecision.winnerId)||ranked[0]||null;
+   const runner=evaluated.find(row=>row.challenger.id===leagueDecision.runnerUpId)||ranked[1]||null;
+   const margin=leagueDecision.margin;
+
+   for(const row of evaluated){
+    row.winnerMargin=margin;
+    if(row.baseDecision.state==='REJECTED'){
+     row.state='REJECTED';row.action='REJECT';
+    }else if(!leader||row.challenger.id!==leader.challenger.id){
+     row.state=row.sampleSize<minSample?'INSUFFICIENT':'LEAGUE_HELD';
+     row.action='NONE';
+     row.reason=row.sampleSize<minSample
+      ?row.baseDecision.reason
+      :'Live-qualified challenger currently ranks #'+(row.rank||'—')+' behind the league leader';
+    }else if(ranked.filter(x=>x.sampleSize>=minSample).length<minCompetitors){
+     row.state='LEAGUE_WAIT';row.action='NONE';row.reason=leagueDecision.reason;
+    }else if(row.baseDecision.state==='COOLDOWN'){
+     row.state='COOLDOWN';row.action='NONE';row.reason=row.baseDecision.reason;
+    }else if(row.baseDecision.state==='READY_CONFIRM'){
+     row.state='READY_CONFIRM';row.action='NONE';
+     row.reason='Live league leader passed recovery gates; fresh confirmation required while retaining league lead';
+    }else if(row.baseDecision.action==='PROMOTE'&&!leagueDecision.promote){
+     row.state='LEAGUE_HELD';row.action='NONE';row.reason=leagueDecision.reason;
+    }
+   }
+
+   if(leagueDecision.promote&&leader){
+    leader.reason=leagueDecision.reason;
+    const promoted=await promoteShadow(leader.challenger,leader.reason);
     if(promoted.ok){
      await sql`
       insert into external_ml_champions(
@@ -525,13 +569,13 @@ export async function runShadowRecovery(){
        last_monitor_at,live_sample_size,live_brier,live_log_loss,live_calibration_error,
        live_brier_skill_score,live_drift_score
       ) values(
-       ${challenger.sport},${challenger.marketKey},${challenger.algorithm},${challenger.serviceModelId},
-       ${challenger.candidateId??null},${challenger.artifactUri??null},${challenger.compositeScore},
-       ${challenger.holdoutBrierSkillScore},${challenger.holdoutBrier},${challenger.holdoutLogLoss},
-       ${challenger.holdoutCalibrationError},now(),${RELEASE.modelVersion},
-       ${sql.json({promotionReason:reason,recovery:'V60_SHADOW_LIVE_RECOVERY',shadowSampleSize:metrics.sampleSize,nativeBrierSkillScore:metrics.nativeBrierSkillScore,marketBrierSkillScore:metrics.marketBrierSkillScore} as any)},
-       true,'ACTIVE',null,null,now(),${metrics.sampleSize},${metrics.liveBrier},${metrics.liveLogLoss},
-       ${metrics.liveCalibrationError},${metrics.marketBrierSkillScore},0
+       ${leader.challenger.sport},${leader.challenger.marketKey},${leader.challenger.algorithm},${leader.challenger.serviceModelId},
+       ${leader.challenger.candidateId??null},${leader.challenger.artifactUri??null},${leader.challenger.compositeScore},
+       ${leader.challenger.holdoutBrierSkillScore},${leader.challenger.holdoutBrier},${leader.challenger.holdoutLogLoss},
+       ${leader.challenger.holdoutCalibrationError},now(),${RELEASE.modelVersion},
+       ${sql.json({promotionReason:leader.reason,recovery:'V61_MULTI_CHALLENGER_SHADOW_LEAGUE',shadowSampleSize:leader.sampleSize,nativeBrierSkillScore:leader.nativeBrierSkillScore,marketBrierSkillScore:leader.marketBrierSkillScore,leagueRank:1,winnerMargin:margin,runnerUpServiceModelId:runner?.challenger.serviceModelId||null} as any)},
+       true,'ACTIVE',null,null,now(),${leader.sampleSize},${leader.liveBrier},${leader.liveLogLoss},
+       ${leader.liveCalibrationError},${leader.marketBrierSkillScore},0
       )
       on conflict (sport,market_key) do update set
        algorithm=excluded.algorithm,service_model_id=excluded.service_model_id,candidate_id=excluded.candidate_id,
@@ -544,73 +588,95 @@ export async function runShadowRecovery(){
        live_calibration_error=excluded.live_calibration_error,live_brier_skill_score=excluded.live_brier_skill_score,
        live_drift_score=excluded.live_drift_score
      `;
-     await sql`
-      update external_ml_shadow_challengers set status='RECOVERED',recovery_eligible=true,
-       decision_reason=${reason},last_evaluated_at=now(),completed_at=now(),
-       settled_sample_size=${metrics.sampleSize},live_brier=${metrics.liveBrier},
-       live_log_loss=${metrics.liveLogLoss},live_calibration_error=${metrics.liveCalibrationError},
-       market_brier=${metrics.marketBrier},native_brier=${metrics.nativeBrier},
-       market_brier_skill_score=${metrics.marketBrierSkillScore},native_brier_skill_score=${metrics.nativeBrierSkillScore},
-       brier_degradation=${metrics.brierDegradation},confirmations=${confirmations+1}
-      where id=${challenger.id}
-     `;
+     leader.state='RECOVERED';leader.action='PROMOTED';
+     for(const row of evaluated){
+      if(row.challenger.id===leader.challenger.id)continue;
+      if(row.baseDecision.state!=='REJECTED'){
+       row.state='LEAGUE_LOST';row.action='LOST';
+       row.reason='Live league completed; '+leader.challenger.algorithm+' won production recovery';
+      }
+     }
+     if(first.leagueId){
+      await sql`
+       update external_ml_shadow_leagues set status='RECOVERED',
+        winner_challenger_id=${leader.challenger.id},winner_service_model_id=${leader.challenger.serviceModelId},
+        winner_margin=${margin},decision_reason=${leader.reason},completed_at=now()
+       where id=${first.leagueId}
+      `;
+     }
      await sql`
       insert into external_ml_champion_history(
        tournament_run_id,sport,market_key,algorithm,service_model_id,action,composite_score,brier_skill_score,
        holdout_brier,holdout_log_loss,calibration_error,reason,model_version,metadata,recorded_at
       ) values(
-       ${challenger.sourceTournamentRunId??null},${challenger.sport},${challenger.marketKey},
-       ${challenger.algorithm},${challenger.serviceModelId},'RECOVERED',${challenger.compositeScore},
-       ${challenger.holdoutBrierSkillScore},${challenger.holdoutBrier},${challenger.holdoutLogLoss},
-       ${challenger.holdoutCalibrationError},${reason},${RELEASE.modelVersion},
-       ${sql.json({shadowSampleSize:metrics.sampleSize,marketBrierSkillScore:metrics.marketBrierSkillScore,nativeBrierSkillScore:metrics.nativeBrierSkillScore,liveCalibrationError:metrics.liveCalibrationError} as any)},now()
+       ${leader.challenger.sourceTournamentRunId??null},${leader.challenger.sport},${leader.challenger.marketKey},
+       ${leader.challenger.algorithm},${leader.challenger.serviceModelId},'RECOVERED',${leader.challenger.compositeScore},
+       ${leader.challenger.holdoutBrierSkillScore},${leader.challenger.holdoutBrier},${leader.challenger.holdoutLogLoss},
+       ${leader.challenger.holdoutCalibrationError},${leader.reason},${RELEASE.modelVersion},
+       ${sql.json({shadowSampleSize:leader.sampleSize,marketBrierSkillScore:leader.marketBrierSkillScore,nativeBrierSkillScore:leader.nativeBrierSkillScore,liveCalibrationError:leader.liveCalibrationError,leagueId:first.leagueId||null,leagueSize:evaluated.length,winnerMargin:margin,runnerUpServiceModelId:runner?.challenger.serviceModelId||null} as any)},now()
       )
      `;
-     recovered++;state='RECOVERED';action='PROMOTED';
+     recovered++;
     }else{
-     promotionFailed++;state='READY_CONFIRM';action='PROMOTION_FAILED';
-     reason+='; '+promoted.error;
+     promotionFailed++;
+     leader.state='READY_CONFIRM';leader.action='PROMOTION_FAILED';
+     leader.reason+='; '+promoted.error;
     }
-   }else{
-    const status=state==='READY_CONFIRM'?'READY_CONFIRM':'SHADOW';
-    await sql`
-     update external_ml_shadow_challengers set status=${status},
-      recovery_eligible=${state==='READY_CONFIRM'},decision_reason=${reason},last_evaluated_at=now(),
-      settled_sample_size=${metrics.sampleSize},live_brier=${metrics.liveBrier},
-      live_log_loss=${metrics.liveLogLoss},live_calibration_error=${metrics.liveCalibrationError},
-      market_brier=${metrics.marketBrier},native_brier=${metrics.nativeBrier},
-      market_brier_skill_score=${metrics.marketBrierSkillScore},native_brier_skill_score=${metrics.nativeBrierSkillScore},
-      brier_degradation=${metrics.brierDegradation},confirmations=${confirmations+(state==='READY_CONFIRM'?1:0)}
-     where id=${challenger.id}
-    `;
    }
 
-   await sql`
-    insert into ml_shadow_recovery_snapshots(
-     recovery_run_id,challenger_id,sport,market_key,algorithm,service_model_id,state,sample_size,
-     live_brier,live_log_loss,live_calibration_error,market_brier,native_brier,
-     market_brier_skill_score,native_brier_skill_score,brier_degradation,prior_confirmations,
-     action,reason,metrics,observed_at
-    ) values(
-     ${run.id},${challenger.id},${challenger.sport},${challenger.marketKey},${challenger.algorithm},
-     ${challenger.serviceModelId},${state},${metrics.sampleSize},${metrics.liveBrier},
-     ${metrics.liveLogLoss},${metrics.liveCalibrationError},${metrics.marketBrier},${metrics.nativeBrier},
-     ${metrics.marketBrierSkillScore},${metrics.nativeBrierSkillScore},${metrics.brierDegradation},
-     ${confirmations},${action},${reason},
-     ${sql.json({cooldownActive:quarantine.cooldownActive,cooldownUntil:quarantine.cooldownUntil,holdoutBrier:challenger.holdoutBrier} as any)},now()
-    )
-   `;
-   output.push({challenger,...metrics,state,action,reason,confirmations,cooldown:quarantine});
+   for(const row of evaluated){
+    if(row.state==='INSUFFICIENT')insufficient++;
+    else if(row.state==='READY_CONFIRM')readyConfirm++;
+    else if(row.state==='REJECTED')rejected++;
+    else if(row.state!=='RECOVERED'&&row.state!=='LEAGUE_LOST')shadow++;
+
+    const finalStatus=row.state==='RECOVERED'?'RECOVERED'
+     :row.state==='REJECTED'?'REJECTED'
+     :row.state==='LEAGUE_LOST'?'LOST'
+     :row.state==='READY_CONFIRM'?'READY_CONFIRM':'SHADOW';
+    const completed=['RECOVERED','REJECTED','LOST'].includes(finalStatus);
+    const nextConfirmations=row.state==='READY_CONFIRM'?row.confirmations+1:row.confirmations;
+    await sql`
+     update external_ml_shadow_challengers set status=${finalStatus},
+      recovery_eligible=${row.state==='READY_CONFIRM'||row.state==='RECOVERED'},
+      decision_reason=${row.reason},last_evaluated_at=now(),
+      completed_at=${completed?new Date().toISOString():null},
+      settled_sample_size=${row.sampleSize},live_brier=${row.liveBrier},
+      live_log_loss=${row.liveLogLoss},live_calibration_error=${row.liveCalibrationError},
+      market_brier=${row.marketBrier},native_brier=${row.nativeBrier},
+      market_brier_skill_score=${row.marketBrierSkillScore},native_brier_skill_score=${row.nativeBrierSkillScore},
+      brier_degradation=${row.brierDegradation},confirmations=${nextConfirmations},
+      league_rank=${row.rank||null},league_score=${row.score},winner_margin=${row.winnerMargin}
+     where id=${row.challenger.id}
+    `;
+
+    await sql`
+     insert into ml_shadow_recovery_snapshots(
+      recovery_run_id,challenger_id,league_id,sport,market_key,algorithm,service_model_id,state,sample_size,
+      live_brier,live_log_loss,live_calibration_error,market_brier,native_brier,
+      market_brier_skill_score,native_brier_skill_score,brier_degradation,prior_confirmations,
+      league_rank,league_score,winner_margin,action,reason,metrics,observed_at
+     ) values(
+      ${run.id},${row.challenger.id},${row.challenger.leagueId??null},${row.challenger.sport},${row.challenger.marketKey},
+      ${row.challenger.algorithm},${row.challenger.serviceModelId},${row.state},${row.sampleSize},
+      ${row.liveBrier},${row.liveLogLoss},${row.liveCalibrationError},${row.marketBrier},${row.nativeBrier},
+      ${row.marketBrierSkillScore},${row.nativeBrierSkillScore},${row.brierDegradation},${row.confirmations},
+      ${row.rank||null},${row.score},${row.winnerMargin},${row.action},${row.reason},
+      ${sql.json({cooldownActive:row.quarantine.cooldownActive,cooldownUntil:row.quarantine.cooldownUntil,holdoutBrier:row.challenger.holdoutBrier,leagueDecision:leagueDecision.reason,minCompetitors,minScoreMargin} as any)},now()
+     )
+    `;
+    output.push({...row,leagueDecision});
+   }
   }
 
   await sql`
    update ml_shadow_recovery_runs set status='completed',completed_at=now(),
-    challengers_checked=${output.length},insufficient=${insufficient},shadow=${shadow},
-    ready_confirm=${readyConfirm},recovered=${recovered},rejected=${rejected},
-    promotion_failed=${promotionFailed}
+    challengers_checked=${output.length},leagues_checked=${grouped.size},insufficient=${insufficient},
+    shadow=${shadow},ready_confirm=${readyConfirm},recovered=${recovered},rejected=${rejected},
+    promotion_failed=${promotionFailed},league_winners_ready=${leagueWinnersReady}
    where id=${run.id}
   `;
-  return {ok:true,mode:'database' as const,runId:Number((run as any).id),challengers:output.length,insufficient,shadow,readyConfirm,recovered,rejected,promotionFailed,rows:output};
+  return {ok:true,mode:'database' as const,runId:Number((run as any).id),leagues:grouped.size,challengers:output.length,insufficient,shadow,readyConfirm,recovered,rejected,promotionFailed,leagueWinnersReady,rows:output};
  }catch(error){
   await sql`
    update ml_shadow_recovery_runs set status='failed',completed_at=now(),
