@@ -33,7 +33,7 @@ jobs:
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
       EDGEFORCE_BASE_URL: ${{ secrets.EDGEFORCE_PRODUCTION_URL }}
-      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v57
+      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v58
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
       VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
@@ -142,7 +142,7 @@ jobs:
           set -euo pipefail
           for i in {1..90}; do
             if curl --fail --silent --show-error "$EDGEFORCE_BASE_URL/api/diagnostics" > /tmp/edgeforce-diagnostics.json 2>/dev/null; then
-              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v57'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
+              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v58'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
                 cat /tmp/edgeforce-diagnostics.json
                 exit 0
               fi
