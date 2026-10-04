@@ -126,7 +126,7 @@ function expectedScores(m:Market){
 
 function poissonOutcome(m:Market):ExpertModelOutput|null{
  const means=expectedScores(m);
- if(!means)return null;
+ if(!means||Math.max(means.home,means.away)>15)return null;
  const line=parseLine(m);
  const text=selectionText(m);
  let probability=0;
@@ -153,7 +153,7 @@ function poissonOutcome(m:Market):ExpertModelOutput|null{
 function skellamOutcome(m:Market):ExpertModelOutput|null{
  const means=expectedScores(m);
  const line=parseLine(m);
- if(!means||line===undefined)return null;
+ if(!means||Math.max(means.home,means.away)>15||line===undefined)return null;
  const text=selectionText(m);
  if(!/(spread|run line|puck line|handicap|[+-]\d)/.test(text))return null;
  let probability=0;
