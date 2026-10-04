@@ -15,6 +15,7 @@ import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
 import MlServiceActivationPanel from './MlServiceActivationPanel';
 import MlDeploymentAutomationPanel from './MlDeploymentAutomationPanel';
 import FirstChampionTournamentPanel from './FirstChampionTournamentPanel';
+import ChampionDriftPanel from './ChampionDriftPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -725,8 +726,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V58</div>
-        <h1>First Champion Tournament + ML Deployment Intelligence</h1>
+        <div className="eyebrow">EDGEFORCE AI • V59</div>
+        <h1>Champion Drift + First Tournament Intelligence</h1>
         <p>Out-of-sample validation now measures calibration, Brier/log loss, market-relative skill, CLV, context lift and simulation lift before learned models retain full runtime influence.</p>
       </div>
       <div className="v21Status">
@@ -1060,6 +1061,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <ChampionDriftPanel/>
 
     <FirstChampionTournamentPanel/>
 
