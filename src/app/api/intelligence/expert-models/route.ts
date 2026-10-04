@@ -53,7 +53,7 @@ export async function GET(){
    ...(ingestion.warnings||[]),
    'Premium vendor platforms require the user\'s licensed API/data access. Edgeforce does not copy closed proprietary models.',
    'External ML software becomes prediction-active only when EXPERT_MODEL_SERVICE_URL returns normalized, validated probabilities.',
-   'Model diversity does not guarantee profitability; V56 activated tournament promotion, validation, calibration, drift, and risk gates remain in force.'
+   'Model diversity does not guarantee profitability; V57 deployment-attested tournament promotion, validation, calibration, drift, and risk gates remain in force.'
   ]
  },{headers:{'Cache-Control':'no-store, max-age=0'}});
 }
