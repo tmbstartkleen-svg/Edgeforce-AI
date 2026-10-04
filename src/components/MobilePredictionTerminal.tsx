@@ -12,6 +12,13 @@ type Summary={
  smartFlowSignals:number;
  crossVenueMatches:number;
  strongCrossVenueMatches:number;
+ movers:number;
+ rankedTraders:number;
+ smartTraders:number;
+ warehouseMarkets:number;
+ warehouseSnapshots:number;
+ warehouseTrades:number;
+ warehouseTraders:number;
 };
 
 type Category={category:string;count:number};
@@ -31,15 +38,32 @@ type Gap={
  similarity:number;absoluteGap:number;lowerVenue:string;higherVenue:string;
  lowerProbability:number;higherProbability:number;matchQuality:string;
 };
+type Mover={
+ venue:string;marketId:string;title:string;window:string;trades:number;
+ grossNotional:number;netYesFlow:number;startYesProbability:number;
+ latestYesProbability:number;probabilityChange:number;absoluteChange:number;lastTradeAt:string;
+};
+type TraderSignal={
+ traderId:string;name?:string;rank?:number;pnl?:number;publicVolume?:number;verified?:boolean;
+ recentTrades:number;recentNotional:number;averageTradeNotional:number;maxTradeNotional:number;
+ convictionMultiple:number;smartScore:number;
+ latestTrade:{marketId:string;title:string;direction:string;price:number;notional:number;timestamp:string};
+};
 type TerminalResponse={
  ok:boolean;generatedAt:string;summary:Summary;categories:Category[];markets:Market[];
- smartFlow:Array<Trade&{convictionMultiple:number}>;crossVenueGaps:Gap[];tradeTape:Trade[];
+ smartFlow:Array<Trade&{convictionMultiple:number}>;movers:Mover[];traderSignals:TraderSignal[];
+ crossVenueGaps:Gap[];tradeTape:Trade[];
+ warehouse?:{configured:boolean;markets:number;snapshots:number;trades:number;traders:number};
  warnings:string[];
 };
 
 const empty:TerminalResponse={
- ok:false,generatedAt:'',summary:{contracts:0,kalshiContracts:0,polymarketContracts:0,recentTrades:0,tradeNotional24h:0,smartFlowSignals:0,crossVenueMatches:0,strongCrossVenueMatches:0},
- categories:[],markets:[],smartFlow:[],crossVenueGaps:[],tradeTape:[],warnings:[]
+ ok:false,generatedAt:'',summary:{
+  contracts:0,kalshiContracts:0,polymarketContracts:0,recentTrades:0,tradeNotional24h:0,
+  smartFlowSignals:0,crossVenueMatches:0,strongCrossVenueMatches:0,movers:0,rankedTraders:0,
+  smartTraders:0,warehouseMarkets:0,warehouseSnapshots:0,warehouseTrades:0,warehouseTraders:0
+ },
+ categories:[],markets:[],smartFlow:[],movers:[],traderSignals:[],crossVenueGaps:[],tradeTape:[],warnings:[]
 };
 
 function pct(n:number){return (n*100).toFixed(1)+'%'}
@@ -63,7 +87,7 @@ function timeAgo(value:string){
 export default function MobilePredictionTerminal(){
  const [data,setData]=useState<TerminalResponse>(empty);
  const [category,setCategory]=useState('ALL');
- const [tab,setTab]=useState<'FLOW'|'GAPS'|'MARKETS'|'TAPE'>('FLOW');
+ const [tab,setTab]=useState<'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('FLOW');
  const [error,setError]=useState('');
 
  useEffect(()=>{
@@ -126,6 +150,8 @@ export default function MobilePredictionTerminal(){
 
   <nav className="pmTabs">
    <button className={tab==='FLOW'?'active':''} onClick={()=>setTab('FLOW')}>Smart Flow</button>
+   <button className={tab==='MOVERS'?'active':''} onClick={()=>setTab('MOVERS')}>Movers</button>
+   <button className={tab==='TRADERS'?'active':''} onClick={()=>setTab('TRADERS')}>Traders</button>
    <button className={tab==='GAPS'?'active':''} onClick={()=>setTab('GAPS')}>Venue Gaps</button>
    <button className={tab==='MARKETS'?'active':''} onClick={()=>setTab('MARKETS')}>Markets</button>
    <button className={tab==='TAPE'?'active':''} onClick={()=>setTab('TAPE')}>Tape</button>
@@ -145,6 +171,41 @@ export default function MobilePredictionTerminal(){
     {row.traderId&&<div className="pmWallet">Trader {row.traderId.slice(0,8)}…{row.traderId.slice(-5)}</div>}
    </article>)}
    {!data.smartFlow.length&&<div className="pmEmpty">No high-conviction public-flow signals in the current tape.</div>}
+  </section>}
+
+  {tab==='MOVERS'&&<section className="pmStack">
+   <div className="pmSectionHead"><div><small>4H PRICE ACTION</small><h2>Market movers</h2></div><span>{data.movers.length}</span></div>
+   {data.movers.slice(0,40).map(row=><article className="pmCard" key={row.venue+'-'+row.marketId}>
+    <div className="pmCardTop"><span className={'pmVenue '+row.venue.toLowerCase()}>{row.venue}</span><time>{timeAgo(row.lastTradeAt)}</time></div>
+    <h3>{row.title}</h3>
+    <div className="pmMetrics">
+     <div><small>Move</small><b className={row.probabilityChange>=0?'up':'down'}>{row.probabilityChange>=0?'+':''}{(row.probabilityChange*100).toFixed(1)} pts</b></div>
+     <div><small>Now</small><b>{pct(row.latestYesProbability)}</b></div>
+     <div><small>Flow</small><b className={row.netYesFlow>=0?'up':'down'}>{money(row.netYesFlow)}</b></div>
+     <div><small>Volume</small><b>{money(row.grossNotional)}</b></div>
+    </div>
+   </article>)}
+   {!data.movers.length&&<div className="pmEmpty">No qualifying market movers in the current trade window.</div>}
+  </section>}
+
+  {tab==='TRADERS'&&<section className="pmStack">
+   <div className="pmSectionHead"><div><small>POLYMARKET SMART MONEY</small><h2>Trader intelligence</h2></div><span>{data.traderSignals.length}</span></div>
+   {data.traderSignals.slice(0,40).map(row=><article className="pmCard" key={row.traderId}>
+    <div className="pmCardTop">
+     <span className="pmVenue polymarket">{row.verified?'VERIFIED':'POLY'}</span>
+     <b className="pmGap">{pct(row.smartScore)}</b>
+    </div>
+    <h3>{row.name||row.traderId.slice(0,10)+'…'}</h3>
+    <div className="pmMetrics">
+     <div><small>Rank</small><b>{row.rank?'#'+row.rank:'—'}</b></div>
+     <div><small>Public P&L</small><b className={(row.pnl??0)>=0?'up':'down'}>{row.pnl===undefined?'—':money(row.pnl)}</b></div>
+     <div><small>Recent flow</small><b>{money(row.recentNotional)}</b></div>
+     <div><small>Conviction</small><b>{row.convictionMultiple.toFixed(1)}×</b></div>
+    </div>
+    <div className="pmWallet">{row.traderId}</div>
+    <p>Latest: {row.latestTrade.direction} · {row.latestTrade.title}</p>
+   </article>)}
+   {!data.traderSignals.length&&<div className="pmEmpty">No trader-linked smart-money signals are available in the current Polymarket tape.</div>}
   </section>}
 
   {tab==='GAPS'&&<section className="pmStack">
@@ -184,6 +245,10 @@ export default function MobilePredictionTerminal(){
    </article>)}
   </section>}
 
+  <section className="pmInstall">
+   <b>iPhone install</b>
+   <span>Open in Safari → Share → Add to Home Screen. Edgeforce then opens full-screen like an app.</span>
+  </section>
   <footer className="pmFooter">
    <span>Analytics only · no automatic execution</span>
    <Link href="/">Desktop Edgeforce</Link>
