@@ -1,0 +1,114 @@
+name: Deploy Edgeforce ML Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_tournament:
+        description: Run the first/next ML tournament after service verification
+        required: true
+        default: true
+        type: boolean
+  workflow_run:
+    workflows: ["Verify Edgeforce"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-ml:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main' &&
+           vars.ML_SERVICE_AUTO_DEPLOY == 'true') }}
+    runs-on: ubuntu-latest
+    env:
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_ML_SERVICE_ID }}
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_ML_DEPLOY_HOOK_URL }}
+      ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
+      ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
+      ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
+      EDGEFORCE_BASE_URL: ${{ secrets.EDGEFORCE_PRODUCTION_URL }}
+      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v57
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify ML deployment configuration
+        shell: bash
+        run: |
+          test -n "$ML_SERVICE_BASE_URL"
+          test -n "$ML_SERVICE_KEY"
+          test -n "$ML_ACTIVATION_SECRET"
+          test -n "$EDGEFORCE_BASE_URL"
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+            test -n "$RENDER_DEPLOY_HOOK_URL"
+          fi
+
+      - name: Trigger Render ML deploy
+        id: render
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$RENDER_API_KEY" ] && [ -n "$RENDER_SERVICE_ID" ]; then
+            body=$(node -e "process.stdout.write(JSON.stringify({commitId:process.env.TARGET_SHA,clearCache:'do_not_clear'}))")
+            response=$(curl --fail --silent --show-error -X POST               "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys"               -H "Authorization: Bearer $RENDER_API_KEY"               -H "Accept: application/json"               -H "Content-Type: application/json"               --data "$body")
+            echo "$response" > /tmp/render-deploy.json
+            deploy_id=$(node -e "const d=require('/tmp/render-deploy.json'); process.stdout.write(String(d.id||d.deploy?.id||''))")
+            test -n "$deploy_id"
+            echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+            echo "exact_commit=true" >> "$GITHUB_OUTPUT"
+          else
+            response=$(curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL")
+            echo "$response" > /tmp/render-deploy.json
+            deploy_id=$(node -e "const d=require('/tmp/render-deploy.json'); process.stdout.write(String(d.deploy?.id||''))")
+            echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+            echo "exact_commit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for verified ML service
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=""
+          if [ "${{ steps.render.outputs.exact_commit }}" = "true" ]; then
+            expected="$TARGET_SHA"
+          fi
+          for i in {1..90}; do
+            if EXPECTED_ML_COMMIT="$expected" node scripts/ml-service-doctor.mjs > /tmp/ml-doctor.json 2>/tmp/ml-doctor.err; then
+              cat /tmp/ml-doctor.json
+              exit 0
+            fi
+            sleep 10
+          done
+          cat /tmp/ml-doctor.err || true
+          exit 1
+
+      - name: Activate Edgeforce external ML
+        env:
+          ML_ACTIVATION_RUN_TOURNAMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.run_tournament || 'true' }}
+        run: node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
+
+      - name: Record deployment attestation
+        shell: bash
+        run: |
+          curl --fail --silent --show-error -X POST "$EDGEFORCE_BASE_URL/api/ml/deploy-attest"             -H "Authorization: Bearer $ML_ACTIVATION_SECRET"             -H "Content-Type: application/json"             --data "{"deploymentId":"${{ steps.render.outputs.deploy_id }}"}"             | tee /tmp/ml-deploy-attestation.json
+
+      - name: Publish ML deployment summary
+        shell: bash
+        run: |
+          echo "## Edgeforce ML Deploy Result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service: $ML_SERVICE_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Render deploy: ${{ steps.render.outputs.deploy_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target commit: $TARGET_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Service version: $EXPECTED_ML_SERVICE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          node -e "const d=require('/tmp/ml-activation.json'); console.log('- Activation state: '+d.state); console.log('- Active champions: '+d.championsActive); console.log('- Tournament candidates: '+d.candidates)" >> "$GITHUB_STEP_SUMMARY"
