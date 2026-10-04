@@ -38,7 +38,7 @@ try:
 except Exception:
     pm = None
 
-SERVICE_VERSION = "edgeforce-ml-service-v55"
+SERVICE_VERSION = "edgeforce-ml-service-v57"
 MODEL_DIR = Path(os.getenv("MODEL_STORE_DIR", "./model_store")).resolve()
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 API_KEY = os.getenv("ML_SERVICE_KEY", "")
@@ -423,6 +423,17 @@ def health():
         "serviceVersion": SERVICE_VERSION,
         "modelStore": str(MODEL_DIR),
         "algorithms": available_algorithms(),
+        "deployment": {
+            "platform": "render" if os.getenv("RENDER") == "true" else "local",
+            "gitCommit": os.getenv("RENDER_GIT_COMMIT"),
+            "gitBranch": os.getenv("RENDER_GIT_BRANCH"),
+            "repoSlug": os.getenv("RENDER_GIT_REPO_SLUG"),
+            "serviceId": os.getenv("RENDER_SERVICE_ID"),
+            "serviceName": os.getenv("RENDER_SERVICE_NAME"),
+            "externalUrl": os.getenv("RENDER_EXTERNAL_URL"),
+            "cpuCount": os.getenv("RENDER_CPU_COUNT"),
+            "instanceId": os.getenv("RENDER_INSTANCE_ID"),
+        },
     }
 
 
