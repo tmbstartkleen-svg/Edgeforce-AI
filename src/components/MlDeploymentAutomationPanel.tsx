@@ -47,7 +47,7 @@ export default function MlDeploymentAutomationPanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V57 ML DEPLOYMENT AUTOMATION</div>
+    <div className="eyebrow">V58 ML DEPLOYMENT AUTOMATION</div>
     <h3>Render deploy → commit verification → Vercel wiring → activation → durable attestation</h3>
    </div>
    <div className="panelMeta">
