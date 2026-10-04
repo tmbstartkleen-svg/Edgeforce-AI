@@ -15,7 +15,7 @@ jobs:
           node-version: 22
       - run: npm install
       - name: Compile ML service
-        run: python -m py_compile ml-service/app.py
+        run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
       - run: npm run build
       - run: npm run check-migrations
