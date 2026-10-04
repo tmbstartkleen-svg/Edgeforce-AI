@@ -74,7 +74,7 @@ export default function ExpertModelSuitePanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V60 EXPERT MODELING SUITE</div>
+    <div className="eyebrow">V61 EXPERT MODELING SUITE</div>
     <h3>Professional model families, ML software bridge, premium data, and model governance</h3>
    </div>
    <div className="panelMeta">
