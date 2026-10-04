@@ -70,7 +70,7 @@ export async function enrichMarketsWithPremiumData(markets:Market[]){
  const sourceQuality:Record<string,number>={};
 
  const enriched=markets.map(m=>{
-  let features={...(m.sportFeatures||{})};
+  const features={...(m.sportFeatures||{})};
   let playerContext=m.playerContext;
   const contextSources=[...(m.contextSources||[])];
   const provenance:ContextProvenance[]=[...(m.contextProvenance||[])];
