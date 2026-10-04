@@ -23,16 +23,26 @@ export function scoreBoardRows(rows:Scanned[]):BoardRow[]{
   });
 }
 
+export function qualifiesForTopBoard(row:Scanned){
+  const confidence=row.dynamicConfidence??row.confidence;
+  const contextReady=!row.contextQuality||row.contextQuality.recommendationReady;
+  return (row.grade==='ELITE'||row.grade==='STRONG')
+    &&row.freshness!=='STALE'
+    &&row.simProbability>=.52
+    &&confidence>=.50
+    &&contextReady;
+}
+
 export function rankDaily(rows:Scanned[],limit=30){
   return scoreBoardRows(rows)
-    .filter(x=>x.bucket==='TODAY'&&x.grade!=='PASS')
+    .filter(x=>x.bucket==='TODAY'&&qualifiesForTopBoard(x))
     .sort((a,b)=>b.dailyScore-a.dailyScore||b.dynamicConfidence-a.dynamicConfidence||b.agreement-a.agreement)
     .slice(0,limit);
 }
 
 export function rankWeekly(rows:Scanned[],limit=30){
   const ranked=scoreBoardRows(rows)
-    .filter(x=>x.grade!=='PASS')
+    .filter(x=>qualifiesForTopBoard(x))
     .sort((a,b)=>b.weeklyScore-a.weeklyScore||b.dynamicConfidence-a.dynamicConfidence||b.dailyScore-a.dailyScore);
 
   const days=[...new Set(ranked.map(x=>x.calendarDay))].slice(0,8);
