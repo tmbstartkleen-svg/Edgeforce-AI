@@ -8,7 +8,7 @@ const expected={
  appVersion:'51.0.0',
  packageVersion:'0.51.0',
  modelVersion:'edgeforce-v51',
- migrationVersion:41
+ migrationVersion:42
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -82,7 +82,12 @@ const requiredFiles=[
  'src/components/MobilePredictionTerminal.tsx',
  'src/lib/predictionCategories.ts',
  'src/lib/predictionPersistence.ts',
- 'src/lib/predictionTraderIntelligence.ts'
+ 'src/lib/predictionTraderIntelligence.ts',
+ 'src/lib/predictionPositionIntelligence.ts',
+ 'src/lib/predictionPositions.ts',
+ 'src/app/api/prediction-positions/route.ts',
+ 'src/app/api/prediction-positions/intelligence/route.ts',
+ 'src/components/PredictionPositionPanel.tsx'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -108,6 +113,10 @@ add('settled feature preservation',read('src/lib/predictionFeedback.ts').include
 add('validation migration schema',read('db/v39.sql').includes('validation_runs')&&read('db/v39.sql').includes('validation_snapshots'),'v39 validation tables');
 add('prediction intelligence migration schema',read('db/v40.sql').includes('prediction_market_state')&&read('db/v40.sql').includes('prediction_trade_tape')&&read('db/v40.sql').includes('prediction_trader_profiles'),'v40 prediction intelligence warehouse');
 add('player intelligence migration schema',read('db/v41.sql').includes('athletes')&&read('db/v41.sql').includes('player_game_stats')&&read('db/v41.sql').includes('player_prop_predictions'),'v41 player intelligence warehouse');
+add('prediction position migration schema',read('db/v42.sql').includes('prediction_positions')&&read('db/v42.sql').includes('prediction_position_marks'),'v42 prediction position intelligence ledger');
+add('prediction position intelligence',read('src/lib/predictionPositionIntelligence.ts').includes("'TAKE_PROFIT'")&&read('src/lib/predictionPositionIntelligence.ts').includes("'EXIT'"),'position-aware add/hold/trim/take-profit/exit engine');
+add('prediction position hourly marks',read('src/app/api/cron/predictions/route.ts').includes('persistPredictionPositionMarks'),'Cloudflare prediction collector snapshots open-position decisions');
+add('prediction position mobile view',read('src/components/MobilePredictionTerminal.tsx').includes("setTab('POSITIONS')")&&read('src/components/MobilePredictionTerminal.tsx').includes('take-profit review'),'iPhone PWA exposes live position intelligence');
 add('prediction trader intelligence',read('src/lib/predictionTraderIntelligence.ts').includes('/leaderboard')&&read('src/lib/predictionTraderIntelligence.ts').includes('buildTraderSignals'),'public trader leaderboard and smart-money scoring');
 add('prediction market movers',read('src/lib/predictionFlow.ts').includes('marketMovers')&&read('src/app/api/prediction-terminal/route.ts').includes('movers'),'market mover analytics exposed');
 add('prediction warehouse persistence',read('src/lib/predictionPersistence.ts').includes('prediction_market_snapshots')&&read('src/app/api/cron/predictions/route.ts').includes('persistPredictionTrades'),'Cloudflare collector persists market and trade history');
