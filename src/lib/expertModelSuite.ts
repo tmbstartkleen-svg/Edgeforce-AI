@@ -293,7 +293,8 @@ export function expertConsensus(m:Market){
 }
 
 export function expertModelCatalog():ExpertCatalogEntry[]{
- const externalConfigured=Boolean(process.env.EXPERT_MODEL_SERVICE_URL);
+ const externalConfigured=Boolean(process.env.ML_PREDICTION_SERVICE_URL||process.env.EXPERT_MODEL_SERVICE_URL);
+ const trainingConfigured=Boolean(process.env.ML_TRAINING_SERVICE_URL);
  const vendor=(id:string,name:string,purpose:string,sports:string[],env:string[]):ExpertCatalogEntry=>({
   id,name,family:'DATA',kind:'DATA_PLATFORM',integration:'LICENSED_CONNECTOR',
   status:env.some(k=>Boolean(process.env[k]))?'CONFIGURED':'LICENSE_REQUIRED',
@@ -318,9 +319,9 @@ export function expertModelCatalog():ExpertCatalogEntry[]{
   {id:'stan',name:'Stan',family:'BAYESIAN',kind:'SOFTWARE',integration:'EXTERNAL_BRIDGE',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'probabilistic programming and posterior inference',requires:['model service'],env:['EXPERT_MODEL_SERVICE_URL']},
   {id:'sklearn',name:'scikit-learn',family:'MACHINE_LEARNING',kind:'SOFTWARE',integration:'EXTERNAL_BRIDGE',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'logistic regression, random forests, calibration and stacking',requires:['Python model service'],env:['EXPERT_MODEL_SERVICE_URL']},
   {id:'pytorch',name:'PyTorch / TensorFlow',family:'MACHINE_LEARNING',kind:'SOFTWARE',integration:'EXTERNAL_BRIDGE',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['TRACKING','SEQUENCES','ALL'],purpose:'deep learning for tracking, sequence, image, and multimodal models',requires:['GPU/CPU model service'],env:['EXPERT_MODEL_SERVICE_URL']},
-  {id:'optuna',name:'Optuna',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'hyperparameter optimization and search',requires:['training pipeline'],env:['EXPERT_MODEL_SERVICE_URL']},
-  {id:'mlflow',name:'MLflow',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'experiment tracking, model registry, lineage and promotion through the external training service',requires:['training/model service'],env:['EXPERT_MODEL_SERVICE_URL']},
-  {id:'shap',name:'SHAP',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'feature-attribution explainability for ML predictions',requires:['supported trained model'],env:['EXPERT_MODEL_SERVICE_URL']},
+  {id:'optuna',name:'Optuna',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:trainingConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'hyperparameter optimization and search',requires:['training pipeline'],env:['EXPERT_MODEL_SERVICE_URL']},
+  {id:'mlflow',name:'MLflow',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:trainingConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'experiment tracking, model registry, lineage and promotion through the external training service',requires:['training/model service'],env:['EXPERT_MODEL_SERVICE_URL']},
+  {id:'shap',name:'SHAP',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:trainingConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'feature-attribution explainability for ML predictions',requires:['supported trained model'],env:['EXPERT_MODEL_SERVICE_URL']},
   vendor('opta','Stats Perform Opta / Opta Predictions','live and historical sports data plus predictive feeds',['MULTI-SPORT'],['OPTA_NORMALIZED_URL','OPTA_NORMALIZED_KEY']),
   vendor('sportradar','Sportradar Sports Data / Insights','real-time data, tracking, insights, projections and odds context',['MULTI-SPORT'],['SPORTRADAR_NORMALIZED_URL','SPORTRADAR_NORMALIZED_KEY']),
   vendor('synergy','Synergy Basketball','play-type, shot quality, roles, player impact and projections',['BASKETBALL'],['SYNERGY_NORMALIZED_URL','SYNERGY_NORMALIZED_KEY']),
@@ -339,6 +340,7 @@ export function expertSuiteStatus(){
   premiumDataPlatforms:catalog.filter(x=>x.kind==='DATA_PLATFORM').length,
   configuredPremiumPlatforms:catalog.filter(x=>x.kind==='DATA_PLATFORM'&&(x.status==='CONFIGURED'||x.status==='ACTIVE')).length,
   mlopsTools:catalog.filter(x=>x.kind==='MLOPS').length,
-  externalModelServiceConfigured:Boolean(process.env.EXPERT_MODEL_SERVICE_URL)
+  externalModelServiceConfigured:Boolean(process.env.ML_PREDICTION_SERVICE_URL||process.env.EXPERT_MODEL_SERVICE_URL),
+  externalTrainingServiceConfigured:Boolean(process.env.ML_TRAINING_SERVICE_URL)
  };
 }
