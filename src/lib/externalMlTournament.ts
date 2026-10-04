@@ -223,9 +223,17 @@ export async function runExternalMlTournament(){
    };
   });
 
-  const service=await callTrainingService(payload);
-  if(!service.ok)throw new Error(service.error);
-  const responseGroups=Array.isArray(service.body.groups)?service.body.groups:[];
+  const groupBatchSize=Math.max(1,Number(process.env.ML_TOURNAMENT_GROUPS_PER_REQUEST||2));
+  const responseGroups:ServiceGroup[]=[];
+  let serviceVersion:string|null=null;
+  const algorithmsAvailable:Record<string,boolean>={};
+  for(let start=0;start<payload.length;start+=groupBatchSize){
+   const service=await callTrainingService(payload.slice(start,start+groupBatchSize));
+   if(!service.ok)throw new Error(service.error);
+   serviceVersion=service.body.serviceVersion||serviceVersion;
+   Object.assign(algorithmsAvailable,algorithmsAvailable);
+   responseGroups.push(...(Array.isArray(service.body.groups)?service.body.groups:[]));
+  }
   let candidatesEvaluated=0,promoted=0,challengers=0;
 
   for(const group of responseGroups){
@@ -281,7 +289,7 @@ export async function runExternalMlTournament(){
       ${group.sport},${group.marketKey},${winner.algorithm},${winner.serviceModelId},${candidateId},
       ${winner.artifactUri||null},${winner.compositeScore},${winner.brierSkillScore},${winner.holdoutBrier},
       ${winner.holdoutLogLoss},${winner.calibrationError},now(),${RELEASE.modelVersion},
-      ${sql.json({promotionReason:decision.reason,serviceVersion:service.body.serviceVersion||null})}
+      ${sql.json({promotionReason:decision.reason,serviceVersion:serviceVersion})}
      )
      on conflict (sport,market_key) do update set
       algorithm=excluded.algorithm,service_model_id=excluded.service_model_id,candidate_id=excluded.candidate_id,
@@ -296,22 +304,22 @@ export async function runExternalMlTournament(){
 
   await sql`
    update external_ml_tournament_runs set completed_at=now(),status='completed',
-    service_version=${service.body.serviceVersion||null},rows_exported=${history.length},
+    service_version=${serviceVersion},rows_exported=${history.length},
     groups_requested=${payload.length},candidates_evaluated=${candidatesEvaluated},
     champions_promoted=${promoted},challengers_retained=${challengers},
     metrics=${sql.json({
-     algorithmsAvailable:service.body.algorithmsAvailable||{},
+     algorithmsAvailable:algorithmsAvailable,
      promotionMargin,minSample,maxRows,
-     serviceGroups:responseGroups.length
+     serviceGroups:responseGroups.length,groupBatchSize
     })}
    where id=${run.id}
   `;
 
   return {
    ok:true,mode:'service' as const,configured:true,runId:Number(run.id),
-   serviceVersion:service.body.serviceVersion||null,rows:history.length,groups:payload.length,
+   serviceVersion:serviceVersion,rows:history.length,groups:payload.length,
    candidates:candidatesEvaluated,promoted,challengers,
-   algorithmsAvailable:service.body.algorithmsAvailable||{}
+   algorithmsAvailable:algorithmsAvailable
   };
  }catch(error){
   await sql`
