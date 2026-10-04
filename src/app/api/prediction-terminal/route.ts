@@ -6,6 +6,7 @@ import {
 import {classifyPredictionContract,type PredictionCategory} from '@/lib/predictionCategories';
 import {buildTraderSignals,fetchPolymarketLeaderboard} from '@/lib/predictionTraderIntelligence';
 import {predictionWarehouseStats} from '@/lib/predictionPersistence';
+import {buildPredictionOpportunities,detectCrossVenueArbitrage} from '@/lib/predictionAnalytics';
 
 export const dynamic='force-dynamic';
 
@@ -59,6 +60,8 @@ export async function GET(req:Request){
  const movers=marketMovers(trades,'4H',50);
  const gaps=crossVenueGaps(predictions.contracts,50);
  const traderSignals=buildTraderSignals(trades,leaderboard.rows,40);
+ const opportunities=buildPredictionOpportunities(predictions.contracts,trades,movers,traderSignals,gaps,100);
+ const arbitrageCandidates=detectCrossVenueArbitrage(gaps,40);
 
  const rows=predictions.contracts.map(marketRow);
  const filtered=requestedCategory==='ALL'
@@ -98,6 +101,8 @@ export async function GET(req:Request){
    movers:movers.length,
    rankedTraders:leaderboard.rows.length,
    smartTraders:traderSignals.length,
+   highPriorityOpportunities:opportunities.filter(x=>x.priority==='HIGH').length,
+   arbitrageCandidates:arbitrageCandidates.length,
    warehouseMarkets:warehouse.markets,
    warehouseSnapshots:warehouse.snapshots,
    warehouseTrades:warehouse.trades,
@@ -109,6 +114,8 @@ export async function GET(req:Request){
   smartFlow,
   movers,
   traderSignals,
+  opportunities,
+  arbitrageCandidates,
   traderLeaderboard:leaderboard.rows.slice(0,100),
   crossVenueGaps:gaps,
   tradeTape:trades.slice(0,100),
