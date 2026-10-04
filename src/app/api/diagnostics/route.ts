@@ -49,7 +49,7 @@ export async function GET(){
   dynamicConfidence:true,
   expertModelingSuite:true,
   externalMlModelBridge:Boolean(process.env.EXPERT_MODEL_SERVICE_URL),
-  mlflowTrackingConfigured:Boolean(process.env.MLFLOW_TRACKING_URI),
+  expertTrainingBridgeConfigured:Boolean(process.env.EXPERT_MODEL_SERVICE_URL),
   portfolioStressTesting:true,
   portfolioVarCvar:true,
   continuousDrawdownBrake:true,
