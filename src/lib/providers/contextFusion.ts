@@ -2,6 +2,7 @@ import type {Market,ContextProvenance} from '../types';
 import {fetchWeatherContext,fetchInjuryContext,fetchStatsContext} from './context';
 import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
 import {fetchPublicSportsContext,type PublicContextRow} from './publicSportsContext';
+import {enrichMarketsWithPlayerWarehouse} from '../playerWarehouse';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -197,13 +198,17 @@ export async function enrichMarketsWithContext(markets:Market[]){
   const enrichedMarket={...m,sportFeatures,contextSources,contextProvenance:provenance,playerContext};
   return {...enrichedMarket,contextQuality:assessContextQuality(enrichedMarket,sourceQuality)};
  });
- const qualitySummary=summarizeContextQuality(enriched);
+ const historical=await enrichMarketsWithPlayerWarehouse(enriched).catch(()=>({markets:enriched,matched:0,players:0}));
+ const finalSourceQuality={...sourceQuality,'player-history-db':historical.matched?.92:0};
+ const finalMarkets=historical.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
+ const qualitySummary=summarizeContextQuality(finalMarkets);
  return {
-  markets:enriched,
+  markets:finalMarkets,
   diagnostics:{
    matchedRows,
    totalRows:markets.length,
    qualitySummary,
+   playerWarehouse:{matchedRows:historical.matched,players:historical.players},
    publicNetwork:publicNetwork.diagnostics,
    providers:normalized.map(x=>({
     kind:x.kind,ok:x.ok,providerId:x.providerId,rowCount:x.rows.length,
