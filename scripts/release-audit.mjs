@@ -90,6 +90,7 @@ const requiredFiles=[
  'src/components/LiveComebackPanel.tsx',
  'src/lib/expertModelSuite.ts',
  'src/lib/expertModelBridge.ts',
+ 'src/lib/expertDataBridge.ts',
  'src/app/api/intelligence/expert-models/route.ts',
  'src/app/api/testing/expert-models/route.ts',
  'src/components/ExpertModelSuitePanel.tsx',
@@ -129,6 +130,7 @@ add('iPhone prediction PWA',read('src/app/manifest.ts').includes("start_url:'/mo
 add('V53 expert modeling suite',read('src/lib/expertModelSuite.ts').includes('Dixon-Coles')&&read('src/lib/expertModelSuite.ts').includes('XGBoost')&&read('src/lib/expertModelSuite.ts').includes('PyMC'),'professional native + external expert model catalog');
 add('V53 expert council integration',read('src/lib/modelCouncil.ts').includes("name:'Expert Suite'")&&read('src/lib/modelCouncil.ts').includes('expertConsensus'),'expert ensemble participates in production model council');
 add('V53 external ML bridge',read('src/lib/expertModelBridge.ts').includes('EXPERT_MODEL_SERVICE_URL')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithExternalExpertModels'),'external trained models are fused before scanning');
+add('V53 premium data bridge',read('src/lib/expertDataBridge.ts').includes('edgeforce-premium-context-v1')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithPremiumData'),'licensed premium feeds can enter through normalized vendor adapters');
 add('V53 expert API',read('src/app/api/intelligence/expert-models/route.ts').includes('v53-expert-models-1')&&read('src/app/api/testing/expert-models/route.ts').includes('councilIntegrated'),'expert endpoint and deterministic regression are present');
 add('V53 expert dashboard',read('src/components/Dashboard.tsx').includes('ExpertModelSuitePanel')&&read('src/components/ExpertModelSuitePanel.tsx').includes('V53 EXPERT MODELING SUITE'),'expert suite is visible on dashboard');
 add('V52 live comeback engine',read('src/lib/liveComeback.ts').includes('BUY_LOW_REVIEW')&&read('src/lib/liveComeback.ts').includes('requiresGameStateConfirmation'),'buy-low scoring requires explicit live game-state confirmation');
