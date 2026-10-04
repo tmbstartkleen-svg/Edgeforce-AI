@@ -3,6 +3,7 @@ import {fetchWeatherContext,fetchInjuryContext,fetchStatsContext} from './contex
 import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
 import {fetchPublicSportsContext,type PublicContextRow} from './publicSportsContext';
 import {enrichMarketsWithPlayerWarehouse} from '../playerWarehouse';
+import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -199,8 +200,9 @@ export async function enrichMarketsWithContext(markets:Market[]){
   return {...enrichedMarket,contextQuality:assessContextQuality(enrichedMarket,sourceQuality)};
  });
  const historical=await enrichMarketsWithPlayerWarehouse(enriched).catch(()=>({markets:enriched,matched:0,players:0}));
+ const externalExpert=await enrichMarketsWithExternalExpertModels(historical.markets);
  const finalSourceQuality={...sourceQuality,'player-history-db':historical.matched?.92:0};
- const finalMarkets=historical.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
+ const finalMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
  const qualitySummary=summarizeContextQuality(finalMarkets);
  return {
   markets:finalMarkets,
@@ -209,6 +211,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    totalRows:markets.length,
    qualitySummary,
    playerWarehouse:{matchedRows:historical.matched,players:historical.players},
+   expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,
    providers:normalized.map(x=>({
     kind:x.kind,ok:x.ok,providerId:x.providerId,rowCount:x.rows.length,
