@@ -20,6 +20,12 @@ type Summary={
  warehouseSnapshots:number;
  warehouseTrades:number;
  warehouseTraders:number;
+ decisionSignals:number;
+ buyYesSignals:number;
+ buyNoSignals:number;
+ gradeASignals:number;
+ warehouseSignals:number;
+ warehouseBuySignals:number;
 };
 
 type Category={category:string;count:number};
@@ -50,11 +56,22 @@ type TraderSignal={
  convictionMultiple:number;smartScore:number;
  latestTrade:{marketId:string;title:string;direction:string;price:number;notional:number;timestamp:string};
 };
+type DecisionSignal={
+ signalKey:string;venue:string;contractId:string;sourceVenue:string;sourceContractId:string;
+ title:string;category:string;direction:'YES'|'NO';
+ action:'BUY_YES'|'BUY_NO'|'WATCH_YES'|'WATCH_NO'|'WAIT'|'AVOID';
+ score:number;evidenceGrade:'A'|'B'|'C';matchQuality:'STRONG'|'HEURISTIC';similarity:number;
+ fairYesProbability:number;fairOutcomeProbability:number;marketYesProbability:number;
+ executionProbability:number;edge:number;entryProbability:number;takeProfitProbability:number;
+ reviewFairProbability:number;spreadProbability?:number;volume?:number;liquidity?:number;
+ flowSupport:number;momentumSupport:number;smartTraderSupport:number;
+ reasons:string[];riskFlags:string[];
+};
 type TerminalResponse={
  ok:boolean;generatedAt:string;summary:Summary;categories:Category[];markets:Market[];
  smartFlow:Array<Trade&{convictionMultiple:number}>;movers:Mover[];traderSignals:TraderSignal[];
- crossVenueGaps:Gap[];tradeTape:Trade[];
- warehouse?:{configured:boolean;markets:number;snapshots:number;trades:number;traders:number};
+ decisionSignals:DecisionSignal[];crossVenueGaps:Gap[];tradeTape:Trade[];
+ warehouse?:{configured:boolean;markets:number;snapshots:number;trades:number;traders:number;signals?:number;buySignals?:number};
  warnings:string[];
 };
 
@@ -72,9 +89,10 @@ const empty:TerminalResponse={
  ok:false,generatedAt:'',summary:{
   contracts:0,kalshiContracts:0,polymarketContracts:0,recentTrades:0,tradeNotional24h:0,
   smartFlowSignals:0,crossVenueMatches:0,strongCrossVenueMatches:0,movers:0,rankedTraders:0,
-  smartTraders:0,warehouseMarkets:0,warehouseSnapshots:0,warehouseTrades:0,warehouseTraders:0
+  smartTraders:0,warehouseMarkets:0,warehouseSnapshots:0,warehouseTrades:0,warehouseTraders:0,
+  decisionSignals:0,buyYesSignals:0,buyNoSignals:0,gradeASignals:0,warehouseSignals:0,warehouseBuySignals:0
  },
- categories:[],markets:[],smartFlow:[],movers:[],traderSignals:[],crossVenueGaps:[],tradeTape:[],warnings:[]
+ categories:[],markets:[],smartFlow:[],movers:[],traderSignals:[],decisionSignals:[],crossVenueGaps:[],tradeTape:[],warnings:[]
 };
 
 function pct(n:number){return (n*100).toFixed(1)+'%'}
@@ -98,7 +116,7 @@ function timeAgo(value:string){
 export default function MobilePredictionTerminal(){
  const [data,setData]=useState<TerminalResponse>(empty);
  const [category,setCategory]=useState('ALL');
- const [tab,setTab]=useState<'SIGNALS'|'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('SIGNALS');
+ const [tab,setTab]=useState<'PREDICT'|'SIGNALS'|'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('PREDICT');
  const [sportsRows,setSportsRows]=useState<SportsSignalRow[]>([]);
  const [error,setError]=useState('');
 
@@ -127,6 +145,7 @@ export default function MobilePredictionTerminal(){
  },[]);
 
  const markets=useMemo(()=>category==='ALL'?data.markets:data.markets.filter(x=>x.category===category),[data.markets,category]);
+ const predictionSignals=useMemo(()=>category==='ALL'?data.decisionSignals:data.decisionSignals.filter(x=>x.category===category),[data.decisionSignals,category]);
  const sportsSignals=useMemo(()=>sportsRows
   .map(row=>({row,signal:buildTradeSignal(row)}))
   .sort((a,b)=>b.signal.score-a.signal.score||b.signal.expectedValue-a.signal.expectedValue),[sportsRows]);
@@ -154,7 +173,7 @@ export default function MobilePredictionTerminal(){
     <div><small>Kalshi</small><b>{data.summary.kalshiContracts.toLocaleString()}</b></div>
     <div><small>Poly</small><b>{data.summary.polymarketContracts.toLocaleString()}</b></div>
     <div><small>24H flow</small><b>{money(data.summary.tradeNotional24h)}</b></div>
-    <div><small>Signals</small><b>{data.summary.smartFlowSignals}</b></div>
+    <div><small>Buy signals</small><b>{data.summary.buyYesSignals+data.summary.buyNoSignals}</b></div>
    </div>
   </section>
 
@@ -168,7 +187,8 @@ export default function MobilePredictionTerminal(){
   </section>
 
   <nav className="pmTabs">
-   <button className={tab==='SIGNALS'?'active':''} onClick={()=>setTab('SIGNALS')}>Pro Signals</button>
+   <button className={tab==='PREDICT'?'active':''} onClick={()=>setTab('PREDICT')}>Market Signals</button>
+   <button className={tab==='SIGNALS'?'active':''} onClick={()=>setTab('SIGNALS')}>Sports</button>
    <button className={tab==='FLOW'?'active':''} onClick={()=>setTab('FLOW')}>Smart Flow</button>
    <button className={tab==='MOVERS'?'active':''} onClick={()=>setTab('MOVERS')}>Movers</button>
    <button className={tab==='TRADERS'?'active':''} onClick={()=>setTab('TRADERS')}>Traders</button>
@@ -176,6 +196,30 @@ export default function MobilePredictionTerminal(){
    <button className={tab==='MARKETS'?'active':''} onClick={()=>setTab('MARKETS')}>Markets</button>
    <button className={tab==='TAPE'?'active':''} onClick={()=>setTab('TAPE')}>Tape</button>
   </nav>
+
+  {tab==='PREDICT'&&<section className="pmStack">
+   <div className="pmSectionHead"><div><small>ALL-MARKET DECISION ENGINE</small><h2>Buy YES / buy NO / wait</h2></div><span>{predictionSignals.length}</span></div>
+   {predictionSignals.slice(0,40).map(signal=><article className="pmCard" key={signal.signalKey}>
+    <div className="pmCardTop">
+     <span className={'pmMatch '+(signal.action==='BUY_YES'||signal.action==='BUY_NO'?'strong':'heuristic')}>{signal.action.replace('_',' ')} · {signal.evidenceGrade}</span>
+     <b className="pmGap">{signal.score}/100</b>
+    </div>
+    <h3>{signal.title}</h3>
+    <div className="pmMetrics">
+     <div><small>Venue</small><b>{signal.venue}</b></div>
+     <div><small>Entry</small><b>{Math.round(signal.entryProbability*100)}¢</b></div>
+     <div><small>Fair {signal.direction}</small><b>{pct(signal.fairOutcomeProbability)}</b></div>
+     <div><small>Edge</small><b className={signal.edge>=0?'up':'down'}>{signal.edge>=0?'+':''}{(signal.edge*100).toFixed(1)} pts</b></div>
+    </div>
+    <div className="pmCompare">
+     <div><small>Take-profit watch</small><b>{Math.round(signal.takeProfitProbability*100)}¢</b></div>
+     <div><small>Review fair below</small><b>{Math.round(signal.reviewFairProbability*100)}¢</b></div>
+     <div><small>Cross-check</small><b>{signal.sourceVenue}</b></div>
+    </div>
+    <p>{signal.category} · {signal.matchQuality.toLowerCase()} match {Math.round(signal.similarity*100)}% · {signal.reasons[0]}{signal.riskFlags.length?' · '+signal.riskFlags.slice(0,2).join(' / '):''}</p>
+   </article>)}
+   {!predictionSignals.length&&<div className="pmEmpty">No cross-venue prediction signal currently clears the evidence gates. Edgeforce will show WAIT instead of manufacturing a trade.</div>}
+  </section>}
 
   {tab==='SIGNALS'&&<section className="pmStack">
    <div className="pmSectionHead"><div><small>EDGEFORCE SPORTS</small><h2>Buy / bet / exit signals</h2></div><span>{sportsSignals.length}</span></div>
