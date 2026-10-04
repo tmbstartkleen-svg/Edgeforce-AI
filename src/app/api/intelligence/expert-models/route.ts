@@ -11,7 +11,7 @@ export async function GET(){
 
  if(!ingestion.markets.length){
   return Response.json({
-   ok:false,build:'V56',schemaVersion:'v56-expert-models-1',
+   ok:false,build:'V57',schemaVersion:'v57-expert-models-1',
    source:ingestion.source,error:'No live or fresh stored sportsbook markets are available',
    catalog,status,warnings:ingestion.warnings
   },{status:503,headers:{'Cache-Control':'no-store'}});
@@ -34,7 +34,7 @@ export async function GET(){
  const enrichedCatalog=catalog.map(entry=>({...entry,activeOnCurrentSlate:activeIds.has(entry.id)}));
 
  return Response.json({
-  ok:true,build:'V56',schemaVersion:'v56-expert-models-1',
+  ok:true,build:'V57',schemaVersion:'v57-expert-models-1',
   generatedAt:new Date().toISOString(),
   source:ingestion.source,providerId:ingestion.providerId||null,providerName:ingestion.providerName||null,
   targetBook:ingestion.targetBook,
