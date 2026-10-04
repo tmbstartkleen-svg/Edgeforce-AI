@@ -99,12 +99,15 @@ jobs:
           exit 1
 
       - name: Install pinned Vercel CLI
+        if: github.event_name == 'workflow_dispatch'
         run: npm install --global vercel@62.1.0
 
       - name: Link Vercel production project
+        if: github.event_name == 'workflow_dispatch'
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
       - name: Wire ML service into Vercel production environment
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -126,6 +129,7 @@ jobs:
           set_var ML_ACTIVATION_SECRET "$ML_ACTIVATION_SECRET" secret
 
       - name: Dispatch hardened Edgeforce production deploy
+        if: github.event_name == 'workflow_dispatch'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         shell: bash
