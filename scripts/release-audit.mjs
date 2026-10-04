@@ -74,6 +74,7 @@ const requiredFiles=[
  'src/lib/validationLab.ts',
  'src/app/api/intelligence/validation-lab/route.ts',
  'src/app/api/testing/validation-lab/route.ts',
+ 'src/app/api/testing/prediction-intelligence/route.ts',
  'src/app/api/cron/predictions/route.ts',
  'src/app/api/prediction-terminal/route.ts',
  'src/app/mobile/page.tsx',
