@@ -97,7 +97,7 @@ export async function mlActivationStatus(){
  const predictionHandshakeOk=Boolean(latestHealth?.predictionReady)&&!Boolean(healthHistory.circuit?.open);
  const tournamentOk=Boolean(tournament.latestRun?.status==='completed');
  const championsActive=Number(tournament.summary?.champions||0);
- const readiness=activationReadiness({configured,healthOk,predictionHandshakeOk,tournamentOk,championsActive});
+ let readiness=activationReadiness({configured,healthOk,predictionHandshakeOk,tournamentOk,championsActive});
 
  const sql=db();
  let latestActivation:any=null;
@@ -113,6 +113,15 @@ export async function mlActivationStatus(){
     from ml_service_activation_runs order by started_at desc limit 1
    `;
    latestActivation=rows[0]||null;
+   if(latestActivation){
+    readiness=activationReadiness({
+     configured,
+     healthOk:Boolean(latestActivation.healthOk),
+     predictionHandshakeOk:Boolean(latestActivation.predictionHandshakeOk),
+     tournamentOk:Boolean(latestActivation.tournamentOk),
+     championsActive:Number(latestActivation.championsActive||championsActive)
+    });
+   }
   }catch{}
  }
 
