@@ -19,6 +19,7 @@ Unavailable optional libraries are reported by `GET /health` and are never false
 
 - `GET /health`
 - `POST /train` using schema `edgeforce-ml-train-v1`
+- `POST /promote` using schema `edgeforce-ml-promote-v1`
 - `POST /predict` using schema `edgeforce-ml-predict-v1`
 
 Set `ML_SERVICE_KEY` to require Bearer authentication.
@@ -40,10 +41,11 @@ docker run --rm -p 8080:8080 \
 Then configure EdgeForce:
 
 ```
-EXPERT_MODEL_SERVICE_URL=http://localhost:8080/predict
-EXPERT_MODEL_SERVICE_KEY=change-me
+ML_PREDICTION_SERVICE_URL=http://localhost:8080/predict
+ML_PREDICTION_SERVICE_KEY=change-me
 ML_TRAINING_SERVICE_URL=http://localhost:8080/train
 ML_TRAINING_SERVICE_KEY=change-me
+ML_PROMOTION_SERVICE_URL=http://localhost:8080/promote
 ```
 
 The EdgeForce web/Worker runtime remains separate from this Python service.
