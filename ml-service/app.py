@@ -38,7 +38,7 @@ try:
 except Exception:
     pm = None
 
-SERVICE_VERSION = "edgeforce-ml-service-v57"
+SERVICE_VERSION = "edgeforce-ml-service-v58"
 MODEL_DIR = Path(os.getenv("MODEL_STORE_DIR", "./model_store")).resolve()
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 API_KEY = os.getenv("ML_SERVICE_KEY", "")
@@ -434,6 +434,33 @@ def health():
             "cpuCount": os.getenv("RENDER_CPU_COUNT"),
             "instanceId": os.getenv("RENDER_INSTANCE_ID"),
         },
+    }
+
+
+
+@app.get("/champions")
+def champions(authorization: str | None = Header(default=None)):
+    require_auth(authorization)
+    rows: list[dict[str, Any]] = []
+    for path in sorted(MODEL_DIR.glob("champion-*.json")):
+        try:
+            manifest = json.loads(path.read_text())
+            model_id = str(manifest.get("serviceModelId") or "")
+            artifact_path = MODEL_DIR / f"{model_id}.joblib" if model_id else None
+            rows.append({
+                **manifest,
+                "manifest": str(path),
+                "artifactExists": bool(artifact_path and artifact_path.exists()),
+                "artifactBytes": int(artifact_path.stat().st_size) if artifact_path and artifact_path.exists() else 0,
+            })
+        except Exception as exc:
+            rows.append({"manifest": str(path), "error": str(exc)[:300], "artifactExists": False, "artifactBytes": 0})
+    return {
+        "ok": True,
+        "schemaVersion": "edgeforce-ml-champions-v1",
+        "serviceVersion": SERVICE_VERSION,
+        "count": len(rows),
+        "champions": rows,
     }
 
 

@@ -15,7 +15,7 @@ function authorized(req:Request){
 
 export async function GET(){
  const status=await mlDeploymentAttestationStatus();
- return Response.json({...status,build:'V57',schemaVersion:'v57-ml-deployment-attestation-1'},{headers:{'Cache-Control':'no-store'}});
+ return Response.json({...status,build:'V58',schemaVersion:'v58-ml-deployment-attestation-1'},{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(req:Request){

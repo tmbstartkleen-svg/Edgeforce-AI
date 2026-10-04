@@ -33,7 +33,7 @@ jobs:
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
       EDGEFORCE_BASE_URL: ${{ secrets.EDGEFORCE_PRODUCTION_URL }}
-      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v57
+      EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v58
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
       VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
@@ -142,7 +142,7 @@ jobs:
           set -euo pipefail
           for i in {1..90}; do
             if curl --fail --silent --show-error "$EDGEFORCE_BASE_URL/api/diagnostics" > /tmp/edgeforce-diagnostics.json 2>/dev/null; then
-              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v57'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
+              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v58'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
                 cat /tmp/edgeforce-diagnostics.json
                 exit 0
               fi
@@ -152,17 +152,15 @@ jobs:
           cat /tmp/edgeforce-diagnostics.json || true
           exit 1
 
-      - name: Activate Edgeforce external ML
+      - name: Run first champion tournament
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tournament }}
+        run: node scripts/ml-first-tournament-doctor.mjs | tee /tmp/ml-first-tournament.json
+
+      - name: Verify activation without tournament
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.run_tournament }}
         env:
-          RUN_TOURNAMENT_INPUT: ${{ inputs.run_tournament }}
-        shell: bash
-        run: |
-          if [ "${RUN_TOURNAMENT_INPUT:-true}" = "false" ]; then
-            export ML_ACTIVATION_RUN_TOURNAMENT=false
-          else
-            export ML_ACTIVATION_RUN_TOURNAMENT=true
-          fi
-          node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
+          ML_ACTIVATION_RUN_TOURNAMENT: "false"
+        run: node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
 
       - name: Record deployment attestation
         shell: bash
@@ -177,4 +175,8 @@ jobs:
           echo "- Render deploy: ${{ steps.render.outputs.deploy_id }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Target commit: $TARGET_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "- Service version: $EXPECTED_ML_SERVICE_VERSION" >> "$GITHUB_STEP_SUMMARY"
-          node -e "const d=require('/tmp/ml-activation.json'); console.log('- Activation state: '+d.state); console.log('- Active champions: '+d.championsActive); console.log('- Tournament candidates: '+d.candidates)" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f /tmp/ml-first-tournament.json ]; then
+            node -e "const d=require('/tmp/ml-first-tournament.json'); console.log('- First tournament grade: '+d.grade); console.log('- Active champions: '+d.champions); console.log('- Tournament candidates: '+d.candidates); console.log('- Artifacts verified: '+d.artifactsVerified)" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -f /tmp/ml-activation.json ]; then
+            node -e "const d=require('/tmp/ml-activation.json'); console.log('- Activation state: '+d.state); console.log('- Active champions: '+d.championsActive)" >> "$GITHUB_STEP_SUMMARY"
+          fi

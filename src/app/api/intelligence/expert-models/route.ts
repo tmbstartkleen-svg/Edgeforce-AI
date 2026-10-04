@@ -11,7 +11,7 @@ export async function GET(){
 
  if(!ingestion.markets.length){
   return Response.json({
-   ok:false,build:'V57',schemaVersion:'v57-expert-models-1',
+   ok:false,build:'V58',schemaVersion:'v58-expert-models-1',
    source:ingestion.source,error:'No live or fresh stored sportsbook markets are available',
    catalog,status,warnings:ingestion.warnings
   },{status:503,headers:{'Cache-Control':'no-store'}});
@@ -34,7 +34,7 @@ export async function GET(){
  const enrichedCatalog=catalog.map(entry=>({...entry,activeOnCurrentSlate:activeIds.has(entry.id)}));
 
  return Response.json({
-  ok:true,build:'V57',schemaVersion:'v57-expert-models-1',
+  ok:true,build:'V58',schemaVersion:'v58-expert-models-1',
   generatedAt:new Date().toISOString(),
   source:ingestion.source,providerId:ingestion.providerId||null,providerName:ingestion.providerName||null,
   targetBook:ingestion.targetBook,
@@ -53,7 +53,7 @@ export async function GET(){
    ...(ingestion.warnings||[]),
    'Premium vendor platforms require the user\'s licensed API/data access. Edgeforce does not copy closed proprietary models.',
    'External ML software becomes prediction-active only when EXPERT_MODEL_SERVICE_URL returns normalized, validated probabilities.',
-   'Model diversity does not guarantee profitability; V57 deployment-attested tournament promotion, validation, calibration, drift, and risk gates remain in force.'
+   'Model diversity does not guarantee profitability; V58 artifact-verified champion tournament, validation, calibration, drift, and risk gates remain in force.'
   ]
  },{headers:{'Cache-Control':'no-store, max-age=0'}});
 }
