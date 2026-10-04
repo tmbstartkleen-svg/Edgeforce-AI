@@ -33,7 +33,7 @@ Set `MODEL_STORE_DIR` to a persistent volume. The service writes serialized arti
 
 ```bash
 docker build -f ml-service/Dockerfile -t edgeforce-ml .
-docker run --rm -p 8080:8080 \
+docker run --rm -p 8080:10000 \
   -e ML_SERVICE_KEY=change-me \
   -v edgeforce-models:/data/models \
   edgeforce-ml
