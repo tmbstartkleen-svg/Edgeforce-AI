@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   deploy-ml:
@@ -33,6 +34,9 @@ jobs:
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
       EDGEFORCE_BASE_URL: ${{ secrets.EDGEFORCE_PRODUCTION_URL }}
       EXPECTED_ML_SERVICE_VERSION: edgeforce-ml-service-v57
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
+      VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +54,7 @@ jobs:
           test -n "$ML_SERVICE_KEY"
           test -n "$ML_ACTIVATION_SECRET"
           test -n "$EDGEFORCE_BASE_URL"
+          test -n "$VERCEL_TOKEN"
           if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
             test -n "$RENDER_DEPLOY_HOOK_URL"
           fi
@@ -93,10 +98,67 @@ jobs:
           cat /tmp/ml-doctor.err || true
           exit 1
 
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@62.1.0
+
+      - name: Link Vercel production project
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Wire ML service into Vercel production environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${ML_SERVICE_BASE_URL%/}"
+          set_var(){
+            name="$1"
+            value="$2"
+            visibility="$3"
+            if ! vercel env update "$name" production --value "$value" --visibility "$visibility" --yes --token="$VERCEL_TOKEN" >/dev/null 2>&1; then
+              vercel env add "$name" production --value "$value" --visibility "$visibility" --yes --token="$VERCEL_TOKEN" >/dev/null
+            fi
+          }
+          set_var ML_HEALTH_SERVICE_URL "$base/health" config
+          set_var ML_PREDICTION_SERVICE_URL "$base/predict" config
+          set_var ML_PREDICTION_SERVICE_KEY "$ML_SERVICE_KEY" secret
+          set_var ML_TRAINING_SERVICE_URL "$base/train" config
+          set_var ML_TRAINING_SERVICE_KEY "$ML_SERVICE_KEY" secret
+          set_var ML_PROMOTION_SERVICE_URL "$base/promote" config
+          set_var ML_ACTIVATION_SECRET "$ML_ACTIVATION_SECRET" secret
+
+      - name: Dispatch hardened Edgeforce production deploy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error -X POST             -H "Authorization: Bearer $GITHUB_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-production.yml/dispatches"             --data '{"ref":"main"}'
+
+      - name: Wait for Edgeforce runtime ML wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..90}; do
+            if curl --fail --silent --show-error "$EDGEFORCE_BASE_URL/api/diagnostics" > /tmp/edgeforce-diagnostics.json 2>/dev/null; then
+              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v57'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
+                cat /tmp/edgeforce-diagnostics.json
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          cat /tmp/edgeforce-diagnostics.json || true
+          exit 1
+
       - name: Activate Edgeforce external ML
         env:
-          ML_ACTIVATION_RUN_TOURNAMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.run_tournament || 'true' }}
-        run: node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
+          RUN_TOURNAMENT_INPUT: ${{ inputs.run_tournament }}
+        shell: bash
+        run: |
+          if [ "${RUN_TOURNAMENT_INPUT:-true}" = "false" ]; then
+            export ML_ACTIVATION_RUN_TOURNAMENT=false
+          else
+            export ML_ACTIVATION_RUN_TOURNAMENT=true
+          fi
+          node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
 
       - name: Record deployment attestation
         shell: bash
