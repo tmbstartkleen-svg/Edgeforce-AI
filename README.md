@@ -2,7 +2,86 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V60 Shadow Challenger + Live Recovery
+## Current build — V61 Multi-Challenger Shadow League
+
+V61 upgrades V60 post-quarantine recovery from a single shadow candidate into a live competition among multiple qualified external ML challengers.
+
+### Multi-model live league
+After a champion is quarantined and a later heavyweight tournament produces eligible replacements:
+1. Edgeforce creates or fills an active shadow league for that sport / market
+2. up to `ML_SHADOW_LEAGUE_SIZE` candidates are seeded by holdout tournament score
+3. every competitor receives the same live market feature slate through `/shadow-predict`
+4. every probability remains isolated at zero production weight
+5. settled outcomes produce live Brier, log loss, calibration, market-relative skill and native-relative skill for each competitor
+6. challengers are ranked by a live league score
+7. only the live #1 can progress toward production recovery
+
+The default league size is 4, with at least 2 live-qualified competitors required before a winner can be promoted.
+
+### Winner rules
+A league winner must still clear every V60 recovery guardrail:
+- default 50 settled shadow predictions
+- positive Brier Skill versus the sportsbook
+- positive Brier Skill versus native-only Edgeforce
+- acceptable live calibration
+- acceptable degradation from its untouched holdout
+- expired post-quarantine cooldown
+- two passing evaluations with fresh settled evidence
+
+V61 adds:
+- minimum competitor count
+- live rank #1 requirement
+- configurable minimum winner-score margin
+- winner-only promotion
+- automatic `LEAGUE_LOST` state for non-winning qualified challengers after recovery completes
+
+A close race is held in shadow rather than forcing a winner.
+
+### Durable league registry
+Migration `v50` adds:
+- `external_ml_shadow_leagues`
+- league ID / seed rank / live rank / live score / winner margin on shadow challengers
+- league-aware recovery snapshots
+- league counts and ready-winner counts on recovery runs
+
+### Production safeguards
+Shadow competitors never enter:
+- `sportFeatures.externalExpertProbability`
+- Expert Suite voting
+- Model Council voting
+- simulations
+- parlay construction
+- stake sizing
+
+A live league winner still must pass the hosted `/promote` artifact check before Edgeforce restores an external champion.
+
+### APIs and UI
+- intelligence: `GET /api/intelligence/ml-shadow-recovery`
+- authenticated run: `POST /api/ml/shadow-recovery`
+- regression: `GET /api/testing/ml-shadow-recovery`
+- dashboard: **V61 Multi-Challenger Shadow League**
+- modeling workspace: `/models`
+
+### Release identity
+- build: `V61`
+- app: `61.0.0`
+- package: `0.61.0`
+- model: `edgeforce-v61`
+- migration: `v50`
+- ML service: `edgeforce-ml-service-v61`
+
+### Guardrails
+- one shadow challenger cannot win a multi-model league
+- a close league cannot auto-promote
+- a challenger can pass individual recovery gates and still lose to a better live model
+- the current live leader must retain #1 through fresh confirmation evidence
+- bad challengers can still be rejected independently
+- only the live league winner can be promoted
+- hosted artifact verification remains mandatory
+- native Edgeforce remains production fallback throughout the league
+- model performance remains probabilistic and does not guarantee betting profit
+
+## Previous build — V60 Shadow Challenger + Live Recovery
 
 V60 adds a zero-weight recovery lane for external ML after V59 quarantine. A quarantined sport/market can no longer return to production merely because a fresh model wins another historical holdout tournament.
 
