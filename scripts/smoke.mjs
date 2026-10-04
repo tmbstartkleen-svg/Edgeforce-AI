@@ -118,6 +118,12 @@ assert(health.body?.nativeExpertModels===true,'native expert model flag missing'
 assert(health.body?.externalMlModelBridge===true,'external ML bridge flag missing');
 assert(health.body?.normalizedPremiumSportsDataBridge===true,'premium data bridge flag missing');
 assert(health.body?.expertModelCouncilIntegration===true,'expert model council integration flag missing');
+assert(health.body?.trainedSportSpecificMl===true,'trained sport ML flag missing');
+assert(health.body?.chronologicalMlTraining===true,'chronological ML training flag missing');
+assert(health.body?.trainedModelCalibration===true,'trained model calibration flag missing');
+assert(health.body?.marketBaselinePromotionGate===true,'trained model market baseline gate missing');
+assert(health.body?.trainedModelRegistry===true,'trained model registry flag missing');
+assert(health.body?.dailyAutoTraining===true,'daily auto training flag missing');
 
 const liveComebackTest=await get('/api/testing/live-comeback');
 assert(liveComebackTest.res.ok&&liveComebackTest.body?.ok===true,'live comeback regression failed');
@@ -131,6 +137,16 @@ const expertModels=await get('/api/intelligence/expert-models');
 assert(expertModels.res.ok&&expertModels.body?.ok===true,'expert model API failed');
 assert(expertModels.body?.build==='V54','expert model API build mismatch');
 assert(Array.isArray(expertModels.body?.catalog)&&expertModels.body.catalog.length>=20,'expert software catalog incomplete');
+
+const trainedModelsTest=await get('/api/testing/trained-models');
+assert(trainedModelsTest.res.ok&&trainedModelsTest.body?.ok===true,'trained sport ML regression failed');
+assert(trainedModelsTest.body?.assertions?.positiveSkill===true,'trained sport ML failed market baseline skill test');
+assert(trainedModelsTest.body?.assertions?.promoted===true,'trained sport ML synthetic champion was not promoted');
+assert(trainedModelsTest.body?.assertions?.directional===true,'trained sport ML directionality failed');
+
+const trainedModels=await get('/api/intelligence/trained-models');
+assert(trainedModels.res.ok&&trainedModels.body?.ok===true,'trained model status API failed');
+assert(trainedModels.body?.build==='V54'&&trainedModels.body?.schemaVersion==='v54-trained-sport-ml-1','trained model API identity mismatch');
 
 const ready=await get('/api/health/ready');
 assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed');
