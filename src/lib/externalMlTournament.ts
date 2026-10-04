@@ -231,7 +231,7 @@ export async function runExternalMlTournament(){
    const service=await callTrainingService(payload.slice(start,start+groupBatchSize));
    if(!service.ok)throw new Error(service.error);
    serviceVersion=service.body.serviceVersion||serviceVersion;
-   Object.assign(algorithmsAvailable,algorithmsAvailable);
+   Object.assign(algorithmsAvailable,service.body.algorithmsAvailable||{});
    responseGroups.push(...(Array.isArray(service.body.groups)?service.body.groups:[]));
   }
   let candidatesEvaluated=0,promoted=0,challengers=0;
