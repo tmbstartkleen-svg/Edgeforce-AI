@@ -1,5 +1,5 @@
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'60.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'61.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
 const paths=['/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
@@ -13,11 +13,11 @@ for(const path of paths){
  if(!res.ok)throw new Error(path+' failed with '+res.status);
  if(path==='/api/testing/ml-shadow-recovery'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.assertions?.repeatedFreshPassPromotes!==true||json.assertions?.badShadowRejected!==true||json.assertions?.cooldownBlocks!==true)throw new Error('shadow recovery regression mismatch');
+  if(json.ok!==true||json.assertions?.repeatedFreshPassPromotes!==true||json.assertions?.badShadowRejected!==true||json.assertions?.cooldownBlocks!==true||json.assertions?.clearLeagueWinnerPromotes!==true||json.assertions?.closeLeagueRaceHolds!==true||json.assertions?.minimumCompetitorsRequired!==true||json.assertions?.leagueLeaderMustConfirm!==true)throw new Error('shadow league regression mismatch');
  }
  if(path==='/api/intelligence/ml-shadow-recovery'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V60'||json.schemaVersion!=='v60-shadow-recovery-1')throw new Error('shadow recovery intelligence mismatch');
+  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-shadow-league-1')throw new Error('shadow recovery intelligence mismatch');
  }
  if(path==='/api/testing/ml-champion-drift'){
   const json=JSON.parse(body);
@@ -33,7 +33,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-champions'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V60'||json.schemaVersion!=='v60-first-champion-tournament-1')throw new Error('ML champion intelligence mismatch');
+  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-first-champion-tournament-1')throw new Error('ML champion intelligence mismatch');
  }
  if(path==='/api/testing/ml-deployment'){
   const json=JSON.parse(body);
@@ -41,7 +41,7 @@ for(const path of paths){
  }
  if(path==='/api/ml/deploy-attest'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V60'||json.schemaVersion!=='v60-ml-deployment-attestation-1')throw new Error('ML deployment attestation mismatch');
+  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-ml-deployment-attestation-1')throw new Error('ML deployment attestation mismatch');
  }
  if(path==='/api/testing/ml-activation'){
   const json=JSON.parse(body);
@@ -49,7 +49,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-service'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V60'||json.schemaVersion!=='v60-ml-activation-1')throw new Error('ML activation status mismatch');
+  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-ml-activation-1')throw new Error('ML activation status mismatch');
  }
  if(path==='/api/testing/ml-tournament'){
   const json=JSON.parse(body);
@@ -73,7 +73,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/expert-models'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V60'||json.schemaVersion!=='v60-expert-models-1'||!Array.isArray(json.catalog))throw new Error('expert model API mismatch');
+  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-expert-models-1'||!Array.isArray(json.catalog))throw new Error('expert model API mismatch');
  }
  if(path==='/api/testing/live-comeback'){
   const json=JSON.parse(body);
