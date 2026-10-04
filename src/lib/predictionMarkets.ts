@@ -1,5 +1,8 @@
 import {fetchWithFailover} from './providers/failover';
+import {fetchPublicKalshi} from './providers/kalshi';
 import {fetchPublicPolymarket} from './providers/polymarket';
+
+export type PredictionVenueType='PREDICTION_PROVIDER'|'PREDICTION_EXCHANGE';
 
 export type PredictionContract={
   id:string;
@@ -10,8 +13,19 @@ export type PredictionContract={
   modelProbability:number;
   probabilityDifference:number;
   volume?:number;
+  liquidity?:number;
+  bidProbability?:number;
+  askProbability?:number;
   expiresAt?:string;
   source:string;
+  venueType?:PredictionVenueType;
+};
+
+export type PredictionSourceStatus={
+ source:string;
+ ok:boolean;
+ count:number;
+ error?:string;
 };
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
@@ -38,6 +52,10 @@ export function normalizePredictionMarkets(payload:unknown,source='prediction-pr
     const row=obj(value);
     const yes=probability(row.yesProbability ?? row.yes_probability ?? row.yesPrice ?? row.yes_price ?? row.probability,.5);
     const model=probability(row.modelProbability ?? row.model_probability,yes);
+    const bidRaw=num(row.bidProbability ?? row.bid_probability ?? row.bid,Number.NaN);
+    const askRaw=num(row.askProbability ?? row.ask_probability ?? row.ask,Number.NaN);
+    const volume=num(row.volume,0);
+    const liquidity=num(row.liquidity,0);
     return {
       id:str(row.id,source+'-'+index),
       title:str(row.title,str(row.question,str(row.name,'Contract '+(index+1)))),
@@ -46,22 +64,89 @@ export function normalizePredictionMarkets(payload:unknown,source='prediction-pr
       noProbability:1-yes,
       modelProbability:model,
       probabilityDifference:model-yes,
-      volume:num(row.volume,num(row.liquidity,0))||undefined,
+      volume:volume>0?volume:undefined,
+      liquidity:liquidity>0?liquidity:undefined,
+      bidProbability:Number.isFinite(bidRaw)?probability(bidRaw,yes):undefined,
+      askProbability:Number.isFinite(askRaw)?probability(askRaw,yes):undefined,
       expiresAt:str(row.expiresAt,str(row.expires_at,str(row.closeTime,str(row.close_time,''))))||undefined,
-      source
+      source,
+      venueType:'PREDICTION_PROVIDER'
     };
   });
 }
 
+function dedupeContracts(rows:PredictionContract[]){
+ const map=new Map<string,PredictionContract>();
+ for(const row of rows){
+  const key=[row.source,row.id].join('|').toLowerCase();
+  const prior=map.get(key);
+  if(!prior){
+   map.set(key,row);
+   continue;
+  }
+  const priorDepth=(prior.volume??0)+(prior.liquidity??0);
+  const nextDepth=(row.volume??0)+(row.liquidity??0);
+  if(nextDepth>priorDepth)map.set(key,row);
+ }
+ return [...map.values()];
+}
+
 export async function fetchPredictionMarkets(){
-  const result=await fetchWithFailover('PREDICTION_MARKETS');
-  if(result.ok){
-    const source=result.providerName||result.providerId||'prediction-provider';
-    return {mode:'live',source,contracts:normalizePredictionMarkets(result.data,source),attempts:result.attempts};
-  }
-  const publicMarket=await fetchPublicPolymarket();
-  if(publicMarket.ok){
-    return {mode:'live',source:publicMarket.source,contracts:publicMarket.contracts,attempts:result.attempts,warnings:['Using public Polymarket market probabilities as the prediction-market fallback']};
-  }
-  return {mode:result.attempts.length?'failed':'unconfigured',source:null,contracts:[] as PredictionContract[],attempts:result.attempts,error:result.error||publicMarket.error};
+  const [configured,kalshi,polymarket]=await Promise.all([
+    fetchWithFailover('PREDICTION_MARKETS'),
+    fetchPublicKalshi(),
+    fetchPublicPolymarket()
+  ]);
+
+  const configuredSource=configured.providerName||configured.providerId||'prediction-provider';
+  const configuredContracts=configured.ok
+   ?normalizePredictionMarkets(configured.data,configuredSource)
+   :[];
+
+  const contracts=dedupeContracts([
+   ...configuredContracts,
+   ...(kalshi.ok?kalshi.contracts:[]),
+   ...(polymarket.ok?polymarket.contracts:[])
+  ]);
+
+  const maxContracts=Math.max(100,Math.min(10000,Number(process.env.PREDICTION_MARKET_MAX_CONTRACTS||4000)));
+  const ranked=[...contracts]
+   .sort((a,b)=>((b.volume??0)+(b.liquidity??0))-((a.volume??0)+(a.liquidity??0)))
+   .slice(0,maxContracts);
+
+  const sources:PredictionSourceStatus[]=[
+   {
+    source:configuredSource,
+    ok:configured.ok,
+    count:configuredContracts.length,
+    error:configured.ok?undefined:configured.error
+   },
+   {
+    source:'Kalshi',
+    ok:kalshi.ok,
+    count:kalshi.contracts.length,
+    error:kalshi.ok?undefined:kalshi.error
+   },
+   {
+    source:'Polymarket',
+    ok:polymarket.ok,
+    count:polymarket.contracts.length,
+    error:polymarket.ok?undefined:polymarket.error
+   }
+  ];
+
+  const liveSources=sources.filter(x=>x.ok&&x.count>0).map(x=>x.source);
+  const warnings=sources
+   .filter(x=>!x.ok)
+   .map(x=>`${x.source}: ${x.error||'feed unavailable'}`);
+
+  return {
+   mode:ranked.length?'live':configured.attempts.length?'failed':'unconfigured',
+   source:liveSources.join(' + ')||null,
+   contracts:ranked,
+   attempts:configured.attempts,
+   sources,
+   warnings,
+   error:ranked.length?undefined:(configured.error||kalshi.error||polymarket.error||'No prediction-market contracts available')
+  };
 }
