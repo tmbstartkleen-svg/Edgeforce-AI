@@ -61,11 +61,9 @@ export type TrainedPrediction={
 type Example={x:number[];y:0|1;marketProbability:number;occurredAt:string};
 
 const BASE_FEATURES=[
- 'marketImplied','modelProbability','simProbability','dynamicConfidence',
- 'consensusAgreement','consensusDispersion','sharpPublicGap',
- 'contextScore','contextCoverage','contextCriticalCoverage',
- 'voteSportEngine','voteEloPower','voteBayesian','voteScenario',
- 'voteMatchup','votePlayerUsage','voteEnvironment','voteLineRegime','voteHistorical','voteExpertSuite'
+ 'marketImplied','consensusProbability','consensusAgreement','consensusDispersion',
+ 'sharpProbability','publicProbability','sharpPublicGap',
+ 'contextScore','contextCoverage','contextCriticalCoverage'
 ];
 
 const SPORT_FEATURES:Record<string,string[]>={
@@ -130,45 +128,22 @@ export function trainingFeatureNames(sport:string){
  return [...BASE_FEATURES,...(SPORT_FEATURES[canonical]||['home','injury','form','matchup','rest','travel'])];
 }
 
-function voteMap(features:Record<string,unknown>){
- const map=new Map<string,number>();
- const votes=Array.isArray(features.modelVotes)?features.modelVotes:[];
- for(const raw of votes){
-  const v=obj(raw);
-  const name=String(v.name||'');
-  const p=num(v.prob);
-  if(name&&p!==undefined)map.set(name,p);
- }
- return map;
-}
-
 function historicalFeatureValue(row:TrainingHistoryRow,name:string){
  const f=obj(row.features);
  const sportFeatures=obj(f.sportFeatures);
  const consensus=obj(f.consensus);
  const quality=obj(f.contextQuality);
- const votes=voteMap(f);
  const market=implied(row.odds);
  if(name==='marketImplied')return market;
- if(name==='modelProbability')return num(f.modelProbability)??row.predicted??market;
- if(name==='simProbability')return num(f.simProbability)??num(f.rawSimProbability)??row.predicted??market;
- if(name==='dynamicConfidence')return num(f.dynamicConfidence)??.5;
+ if(name==='consensusProbability')return num(consensus.consensusProbability)??market;
  if(name==='consensusAgreement')return num(consensus.agreement)??.5;
  if(name==='consensusDispersion')return num(consensus.dispersion)??.05;
+ if(name==='sharpProbability')return num(consensus.sharpProbability)??market;
+ if(name==='publicProbability')return num(consensus.publicProbability)??market;
  if(name==='sharpPublicGap')return num(consensus.sharpPublicGap)??0;
  if(name==='contextScore')return num(quality.score)??0;
  if(name==='contextCoverage')return num(quality.coverage)??0;
  if(name==='contextCriticalCoverage')return num(quality.criticalCoverage)??0;
- if(name==='voteSportEngine')return votes.get('Sport Engine')??row.predicted??market;
- if(name==='voteEloPower')return votes.get('Elo/Power')??market;
- if(name==='voteBayesian')return votes.get('Bayesian')??market;
- if(name==='voteScenario')return votes.get('Scenario Simulation')??row.predicted??market;
- if(name==='voteMatchup')return votes.get('Matchup')??row.predicted??market;
- if(name==='votePlayerUsage')return votes.get('Player/Usage')??row.predicted??market;
- if(name==='voteEnvironment')return votes.get('Environment')??row.predicted??market;
- if(name==='voteLineRegime')return votes.get('Line Regime')??market;
- if(name==='voteHistorical')return votes.get('Historical Analog')??row.predicted??market;
- if(name==='voteExpertSuite')return votes.get('Expert Suite')??row.predicted??market;
  return num(sportFeatures[name])??0;
 }
 
@@ -178,18 +153,15 @@ function currentFeatureValue(m:Market,name:string){
  const quality=m.contextQuality;
  const market=m.marketProb||implied(m.odds);
  if(name==='marketImplied')return market;
- if(name==='modelProbability')return m.modelProb||market;
- if(name==='simProbability')return num(sf.rawSimProbability)??num(sf.simProbability)??m.modelProb??market;
- if(name==='dynamicConfidence')return num(sf.dynamicConfidence)??m.confidence??.5;
+ if(name==='consensusProbability')return consensus?.consensusProbability??market;
  if(name==='consensusAgreement')return consensus?.agreement??.5;
  if(name==='consensusDispersion')return consensus?.dispersion??.05;
+ if(name==='sharpProbability')return consensus?.sharpProbability??market;
+ if(name==='publicProbability')return consensus?.publicProbability??market;
  if(name==='sharpPublicGap')return consensus?.sharpPublicGap??0;
  if(name==='contextScore')return quality?.score??0;
  if(name==='contextCoverage')return quality?.coverage??0;
  if(name==='contextCriticalCoverage')return quality?.criticalCoverage??0;
- if(name==='voteSportEngine')return num(sf.sportModelProbability)??m.modelProb??market;
- if(name==='voteEloPower'||name==='voteBayesian'||name==='voteScenario'||name==='voteMatchup'||name==='votePlayerUsage'||name==='voteEnvironment'||name==='voteHistorical'||name==='voteExpertSuite')return m.modelProb??market;
- if(name==='voteLineRegime')return market;
  return num(sf[name])??0;
 }
 
