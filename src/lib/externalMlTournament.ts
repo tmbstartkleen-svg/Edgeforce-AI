@@ -91,7 +91,7 @@ async function currentChampion(sport:string,marketKey:string){
     calibration_error::float as "calibrationError",promoted_at as "promotedAt",
     model_version as "modelVersion",metadata
    from external_ml_champions
-   where sport=${sport} and market_key=${marketKey}
+   where sport=${sport} and market_key=${marketKey} and active=true and status='ACTIVE'
    limit 1
   `;
   return rows[0] as any||null;
@@ -290,19 +290,20 @@ export async function runExternalMlTournament(){
      insert into external_ml_champions(
       sport,market_key,algorithm,service_model_id,candidate_id,artifact_uri,
       composite_score,brier_skill_score,holdout_brier,holdout_log_loss,calibration_error,
-      promoted_at,model_version,metadata
+      promoted_at,model_version,metadata,active,status,quarantined_at,quarantine_reason
      ) values(
       ${group.sport},${group.marketKey},${winner.algorithm},${winner.serviceModelId},${candidateId},
       ${winner.artifactUri||null},${winner.compositeScore},${winner.brierSkillScore},${winner.holdoutBrier},
       ${winner.holdoutLogLoss},${winner.calibrationError},now(),${RELEASE.modelVersion},
-      ${sql.json({promotionReason:decision.reason,serviceVersion:serviceVersion})}
+      ${sql.json({promotionReason:decision.reason,serviceVersion:serviceVersion})},true,'ACTIVE',null,null
      )
      on conflict (sport,market_key) do update set
       algorithm=excluded.algorithm,service_model_id=excluded.service_model_id,candidate_id=excluded.candidate_id,
       artifact_uri=excluded.artifact_uri,composite_score=excluded.composite_score,
       brier_skill_score=excluded.brier_skill_score,holdout_brier=excluded.holdout_brier,
       holdout_log_loss=excluded.holdout_log_loss,calibration_error=excluded.calibration_error,
-      promoted_at=excluded.promoted_at,model_version=excluded.model_version,metadata=excluded.metadata
+      promoted_at=excluded.promoted_at,model_version=excluded.model_version,metadata=excluded.metadata,
+      active=true,status='ACTIVE',quarantined_at=null,quarantine_reason=null
     `;
     promoted++;
    }
@@ -355,7 +356,7 @@ export async function externalMlTournamentStatus(){
     holdout_brier::float as "holdoutBrier",holdout_log_loss::float as "holdoutLogLoss",
     calibration_error::float as "calibrationError",promoted_at as "promotedAt",
     model_version as "modelVersion",metadata
-   from external_ml_champions order by sport,market_key
+   from external_ml_champions where active=true and status='ACTIVE' order by sport,market_key
   `;
   const candidates=await sql`
    select tournament_run_id as "tournamentRunId",sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
@@ -387,6 +388,7 @@ export async function recordExternalMlPredictionSnapshots(markets:import('./type
  const rows=await sql`
   select sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId"
   from external_ml_champions
+  where active=true and status='ACTIVE'
  `.catch(()=>[]);
  const exact=new Map<string,any>();
  const broad=new Map<string,any>();
@@ -405,10 +407,10 @@ export async function recordExternalMlPredictionSnapshots(markets:import('./type
   if(!champion)continue;
   await sql`
    insert into external_ml_prediction_snapshots(
-    market_id,sport,market_key,algorithm,service_model_id,probability,confidence,observed_at,metadata
+    market_id,sport,market_key,algorithm,service_model_id,probability,confidence,market_baseline_probability,observed_at,metadata
    ) values(
     ${market.id},${sport},${market.market},${String(champion.algorithm)},${String(champion.serviceModelId)},
-    ${probability},${Number.isFinite(confidence)?confidence:0},now(),
+    ${probability},${Number.isFinite(confidence)?confidence:0},${market.marketProb},now(),
     ${sql.json({selection:market.selection,event:market.event,odds:market.odds,marketProbability:market.marketProb,modelVersion:RELEASE.modelVersion})}
    )
   `;
