@@ -119,7 +119,7 @@ assert(releaseReady.body?.version==='51.0.0','release readiness version mismatch
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
 assert(deployment.body?.version==='51.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v41','deployment migration identity mismatch');
+assert(deployment.body?.checks?.migrations==='v42','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
