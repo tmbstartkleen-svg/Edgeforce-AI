@@ -9,7 +9,7 @@ export async function GET(){
  const scenarioMarket=applyFeatureScenario(market,{}, {starter:.20,weather:-.15});
  const scenario=explainMarket(scenarioMarket);
  const reconstructed=Math.abs(baseline.contributionError)<1e-10;
- const componentCoverage=baseline.componentAblations.length===10;
+ const componentCoverage=baseline.componentAblations.length===baseline.modelContributions.length&&baseline.componentAblations.length>=10;
  const featureCoverage=baseline.featureAblations.length>0;
  const scenarioMoved=Math.abs(scenario.baselineProbability-baseline.baselineProbability)>.0001;
  const ok=reconstructed&&componentCoverage&&featureCoverage&&scenarioMoved;
