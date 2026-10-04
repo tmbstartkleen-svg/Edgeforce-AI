@@ -1,6 +1,7 @@
 import {evaluateReadiness} from '@/lib/readiness';
 import {recordHeartbeat,recordIncident} from '@/lib/ops';
 import {recordAutomationRun} from '@/lib/automationHealth';
+import {mlServiceConfigured,probeMlService} from '@/lib/mlServiceHealth';
 
 export const dynamic='force-dynamic';
 
@@ -10,11 +11,13 @@ export async function GET(req:Request){
  const started=Date.now();
  try{
   const readiness=await evaluateReadiness();
+  const mlService=mlServiceConfigured()?await probeMlService().catch(error=>({ok:false,error:error instanceof Error?error.message:'ML service health probe failed'})):null;
   await recordHeartbeat(readiness);
   if(!readiness.ready){
    await recordIncident('ACTION','READINESS_FAILED','Edgeforce readiness check failed',{
     environment:readiness.environment,
     requiredFailures:readiness.requiredFailures,
+   mlServiceOk:mlService?.ok??null,
     warnings:readiness.warnings
    });
   }
@@ -23,7 +26,7 @@ export async function GET(req:Request){
    productionReady:readiness.productionReady,
    requiredFailures:readiness.requiredFailures
   });
-  return Response.json({ok:true,readiness,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({ok:true,readiness,mlService,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'heartbeat failed';
   await recordAutomationRun('heartbeat','failed',started,{},message);

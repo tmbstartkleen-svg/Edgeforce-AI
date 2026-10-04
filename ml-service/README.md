@@ -1,4 +1,4 @@
-# EdgeForce V55 ML Tournament Service
+# EdgeForce V56 ML Tournament Service
 
 Containerized Python service for heavyweight sport-specific model training and champion inference.
 
@@ -38,7 +38,7 @@ docker run --rm -p 8080:8080 \
   edgeforce-ml
 ```
 
-Then configure EdgeForce:
+Then configure EdgeForce after deployment:
 
 ```
 ML_PREDICTION_SERVICE_URL=http://localhost:8080/predict
@@ -49,3 +49,28 @@ ML_PROMOTION_SERVICE_URL=http://localhost:8080/promote
 ```
 
 The EdgeForce web/Worker runtime remains separate from this Python service.
+
+
+## Render deployment
+
+The repository root includes `render.yaml` for the V56 production service. It defines:
+- Docker web service
+- Ohio region
+- `2c-8g` compute plan
+- `/health` health check
+- persistent disk mounted at `/data/models`
+- one service instance
+- secret `ML_SERVICE_KEY`
+
+After Render deploys the service, configure EdgeForce with:
+
+```
+ML_HEALTH_SERVICE_URL=https://<service>.onrender.com/health
+ML_PREDICTION_SERVICE_URL=https://<service>.onrender.com/predict
+ML_PREDICTION_SERVICE_KEY=<same ML_SERVICE_KEY>
+ML_TRAINING_SERVICE_URL=https://<service>.onrender.com/train
+ML_TRAINING_SERVICE_KEY=<same ML_SERVICE_KEY>
+ML_PROMOTION_SERVICE_URL=https://<service>.onrender.com/promote
+```
+
+Then call EdgeForce `POST /api/ml/activate`. V56 will health-check, verify the prediction schema, run the tournament, and only report `ACTIVE` if at least one champion is promoted.

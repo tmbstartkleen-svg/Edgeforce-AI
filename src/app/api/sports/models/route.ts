@@ -3,7 +3,7 @@ import {expertModelCatalog,expertSuiteStatus} from '@/lib/expertModelSuite';
 
 export async function GET(){
  return Response.json({
-  version:'v55',
+  version:'v56',
   models:sportModelCatalog(),
   expertModels:expertModelCatalog(),
   expertStatus:expertSuiteStatus()

@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: edgeforce-ml
+    runtime: docker
+    plan: 2c-8g
+    region: ohio
+    numInstances: 1
+    dockerfilePath: ./ml-service/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 120
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ML_SERVICE_KEY
+        sync: false
+      - key: MODEL_STORE_DIR
+        value: /data/models
+      - key: ML_MAX_ROWS_PER_GROUP
+        value: "6000"
+      - key: ML_MIN_SAMPLE
+        value: "120"
+      - key: ML_MIN_HOLDOUT
+        value: "25"
+      - key: ML_PROMOTION_MARGIN
+        value: "0.01"
+      - key: ML_RANDOM_SEED
+        value: "55"
+      - key: PYMC_DRAWS
+        value: "500"
+      - key: PYMC_TUNE
+        value: "500"
+    disk:
+      name: edgeforce-model-store
+      mountPath: /data/models
+      sizeGB: 10
+    buildFilter:
+      paths:
+        - ml-service/**
+        - render.yaml
