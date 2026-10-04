@@ -1007,7 +1007,7 @@ export default function Dashboard(){
           {!board.history.sports.length&&<div className="historyRow"><span>No settled sport history yet</span><b>—</b><small>ROI rankings remain blank until real results settle.</small></div>}
         </div>
       </div>
-      <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model's present fair value for a long position.</div>
+      <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model&apos;s present fair value for a long position.</div>
     </section>
 
     <section className="v21Panel">
