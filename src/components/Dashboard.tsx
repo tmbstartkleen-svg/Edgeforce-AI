@@ -7,6 +7,8 @@ import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
+import PredictionIntelligencePanel from './PredictionIntelligencePanel';
+import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -25,6 +27,7 @@ type BoardRow=Scanned & {
   predictionEdge?:number;
   predictionVenueQuotes:Array<{
     source:string;contractId:string;title:string;probability:number;executionProbability:number;
+    bidProbability?:number;askProbability?:number;spreadProbability?:number;
     volume?:number;liquidity?:number;matchScore:number;
     status:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
     edge:number;expectedValue:number;
@@ -699,6 +702,18 @@ export default function Dashboard(){
   const pmCount=filtered.filter(x=>x.period==='PM').length;
   const topGap=[...filtered].sort((a,b)=>Math.abs(b.probabilityGap)-Math.abs(a.probabilityGap)).slice(0,10);
   const predictions=[...board.predictions.contracts].sort((a,b)=>Math.abs(b.probabilityDifference)-Math.abs(a.probabilityDifference)).slice(0,12);
+  const proSignals=useMemo(()=>filtered
+    .map(row=>({row,signal:buildTradeSignal(row)}))
+    .sort((a,b)=>b.signal.score-a.signal.score||b.signal.expectedValue-a.signal.expectedValue),[filtered]);
+  const actionableSignals=proSignals.filter(x=>x.signal.action==='BUY'||x.signal.action==='BET');
+  const exitSignals=proSignals.filter(x=>x.signal.action==='REDUCE');
+  const watchSignals=proSignals.filter(x=>x.signal.action==='WATCH');
+  const nowSignals=actionableSignals.filter(x=>x.signal.timing==='NOW');
+  const crossVenueSignals=useMemo(()=>filtered
+    .map(row=>({row,opportunity:findCrossVenueOpportunity(row.predictionVenueQuotes||[])}))
+    .filter(x=>x.opportunity.comparableVenues>=2)
+    .sort((a,b)=>b.opportunity.grossArbitrageMargin-a.opportunity.grossArbitrageMargin||b.opportunity.disagreement-a.opportunity.disagreement),[filtered]);
+  const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
 
   return <main className="v21">
     <header className="v21Top">
@@ -905,6 +920,94 @@ export default function Dashboard(){
           </div>
         </div>
       </div>
+    </section>
+
+    <PredictionIntelligencePanel/>
+
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div>
+          <div className="eyebrow">V52 PRO SIGNALS • MARKET COMMAND CENTER</div>
+          <h3>Entry, patience, hold, and exit decisions from model edge + venue pricing + steam + confidence</h3>
+        </div>
+        <div className="panelMeta">
+          <span>{actionableSignals.length} enter</span>
+          <span>{nowSignals.length} timing now</span>
+          <span>{exitSignals.length} reduce / exit</span>
+          <span>{grossArbCandidates.length} gross arb candidate(s)</span>
+        </div>
+      </div>
+      <div className="v21Stats">
+        <div><small>TOP SIGNAL</small><strong>{proSignals[0]?.signal.score??0}/100</strong><span>{proSignals[0]?proSignals[0].row.selection:'No qualified signal'}</span></div>
+        <div><small>ENTER</small><strong>{actionableSignals.length}</strong><span>BUY on exchanges • BET on sportsbooks</span></div>
+        <div><small>WATCH</small><strong>{watchSignals.length}</strong><span>positive edge, gate not fully cleared</span></div>
+        <div><small>REDUCE / EXIT</small><strong>{exitSignals.length}</strong><span>market price above current model fair value</span></div>
+      </div>
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Highest conviction entries</h4>
+          {actionableSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-enter-'+row.id}>
+            <span>{signal.action+' '+row.selection}</span>
+            <b>{signal.score}/100</b>
+            <small>{row.sport+' • '+signal.venue+' • '+signal.timing+' • fair '+fmtPct(signal.fairProbability)+' • market '+fmtPct(signal.marketProbability)+' • EV '+(signal.expectedValue>=0?'+':'')+fmtPct(signal.expectedValue)}</small>
+          </div>)}
+          {!actionableSignals.length&&<div className="historyRow"><span>No entry clears the current gates</span><b>HOLD</b><small>The engine will not manufacture a BUY/BET signal.</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Price discipline + exits</h4>
+          {proSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-price-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{signal.venueType==='PREDICTION_EXCHANGE'?'≤ '+Math.round(signal.entryMaxProbability*100)+'¢':fmtOdds(signal.entryMinAmericanOdds)}</b>
+            <small>{signal.venue+' entry ceiling • reduce long YES near '+Math.round(signal.reduceAtProbability*100)+'¢ • '+(signal.riskFlags.length?signal.riskFlags.slice(0,2).join(' • '):'no primary risk flag')}</small>
+          </div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Timing + steam</h4>
+          {proSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-timing-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{signal.timing}</b>
+            <small>{(row.lineMovement?.steam?row.lineMovement.steamStrength+' steam '+row.lineMovement.direction.toLowerCase()+' • ':'')+'edge '+(signal.edge>=0?'+':'')+fmtPct(signal.edge)+' • confidence '+fmtPct(signal.confidence)}</small>
+          </div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Venue router</h4>
+          {proSignals.slice(0,8).map(({row,signal})=><div className="historyRow" key={'signal-venue-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{signal.venue}</b>
+            <small>{signal.venueType.replaceAll('_',' ')+' • '+(row.predictionVenueQuotes?.length||0)+' prediction venue quote(s) matched • best EV '+(signal.expectedValue>=0?'+':'')+fmtPct(signal.expectedValue)}</small>
+          </div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Cross-venue spread / arbitrage watch</h4>
+          {crossVenueSignals.slice(0,8).map(({row,opportunity})=><div className="historyRow" key={'cross-venue-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{opportunity.grossArbitrage?('GROSS ARB +'+fmtPct(opportunity.grossArbitrageMargin)):('GAP '+fmtPct(opportunity.disagreement))}</b>
+            <small>{opportunity.grossArbitrage
+              ?('buy YES '+Math.round((opportunity.buyYesAsk||0)*100)+'¢ '+(opportunity.buyYesVenue||'')+' • sell YES '+Math.round((opportunity.sellYesBid||0)*100)+'¢ '+(opportunity.sellYesVenue||'')+' • before fees/fill risk')
+              :(opportunity.comparableVenues+' venues • price disagreement only, not risk-free arbitrage')}</small>
+          </div>)}
+          {!crossVenueSignals.length&&<div className="historyRow"><span>No comparable exchange quotes</span><b>—</b><small>Kalshi/Polymarket matching will populate this when both venues quote the same outcome.</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Model / analyst leaderboard</h4>
+          {[...calibration.models].sort((a,b)=>b.decayedScore-a.decayedScore||b.sampleSize-a.sampleSize).slice(0,8).map(x=><div className="historyRow" key={'analyst-'+x.modelName+'-'+x.sport+'-'+x.marketKey}>
+            <span>{x.modelName}</span>
+            <b>{pct(x.decayedScore)}</b>
+            <small>{x.sport} • {x.marketKey} • {x.sampleSize} settled • {x.confidenceLabel}{x.brierScore!==undefined?' • Brier '+x.brierScore.toFixed(3):''}</small>
+          </div>)}
+          {!calibration.models.length&&<div className="historyRow"><span>No verified model history yet</span><b>—</b><small>Analyst/model ranking only appears after settled outcomes create evidence.</small></div>}
+        </div>
+        <div className="historyBox">
+          <h4>Sports profit leaderboard</h4>
+          {board.history.sports.slice(0,8).map(x=><div className="historyRow" key={'profit-sport-'+x.key}>
+            <span>{x.key}</span>
+            <b>{pct(x.roi||0)}</b>
+            <small>{x.hits}-{x.misses} • hit {pct(x.hitRate)} • net {money(x.net)} • {x.count} tracked slips</small>
+          </div>)}
+          {!board.history.sports.length&&<div className="historyRow"><span>No settled sport history yet</span><b>—</b><small>ROI rankings remain blank until real results settle.</small></div>}
+        </div>
+      </div>
+      <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model&apos;s present fair value for a long position.</div>
     </section>
 
     <section className="v21Panel">
