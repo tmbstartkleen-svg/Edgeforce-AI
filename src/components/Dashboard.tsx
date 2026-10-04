@@ -7,6 +7,7 @@ import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
+import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -920,6 +921,8 @@ export default function Dashboard(){
         </div>
       </div>
     </section>
+
+    <PredictionIntelligencePanel/>
 
     <section className="v21Panel">
       <div className="v21PanelHead">
