@@ -25,7 +25,8 @@
     "validate:cloudflare-build": "node scripts/validate-cloudflare-build.mjs",
     "configure:cloudflare-live": "node scripts/configure-cloudflare-live.mjs",
     "doctor:ml-service": "node scripts/ml-service-doctor.mjs",
-    "doctor:ml-activation": "node scripts/ml-activation-doctor.mjs"
+    "doctor:ml-activation": "node scripts/ml-activation-doctor.mjs",
+    "doctor:ml-first-tournament": "node scripts/ml-first-tournament-doctor.mjs"
   },
   "dependencies": {
     "next": "16.3.6",
