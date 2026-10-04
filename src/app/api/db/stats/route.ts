@@ -20,6 +20,9 @@ export async function GET(){
         (select count(*)::int from model_governance_snapshots) as model_governance_snapshots,
         (select count(*)::int from validation_runs) as validation_runs,
         (select count(*)::int from validation_snapshots) as validation_snapshots,
+        (select count(*)::int from prediction_positions) as prediction_positions,
+        (select count(*)::int from prediction_positions where status='open') as open_prediction_positions,
+        (select count(*)::int from prediction_position_marks) as prediction_position_marks,
         (select count(*)::int from bet_slips) as bet_slips,
         (select count(*)::int from bet_slips where result='open') as open_wagers,
         (select count(*)::int from bet_slips where result in ('win','loss','push')) as settled_wagers

@@ -5,6 +5,7 @@ import {fetchPolymarketLeaderboard} from '@/lib/predictionTraderIntelligence';
 import {
  persistPredictionContracts,persistPredictionTrades,upsertPublicTraderProfiles,predictionWarehouseStats
 } from '@/lib/predictionPersistence';
+import {persistPredictionPositionMarks} from '@/lib/predictionPositions';
 
 export const dynamic='force-dynamic';
 
@@ -30,7 +31,7 @@ export async function GET(req:Request){
    predictions.contracts
   );
 
-  const [marketWrite,tradeWrite,leaderWrite]=await Promise.all([
+  const [marketWrite,tradeWrite,leaderWrite,positionMarks]=await Promise.all([
    persistPredictionContracts(predictions.contracts,true),
    persistPredictionTrades(trades),
    upsertPublicTraderProfiles(
@@ -44,7 +45,8 @@ export async function GET(req:Request){
      verified:row.verified,
      raw:row as unknown as Record<string,unknown>
     }))
-   )
+   ),
+   persistPredictionPositionMarks(predictions.contracts)
   ]);
 
   const warehouse=await predictionWarehouseStats();
@@ -56,6 +58,7 @@ export async function GET(req:Request){
    tradesWritten:tradeWrite.written,
    tradersUpdated:tradeWrite.tradersUpdated,
    leaderboardProfiles:leaderWrite.written,
+   positionMarks,
    warehouse
   });
 
@@ -73,7 +76,8 @@ export async function GET(req:Request){
    persisted:{
     markets:marketWrite,
     trades:tradeWrite,
-    leaderboard:leaderWrite
+    leaderboard:leaderWrite,
+    positionMarks
    },
    warehouse,
    warnings:[

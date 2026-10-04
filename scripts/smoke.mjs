@@ -35,7 +35,7 @@ assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='51.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v51','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===41,'unexpected migration version');
+assert(health.body?.migrationVersion===42,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -119,7 +119,7 @@ assert(releaseReady.body?.version==='51.0.0','release readiness version mismatch
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
 assert(deployment.body?.version==='51.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v41','deployment migration identity mismatch');
+assert(deployment.body?.checks?.migrations==='v42','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
@@ -290,6 +290,12 @@ assert(predictionIntelligence.body?.category==='ECONOMICS','prediction category 
 assert(predictionIntelligence.body?.mover?.probabilityChange>0.14,'prediction mover calculation regressed');
 assert(predictionIntelligence.body?.signal?.rank===5,'prediction trader leaderboard join regressed');
 
+const predictionPositions=await get('/api/testing/prediction-positions');
+assert(predictionPositions.res.ok&&predictionPositions.body?.ok===true,'prediction position intelligence regression failed');
+assert(predictionPositions.body?.actions?.find?.((x)=>x.id===1)?.action==='ADD','prediction position add signal regressed');
+assert(predictionPositions.body?.actions?.find?.((x)=>x.id===2)?.action==='TAKE_PROFIT','prediction position take-profit signal regressed');
+assert(predictionPositions.body?.actions?.find?.((x)=>x.id===3)?.action==='EXIT','prediction position exit signal regressed');
+
 const liveParlays=await get('/api/parlays?size=2&view=week');
 assert(liveParlays.res.ok&&liveParlays.body?.ok===true,'live parlay endpoint failed');
 assert(liveParlays.body?.build==='V51','live parlay route build identity mismatch');
@@ -346,5 +352,5 @@ assert(String(health.res.headers.get('cache-control')||'').includes('no-store'),
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','context-quality','context-intelligence','public-context-network','validation-lab-regression','validation-lab','recommendation-quality','parlay-fallback','odds-refresh-policy','prediction-intelligence','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','context-quality','context-intelligence','public-context-network','validation-lab-regression','validation-lab','recommendation-quality','parlay-fallback','odds-refresh-policy','prediction-intelligence','prediction-positions','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
