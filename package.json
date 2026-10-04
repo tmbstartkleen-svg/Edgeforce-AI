@@ -1,6 +1,6 @@
 {
   "name": "edgeforce-ai",
-  "version": "0.56.0",
+  "version": "0.57.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -23,7 +23,9 @@
     "deploy:cloudflare": "npm run preflight:cloudflare && npm run build:vinext && npm run validate:cloudflare-build && vinext-cloudflare deploy --skip-build --config dist/server/wrangler.json",
     "preflight:cloudflare": "node scripts/cloudflare-preflight.mjs",
     "validate:cloudflare-build": "node scripts/validate-cloudflare-build.mjs",
-    "configure:cloudflare-live": "node scripts/configure-cloudflare-live.mjs"
+    "configure:cloudflare-live": "node scripts/configure-cloudflare-live.mjs",
+    "doctor:ml-service": "node scripts/ml-service-doctor.mjs",
+    "doctor:ml-activation": "node scripts/ml-activation-doctor.mjs"
   },
   "dependencies": {
     "next": "16.3.6",

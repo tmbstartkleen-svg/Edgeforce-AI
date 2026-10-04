@@ -17,5 +17,5 @@ export async function GET(){
   active:active.state==='ACTIVE'&&active.active
  };
  const ok=Object.values(assertions).every(Boolean);
- return Response.json({ok,build:'V56',assertions,states:{unconfigured,unhealthy,ready,awaiting,active}},{status:ok?200:500,headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok,build:'V57',assertions,states:{unconfigured,unhealthy,ready,awaiting,active}},{status:ok?200:500,headers:{'Cache-Control':'no-store'}});
 }

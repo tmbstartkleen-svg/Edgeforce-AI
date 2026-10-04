@@ -5,6 +5,11 @@ type HealthPayload={
  serviceVersion?:string;
  algorithms?:Record<string,boolean>;
  modelStore?:string;
+ deployment?:{
+  platform?:string|null;gitCommit?:string|null;gitBranch?:string|null;repoSlug?:string|null;
+  serviceId?:string|null;serviceName?:string|null;externalUrl?:string|null;
+  cpuCount?:string|null;instanceId?:string|null;
+ };
 };
 
 type CircuitState={
@@ -150,9 +155,9 @@ export async function probeMlService(options:{force?:boolean;persist?:boolean}={
   const result={
    ok:true,configured:true,circuitOpen:false,latencyMs,
    serviceVersion:body.serviceVersion||null,algorithms,predictionReady,trainingReady,
-   modelStore:body.modelStore||null,error:null
+   modelStore:body.modelStore||null,deployment:body.deployment||null,error:null
   };
-  if(options.persist!==false)await persistSnapshot({...result,details:{healthUrl:url}});
+  if(options.persist!==false)await persistSnapshot({...result,details:{healthUrl:url,deployment:body.deployment||null}});
   return result;
  }catch(error){
   const latencyMs=now()-started;

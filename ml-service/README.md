@@ -1,4 +1,4 @@
-# EdgeForce V56 ML Tournament Service
+# EdgeForce V57 ML Tournament Service
 
 Containerized Python service for heavyweight sport-specific model training and champion inference.
 
@@ -74,3 +74,27 @@ ML_PROMOTION_SERVICE_URL=https://<service>.onrender.com/promote
 ```
 
 Then call EdgeForce `POST /api/ml/activate`. V56 will health-check, verify the prediction schema, run the tournament, and only report `ACTIVE` if at least one champion is promoted.
+
+
+## V57 deployment automation
+
+The root workflow `.github/workflows/deploy-ml-service.yml` can deploy and verify this service after Edgeforce verification succeeds.
+
+Preferred credentials:
+- `RENDER_API_KEY`
+- `RENDER_ML_SERVICE_ID`
+
+Fallback:
+- `RENDER_ML_DEPLOY_HOOK_URL`
+
+Shared runtime values:
+- `RENDER_ML_SERVICE_BASE_URL`
+- `ML_SERVICE_KEY`
+- `ML_ACTIVATION_SECRET`
+- `EDGEFORCE_PRODUCTION_URL`
+
+The API path requests an exact commit deployment. The service exposes Render's `RENDER_GIT_COMMIT` and related runtime metadata from `/health`, allowing `scripts/ml-service-doctor.mjs` to verify the container that is actually running.
+
+After service verification, V57 ensures the Edgeforce production runtime has the ML endpoints and credentials, runs the existing hardened Edgeforce production deployment, executes the ML activation workflow, and records `/api/ml/deploy-attest`.
+
+A healthy service with no promoted champion is reported as `READY_AWAITING_EVIDENCE`, not `ACTIVE`.

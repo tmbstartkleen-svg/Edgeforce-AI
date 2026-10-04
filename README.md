@@ -2,7 +2,118 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V56 ML Service Activation
+## Current build — V57 ML Deployment Automation
+
+V57 automates the production handoff from the V56 activation-ready stack to a verified hosted ML service.
+
+### Deployment chain
+The new `.github/workflows/deploy-ml-service.yml` workflow performs the following sequence:
+
+1. deploy the Render ML service
+2. prefer the Render REST API for an exact commit deploy
+3. fall back to the service's secret deploy hook when API credentials are unavailable
+4. wait until the service answers `/health`
+5. verify `edgeforce-ml-service-v57`
+6. verify the running Render git commit when the exact API path is used
+7. verify required baseline algorithms
+8. verify the `edgeforce-ml-predict-v1` → `edgeforce-ml-predict-result-v1` contract
+9. ensure Edgeforce production receives the ML service URLs and keys
+10. use the existing hardened production deployment workflow for the Edgeforce runtime
+11. call `POST /api/ml/activate`
+12. accept only `ACTIVE` or `READY_AWAITING_EVIDENCE`
+13. persist a deployment attestation
+
+Automatic ML deployment after a successful main-branch verification is opt-in through the repository variable `ML_SERVICE_AUTO_DEPLOY=true`. Manual workflow dispatch remains available regardless of that variable.
+
+### Render deployment identity
+The Python service health payload now reports Render's runtime deployment metadata:
+- git commit
+- git branch
+- repository slug
+- service ID
+- service name
+- external URL
+- CPU count
+- instance ID
+
+This lets Edgeforce verify the actual running container instead of assuming a deploy request reached the intended revision.
+
+### Deployment doctors
+- `npm run doctor:ml-service`
+  - health endpoint
+  - service version
+  - exact Render commit when required
+  - baseline algorithm availability
+  - prediction contract handshake
+- `npm run doctor:ml-activation`
+  - calls the production Edgeforce activation endpoint
+  - optionally runs the heavyweight tournament
+  - only accepts `ACTIVE` or `READY_AWAITING_EVIDENCE`
+
+### Vercel runtime wiring
+The canonical production deploy accepts the Render base URL and ML service key from GitHub Actions secrets and injects:
+- `ML_HEALTH_SERVICE_URL`
+- `ML_PREDICTION_SERVICE_URL`
+- `ML_PREDICTION_SERVICE_KEY`
+- `ML_TRAINING_SERVICE_URL`
+- `ML_TRAINING_SERVICE_KEY`
+- `ML_PROMOTION_SERVICE_URL`
+- `ML_ACTIVATION_SECRET`
+
+For a manual ML-service deployment, the V57 workflow also updates the corresponding Vercel Production environment variables and then dispatches the existing hardened production deploy workflow.
+
+### Required GitHub Actions secrets
+For live V57 deployment automation:
+- `RENDER_ML_SERVICE_BASE_URL`
+- `ML_SERVICE_KEY`
+- `ML_ACTIVATION_SECRET`
+- `EDGEFORCE_PRODUCTION_URL`
+- `VERCEL_TOKEN`
+
+Use either:
+- `RENDER_API_KEY` + `RENDER_ML_SERVICE_ID` for exact commit deployments, or
+- `RENDER_ML_DEPLOY_HOOK_URL` as the fallback deployment trigger
+
+### Durable deployment attestation
+Migration `v46` adds `ml_service_deployment_attestations`, recording:
+- Edgeforce model version
+- ML service version
+- Render service identity
+- running git commit / branch
+- Render deploy ID
+- health result
+- prediction handshake
+- activation state
+- tournament state
+- active champion count
+- available algorithms
+- deployment error/details
+
+APIs:
+- `GET /api/ml/deploy-attest`
+- authenticated `POST /api/ml/deploy-attest`
+- regression: `GET /api/testing/ml-deployment`
+
+### UI
+The dashboard and `/models` now include **V57 ML Deployment Automation**, showing the attested commit, service health, prediction handshake, tournament state, and active champion count.
+
+### Release identity
+- build: `V57`
+- app: `57.0.0`
+- package: `0.57.0`
+- model: `edgeforce-v57`
+- migration: `v46`
+- ML service: `edgeforce-ml-service-v57`
+
+### Guardrails
+- deployment success does not imply model promotion
+- the exact Render commit is checked when the API deployment path is available
+- external ML activation remains fail-closed
+- `READY_AWAITING_EVIDENCE` is treated as a valid safe deployment state
+- native Edgeforce models remain available if Render deployment, health, inference, or activation fails
+- model performance remains probabilistic and is never treated as guaranteed profit
+
+## Previous build — V56 ML Service Activation
 
 V56 takes the V55 heavyweight Python tournament service from a repository component to an activation-ready production service with explicit deployment, health, circuit-breaker, handshake and activation states.
 

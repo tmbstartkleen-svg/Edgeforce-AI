@@ -20,6 +20,9 @@ jobs:
       VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+      ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
+      ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
+      ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
     steps:
       - name: Verify deployment credential
         run: test -n "$VERCEL_TOKEN"
@@ -69,7 +72,7 @@ jobs:
             --prod
             --yes
             --token="$VERCEL_TOKEN"
-            --env MODEL_VERSION=edgeforce-v56
+            --env MODEL_VERSION=edgeforce-v57
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -82,6 +85,20 @@ jobs:
           )
           if [ -n "$THE_ODDS_API_KEY" ]; then
             args+=(--env THE_ODDS_API_KEY="$THE_ODDS_API_KEY")
+          fi
+          if [ -n "$ML_SERVICE_BASE_URL" ] && [ -n "$ML_SERVICE_KEY" ]; then
+            base="${ML_SERVICE_BASE_URL%/}"
+            args+=(
+              --env ML_HEALTH_SERVICE_URL="$base/health"
+              --env ML_PREDICTION_SERVICE_URL="$base/predict"
+              --env ML_PREDICTION_SERVICE_KEY="$ML_SERVICE_KEY"
+              --env ML_TRAINING_SERVICE_URL="$base/train"
+              --env ML_TRAINING_SERVICE_KEY="$ML_SERVICE_KEY"
+              --env ML_PROMOTION_SERVICE_URL="$base/promote"
+            )
+          fi
+          if [ -n "$ML_ACTIVATION_SECRET" ]; then
+            args+=(--env ML_ACTIVATION_SECRET="$ML_ACTIVATION_SECRET")
           fi
           URL=$(vercel deploy "${args[@]}")
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
@@ -125,7 +142,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "56.0.0"
+          EXPECTED_APP_VERSION: "57.0.0"
 
       - name: Record production release attestation
         env:
