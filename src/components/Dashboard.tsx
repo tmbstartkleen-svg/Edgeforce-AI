@@ -23,6 +23,22 @@ type BoardRow=Scanned & {
   predictionMarketTitle?:string;
   predictionMarketStatus:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
   predictionEdge?:number;
+  predictionVenueQuotes:Array<{
+    source:string;contractId:string;title:string;probability:number;executionProbability:number;
+    volume?:number;liquidity?:number;matchScore:number;
+    status:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
+    edge:number;expectedValue:number;
+  }>;
+  bestPredictionVenue?:{
+    source:string;contractId:string;title:string;probability:number;executionProbability:number;
+    volume?:number;liquidity?:number;matchScore:number;
+    status:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
+    edge:number;expectedValue:number;
+  };
+  bestExecutionVenue:{
+    venue:string;type:'SPORTSBOOK'|'PREDICTION_EXCHANGE';edge:number;expectedValue:number;
+    marketProbability:number;americanOdds?:number;contractId?:string;matchScore?:number;feeAdjusted:boolean;
+  };
   lineMovement?:{
     openerOdds:number;
     currentOdds:number;
@@ -94,6 +110,10 @@ type LiveBoardResponse={
     highConfidence:number;mediumConfidence:number;lowConfidence:number;averageDynamicConfidence:number;
   };
   warnings?:string[];
+  topBoardQualification?:{
+    requested:number;candidates:number;qualified:number;shown:number;withheld:number;forced:boolean;
+    minimumSimProbability:number;minimumDynamicConfidence:number;allowedGrades:string[];
+  };
   contextRevision?:string;
   contextChanges?:Array<{
     id:string;
@@ -894,14 +914,15 @@ export default function Dashboard(){
           <h3>{view==='today'?'Highest simulation probability first':'Probability score distributed across the week'}</h3>
         </div>
         <div className="panelMeta">
-          <span>{filtered.length} shown</span>
+          <span>{filtered.length} shown • {board.topBoardQualification?.withheld??0} withheld</span>
+          <span>{board.topBoardQualification?.forced===false?'QUALITY ONLY • NOT FORCED':'loading qualification'}</span>
           <span>{board.generatedAt?dateLabel(board.generatedAt):'loading'}</span>
         </div>
       </div>
       <div className="tableWrap">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Target Edge</th><th>PM Edge</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
             {filtered.map((x,i)=><tr key={x.id}>
@@ -918,12 +939,13 @@ export default function Dashboard(){
               <td><b>{fmtPct(x.dynamicConfidence)}</b><small>{x.confidenceLabel} • {x.regime}</small></td>
               <td className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</td>
               <td className={(x.predictionEdge??0)>=0?'lime':'negative'}>{x.predictionEdge===undefined?'—':`${x.predictionEdge>=0?'+':''}${fmtPct(x.predictionEdge)}`}</td>
+              <td><b>{x.bestExecutionVenue?.venue||'—'}</b><small>{x.bestExecutionVenue?`${x.bestExecutionVenue.type.replaceAll('_',' ')} • EV ${x.bestExecutionVenue.expectedValue>=0?'+':''}${fmtPct(x.bestExecutionVenue.expectedValue)}${x.bestExecutionVenue.feeAdjusted?'':' • gross before fees'}`:'no route'}</small></td>
               <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>)}
-            {!filtered.length&&<tr><td colSpan={17} className="emptyRow">No rows match the current filters.</td></tr>}
+            {!filtered.length&&<tr><td colSpan={18} className="emptyRow">No qualified rows match the current filters. Edgeforce will not pad the Top 30 with lower-grade plays.</td></tr>}
           </tbody>
         </table>
       </div>
