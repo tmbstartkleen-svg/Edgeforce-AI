@@ -99,7 +99,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const configuredMaxSports=Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
  const expansionMarkets=String(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h');
  const markets=String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
- const bookmakers=String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,betmgm,williamhill_us');
+ const bookmakers=String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us');
  const regions=String(process.env.THE_ODDS_API_REGIONS||'us');
  const warnings:string[]=[];
  const attempts:TheOddsApiAttempt[]=[];
