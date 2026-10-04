@@ -128,16 +128,16 @@ export async function settleExternalMlPredictionFeedback(results:PredictionFeedb
  for(const result of results){
   if(result.result==='push')continue;
   const outcome=result.result==='win'?1:0;
-  const rows=await sql\`
+  const rows=await sql`
    update external_ml_prediction_snapshots
-   set outcome=\${outcome},settled_at=\${result.settledAt||new Date().toISOString()},
-       closing_odds=\${result.closingOdds??null}
-   where market_id=\${result.eventId}
+   set outcome=${outcome},settled_at=${result.settledAt||new Date().toISOString()},
+       closing_odds=${result.closingOdds??null}
+   where market_id=${result.eventId}
      and outcome is null
-     and (\${result.marketKey??null}::text is null or lower(market_key)=lower(\${result.marketKey??''}))
-     and lower(coalesce(metadata->>'selection',''))=lower(\${result.selectionKey})
+     and (${result.marketKey??null}::text is null or lower(market_key)=lower(${result.marketKey??''}))
+     and lower(coalesce(metadata->>'selection',''))=lower(${result.selectionKey})
    returning id
-  \`;
+  `;
   matched+=rows.length;settled+=rows.length;
  }
  return {matched,settled,mode:'database' as const};
@@ -145,7 +145,7 @@ export async function settleExternalMlPredictionFeedback(results:PredictionFeedb
 
 async function championRows():Promise<ChampionRow[]>{
  const sql=db(); if(!sql)return [];
- const rows=await sql\`
+ const rows=await sql`
   select sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
    holdout_brier::float as "holdoutBrier",holdout_log_loss::float as "holdoutLogLoss",
    calibration_error::float as "calibrationError",brier_skill_score::float as "brierSkillScore",
@@ -153,32 +153,32 @@ async function championRows():Promise<ChampionRow[]>{
   from external_ml_champions
   where active=true and status='ACTIVE'
   order by sport,market_key
- \`;
+ `;
  return rows as unknown as ChampionRow[];
 }
 
 async function recentSettled(serviceModelId:string,limit:number):Promise<SettledRow[]>{
  const sql=db(); if(!sql)return [];
- const rows=await sql\`
+ const rows=await sql`
   select probability::float,outcome,
    coalesce(market_baseline_probability,(metadata->>'marketProbability')::float)::float as "marketBaselineProbability",
    settled_at as "settledAt"
   from external_ml_prediction_snapshots
-  where service_model_id=\${serviceModelId} and outcome is not null
+  where service_model_id=${serviceModelId} and outcome is not null
    and coalesce(market_baseline_probability,(metadata->>'marketProbability')::float) is not null
   order by settled_at desc
-  limit \${Math.max(1,Math.min(1000,limit))}
- \`;
+  limit ${Math.max(1,Math.min(1000,limit))}
+ `;
  return rows as unknown as SettledRow[];
 }
 
 async function previousCriticalRuns(serviceModelId:string){
  const sql=db(); if(!sql)return 0;
- const rows=await sql\`
+ const rows=await sql`
   select state from ml_champion_monitor_snapshots
-  where service_model_id=\${serviceModelId}
+  where service_model_id=${serviceModelId}
   order by observed_at desc limit 2
- \`;
+ `;
  let consecutive=0;
  for(const row of rows as any[]){
   if(String(row.state)==='CRITICAL')consecutive++; else break;
@@ -189,11 +189,11 @@ async function previousCriticalRuns(serviceModelId:string){
 export async function runChampionDriftMonitor(){
  const sql=db();
  if(!sql)return {ok:true,mode:'dry-run' as const,champions:0,healthy:0,watch:0,critical:0,quarantined:0,insufficient:0,rows:[]};
- const [run]=await sql\`
+ const [run]=await sql`
   insert into ml_champion_monitor_runs(model_version,status,started_at)
-  values(\${RELEASE.modelVersion},'running',now())
+  values(${RELEASE.modelVersion},'running',now())
   returning id
- \`;
+ `;
  const window=Math.max(20,Number(process.env.ML_CHAMPION_DRIFT_WINDOW||100));
  const minSample=Math.max(20,Number(process.env.ML_CHAMPION_DRIFT_MIN_SAMPLE||30));
  const rows:any[]=[];
@@ -217,27 +217,27 @@ export async function runChampionDriftMonitor(){
    if(action==='QUARANTINE'){
     const retired=await retireHostedChampion(champion,reason);
     if(retired.ok){
-     await sql\`
+     await sql`
       update external_ml_champions set
-       active=false,status='QUARANTINED',quarantined_at=now(),quarantine_reason=\${reason},
-       last_monitor_at=now(),live_sample_size=\${metrics.sampleSize},
-       live_brier=\${metrics.liveBrier},live_log_loss=\${metrics.liveLogLoss},
-       live_calibration_error=\${metrics.liveCalibrationError},
-       live_brier_skill_score=\${metrics.liveBrierSkillScore},live_drift_score=\${metrics.driftScore}
-      where sport=\${champion.sport} and market_key=\${champion.marketKey}
-       and service_model_id=\${champion.serviceModelId} and active=true
-     \`;
-     await sql\`
+       active=false,status='QUARANTINED',quarantined_at=now(),quarantine_reason=${reason},
+       last_monitor_at=now(),live_sample_size=${metrics.sampleSize},
+       live_brier=${metrics.liveBrier},live_log_loss=${metrics.liveLogLoss},
+       live_calibration_error=${metrics.liveCalibrationError},
+       live_brier_skill_score=${metrics.liveBrierSkillScore},live_drift_score=${metrics.driftScore}
+      where sport=${champion.sport} and market_key=${champion.marketKey}
+       and service_model_id=${champion.serviceModelId} and active=true
+     `;
+     await sql`
       insert into external_ml_champion_history(
        sport,market_key,algorithm,service_model_id,action,composite_score,brier_skill_score,
        holdout_brier,holdout_log_loss,calibration_error,reason,model_version,metadata,recorded_at
       ) select sport,market_key,algorithm,service_model_id,'QUARANTINED',composite_score,brier_skill_score,
-       holdout_brier,holdout_log_loss,calibration_error,\${reason},\${RELEASE.modelVersion},
-       \${sql.json({liveSampleSize:metrics.sampleSize,liveBrier:metrics.liveBrier,liveBrierSkillScore:metrics.liveBrierSkillScore,liveCalibrationError:metrics.liveCalibrationError,driftScore:metrics.driftScore} as any)},now()
+       holdout_brier,holdout_log_loss,calibration_error,${reason},${RELEASE.modelVersion},
+       ${sql.json({liveSampleSize:metrics.sampleSize,liveBrier:metrics.liveBrier,liveBrierSkillScore:metrics.liveBrierSkillScore,liveCalibrationError:metrics.liveCalibrationError,driftScore:metrics.driftScore} as any)},now()
       from external_ml_champions
-      where sport=\${champion.sport} and market_key=\${champion.marketKey}
-       and service_model_id=\${champion.serviceModelId}
-     \`;
+      where sport=${champion.sport} and market_key=${champion.marketKey}
+       and service_model_id=${champion.serviceModelId}
+     `;
      quarantined++;action='QUARANTINED';
      reason+='; hosted champion retired and EdgeForce reverted to native-model fallback';
     }else{
@@ -245,48 +245,48 @@ export async function runChampionDriftMonitor(){
      reason+='; quarantine blocked because hosted retirement failed: '+retired.error;
     }
    }else{
-    await sql\`
+    await sql`
      update external_ml_champions set
-      last_monitor_at=now(),live_sample_size=\${metrics.sampleSize},
-      live_brier=\${metrics.liveBrier},live_log_loss=\${metrics.liveLogLoss},
-      live_calibration_error=\${metrics.liveCalibrationError},
-      live_brier_skill_score=\${metrics.liveBrierSkillScore},live_drift_score=\${metrics.driftScore}
-     where sport=\${champion.sport} and market_key=\${champion.marketKey}
-      and service_model_id=\${champion.serviceModelId}
-    \`;
+      last_monitor_at=now(),live_sample_size=${metrics.sampleSize},
+      live_brier=${metrics.liveBrier},live_log_loss=${metrics.liveLogLoss},
+      live_calibration_error=${metrics.liveCalibrationError},
+      live_brier_skill_score=${metrics.liveBrierSkillScore},live_drift_score=${metrics.driftScore}
+     where sport=${champion.sport} and market_key=${champion.marketKey}
+      and service_model_id=${champion.serviceModelId}
+    `;
    }
 
-   await sql\`
+   await sql`
     insert into ml_champion_monitor_snapshots(
      monitor_run_id,sport,market_key,algorithm,service_model_id,state,sample_size,recent_window,
      live_brier,live_log_loss,live_calibration_error,live_brier_skill_score,market_brier,
      training_holdout_brier,brier_degradation,drift_score,prior_critical_runs,action,reason,metrics,
      model_version,observed_at
     ) values(
-     \${run.id},\${champion.sport},\${champion.marketKey},\${champion.algorithm},\${champion.serviceModelId},
-     \${state},\${metrics.sampleSize},\${window},\${metrics.liveBrier},\${metrics.liveLogLoss},
-     \${metrics.liveCalibrationError},\${metrics.liveBrierSkillScore},\${metrics.marketBrier},
-     \${champion.holdoutBrier},\${metrics.brierDegradation},\${metrics.driftScore},\${priorCritical},
-     \${action},\${reason},\${sql.json({trainingHoldoutLogLoss:champion.holdoutLogLoss,trainingCalibrationError:champion.calibrationError,trainingBrierSkillScore:champion.brierSkillScore} as any)},
-     \${RELEASE.modelVersion},now()
+     ${run.id},${champion.sport},${champion.marketKey},${champion.algorithm},${champion.serviceModelId},
+     ${state},${metrics.sampleSize},${window},${metrics.liveBrier},${metrics.liveLogLoss},
+     ${metrics.liveCalibrationError},${metrics.liveBrierSkillScore},${metrics.marketBrier},
+     ${champion.holdoutBrier},${metrics.brierDegradation},${metrics.driftScore},${priorCritical},
+     ${action},${reason},${sql.json({trainingHoldoutLogLoss:champion.holdoutLogLoss,trainingCalibrationError:champion.calibrationError,trainingBrierSkillScore:champion.brierSkillScore} as any)},
+     ${RELEASE.modelVersion},now()
     )
-   \`;
+   `;
    rows.push({champion,...metrics,state,action,reason,priorCritical});
   }
 
-  await sql\`
+  await sql`
    update ml_champion_monitor_runs set
-    status='completed',completed_at=now(),champions_checked=\${rows.length},
-    healthy=\${healthy},watch=\${watch},critical=\${critical},quarantined=\${quarantined},insufficient=\${insufficient}
-   where id=\${run.id}
-  \`;
+    status='completed',completed_at=now(),champions_checked=${rows.length},
+    healthy=${healthy},watch=${watch},critical=${critical},quarantined=${quarantined},insufficient=${insufficient}
+   where id=${run.id}
+  `;
   return {ok:true,mode:'database' as const,runId:Number(run.id),champions:rows.length,healthy,watch,critical,quarantined,insufficient,rows};
  }catch(error){
-  await sql\`
+  await sql`
    update ml_champion_monitor_runs set status='failed',completed_at=now(),
-    error_text=\${error instanceof Error?error.message:'champion drift monitor failed'}
-   where id=\${run.id}
-  \`.catch(()=>undefined);
+    error_text=${error instanceof Error?error.message:'champion drift monitor failed'}
+   where id=${run.id}
+  `.catch(()=>undefined);
   throw error;
  }
 }
@@ -295,13 +295,13 @@ export async function championDriftStatus(){
  const sql=db();
  if(!sql)return {ok:true,source:'none' as const,latestRun:null,champions:[],recent:[]};
  try{
-  const [latestRun]=await sql\`
+  const [latestRun]=await sql`
    select id,model_version as "modelVersion",status,champions_checked as "championsChecked",
     healthy,watch,critical,quarantined,insufficient,error_text as error,
     started_at as "startedAt",completed_at as "completedAt"
    from ml_champion_monitor_runs order by started_at desc limit 1
-  \`;
-  const champions=await sql\`
+  `;
+  const champions=await sql`
    select sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
     active,status,promoted_at as "promotedAt",quarantined_at as "quarantinedAt",
     quarantine_reason as "quarantineReason",last_monitor_at as "lastMonitorAt",
@@ -310,8 +310,8 @@ export async function championDriftStatus(){
     live_brier_skill_score::float as "liveBrierSkillScore",live_drift_score::float as "liveDriftScore",
     holdout_brier::float as "holdoutBrier",brier_skill_score::float as "trainingBrierSkillScore"
    from external_ml_champions order by active desc,sport,market_key
-  \`;
-  const recent=await sql\`
+  `;
+  const recent=await sql`
    select sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
     state,sample_size as "sampleSize",recent_window as "recentWindow",
     live_brier::float as "liveBrier",live_log_loss::float as "liveLogLoss",
@@ -321,7 +321,7 @@ export async function championDriftStatus(){
     drift_score::float as "driftScore",prior_critical_runs as "priorCriticalRuns",action,reason,
     observed_at as "observedAt"
    from ml_champion_monitor_snapshots order by observed_at desc limit 500
-  \`;
+  `;
   return {ok:true,source:'database' as const,latestRun:latestRun||null,champions,recent};
  }catch(error){
   return {ok:false,source:'database' as const,latestRun:null,champions:[],recent:[],error:error instanceof Error?error.message:'champion drift status failed'};
