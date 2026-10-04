@@ -2,7 +2,82 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V53 Expert Modeling Suite
+## Current build — V54 Trained Sport-Specific ML
+
+V54 turns Edgeforce's settled prediction history into independently trained sport-specific machine-learning models. Promoted models become a new **Trained Sport ML** vote inside the V53 Expert Model Council; held models remain diagnostic-only.
+
+### Native training engine
+V54 trains calibrated L2-regularized logistic models for supported sports and, when sample size permits, sport/market combinations:
+- NFL and NCAAF
+- MLB
+- NBA, WNBA and NCAAB
+- NHL
+- Soccer
+- Tennis and Table Tennis
+- UFC/MMA and Boxing
+- Golf and Motorsports
+- Cricket, Rugby, Volleyball and Lacrosse
+- Esports
+
+The feature vector intentionally excludes previous Expert Suite/model-council votes so a model cannot learn from its own prior output. Training uses sportsbook implied probability, multi-book consensus/sharp-public structure, context quality and sport-specific features captured before settlement.
+
+### Chronological validation
+Each candidate uses time-ordered data:
+- first 70% — model fitting
+- next 15% — probability calibration
+- final 15% — untouched holdout
+
+Promotion requires:
+- minimum settled sample size
+- minimum holdout sample size
+- positive Brier Skill Score versus sportsbook implied probability
+- holdout log loss that is not worse than the market baseline
+- acceptable holdout calibration error
+
+A candidate that fails any gate is stored as **HELD** and cannot influence live recommendations.
+
+### Runtime integration
+- promoted artifacts are stored in `trained_model_artifacts`
+- live markets load the newest promoted sport/market artifact
+- the trained probability is added as `Trained Sport ML` inside the Expert Modeling Suite
+- prediction snapshots are persisted for later validation and drift analysis
+- daily recalibration automatically retrains eligible candidates
+- training is bounded with deterministic mini-batches and a configurable recent-history cap
+
+### APIs and UI
+- main dashboard: **V54 Trained Sport-Specific ML**
+- dedicated modeling page: `/models`
+- status: `GET /api/intelligence/trained-models`
+- authenticated manual training: `POST /api/ml/train`
+- deterministic regression: `GET /api/testing/trained-models`
+- expert catalog: `GET /api/sports/models`
+
+### Default training controls
+- `TRAINED_MODEL_MIN_SAMPLE=80`
+- `TRAINED_MODEL_MIN_HOLDOUT=20`
+- `TRAINED_MODEL_LOOKBACK_ROWS=30000`
+- `TRAINED_MODEL_MAX_GROUP_ROWS=4000`
+- `TRAINED_MODEL_BATCH_SIZE=256`
+- `TRAINED_MODEL_L2=0.015`
+- `TRAINED_MODEL_STEPS=700`
+- `TRAINED_MODEL_LR=0.035`
+
+### Release identity
+- build: `V54`
+- app: `54.0.0`
+- package: `0.54.0`
+- model: `edgeforce-v54`
+- migration: `v43`
+
+### Guardrails
+- no model is promoted because it has a good in-sample fit
+- the untouched chronological holdout must beat the sportsbook probability baseline
+- prior council/expert predictions are excluded from training features to prevent recursive confidence inflation
+- insufficient-history sports remain inactive instead of receiving fabricated probabilities
+- promoted models continue to pass through Edgeforce's existing validation, governance, context and portfolio-risk layers
+- historical success does not guarantee future profitability
+
+## Previous build — V53 Expert Modeling Suite
 
 V53 turns professional sports-prediction methods into a dedicated, inspectable modeling layer instead of hiding every approach inside one blended score.
 
