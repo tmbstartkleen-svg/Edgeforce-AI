@@ -87,7 +87,8 @@ const requiredFiles=[
  'src/lib/predictionPositions.ts',
  'src/app/api/prediction-positions/route.ts',
  'src/app/api/prediction-positions/intelligence/route.ts',
- 'src/components/PredictionPositionPanel.tsx'
+ 'src/components/PredictionPositionPanel.tsx',
+ 'src/app/api/testing/prediction-positions/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -117,6 +118,7 @@ add('prediction position migration schema',read('db/v42.sql').includes('predicti
 add('prediction position intelligence',read('src/lib/predictionPositionIntelligence.ts').includes("'TAKE_PROFIT'")&&read('src/lib/predictionPositionIntelligence.ts').includes("'EXIT'"),'position-aware add/hold/trim/take-profit/exit engine');
 add('prediction position hourly marks',read('src/app/api/cron/predictions/route.ts').includes('persistPredictionPositionMarks'),'Cloudflare prediction collector snapshots open-position decisions');
 add('prediction position mobile view',read('src/components/MobilePredictionTerminal.tsx').includes("setTab('POSITIONS')")&&read('src/components/MobilePredictionTerminal.tsx').includes('take-profit review'),'iPhone PWA exposes live position intelligence');
+add('prediction position regression',read('src/app/api/testing/prediction-positions/route.ts').includes("action==='ADD'")&&read('src/app/api/testing/prediction-positions/route.ts').includes("action==='EXIT'"),'deterministic add/take-profit/exit regression');
 add('prediction trader intelligence',read('src/lib/predictionTraderIntelligence.ts').includes('/leaderboard')&&read('src/lib/predictionTraderIntelligence.ts').includes('buildTraderSignals'),'public trader leaderboard and smart-money scoring');
 add('prediction market movers',read('src/lib/predictionFlow.ts').includes('marketMovers')&&read('src/app/api/prediction-terminal/route.ts').includes('movers'),'market mover analytics exposed');
 add('prediction warehouse persistence',read('src/lib/predictionPersistence.ts').includes('prediction_market_snapshots')&&read('src/app/api/cron/predictions/route.ts').includes('persistPredictionTrades'),'Cloudflare collector persists market and trade history');
