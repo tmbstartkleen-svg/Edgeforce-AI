@@ -100,6 +100,26 @@ async function currentChampion(sport:string,marketKey:string){
  }
 }
 
+async function quarantinePromotionBlock(sport:string,marketKey:string){
+ const sql=db();
+ if(!sql)return {blocked:false,until:null as string|null,hours:0};
+ const hours=Math.max(1,Number(process.env.ML_CHAMPION_QUARANTINE_COOLDOWN_HOURS||24));
+ try{
+  const rows=await sql`
+   select recorded_at as "recordedAt"
+   from external_ml_champion_history
+   where sport=${sport} and market_key=${marketKey} and action='QUARANTINED'
+   order by recorded_at desc limit 1
+  `;
+  if(!rows.length)return {blocked:false,until:null as string|null,hours};
+  const at=new Date((rows[0] as any).recordedAt).getTime();
+  const until=at+hours*3600000;
+  return {blocked:Date.now()<until,until:new Date(until).toISOString(),hours};
+ }catch{
+  return {blocked:false,until:null as string|null,hours};
+ }
+}
+
 async function callTrainingService(groups:Array<{sport:string;marketKey:string;featureNames:string[];rows:Array<{occurredAt:string;features:number[];outcome:0|1;marketProbability:number}>}>){
  const url=String(process.env.ML_TRAINING_SERVICE_URL||'').trim();
  if(!url)return {configured:false,ok:false,error:'ML_TRAINING_SERVICE_URL is not configured'} as const;
@@ -244,8 +264,13 @@ export async function runExternalMlTournament(){
 
   for(const group of responseGroups){
    const incumbent=await currentChampion(group.sport,group.marketKey);
+   const cooldown=!incumbent?await quarantinePromotionBlock(group.sport,group.marketKey):{blocked:false,until:null,hours:0};
    const winner=group.champion||null;
-   const decision=winner?promotionDecision(winner,incumbent,promotionMargin):{promote:false,reason:'No eligible service winner'};
+   const decision=winner
+    ?(cooldown.blocked
+      ?{promote:false,reason:'External ML slot is in post-quarantine cooldown until '+cooldown.until}
+      :promotionDecision(winner,incumbent,promotionMargin))
+    :{promote:false,reason:'No eligible service winner'};
    let promotionResult:{ok:boolean;error?:string}|null=null;
    if(winner&&decision.promote){
     promotionResult=await promoteServiceCandidate(group,winner);
