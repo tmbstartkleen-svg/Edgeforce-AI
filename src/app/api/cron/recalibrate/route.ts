@@ -14,15 +14,15 @@ export async function GET(req:Request){
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
  const started=Date.now();
  try{
-  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,externalMlTournament,championDrift]=await Promise.all([
+  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels]=await Promise.all([
    runRecalibration(),
    rebuildLearnedSgpCorrelations(),
    runModelGovernance(),
    runValidationLab(),
-   trainAndPersistSportModels(),
-   runExternalMlTournament().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'external ML tournament failed'})),
-   runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}))
+   trainAndPersistSportModels()
   ]);
+  const championDrift=await runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}));
+  const externalMlTournament=await runExternalMlTournament().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'external ML tournament failed'}));
   await recordAutomationRun('recalibrate','success',started,{
    calibrationMode:(modelCalibration as any).mode||null,
    groups:(modelCalibration as any).groups?.length??null,
