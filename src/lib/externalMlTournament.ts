@@ -166,7 +166,7 @@ async function promoteServiceCandidate(group:ServiceGroup,candidate:ServiceCandi
  }
 }
 
-function promotionDecision(candidate:ServiceCandidate,incumbent:any,margin:number){
+export function promotionDecision(candidate:ServiceCandidate,incumbent:any,margin:number){
  if(!candidate.eligible)return {promote:false,reason:'Candidate failed service eligibility gates'};
  if(!incumbent)return {promote:true,reason:'No incumbent external ML champion'};
  const incumbentScore=Number(incumbent.compositeScore)||0;
