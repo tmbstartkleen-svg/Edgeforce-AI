@@ -53,7 +53,7 @@ export async function GET(){
  const ok=Object.values(assertions).every(Boolean);
 
  return Response.json({
-  ok,build:'V58',assertions,
+  ok,build:'V59',assertions,
   expert:{probability:expert.probability,modelCount:expert.modelCount,agreement:expert.agreement},
   modelIds:[...ids],
   expertVote:expertVote||null
