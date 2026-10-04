@@ -72,7 +72,7 @@ jobs:
             --prod
             --yes
             --token="$VERCEL_TOKEN"
-            --env MODEL_VERSION=edgeforce-v56
+            --env MODEL_VERSION=edgeforce-v57
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -142,7 +142,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "56.0.0"
+          EXPECTED_APP_VERSION: "57.0.0"
 
       - name: Record production release attestation
         env:
