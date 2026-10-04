@@ -20,11 +20,23 @@ type Mover={
  venue:string;title:string;probabilityChange:number;latestYesProbability:number;
  netYesFlow:number;grossNotional:number;
 };
+type DecisionSignal={
+ signalKey:string;venue:string;title:string;category:string;direction:'YES'|'NO';
+ action:'BUY_YES'|'BUY_NO'|'WATCH_YES'|'WATCH_NO'|'WAIT'|'AVOID';
+ score:number;evidenceGrade:'A'|'B'|'C';fairOutcomeProbability:number;
+ executionProbability:number;edge:number;entryProbability:number;
+ takeProfitProbability:number;reviewFairProbability:number;sourceVenue:string;
+ riskFlags:string[];
+};
 type Response={
  ok:boolean;
- summary:{contracts:number;smartFlowSignals:number;strongCrossVenueMatches:number;smartTraders:number;tradeNotional24h:number};
+ summary:{
+  contracts:number;smartFlowSignals:number;strongCrossVenueMatches:number;smartTraders:number;tradeNotional24h:number;
+  decisionSignals:number;buyYesSignals:number;buyNoSignals:number;gradeASignals:number;
+ };
  smartFlow:SmartFlow[];
  traderSignals:TraderSignal[];
+ decisionSignals:DecisionSignal[];
  crossVenueGaps:Gap[];
  movers:Mover[];
  warnings:string[];
@@ -68,11 +80,44 @@ export default function PredictionIntelligencePanel(){
    </div>
    <div className="panelMeta">
     <span>{data?.summary.contracts??0} markets</span>
-    <span>{data?.summary.smartTraders??0} trader signals</span>
+    <span>{(data?.summary.buyYesSignals??0)+(data?.summary.buyNoSignals??0)} buy signals</span>
+    <span>{data?.summary.gradeASignals??0} grade A</span>
     <span>{money(data?.summary.tradeNotional24h)} 24h tracked flow</span>
    </div>
   </div>
   {error&&<div className="v21Alert">{error}</div>}
+  <div className="historyGrid">
+   <div className="historyBox">
+    <h4>All-market BUY YES</h4>
+    {(data?.decisionSignals||[]).filter(x=>x.action==='BUY_YES').slice(0,6).map(x=><div className="historyRow" key={x.signalKey}>
+     <span>{x.title}</span><b>{x.score}/100</b>
+     <small>{x.venue} • entry ≤ {Math.round(x.entryProbability*100)}¢ • fair YES {pct(x.fairOutcomeProbability)} • edge +{(x.edge*100).toFixed(1)} pts • take-profit watch {Math.round(x.takeProfitProbability*100)}¢</small>
+    </div>)}
+    {!data?.decisionSignals?.some(x=>x.action==='BUY_YES')&&<div className="historyRow"><span>No BUY YES clears evidence gates</span><b>WAIT</b><small>Edgeforce will not manufacture an entry from momentum alone.</small></div>}
+   </div>
+   <div className="historyBox">
+    <h4>All-market BUY NO</h4>
+    {(data?.decisionSignals||[]).filter(x=>x.action==='BUY_NO').slice(0,6).map(x=><div className="historyRow" key={x.signalKey}>
+     <span>{x.title}</span><b>{x.score}/100</b>
+     <small>{x.venue} • entry ≤ {Math.round(x.entryProbability*100)}¢ • fair NO {pct(x.fairOutcomeProbability)} • edge +{(x.edge*100).toFixed(1)} pts • take-profit watch {Math.round(x.takeProfitProbability*100)}¢</small>
+    </div>)}
+    {!data?.decisionSignals?.some(x=>x.action==='BUY_NO')&&<div className="historyRow"><span>No BUY NO clears evidence gates</span><b>WAIT</b><small>High YES pricing is not enough by itself; cross-venue evidence must confirm value.</small></div>}
+   </div>
+   <div className="historyBox">
+    <h4>Entry / exit discipline</h4>
+    {(data?.decisionSignals||[]).slice(0,6).map(x=><div className="historyRow" key={'discipline-'+x.signalKey}>
+     <span>{x.direction} · {x.title}</span><b>{x.evidenceGrade}</b>
+     <small>entry {Math.round(x.entryProbability*100)}¢ • target {Math.round(x.takeProfitProbability*100)}¢ • review model if fair falls below {Math.round(x.reviewFairProbability*100)}¢ • cross-check {x.sourceVenue}</small>
+    </div>)}
+   </div>
+   <div className="historyBox">
+    <h4>Evidence gate</h4>
+    {(data?.decisionSignals||[]).slice(0,6).map(x=><div className="historyRow" key={'risk-'+x.signalKey}>
+     <span>{x.action.replace('_',' ')} · {x.category}</span><b>{x.evidenceGrade}</b>
+     <small>{x.riskFlags.length?x.riskFlags.join(' • '):'strong contract match • executable spread • depth gate passed'}</small>
+    </div>)}
+   </div>
+  </div>
   <div className="v21Grid four">
    <div className="v21Card">
     <div className="v21CardHead"><div><div className="eyebrow">SMART FLOW</div><h3>High-conviction prints</h3></div><span className="miniBadge">{data?.summary.smartFlowSignals??0}</span></div>
@@ -103,6 +148,6 @@ export default function PredictionIntelligencePanel(){
     </div>
    </div>
   </div>
-  <div className="historyNote">Trader and flow panels use public market data as context, not as proof of future profitability. Cross-venue gaps are research candidates unless bid/ask, fees, liquidity, wording, deadline and settlement source all align.</div>
+  <div className="historyNote">BUY YES / BUY NO requires independent cross-venue evidence plus executable pricing, depth and spread gates. Trader/flow data is supporting context, not proof of future profitability. No automatic order execution is enabled.</div>
  </section>;
 }

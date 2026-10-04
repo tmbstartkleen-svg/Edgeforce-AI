@@ -1,9 +1,10 @@
 import {recordAutomationRun} from '@/lib/automationHealth';
 import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
-import {fetchKalshiTrades,fetchPolymarketTrades,enrichKalshiTradeTitles} from '@/lib/predictionFlow';
-import {fetchPolymarketLeaderboard} from '@/lib/predictionTraderIntelligence';
+import {fetchKalshiTrades,fetchPolymarketTrades,enrichKalshiTradeTitles,summarizeFlow,marketMovers,crossVenueGaps} from '@/lib/predictionFlow';
+import {buildTraderSignals,fetchPolymarketLeaderboard} from '@/lib/predictionTraderIntelligence';
+import {buildPredictionDecisionSignals} from '@/lib/predictionDecisionSignals';
 import {
- persistPredictionContracts,persistPredictionTrades,upsertPublicTraderProfiles,predictionWarehouseStats
+ persistPredictionContracts,persistPredictionTrades,persistPredictionDecisionSignals,upsertPublicTraderProfiles,predictionWarehouseStats
 } from '@/lib/predictionPersistence';
 
 export const dynamic='force-dynamic';
@@ -30,9 +31,16 @@ export async function GET(req:Request){
    predictions.contracts
   );
 
-  const [marketWrite,tradeWrite,leaderWrite]=await Promise.all([
+  const flow4h=summarizeFlow(trades,'4H');
+  const movers=marketMovers(trades,'4H',80);
+  const gaps=crossVenueGaps(predictions.contracts,80);
+  const traderSignals=buildTraderSignals(trades,leaderboard.rows,80);
+  const decisionSignals=buildPredictionDecisionSignals(predictions.contracts,gaps,flow4h,movers,traderSignals,100);
+
+  const [marketWrite,tradeWrite,signalWrite,leaderWrite]=await Promise.all([
    persistPredictionContracts(predictions.contracts,true),
    persistPredictionTrades(trades),
+   persistPredictionDecisionSignals(decisionSignals),
    upsertPublicTraderProfiles(
     leaderboard.rows.map(row=>({
      venue:'Polymarket',
@@ -56,6 +64,9 @@ export async function GET(req:Request){
    tradesWritten:tradeWrite.written,
    tradersUpdated:tradeWrite.tradersUpdated,
    leaderboardProfiles:leaderWrite.written,
+   decisionSignals:decisionSignals.length,
+   actionableSignals:decisionSignals.filter(x=>x.action==='BUY_YES'||x.action==='BUY_NO').length,
+   signalsWritten:signalWrite.written,
    warehouse
   });
 
@@ -73,7 +84,13 @@ export async function GET(req:Request){
    persisted:{
     markets:marketWrite,
     trades:tradeWrite,
-    leaderboard:leaderWrite
+    leaderboard:leaderWrite,
+    signals:signalWrite
+   },
+   decisionSignals:{
+    generated:decisionSignals.length,
+    actionable:decisionSignals.filter(x=>x.action==='BUY_YES'||x.action==='BUY_NO').length,
+    gradeA:decisionSignals.filter(x=>x.evidenceGrade==='A').length
    },
    warehouse,
    warnings:[

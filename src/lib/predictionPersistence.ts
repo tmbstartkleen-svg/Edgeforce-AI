@@ -1,6 +1,7 @@
 import {db} from './db';
 import type {PredictionContract} from './predictionMarkets';
 import type {PredictionTrade} from './predictionFlow';
+import type {PredictionDecisionSignal} from './predictionDecisionSignals';
 import {classifyPredictionContract} from './predictionCategories';
 
 function hourBucket(date=new Date()){
@@ -126,6 +127,60 @@ export async function persistPredictionTrades(trades:PredictionTrade[]){
  return {written,tradersUpdated:touchedTraders.size,mode:'database' as const};
 }
 
+
+export async function persistPredictionDecisionSignals(signals:PredictionDecisionSignal[]){
+ const sql=db();
+ if(!sql||!signals.length)return {written:0,mode:'memory' as const};
+ const observedHour=hourBucket();
+ let written=0;
+ for(const signal of signals){
+  const inserted=await sql`
+   insert into prediction_signal_snapshots(
+    observed_hour,signal_key,venue,contract_id,source_venue,source_contract_id,title,category,
+    direction,action,score,evidence_grade,match_quality,similarity,fair_yes_probability,
+    fair_outcome_probability,market_yes_probability,execution_probability,outcome_edge,
+    entry_probability,take_profit_probability,review_fair_probability,spread_probability,
+    volume,liquidity,flow_support,momentum_support,smart_trader_support,risk_flags,reasons,metadata
+   ) values(
+    ${observedHour},${signal.signalKey},${signal.venue},${signal.contractId},
+    ${signal.sourceVenue},${signal.sourceContractId},${signal.title},${signal.category},
+    ${signal.direction},${signal.action},${signal.score},${signal.evidenceGrade},
+    ${signal.matchQuality},${signal.similarity},${signal.fairYesProbability},
+    ${signal.fairOutcomeProbability},${signal.marketYesProbability},${signal.executionProbability},
+    ${signal.edge},${signal.entryProbability},${signal.takeProfitProbability},
+    ${signal.reviewFairProbability},${signal.spreadProbability??null},${signal.volume??null},
+    ${signal.liquidity??null},${signal.flowSupport},${signal.momentumSupport},
+    ${signal.smartTraderSupport},${sql.json(signal.riskFlags)},${sql.json(signal.reasons)},
+    ${sql.json({score:signal.score,evidenceGrade:signal.evidenceGrade} as any)}
+   )
+   on conflict (signal_key,observed_hour) do update set
+    action=excluded.action,
+    score=excluded.score,
+    evidence_grade=excluded.evidence_grade,
+    fair_yes_probability=excluded.fair_yes_probability,
+    fair_outcome_probability=excluded.fair_outcome_probability,
+    market_yes_probability=excluded.market_yes_probability,
+    execution_probability=excluded.execution_probability,
+    outcome_edge=excluded.outcome_edge,
+    entry_probability=excluded.entry_probability,
+    take_profit_probability=excluded.take_profit_probability,
+    review_fair_probability=excluded.review_fair_probability,
+    spread_probability=excluded.spread_probability,
+    volume=excluded.volume,
+    liquidity=excluded.liquidity,
+    flow_support=excluded.flow_support,
+    momentum_support=excluded.momentum_support,
+    smart_trader_support=excluded.smart_trader_support,
+    risk_flags=excluded.risk_flags,
+    reasons=excluded.reasons,
+    metadata=excluded.metadata
+   returning id
+  `;
+  written+=inserted.length;
+ }
+ return {written,mode:'database' as const};
+}
+
 export type PublicTraderProfileInput={
  venue:string;
  traderId:string;
@@ -172,13 +227,17 @@ export async function upsertPublicTraderProfiles(rows:PublicTraderProfileInput[]
 export async function predictionWarehouseStats(){
  const sql=db();
  if(!sql)return {
-  configured:false,markets:0,snapshots:0,trades:0,traders:0,lastMarketUpdate:null,lastTrade:null
+  configured:false,markets:0,snapshots:0,trades:0,traders:0,signals:0,buySignals:0,lastMarketUpdate:null,lastTrade:null,lastSignal:null
  };
- const [markets,snapshots,trades,traders]=await Promise.all([
+ const [markets,snapshots,trades,traders,signals]=await Promise.all([
   sql`select count(*)::int as count,max(updated_at) as latest from prediction_market_state`,
   sql`select count(*)::int as count,max(observed_hour) as latest from prediction_market_snapshots`,
   sql`select count(*)::int as count,max(traded_at) as latest from prediction_trade_tape`,
-  sql`select count(*)::int as count,max(updated_at) as latest from prediction_trader_profiles`
+  sql`select count(*)::int as count,max(updated_at) as latest from prediction_trader_profiles`,
+  sql`select count(*)::int as count,
+      count(*) filter (where action in ('BUY_YES','BUY_NO'))::int as buys,
+      max(observed_hour) as latest
+    from prediction_signal_snapshots`
  ]);
  return {
   configured:true,
@@ -186,10 +245,13 @@ export async function predictionWarehouseStats(){
   snapshots:Number(snapshots[0]?.count||0),
   trades:Number(trades[0]?.count||0),
   traders:Number(traders[0]?.count||0),
+  signals:Number(signals[0]?.count||0),
+  buySignals:Number(signals[0]?.buys||0),
   lastMarketUpdate:markets[0]?.latest??null,
   lastSnapshot:snapshots[0]?.latest??null,
   lastTrade:trades[0]?.latest??null,
-  lastTraderUpdate:traders[0]?.latest??null
+  lastTraderUpdate:traders[0]?.latest??null,
+  lastSignal:signals[0]?.latest??null
  };
 }
 
