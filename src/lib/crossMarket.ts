@@ -1,8 +1,34 @@
-import {impliedProbability} from './math';
+import {ev,impliedProbability} from './math';
 import type {PredictionContract} from './predictionMarkets';
 import type {Scanned} from './scanner';
 
 export type PredictionMarketStatus='MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
+
+export type PredictionVenueQuote={
+ source:string;
+ contractId:string;
+ title:string;
+ probability:number;
+ executionProbability:number;
+ volume?:number;
+ liquidity?:number;
+ matchScore:number;
+ status:PredictionMarketStatus;
+ edge:number;
+ expectedValue:number;
+};
+
+export type BestExecutionVenue={
+ venue:string;
+ type:'SPORTSBOOK'|'PREDICTION_EXCHANGE';
+ edge:number;
+ expectedValue:number;
+ marketProbability:number;
+ americanOdds?:number;
+ contractId?:string;
+ matchScore?:number;
+ feeAdjusted:boolean;
+};
 
 export type CrossMarketScanned=Scanned & {
  rawImpliedProbability:number;
@@ -15,6 +41,9 @@ export type CrossMarketScanned=Scanned & {
  predictionMarketTitle?:string;
  predictionMarketStatus:PredictionMarketStatus;
  predictionEdge?:number;
+ predictionVenueQuotes:PredictionVenueQuote[];
+ bestPredictionVenue?:PredictionVenueQuote;
+ bestExecutionVenue:BestExecutionVenue;
 };
 
 const STOP=new Set(['the','a','an','at','vs','v','to','win','wins','will','game','match','market','moneyline','ml']);
@@ -59,14 +88,80 @@ function contractScore(row:Scanned,contract:PredictionContract){
  return Math.min(1,score);
 }
 
-function bestContract(row:Scanned,contracts:PredictionContract[]){
- let best:{contract:PredictionContract;score:number}|undefined;
+function venueQuotes(row:Scanned,contracts:PredictionContract[],minVolume:number){
+ const bestBySource=new Map<string,{contract:PredictionContract;score:number}>();
  for(const contract of contracts){
   const score=contractScore(row,contract);
   if(score<.65)continue;
-  if(!best||score>best.score)best={contract,score};
+  const key=contract.source.toLowerCase();
+  const prior=bestBySource.get(key);
+  const execution=contract.askProbability??contract.yesProbability;
+  const priorExecution=prior?.contract.askProbability??prior?.contract.yesProbability??1;
+  if(!prior||score>prior.score||(score===prior.score&&execution<priorExecution)){
+   bestBySource.set(key,{contract,score});
+  }
  }
- return best;
+
+ const quotes:PredictionVenueQuote[]=[];
+ for(const {contract,score} of bestBySource.values()){
+  const probability=contract.yesProbability;
+  const executionProbability=Math.max(.001,Math.min(.999,contract.askProbability??probability));
+  const depth=contract.volume??contract.liquidity;
+  const status:PredictionMarketStatus=depth===undefined
+   ?'UNKNOWN_LIQUIDITY'
+   :depth<minVolume
+    ?'ILLIQUID'
+    :'MATCHED';
+  quotes.push({
+   source:contract.source,
+   contractId:contract.id,
+   title:contract.title,
+   probability,
+   executionProbability,
+   volume:contract.volume,
+   liquidity:contract.liquidity,
+   matchScore:score,
+   status,
+   edge:row.simProbability-executionProbability,
+   expectedValue:row.simProbability/executionProbability-1
+  });
+ }
+ return quotes.sort((a,b)=>{
+  const aRank=a.status==='MATCHED'?2:a.status==='UNKNOWN_LIQUIDITY'?1:0;
+  const bRank=b.status==='MATCHED'?2:b.status==='UNKNOWN_LIQUIDITY'?1:0;
+  return bRank-aRank||b.expectedValue-a.expectedValue||b.matchScore-a.matchScore;
+ });
+}
+
+function bestExecution(row:Scanned,quotes:PredictionVenueQuote[]):BestExecutionVenue{
+ const bestOdds=row.consensus?.bestOdds??row.odds;
+ const bestBook=row.consensus?.bestBook||row.sourceBook||row.consensus?.targetBook||'Sportsbook';
+ const sportsbookProbability=impliedProbability(bestOdds);
+ const candidates:BestExecutionVenue[]=[{
+  venue:bestBook,
+  type:'SPORTSBOOK',
+  edge:row.simProbability-sportsbookProbability,
+  expectedValue:ev(row.simProbability,bestOdds),
+  marketProbability:sportsbookProbability,
+  americanOdds:bestOdds,
+  feeAdjusted:true
+ }];
+
+ for(const quote of quotes){
+  if(quote.status!=='MATCHED')continue;
+  candidates.push({
+   venue:quote.source,
+   type:'PREDICTION_EXCHANGE',
+   edge:quote.edge,
+   expectedValue:quote.expectedValue,
+   marketProbability:quote.executionProbability,
+   contractId:quote.contractId,
+   matchScore:quote.matchScore,
+   feeAdjusted:false
+  });
+ }
+
+ return candidates.sort((a,b)=>b.expectedValue-a.expectedValue||b.edge-a.edge)[0];
 }
 
 export function fusePredictionMarkets(rows:Scanned[],contracts:PredictionContract[],minVolume=1000):CrossMarketScanned[]{
@@ -75,33 +170,36 @@ export function fusePredictionMarkets(rows:Scanned[],contracts:PredictionContrac
   const noVigProbability=row.marketProb;
   const sportsbookEdge=row.simProbability-noVigProbability;
   const quarterKelly=Math.min(.05,Math.max(0,row.recommendedStake));
-  const match=bestContract(row,contracts);
-  if(!match){
-   return {...row,rawImpliedProbability,noVigProbability,sportsbookEdge,quarterKelly,predictionMarketStatus:'NO_MATCH' as const};
+  const predictionVenueQuotes=venueQuotes(row,contracts,minVolume);
+  const bestPredictionVenue=predictionVenueQuotes.find(x=>x.status==='MATCHED')
+   ||predictionVenueQuotes.find(x=>x.status==='UNKNOWN_LIQUIDITY')
+   ||predictionVenueQuotes[0];
+  const bestExecutionVenue=bestExecution(row,predictionVenueQuotes);
+
+  if(!bestPredictionVenue){
+   return {
+    ...row,rawImpliedProbability,noVigProbability,sportsbookEdge,quarterKelly,
+    predictionMarketStatus:'NO_MATCH' as const,
+    predictionVenueQuotes,
+    bestExecutionVenue
+   };
   }
-  const c=match.contract;
-  const volume=c.volume;
-  const base={
+
+  return {
    ...row,
    rawImpliedProbability,
    noVigProbability,
    sportsbookEdge,
    quarterKelly,
-   predictionMarketProbability:c.yesProbability,
-   predictionMarketVolume:volume,
-   predictionMarketSource:c.source,
-   predictionMarketTitle:c.title
-  };
-  if(volume===undefined){
-   return {...base,predictionMarketStatus:'UNKNOWN_LIQUIDITY' as const};
-  }
-  if(volume<minVolume){
-   return {...base,predictionMarketStatus:'ILLIQUID' as const};
-  }
-  return {
-   ...base,
-   predictionMarketStatus:'MATCHED' as const,
-   predictionEdge:row.simProbability-c.yesProbability
+   predictionMarketProbability:bestPredictionVenue.executionProbability,
+   predictionMarketVolume:bestPredictionVenue.volume,
+   predictionMarketSource:bestPredictionVenue.source,
+   predictionMarketTitle:bestPredictionVenue.title,
+   predictionMarketStatus:bestPredictionVenue.status,
+   predictionEdge:bestPredictionVenue.edge,
+   predictionVenueQuotes,
+   bestPredictionVenue,
+   bestExecutionVenue
   };
  });
 }

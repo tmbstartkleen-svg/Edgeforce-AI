@@ -1,6 +1,6 @@
 import {ingestOdds} from '@/lib/providers/ingest';
 import {scanMarkets} from '@/lib/scanner';
-import {rankDaily,rankWeekly} from '@/lib/boardScoring';
+import {qualifiesForTopBoard,rankDaily,rankWeekly} from '@/lib/boardScoring';
 import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
 import {loadLedgerHistory} from '@/lib/ledger';
 import {analyzeHistory} from '@/lib/historyAnalytics';
@@ -95,6 +95,8 @@ export async function GET(req:Request){
     grade:x.grade,
     simEngine:x.simEngine
   }));
+  const boardCandidates=view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned;
+  const qualifiedCandidates=boardCandidates.filter(qualifiesForTopBoard);
   const ranked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
     ...row,
@@ -171,6 +173,17 @@ export async function GET(req:Request){
     resimulatedMarketIds:[...triggeredIds],
     resimulationResults,
     warnings:ingestion.warnings,
+    topBoardQualification:{
+      requested:limit,
+      candidates:boardCandidates.length,
+      qualified:qualifiedCandidates.length,
+      shown:rows.length,
+      withheld:Math.max(0,boardCandidates.length-qualifiedCandidates.length),
+      forced:false,
+      minimumSimProbability:.52,
+      minimumDynamicConfidence:.50,
+      allowedGrades:['ELITE','STRONG']
+    },
     rows,
     sports,
     predictions,
