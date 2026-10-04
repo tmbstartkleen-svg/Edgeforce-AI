@@ -172,16 +172,20 @@ async function recentSettled(serviceModelId:string,limit:number):Promise<Settled
  return rows as unknown as SettledRow[];
 }
 
-async function previousCriticalRuns(serviceModelId:string){
+async function previousCriticalRuns(serviceModelId:string,currentSampleSize:number){
  const sql=db(); if(!sql)return 0;
  const rows=await sql`
-  select state from ml_champion_monitor_snapshots
+  select state,sample_size as "sampleSize" from ml_champion_monitor_snapshots
   where service_model_id=${serviceModelId}
   order by observed_at desc limit 2
  `;
  let consecutive=0;
+ let ceiling=currentSampleSize;
  for(const row of rows as any[]){
-  if(String(row.state)==='CRITICAL')consecutive++; else break;
+  const sampleSize=Number(row.sampleSize||0);
+  if(String(row.state)!=='CRITICAL'||sampleSize>=ceiling)break;
+  consecutive++;
+  ceiling=sampleSize;
  }
  return consecutive;
 }
