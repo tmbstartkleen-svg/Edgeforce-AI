@@ -2,7 +2,84 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V52 Live Comeback / Halftime Buy-Low Watch
+## Current build — V53 Expert Modeling Suite
+
+V53 turns professional sports-prediction methods into a dedicated, inspectable modeling layer instead of hiding every approach inside one blended score.
+
+### Native quantitative models
+The production model council can now consume an expert consensus built from models that activate only when their required inputs are present:
+- Bayesian market-prior shrinkage
+- Elo ratings
+- Glicko ratings with rating uncertainty
+- Bradley-Terry pairwise strength
+- Poisson score distributions
+- Skellam-style score-margin pricing
+- Dixon-Coles low-score soccer correction
+- expected-goals / shot-quality strength
+- player projection distributions
+- sharp/public cross-book consensus
+- external trained-model ensemble when configured
+
+The Expert Suite is added as a learned model-council vote, so its influence remains subject to Edgeforce calibration, validation and governance instead of bypassing them.
+
+### External professional ML bridge
+Cloudflare/Next.js does not natively host Python/R statistical libraries. V53 therefore adds a normalized external model-service contract through:
+- `EXPERT_MODEL_SERVICE_URL`
+- `EXPERT_MODEL_SERVICE_KEY`
+- `EXPERT_MODEL_SERVICE_TIMEOUT_MS`
+
+A connected service can return predictions from:
+- XGBoost
+- LightGBM
+- CatBoost
+- PyMC
+- Stan
+- scikit-learn
+- PyTorch / TensorFlow
+
+Returned probabilities are confidence-weighted, fused into the market feature set, and then enter the normal Edgeforce model council.
+
+### Premium sports-data connector catalog
+The Expert Modeling Suite exposes license-gated connector slots for:
+- Stats Perform Opta / Opta Predictions
+- Sportradar Sports Data / Insights
+- Synergy Basketball
+- Second Spectrum
+- PFF Data
+- MLB Statcast / Baseball Savant
+
+Closed vendor algorithms are not copied. A platform is shown as connected only when authorized access is configured.
+
+### Model-development workflow
+V53 also reserves the expert workflow for:
+- Optuna hyperparameter optimization
+- MLflow experiment tracking and model registry
+- SHAP model explainability
+
+### Expert Modeling UI
+- main dashboard section: **V53 Expert Modeling Suite**
+- dedicated page: `/models`
+- API: `GET /api/intelligence/expert-models`
+- catalog API: `GET /api/sports/models`
+- deterministic regression: `GET /api/testing/expert-models`
+
+The UI shows each component as **LIVE**, **BUILT IN**, **CONNECTED**, **BRIDGE**, or **LICENSE**, so unavailable software is never presented as active.
+
+### Release identity
+- build: `V53`
+- app: `53.0.0`
+- package: `0.53.0`
+- model: `edgeforce-v53`
+- migration: `v42` (no schema change)
+
+### Guardrails
+- expert model count is not treated as evidence of profitability
+- native methods activate only when the input contract is satisfied
+- premium data requires the user's own licensed access
+- external model output remains subject to V51 validation, calibration, drift and portfolio-risk controls
+- no external model is allowed to bypass Edgeforce recommendation-quality gates
+
+## Previous build — V52 Live Comeback / Halftime Buy-Low Watch
 
 V52 adds a first-class live comeback module to the existing EdgeForce 2 system without removing the V51 validation, context, parlay, prediction-market, portfolio, or calibration capabilities.
 

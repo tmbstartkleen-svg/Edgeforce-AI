@@ -3,6 +3,8 @@ import {fetchWeatherContext,fetchInjuryContext,fetchStatsContext} from './contex
 import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
 import {fetchPublicSportsContext,type PublicContextRow} from './publicSportsContext';
 import {enrichMarketsWithPlayerWarehouse} from '../playerWarehouse';
+import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
+import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -198,9 +200,11 @@ export async function enrichMarketsWithContext(markets:Market[]){
   const enrichedMarket={...m,sportFeatures,contextSources,contextProvenance:provenance,playerContext};
   return {...enrichedMarket,contextQuality:assessContextQuality(enrichedMarket,sourceQuality)};
  });
- const historical=await enrichMarketsWithPlayerWarehouse(enriched).catch(()=>({markets:enriched,matched:0,players:0}));
- const finalSourceQuality={...sourceQuality,'player-history-db':historical.matched?.92:0};
- const finalMarkets=historical.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
+ const premium=await enrichMarketsWithPremiumData(enriched);
+ const historical=await enrichMarketsWithPlayerWarehouse(premium.markets).catch(()=>({markets:premium.markets,matched:0,players:0}));
+ const externalExpert=await enrichMarketsWithExternalExpertModels(historical.markets);
+ const finalSourceQuality={...sourceQuality,...premium.sourceQuality,'player-history-db':historical.matched?.92:0};
+ const finalMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
  const qualitySummary=summarizeContextQuality(finalMarkets);
  return {
   markets:finalMarkets,
@@ -208,7 +212,9 @@ export async function enrichMarketsWithContext(markets:Market[]){
    matchedRows,
    totalRows:markets.length,
    qualitySummary,
+   premiumData:premium.diagnostics,
    playerWarehouse:{matchedRows:historical.matched,players:historical.players},
+   expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,
    providers:normalized.map(x=>({
     kind:x.kind,ok:x.ok,providerId:x.providerId,rowCount:x.rows.length,

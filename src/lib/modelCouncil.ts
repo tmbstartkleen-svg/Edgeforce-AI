@@ -1,6 +1,7 @@
 import type {Market} from './types';
 import {sportModel} from './sportModels';
 import {learnedMultiplier,type LearnedWeightMap} from './learnedWeights';
+import {expertConsensus} from './expertModelSuite';
 
 export type Vote={name:string;prob:number;baseWeight:number;learnedMultiplier:number;weight:number};
 
@@ -12,6 +13,7 @@ const shift=(base:number,delta:number)=>clamp(logistic(logit(base)+delta));
 
 export function modelCouncil(m:Market,learnedWeights?:LearnedWeightMap){
  const sport=sportModel(m,m.sportFeatures||{});
+ const expert=expertConsensus(m);
  const confidence=Math.max(.2,Math.min(1,m.confidence));
  const powerSignal=.16*f(m,'home')+.14*f(m,'rest')-.10*f(m,'travel')+.18*f(m,'efficiency')+.14*f(m,'form');
  const matchupSignal=.18*f(m,'matchup')+.16*f(m,'offenseDefense')+.14*f(m,'trenches')+.12*f(m,'shotQuality')+.12*f(m,'xg');
@@ -30,7 +32,8 @@ export function modelCouncil(m:Market,learnedWeights?:LearnedWeightMap){
   {name:'Player/Usage',prob:shift(m.modelProb,playerSignal*.34),baseWeight:.10},
   {name:'Environment',prob:shift(m.modelProb,environmentSignal*.28),baseWeight:.06},
   {name:'Line Regime',prob:shift(m.marketProb,regimeSignal*.22),baseWeight:.05},
-  {name:'Historical Analog',prob:shift(m.modelProb,historicalSignal*.30),baseWeight:.05}
+  {name:'Historical Analog',prob:shift(m.modelProb,historicalSignal*.30),baseWeight:.05},
+  {name:'Expert Suite',prob:expert.probability,baseWeight:expert.modelCount>=5?.13:expert.modelCount>=3?.09:.05}
  ];
 
  const votes:Vote[]=baseVotes.map(v=>{
@@ -42,5 +45,5 @@ export function modelCouncil(m:Market,learnedWeights?:LearnedWeightMap){
  const mean=votes.reduce((s,v)=>s+v.prob,0)/votes.length;
  const dispersion=Math.sqrt(votes.reduce((s,v)=>s+(v.prob-mean)**2,0)/votes.length);
  const agreement=Math.max(0,Math.min(1,1-dispersion/.12));
- return {votes,ensemble,dispersion,agreement,sport};
+ return {votes,ensemble,dispersion,agreement,sport,expert};
 }
