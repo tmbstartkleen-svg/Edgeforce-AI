@@ -1,0 +1,9 @@
+fastapi==0.118.0
+uvicorn[standard]==0.37.0
+numpy==2.3.3
+scikit-learn==1.7.2
+joblib==1.5.2
+xgboost==3.0.5
+lightgbm==4.6.0
+catboost==1.2.8
+pymc==5.25.1
