@@ -309,11 +309,11 @@ export function expertModelCatalog():ExpertCatalogEntry[]{
   {id:'optuna',name:'Optuna',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'hyperparameter optimization and search',requires:['training pipeline'],env:['EXPERT_MODEL_SERVICE_URL']},
   {id:'mlflow',name:'MLflow',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:Boolean(process.env.MLFLOW_TRACKING_URI)?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'experiment tracking, model registry, lineage and promotion',requires:['tracking server'],env:['MLFLOW_TRACKING_URI']},
   {id:'shap',name:'SHAP',family:'MLOPS',kind:'MLOPS',integration:'WORKFLOW',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'feature-attribution explainability for ML predictions',requires:['supported trained model'],env:['EXPERT_MODEL_SERVICE_URL']},
-  vendor('opta','Stats Perform Opta / Opta Predictions','live and historical sports data plus predictive feeds',['MULTI-SPORT'],['OPTA_API_URL','OPTA_API_KEY']),
-  vendor('sportradar','Sportradar Sports Data / Insights','real-time data, tracking, insights, projections and odds context',['MULTI-SPORT'],['SPORTRADAR_API_URL','SPORTRADAR_API_KEY']),
-  vendor('synergy','Synergy Basketball','play-type, shot quality, roles, player impact and projections',['BASKETBALL'],['SYNERGY_API_URL','SYNERGY_API_KEY']),
-  vendor('second-spectrum','Second Spectrum','optical/player tracking and spatial analytics',['NBA','SOCCER'],['SECOND_SPECTRUM_API_URL','SECOND_SPECTRUM_API_KEY']),
-  vendor('pff','PFF Data','football grades, player/team data and advanced football analysis',['NFL','NCAAF'],['PFF_API_URL','PFF_API_KEY']),
+  vendor('opta','Stats Perform Opta / Opta Predictions','live and historical sports data plus predictive feeds',['MULTI-SPORT'],['OPTA_NORMALIZED_URL','OPTA_NORMALIZED_KEY']),
+  vendor('sportradar','Sportradar Sports Data / Insights','real-time data, tracking, insights, projections and odds context',['MULTI-SPORT'],['SPORTRADAR_NORMALIZED_URL','SPORTRADAR_NORMALIZED_KEY']),
+  vendor('synergy','Synergy Basketball','play-type, shot quality, roles, player impact and projections',['BASKETBALL'],['SYNERGY_NORMALIZED_URL','SYNERGY_NORMALIZED_KEY']),
+  vendor('second-spectrum','Second Spectrum','optical/player tracking and spatial analytics',['NBA','SOCCER'],['SECOND_SPECTRUM_NORMALIZED_URL','SECOND_SPECTRUM_NORMALIZED_KEY']),
+  vendor('pff','PFF Data','football grades, player/team data and advanced football analysis',['NFL','NCAAF'],['PFF_NORMALIZED_URL','PFF_NORMALIZED_KEY']),
   {id:'mlb-statcast',name:'MLB Statcast / Baseball Savant',family:'DATA',kind:'DATA_PLATFORM',integration:'LICENSED_CONNECTOR',status:'ACTIVE',sports:['MLB'],purpose:'pitch, batted-ball, player and team tracking metrics',requires:['Statcast-compatible data ingestion']}
  ];
 }
