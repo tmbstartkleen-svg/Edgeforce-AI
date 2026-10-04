@@ -128,7 +128,7 @@ export function trainingFeatureNames(sport:string){
  return [...BASE_FEATURES,...(SPORT_FEATURES[canonical]||['home','injury','form','matchup','rest','travel'])];
 }
 
-function historicalFeatureValue(row:TrainingHistoryRow,name:string){
+export function historicalFeatureValue(row:TrainingHistoryRow,name:string){
  const f=obj(row.features);
  const sportFeatures=obj(f.sportFeatures);
  const consensus=obj(f.consensus);
@@ -147,7 +147,7 @@ function historicalFeatureValue(row:TrainingHistoryRow,name:string){
  return num(sportFeatures[name])??0;
 }
 
-function currentFeatureValue(m:Market,name:string){
+export function currentFeatureValue(m:Market,name:string){
  const sf=m.sportFeatures||{};
  const consensus=m.consensus;
  const quality=m.contextQuality;
@@ -163,6 +163,14 @@ function currentFeatureValue(m:Market,name:string){
  if(name==='contextCoverage')return quality?.coverage??0;
  if(name==='contextCriticalCoverage')return quality?.criticalCoverage??0;
  return num(sf[name])??0;
+}
+
+export function trainingFeatureVectorFromHistory(row:TrainingHistoryRow,featureNames=trainingFeatureNames(row.sport)){
+ return featureNames.map(name=>historicalFeatureValue(row,name));
+}
+
+export function trainingFeatureVectorFromMarket(m:Market,featureNames=trainingFeatureNames(m.sport||m.league)){
+ return featureNames.map(name=>currentFeatureValue(m,name));
 }
 
 function examples(rows:TrainingHistoryRow[],featureNames:string[]):Example[]{
