@@ -689,17 +689,20 @@ export async function runShadowRecovery(){
 
 export async function shadowRecoveryStatus(){
  const sql=db();
- if(!sql)return {ok:true,source:'none' as const,latestRun:null,challengers:[],recent:[]};
+ if(!sql)return {ok:true,source:'none' as const,latestRun:null,leagues:[],challengers:[],recent:[]};
  try{
   const [latestRun]=await sql`
    select id,model_version as "modelVersion",status,challengers_checked as "challengersChecked",
+    leagues_checked as "leaguesChecked",league_winners_ready as "leagueWinnersReady",
     insufficient,shadow,ready_confirm as "readyConfirm",recovered,rejected,
     promotion_failed as "promotionFailed",error_text as error,
     started_at as "startedAt",completed_at as "completedAt"
    from ml_shadow_recovery_runs order by started_at desc limit 1
   `;
   const challengers=await sql`
-   select id,sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",status,
+   select id,league_id as "leagueId",seed_rank as "seedRank",league_rank as "leagueRank",
+    league_score::float as "leagueScore",winner_margin::float as "winnerMargin",
+    sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",status,
     holdout_brier::float as "holdoutBrier",holdout_brier_skill_score::float as "holdoutBrierSkillScore",
     settled_sample_size as "settledSampleSize",live_brier::float as "liveBrier",
     live_log_loss::float as "liveLogLoss",live_calibration_error::float as "liveCalibrationError",
@@ -713,8 +716,20 @@ export async function shadowRecoveryStatus(){
    order by case when status in ('SHADOW','READY_CONFIRM') then 0 else 1 end,started_at desc
    limit 250
   `;
+  const leagues=await sql`
+   select id,sport,market_key as "marketKey",status,source_tournament_run_id as "sourceTournamentRunId",
+    max_challengers as "maxChallengers",min_competitors as "minCompetitors",
+    winner_challenger_id as "winnerChallengerId",winner_service_model_id as "winnerServiceModelId",
+    winner_margin::float as "winnerMargin",decision_reason as "decisionReason",
+    started_at as "startedAt",completed_at as "completedAt"
+   from external_ml_shadow_leagues
+   order by case when status='ACTIVE' then 0 else 1 end,started_at desc
+   limit 100
+  `;
   const recent=await sql`
-   select challenger_id as "challengerId",sport,market_key as "marketKey",algorithm,
+   select challenger_id as "challengerId",league_id as "leagueId",league_rank as "leagueRank",
+    league_score::float as "leagueScore",winner_margin::float as "winnerMargin",
+    sport,market_key as "marketKey",algorithm,
     service_model_id as "serviceModelId",state,sample_size as "sampleSize",
     live_brier::float as "liveBrier",live_log_loss::float as "liveLogLoss",
     live_calibration_error::float as "liveCalibrationError",market_brier::float as "marketBrier",
@@ -724,8 +739,8 @@ export async function shadowRecoveryStatus(){
    from ml_shadow_recovery_snapshots
    order by observed_at desc limit 500
   `;
-  return {ok:true,source:'database' as const,latestRun:latestRun||null,challengers,recent};
+  return {ok:true,source:'database' as const,latestRun:latestRun||null,leagues,challengers,recent};
  }catch(error){
-  return {ok:false,source:'database' as const,latestRun:null,challengers:[],recent:[],error:error instanceof Error?error.message:'shadow recovery status failed'};
+  return {ok:false,source:'database' as const,latestRun:null,leagues:[],challengers:[],recent:[],error:error instanceof Error?error.message:'shadow recovery status failed'};
  }
 }
