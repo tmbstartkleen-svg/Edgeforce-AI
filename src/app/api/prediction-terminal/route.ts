@@ -5,6 +5,7 @@ import {
 } from '@/lib/predictionFlow';
 import {classifyPredictionContract,type PredictionCategory} from '@/lib/predictionCategories';
 import {buildTraderSignals,fetchPolymarketLeaderboard} from '@/lib/predictionTraderIntelligence';
+import {buildPredictionDecisionSignals} from '@/lib/predictionDecisionSignals';
 import {predictionWarehouseStats} from '@/lib/predictionPersistence';
 
 export const dynamic='force-dynamic';
@@ -59,6 +60,7 @@ export async function GET(req:Request){
  const movers=marketMovers(trades,'4H',50);
  const gaps=crossVenueGaps(predictions.contracts,50);
  const traderSignals=buildTraderSignals(trades,leaderboard.rows,40);
+ const decisionSignals=buildPredictionDecisionSignals(predictions.contracts,gaps,flow['4H']||[],movers,traderSignals,80);
 
  const rows=predictions.contracts.map(marketRow);
  const filtered=requestedCategory==='ALL'
@@ -98,10 +100,16 @@ export async function GET(req:Request){
    movers:movers.length,
    rankedTraders:leaderboard.rows.length,
    smartTraders:traderSignals.length,
+   decisionSignals:decisionSignals.length,
+   buyYesSignals:decisionSignals.filter(x=>x.action==='BUY_YES').length,
+   buyNoSignals:decisionSignals.filter(x=>x.action==='BUY_NO').length,
+   gradeASignals:decisionSignals.filter(x=>x.evidenceGrade==='A').length,
    warehouseMarkets:warehouse.markets,
    warehouseSnapshots:warehouse.snapshots,
    warehouseTrades:warehouse.trades,
-   warehouseTraders:warehouse.traders
+   warehouseTraders:warehouse.traders,
+   warehouseSignals:warehouse.signals,
+   warehouseBuySignals:warehouse.buySignals
   },
   categories,
   markets,
@@ -109,6 +117,7 @@ export async function GET(req:Request){
   smartFlow,
   movers,
   traderSignals,
+  decisionSignals,
   traderLeaderboard:leaderboard.rows.slice(0,100),
   crossVenueGaps:gaps,
   tradeTape:trades.slice(0,100),
@@ -124,7 +133,8 @@ export async function GET(req:Request){
    ...(!kalshi.ok&&kalshi.error?['Kalshi trade tape: '+kalshi.error]:[]),
    ...(!polymarket.ok&&polymarket.error?['Polymarket trade tape: '+polymarket.error]:[]),
    ...(!leaderboard.ok&&leaderboard.error?['Polymarket leaderboard: '+leaderboard.error]:[]),
-   'Cross-venue matches are research candidates only. Verify contract wording, deadline and settlement source before treating a price gap as equivalent exposure.'
+   'BUY YES / BUY NO signals require a strong cross-venue match, executable bid/ask, minimum market depth, spread discipline, and positive model-relative edge. They are decision support, not guaranteed profit.',
+   'Cross-venue matches still require verification of contract wording, deadline, fees, fills and settlement source before treating exposure as equivalent.'
   ]
  },{headers:{'Cache-Control':'no-store'}});
 }
