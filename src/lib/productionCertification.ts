@@ -12,6 +12,7 @@ import {RELEASE} from './releaseManifest';
 import {getModelGovernanceStatus} from './modelGovernance';
 import {getValidationLabStatus} from './validationLab';
 import {championDriftStatus} from './mlChampionDrift';
+import {shadowRecoveryStatus} from './mlShadowRecovery';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -32,6 +33,7 @@ export type ProductionCertificationReport={
  modelGovernance:Awaited<ReturnType<typeof getModelGovernanceStatus>>;
  modelValidation:Awaited<ReturnType<typeof getValidationLabStatus>>;
  championDrift:Awaited<ReturnType<typeof championDriftStatus>>;
+ shadowRecovery:Awaited<ReturnType<typeof shadowRecoveryStatus>>;
  security:{
   ok:boolean;
   missingHeaders:string[];
@@ -81,7 +83,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
@@ -89,7 +91,8 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   getOpsStatus(),
   getModelGovernanceStatus(),
   getValidationLabStatus(),
-  championDriftStatus()
+  championDriftStatus(),
+  shadowRecoveryStatus()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -132,6 +135,10 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(Number(championDrift.latestRun?.critical||0)>0)warnings.push('external ML champion drift: '+Number(championDrift.latestRun?.critical||0)+' champion(s) are in CRITICAL confirmation state');
  if(Number(championDrift.latestRun?.quarantined||0)>0)warnings.push('external ML champion drift: '+Number(championDrift.latestRun?.quarantined||0)+' champion(s) were quarantined and reverted to native fallback');
 
+ if(shadowRecovery.latestRun?.status==='failed')blockers.push('external ML shadow league: latest recovery run failed');
+ if(Number(shadowRecovery.latestRun?.leagueWinnersReady||0)>0)warnings.push('external ML shadow league: '+Number(shadowRecovery.latestRun?.leagueWinnersReady||0)+' live league leader(s) are awaiting or eligible for recovery');
+ if(Number(shadowRecovery.latestRun?.rejected||0)>0)warnings.push('external ML shadow league: '+Number(shadowRecovery.latestRun?.rejected||0)+' challenger(s) failed live evidence');
+
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
  if(strict&&ingestion.source!=='live')blockers.push(`data: strict production certification requires live odds, current source is ${ingestion.source}`);
  if(strict&&ingestion.markets.length===0)blockers.push('data: no sportsbook markets available for strict production certification');
@@ -168,7 +175,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    migrationVersion:RELEASE.migrationVersion,commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null,
    environment
   },
-  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,security,
+  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,security,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length

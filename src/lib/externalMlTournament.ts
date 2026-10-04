@@ -5,7 +5,7 @@ import {
  type TrainingHistoryRow
 } from './trainedSportModels';
 import {mlServiceCircuitAllows,probeMlService,recordMlServiceFailure,recordMlServiceSuccess} from './mlServiceHealth';
-import {startShadowChallenger} from './mlShadowRecovery';
+import {startShadowLeague} from './mlShadowRecovery';
 
 type ServiceCandidate={
  algorithm:string;
@@ -272,7 +272,7 @@ export async function runExternalMlTournament(){
    const winner=group.champion||null;
    const decision=winner
     ?(shadowRequired
-      ?{promote:false,reason:'Post-quarantine slot requires V60 live shadow recovery before external ML can return'}
+      ?{promote:false,reason:'Post-quarantine slot requires V61 multi-challenger live shadow league before external ML can return'}
       :promotionDecision(winner,incumbent,promotionMargin))
     :{promote:false,reason:'No eligible service winner'};
    let promotionResult:{ok:boolean;error?:string}|null=null;
@@ -284,8 +284,8 @@ export async function runExternalMlTournament(){
    const candidateIds=new Map<string,number>();
    for(const candidate of group.candidates||[]){
     let role='HELD';
-    if(winner&&candidate.serviceModelId===winner.serviceModelId)role=decision.promote?'CHAMPION':shadowRequired?'SHADOW':'CHALLENGER';
-    else if(candidate.eligible)role='MONITORED';
+    if(winner&&candidate.serviceModelId===winner.serviceModelId)role=decision.promote?'CHAMPION':shadowRequired?'SHADOW_ELIGIBLE':'CHALLENGER';
+    else if(candidate.eligible)role=shadowRequired?'SHADOW_ELIGIBLE':'MONITORED';
     if(role==='CHALLENGER')challengers++;
     const reason=winner&&candidate.serviceModelId===winner.serviceModelId
      ?(promotionResult?.ok===false?`Promotion failed: ${promotionResult.error}`:decision.reason)
@@ -313,18 +313,21 @@ export async function runExternalMlTournament(){
     candidatesEvaluated++;
    }
 
-   if(winner&&shadowRequired){
-    const candidateId=candidateIds.get(winner.serviceModelId)||null;
-    const shadow=await startShadowChallenger({
-     sport:group.sport,marketKey:group.marketKey,algorithm:winner.algorithm,
-     serviceModelId:winner.serviceModelId,artifactUri:winner.artifactUri||null,
-     candidateId,tournamentRunId:Number(run.id),
-     holdoutBrier:winner.holdoutBrier,holdoutLogLoss:winner.holdoutLogLoss,
-     calibrationError:winner.calibrationError,brierSkillScore:winner.brierSkillScore,
-     compositeScore:winner.compositeScore
-    });
-    if(shadow.started)shadowsStarted++;
-    if(shadow.retained)shadowsRetained++;
+   if(shadowRequired){
+    const leagueSize=Math.max(2,Math.min(8,Number(process.env.ML_SHADOW_LEAGUE_SIZE||4)));
+    const eligible=(group.candidates||[]).filter(candidate=>candidate.eligible)
+     .sort((a,b)=>b.compositeScore-a.compositeScore||b.brierSkillScore-a.brierSkillScore)
+     .slice(0,leagueSize);
+    const league=await startShadowLeague(eligible.map(candidate=>({
+     sport:group.sport,marketKey:group.marketKey,algorithm:candidate.algorithm,
+     serviceModelId:candidate.serviceModelId,artifactUri:candidate.artifactUri||null,
+     candidateId:candidateIds.get(candidate.serviceModelId)||null,tournamentRunId:Number(run.id),
+     holdoutBrier:candidate.holdoutBrier,holdoutLogLoss:candidate.holdoutLogLoss,
+     calibrationError:candidate.calibrationError,brierSkillScore:candidate.brierSkillScore,
+     compositeScore:candidate.compositeScore
+    })));
+    shadowsStarted+=Number(league.started||0);
+    shadowsRetained+=Number(league.retained||0);
    }
 
    if(winner&&decision.promote&&promotionResult?.ok){

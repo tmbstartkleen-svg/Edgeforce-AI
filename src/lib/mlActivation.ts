@@ -79,7 +79,7 @@ export async function activateMlService(options:{runTournament?:boolean}={}){
  });
  return {
   ok:health.ok&&Boolean(handshake.ok),
-  build:'V60',schemaVersion:'v60-ml-activation-1',
+  build:'V61',schemaVersion:'v61-ml-activation-1',
   activationId,readiness,health,handshake,tournament,
   champions:status.champions||[],championsActive,
   algorithmsAvailable:health.algorithms||{}
@@ -126,7 +126,7 @@ export async function mlActivationStatus(){
  }
 
  return {
-  ok:true,build:'V60',schemaVersion:'v60-ml-activation-1',
+  ok:true,build:'V61',schemaVersion:'v61-ml-activation-1',
   readiness,latestActivation,health:healthHistory,tournament,
   deployment:{
    renderBlueprint:true,

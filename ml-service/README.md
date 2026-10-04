@@ -1,4 +1,4 @@
-# EdgeForce V60 ML Tournament Service
+# EdgeForce V61 ML Tournament Service
 
 Containerized Python service for heavyweight sport-specific model training and champion inference.
 
@@ -121,7 +121,7 @@ It refuses retirement when the requested model ID no longer matches the active c
 Edgeforce calls this endpoint only after the live drift monitor records repeated critical degradation with new settled evidence.
 
 
-## V60 shadow inference
+## V61 shadow inference
 
 `POST /shadow-predict` loads a serialized model by exact `serviceModelId` without reading or creating a production champion manifest. It exists only for live challenger evaluation.
 
@@ -129,4 +129,11 @@ Shadow inference:
 - uses the same feature contract and calibration object as production inference
 - never changes the active champion manifest
 - returns schema `edgeforce-ml-shadow-predict-result-v1`
-- is expected to be called only by Edgeforce's V60 recovery engine
+- is expected to be called only by Edgeforce's V61 multi-challenger recovery engine
+
+
+## V61 multi-challenger league
+
+The service can score several serialized challenger artifacts for the same sport / market through `POST /shadow-predict`. Edgeforce sends each challenger by exact `serviceModelId`; the service does not read or modify champion manifests during shadow scoring.
+
+This lets XGBoost, LightGBM, CatBoost, Random Forest, stacking, Bayesian, and other eligible tournament models compete on the same live settled slate while all remain outside production inference until Edgeforce selects and artifact-verifies the live league winner.

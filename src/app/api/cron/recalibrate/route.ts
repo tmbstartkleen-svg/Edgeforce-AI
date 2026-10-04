@@ -43,8 +43,10 @@ export async function GET(req:Request){
    championDriftChecked:(championDrift as any).champions??null,
    championDriftCritical:(championDrift as any).critical??null,
    championDriftQuarantined:(championDrift as any).quarantined??null,
+   shadowRecoveryLeagues:(shadowRecovery as any).leagues??null,
    shadowRecoveryChecked:(shadowRecovery as any).challengers??null,
    shadowRecoveryReady:(shadowRecovery as any).readyConfirm??null,
+   shadowRecoveryLeagueWinnersReady:(shadowRecovery as any).leagueWinnersReady??null,
    shadowRecoveryRecovered:(shadowRecovery as any).recovered??null,
    shadowRecoveryRejected:(shadowRecovery as any).rejected??null
   });
