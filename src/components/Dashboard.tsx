@@ -7,7 +7,7 @@ import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
-import {buildTradeSignal} from '@/lib/tradeSignals';
+import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -26,6 +26,7 @@ type BoardRow=Scanned & {
   predictionEdge?:number;
   predictionVenueQuotes:Array<{
     source:string;contractId:string;title:string;probability:number;executionProbability:number;
+    bidProbability?:number;askProbability?:number;spreadProbability?:number;
     volume?:number;liquidity?:number;matchScore:number;
     status:'MATCHED'|'ILLIQUID'|'UNKNOWN_LIQUIDITY'|'NO_MATCH';
     edge:number;expectedValue:number;
@@ -707,6 +708,11 @@ export default function Dashboard(){
   const exitSignals=proSignals.filter(x=>x.signal.action==='REDUCE');
   const watchSignals=proSignals.filter(x=>x.signal.action==='WATCH');
   const nowSignals=actionableSignals.filter(x=>x.signal.timing==='NOW');
+  const crossVenueSignals=useMemo(()=>filtered
+    .map(row=>({row,opportunity:findCrossVenueOpportunity(row.predictionVenueQuotes||[])}))
+    .filter(x=>x.opportunity.comparableVenues>=2)
+    .sort((a,b)=>b.opportunity.grossArbitrageMargin-a.opportunity.grossArbitrageMargin||b.opportunity.disagreement-a.opportunity.disagreement),[filtered]);
+  const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
 
   return <main className="v21">
     <header className="v21Top">
@@ -925,6 +931,7 @@ export default function Dashboard(){
           <span>{actionableSignals.length} enter</span>
           <span>{nowSignals.length} timing now</span>
           <span>{exitSignals.length} reduce / exit</span>
+          <span>{grossArbCandidates.length} gross arb candidate(s)</span>
         </div>
       </div>
       <div className="v21Stats">
@@ -966,6 +973,17 @@ export default function Dashboard(){
             <b>{signal.venue}</b>
             <small>{signal.venueType.replaceAll('_',' ')+' • '+(row.predictionVenueQuotes?.length||0)+' prediction venue quote(s) matched • best EV '+(signal.expectedValue>=0?'+':'')+fmtPct(signal.expectedValue)}</small>
           </div>)}
+        </div>
+        <div className="historyBox">
+          <h4>Cross-venue spread / arbitrage watch</h4>
+          {crossVenueSignals.slice(0,8).map(({row,opportunity})=><div className="historyRow" key={'cross-venue-'+row.id}>
+            <span>{row.selection}</span>
+            <b>{opportunity.grossArbitrage?('GROSS ARB +'+fmtPct(opportunity.grossArbitrageMargin)):('GAP '+fmtPct(opportunity.disagreement))}</b>
+            <small>{opportunity.grossArbitrage
+              ?('buy YES '+Math.round((opportunity.buyYesAsk||0)*100)+'¢ '+(opportunity.buyYesVenue||'')+' • sell YES '+Math.round((opportunity.sellYesBid||0)*100)+'¢ '+(opportunity.sellYesVenue||'')+' • before fees/fill risk')
+              :(opportunity.comparableVenues+' venues • price disagreement only, not risk-free arbitrage')}</small>
+          </div>)}
+          {!crossVenueSignals.length&&<div className="historyRow"><span>No comparable exchange quotes</span><b>—</b><small>Kalshi/Polymarket matching will populate this when both venues quote the same outcome.</small></div>}
         </div>
       </div>
       <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model's present fair value for a long position.</div>
