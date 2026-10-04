@@ -10,6 +10,7 @@ import MarketDrilldown from './MarketDrilldown';
 import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import LiveComebackPanel from './LiveComebackPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
+import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -720,8 +721,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V53</div>
-        <h1>Expert Modeling Suite + Live Prediction Intelligence</h1>
+        <div className="eyebrow">EDGEFORCE AI • V54</div>
+        <h1>Trained Sport ML + Expert Modeling Intelligence</h1>
         <p>Out-of-sample validation now measures calibration, Brier/log loss, market-relative skill, CLV, context lift and simulation lift before learned models retain full runtime influence.</p>
       </div>
       <div className="v21Status">
@@ -1055,6 +1056,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <TrainedSportModelsPanel/>
 
     <ExpertModelSuitePanel/>
 
