@@ -3,14 +3,18 @@ import {shadowRecoveryDecision,shadowRecoveryMetrics} from '@/lib/mlShadowRecove
 export const dynamic='force-dynamic';
 
 export async function GET(){
- const goodRows=Array.from({length:60},(_,i)=>({
-  probability:i%2===0?.76:.24,
-  outcome:i%2===0?1:0,
-  marketBaselineProbability:i%2===0?.62:.38,
-  nativeProbability:i%2===0?.66:.34,
-  settledAt:new Date(2026,0,1+i).toISOString()
- }));
- const metrics=shadowRecoveryMetrics(goodRows,.17);
+ const goodRows=Array.from({length:100},(_,i)=>{
+  const high=i<50;
+  const within=high?i:i-50;
+  return {
+   probability:high?.80:.20,
+   outcome:high?(within<40?1:0):(within<10?1:0),
+   marketBaselineProbability:high?.60:.40,
+   nativeProbability:high?.70:.30,
+   settledAt:new Date(Date.UTC(2026,0,1+i)).toISOString()
+  };
+ });
+ const metrics=shadowRecoveryMetrics(goodRows,.15);
  const insufficient=shadowRecoveryDecision({...metrics,sampleSize:20,priorConfirmations:0,minSample:50});
  const cooldown=shadowRecoveryDecision({...metrics,priorConfirmations:0,cooldownActive:true,minSample:50});
  const firstPass=shadowRecoveryDecision({...metrics,priorConfirmations:0,cooldownActive:false,minSample:50});
