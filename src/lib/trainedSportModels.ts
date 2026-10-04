@@ -432,6 +432,30 @@ function trainingGroups(rows:TrainingHistoryRow[],minSample:number){
   .filter(g=>g.list.length>=(g.marketKey==='*'?minSample:Math.max(minSample,100)));
 }
 
+export async function recordTrainedModelPredictionSnapshots(markets:Market[]){
+ const sql=db();
+ if(!sql)return 0;
+ let written=0;
+ for(const m of markets){
+  const probability=num(m.sportFeatures?.trainedSportMlProbability);
+  const confidence=num(m.sportFeatures?.trainedSportMlConfidence);
+  const coverage=num(m.sportFeatures?.trainedSportMlCoverage);
+  const artifactId=num(m.sportFeatures?.trainedSportMlArtifactId);
+  if(probability===undefined||probability<=0||probability>=1)continue;
+  await sql`
+   insert into trained_model_prediction_snapshots(
+    market_id,sport,market_key,artifact_id,algorithm,probability,confidence,feature_coverage,observed_at,metadata
+   ) values(
+    ${m.id},${canonicalTrainingSport(m.sport||m.league)},${m.market},${artifactId??null},
+    'EDGEFORCE_LOGISTIC_L2_CALIBRATED',${probability},${confidence??0},${coverage??0},now(),
+    ${sql.json({selection:m.selection,event:m.event,odds:m.odds,marketProbability:m.marketProb,modelVersion:RELEASE.modelVersion})}
+   )
+  `;
+  written++;
+ }
+ return written;
+}
+
 export async function trainAndPersistSportModels(){
  const sql=db();
  if(!sql)return {ok:true,mode:'dry-run' as const,rows:0,artifacts:[],promoted:0};
