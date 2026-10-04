@@ -121,11 +121,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V57 smoke test
+      - name: Hosted V58 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "57.0.0"
+          EXPECTED_APP_VERSION: "58.0.0"
 
       - name: Publish deployment URL
         env:
@@ -133,9 +133,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Build: V57" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v57" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v46" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: V58" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v58" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v47" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"
