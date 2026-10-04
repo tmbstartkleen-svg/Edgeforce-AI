@@ -215,6 +215,63 @@ export function summarizeFlow(trades:PredictionTrade[],window:FlowWindow,now=Dat
  return out.sort((a,b)=>Math.abs(b.netYesFlow)-Math.abs(a.netYesFlow)||b.grossNotional-a.grossNotional);
 }
 
+export type MarketMover={
+ venue:PredictionVenue;
+ marketId:string;
+ title:string;
+ window:FlowWindow;
+ trades:number;
+ grossNotional:number;
+ netYesFlow:number;
+ startYesProbability:number;
+ latestYesProbability:number;
+ probabilityChange:number;
+ absoluteChange:number;
+ lastTradeAt:string;
+};
+
+function yesEquivalentPrice(trade:PredictionTrade){
+ if(trade.direction==='NO')return clamp(1-trade.price,.001,.999);
+ return clamp(trade.price,.001,.999);
+}
+
+export function marketMovers(trades:PredictionTrade[],window:FlowWindow='4H',limit=40,now=Date.now()):MarketMover[]{
+ const cutoff=now-windowMs(window);
+ const groups=new Map<string,PredictionTrade[]>();
+ for(const trade of trades){
+  const ts=new Date(trade.timestamp).getTime();
+  if(!Number.isFinite(ts)||ts<cutoff)continue;
+  const key=[trade.venue,trade.marketId].join('|');
+  groups.set(key,[...(groups.get(key)||[]),trade]);
+ }
+ const movers:MarketMover[]=[];
+ for(const rows of groups.values()){
+  const ordered=[...rows].sort((a,b)=>new Date(a.timestamp).getTime()-new Date(b.timestamp).getTime());
+  if(!ordered.length)continue;
+  const first=ordered[0],last=ordered[ordered.length-1];
+  const start=yesEquivalentPrice(first);
+  const latest=yesEquivalentPrice(last);
+  const delta=latest-start;
+  movers.push({
+   venue:last.venue,
+   marketId:last.marketId,
+   title:last.title,
+   window,
+   trades:ordered.length,
+   grossNotional:ordered.reduce((s,x)=>s+x.notional,0),
+   netYesFlow:ordered.reduce((s,x)=>s+x.signedYesFlow,0),
+   startYesProbability:start,
+   latestYesProbability:latest,
+   probabilityChange:delta,
+   absoluteChange:Math.abs(delta),
+   lastTradeAt:last.timestamp
+  });
+ }
+ return movers
+  .sort((a,b)=>b.absoluteChange-a.absoluteChange||b.grossNotional-a.grossNotional)
+  .slice(0,Math.max(1,limit));
+}
+
 function normalizeText(value:string){
  return value
   .toLowerCase()
