@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {useEffect,useMemo,useState} from 'react';
 
 type Summary={
@@ -185,7 +186,7 @@ export default function MobilePredictionTerminal(){
 
   <footer className="pmFooter">
    <span>Analytics only · no automatic execution</span>
-   <a href="/">Desktop Edgeforce</a>
+   <Link href="/">Desktop Edgeforce</Link>
   </footer>
  </main>
 }
