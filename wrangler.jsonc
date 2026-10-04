@@ -8,6 +8,12 @@
   "main": "./worker/index.ts",
   "workers_dev": true,
   "preview_urls": true,
+  "observability": {
+    "enabled": true
+  },
+  "placement": {
+    "mode": "smart"
+  },
   "assets": {
     "not_found_handling": "none",
     "binding": "ASSETS"
@@ -19,7 +25,7 @@
     "DEFAULT_BANKROLL": "1000",
     "TARGET_BOOKMAKER": "DraftKings",
     "THE_ODDS_API_BASE_URL": "https://api.the-odds-api.com/v4",
-    "THE_ODDS_API_BOOKMAKERS": "draftkings,fanduel,betmgm,williamhill_us",
+    "THE_ODDS_API_BOOKMAKERS": "draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us",
     "THE_ODDS_API_REGIONS": "us",
     "THE_ODDS_API_MARKETS": "h2h,spreads,totals",
     "THE_ODDS_API_LOOKAHEAD_DAYS": "8",
@@ -29,6 +35,16 @@
     "THE_ODDS_API_CACHE_MS": "600000",
     "THE_ODDS_API_CREDIT_RESERVE": "25",
     "THE_ODDS_API_FAILURE_CACHE_MS": "60000",
+    "KALSHI_ENABLED": "true",
+    "KALSHI_API_BASE_URL": "https://external-api.kalshi.com/trade-api/v2",
+    "KALSHI_TIMEOUT_MS": "8000",
+    "KALSHI_MAX_PAGES": "2",
+    "POLYMARKET_ENABLED": "true",
+    "POLYMARKET_GAMMA_URL": "https://gamma-api.polymarket.com/markets?closed=false&limit=500&order=volumeNum&ascending=false",
+    "POLYMARKET_DATA_URL": "https://data-api.polymarket.com",
+    "POLYMARKET_TIMEOUT_MS": "8000",
+    "PREDICTION_MARKET_MAX_CONTRACTS": "4000",
+    "PREDICTION_FLOW_MIN_NOTIONAL": "500",
     "WEATHER_CONTEXT_CACHE_MS": "600000",
     "INJURY_CONTEXT_CACHE_MS": "180000",
     "STATS_CONTEXT_CACHE_MS": "900000",

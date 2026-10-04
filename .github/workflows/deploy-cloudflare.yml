@@ -34,7 +34,7 @@ jobs:
       - run: npm run build:vinext
       - run: npm run validate:cloudflare-build
 
-      - name: Apply Neon/Postgres migrations through v38
+      - name: Apply Neon/Postgres migrations through current release
         run: npm run migrate
         env:
           DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
@@ -93,6 +93,21 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireLive=1"
 
+      - name: Verify cross-venue prediction terminal
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/prediction-terminal?trades=50&markets=50" > /tmp/prediction-terminal.json
+          node -e "const d=require('/tmp/prediction-terminal.json'); if(d.scope!=='ALL_PREDICTION_MARKETS'||d.analyticsOnly!==true) process.exit(1); console.log(JSON.stringify({scope:d.scope,contracts:d.summary?.contracts||0,recentTrades:d.summary?.recentTrades||0}))"
+
+      - name: Verify iPhone PWA surfaces
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/mobile" > /dev/null
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/predictions" > /dev/null
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/manifest.webmanifest" > /dev/null
+
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
@@ -112,5 +127,5 @@ jobs:
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Build: V51" >> "$GITHUB_STEP_SUMMARY"
           echo "- Model: edgeforce-v51" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v38" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v39" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"\n          echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"\n          echo "- iPhone PWA: /mobile" >> "$GITHUB_STEP_SUMMARY"
