@@ -24,6 +24,7 @@ export type ShadowCandidateInput={
 type ShadowRow={
  id:number;sport:string;marketKey:string;algorithm:string;serviceModelId:string;
  artifactUri?:string|null;candidateId?:number|null;sourceTournamentRunId?:number|null;
+ leagueId?:number|null;seedRank?:number|null;leagueRank?:number|null;leagueScore?:number|null;
  status:string;holdoutBrier:number;holdoutLogLoss:number;holdoutCalibrationError:number;
  holdoutBrierSkillScore:number;compositeScore:number;settledSampleSize:number;
  confirmations:number;startedAt:string;
@@ -124,6 +125,44 @@ export function shadowRecoveryDecision(input:{
  };
 }
 
+export function shadowLeagueScore(input:{
+ marketBrierSkillScore:number;nativeBrierSkillScore:number;
+ liveCalibrationError:number;brierDegradation:number;
+}){
+ return input.marketBrierSkillScore*.45
+  +input.nativeBrierSkillScore*.45
+  -input.liveCalibrationError*.35
+  -Math.max(0,input.brierDegradation)*.20;
+}
+
+export function shadowLeagueWinnerDecision(rows:Array<{
+ id:number;sampleSize:number;score:number;recoveryAction:string;state:string;
+}>,options:{minCompetitors?:number;minSample?:number;minMargin?:number}={}){
+ const minCompetitors=options.minCompetitors??Math.max(2,Number(process.env.ML_SHADOW_LEAGUE_MIN_COMPETITORS||2));
+ const minSample=options.minSample??Math.max(25,Number(process.env.ML_SHADOW_RECOVERY_MIN_SAMPLE||50));
+ const minMargin=options.minMargin??Math.max(0,Number(process.env.ML_SHADOW_LEAGUE_MIN_SCORE_MARGIN||.005));
+ const eligible=rows.filter(row=>row.sampleSize>=minSample&&row.state!=='REJECTED')
+  .sort((a,b)=>b.score-a.score||b.sampleSize-a.sampleSize||a.id-b.id);
+ if(eligible.length<minCompetitors)return {
+  promote:false,winnerId:null as number|null,runnerUpId:null as number|null,margin:null as number|null,
+  reason:'Need '+minCompetitors+' live-qualified league competitors; have '+eligible.length
+ };
+ const winner=eligible[0],runner=eligible[1];
+ const margin=winner.score-runner.score;
+ if(winner.recoveryAction!=='PROMOTE')return {
+  promote:false,winnerId:winner.id,runnerUpId:runner.id,margin,
+  reason:'Live league leader has not completed repeated fresh-evidence confirmation'
+ };
+ if(margin<minMargin)return {
+  promote:false,winnerId:winner.id,runnerUpId:runner.id,margin,
+  reason:'Live league winner margin '+margin.toFixed(4)+' is below required '+minMargin.toFixed(4)
+ };
+ return {
+  promote:true,winnerId:winner.id,runnerUpId:runner.id,margin,
+  reason:'Live league winner cleared recovery gates and beat runner-up by '+margin.toFixed(4)
+ };
+}
+
 function shadowUrl(){
  const explicit=String(process.env.ML_SHADOW_PREDICTION_SERVICE_URL||'').trim();
  if(explicit)return explicit;
@@ -177,34 +216,70 @@ async function quarantineState(sport:string,marketKey:string){
  return {quarantined:true,cooldownActive:Date.now()<until,cooldownUntil:new Date(until).toISOString(),hours};
 }
 
-export async function startShadowChallenger(input:ShadowCandidateInput){
+export async function startShadowLeague(inputs:ShadowCandidateInput[]){
  const sql=db();
- if(!sql)return {ok:true,mode:'dry-run' as const,started:false,retained:false,id:null};
- const existing=await sql`
-  select id,sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",status
-  from external_ml_shadow_challengers
-  where sport=${input.sport} and market_key=${input.marketKey}
-   and status in ('SHADOW','READY_CONFIRM')
+ if(!sql)return {ok:true,mode:'dry-run' as const,leagueId:null,started:0,retained:0,active:0};
+ if(!inputs.length)return {ok:true,mode:'database' as const,leagueId:null,started:0,retained:0,active:0};
+ const first=inputs[0];
+ const maxChallengers=Math.max(2,Math.min(8,Number(process.env.ML_SHADOW_LEAGUE_SIZE||4)));
+ const minCompetitors=Math.max(2,Math.min(maxChallengers,Number(process.env.ML_SHADOW_LEAGUE_MIN_COMPETITORS||2)));
+ let leagues=await sql`
+  select id,max_challengers as "maxChallengers",min_competitors as "minCompetitors"
+  from external_ml_shadow_leagues
+  where sport=${first.sport} and market_key=${first.marketKey} and status='ACTIVE'
   order by started_at desc limit 1
  `;
- if(existing.length){
-  return {ok:true,mode:'database' as const,started:false,retained:true,id:Number((existing[0] as any).id),challenger:existing[0]};
+ if(!leagues.length){
+  leagues=await sql`
+   insert into external_ml_shadow_leagues(
+    sport,market_key,status,source_tournament_run_id,max_challengers,min_competitors,
+    model_version,metadata,started_at
+   ) values(
+    ${first.sport},${first.marketKey},'ACTIVE',${first.tournamentRunId??null},
+    ${maxChallengers},${minCompetitors},${RELEASE.modelVersion},
+    ${sql.json({purpose:'V61_MULTI_CHALLENGER_LIVE_LEAGUE',productionWeight:0} as any)},now()
+   )
+   returning id,max_challengers as "maxChallengers",min_competitors as "minCompetitors"
+  `;
  }
- const inserted=await sql`
-  insert into external_ml_shadow_challengers(
-   sport,market_key,algorithm,service_model_id,artifact_uri,candidate_id,source_tournament_run_id,status,
-   holdout_brier,holdout_log_loss,holdout_calibration_error,holdout_brier_skill_score,composite_score,
-   model_version,metadata,started_at
-  ) values(
-   ${input.sport},${input.marketKey},${input.algorithm},${input.serviceModelId},${input.artifactUri??null},
-   ${input.candidateId??null},${input.tournamentRunId??null},'SHADOW',
-   ${input.holdoutBrier},${input.holdoutLogLoss},${input.calibrationError},${input.brierSkillScore},
-   ${input.compositeScore},${RELEASE.modelVersion},
-   ${sql.json({purpose:'post-quarantine-live-recovery',productionWeight:0} as any)},now()
-  )
-  returning id,sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",status
+ const leagueId=Number((leagues[0] as any).id);
+ const leagueMax=Number((leagues[0] as any).maxChallengers||maxChallengers);
+ const existing=await sql`
+  select id,service_model_id as "serviceModelId"
+  from external_ml_shadow_challengers
+  where league_id=${leagueId} and status in ('SHADOW','READY_CONFIRM')
+  order by seed_rank nulls last,started_at
  `;
- return {ok:true,mode:'database' as const,started:true,retained:false,id:Number((inserted[0] as any)?.id||0),challenger:inserted[0]||null};
+ const existingIds=new Set((existing as any[]).map(row=>String(row.serviceModelId)));
+ let slots=Math.max(0,leagueMax-existing.length);
+ let started=0,retained=existing.length;
+ const ranked=[...inputs].sort((a,b)=>b.compositeScore-a.compositeScore||b.brierSkillScore-a.brierSkillScore);
+ for(let i=0;i<ranked.length&&slots>0;i++){
+  const input=ranked[i];
+  if(input.sport!==first.sport||input.marketKey!==first.marketKey||existingIds.has(input.serviceModelId))continue;
+  const inserted=await sql`
+   insert into external_ml_shadow_challengers(
+    sport,market_key,algorithm,service_model_id,artifact_uri,candidate_id,source_tournament_run_id,
+    league_id,seed_rank,status,holdout_brier,holdout_log_loss,holdout_calibration_error,
+    holdout_brier_skill_score,composite_score,model_version,metadata,started_at
+   ) values(
+    ${input.sport},${input.marketKey},${input.algorithm},${input.serviceModelId},${input.artifactUri??null},
+    ${input.candidateId??null},${input.tournamentRunId??null},${leagueId},${existing.length+started+1},'SHADOW',
+    ${input.holdoutBrier},${input.holdoutLogLoss},${input.calibrationError},${input.brierSkillScore},
+    ${input.compositeScore},${RELEASE.modelVersion},
+    ${sql.json({purpose:'V61_MULTI_CHALLENGER_LIVE_LEAGUE',productionWeight:0} as any)},now()
+   )
+   on conflict (service_model_id) do nothing
+   returning id
+  `;
+  if(inserted.length){started++;slots--;existingIds.add(input.serviceModelId)}
+ }
+ return {ok:true,mode:'database' as const,leagueId,started,retained,active:existing.length+started,maxChallengers:leagueMax,minCompetitors};
+}
+
+export async function startShadowChallenger(input:ShadowCandidateInput){
+ const result=await startShadowLeague([input]);
+ return {...result,id:null,challenger:null,started:Boolean(result.started),retained:Boolean(result.retained)};
 }
 
 async function activeShadowRows():Promise<ShadowRow[]>{
@@ -212,6 +287,7 @@ async function activeShadowRows():Promise<ShadowRow[]>{
  const rows=await sql`
   select id,sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
    artifact_uri as "artifactUri",candidate_id as "candidateId",source_tournament_run_id as "sourceTournamentRunId",
+   league_id as "leagueId",seed_rank as "seedRank",league_rank as "leagueRank",league_score::float as "leagueScore",
    status,holdout_brier::float as "holdoutBrier",holdout_log_loss::float as "holdoutLogLoss",
    holdout_calibration_error::float as "holdoutCalibrationError",
    holdout_brier_skill_score::float as "holdoutBrierSkillScore",composite_score::float as "compositeScore",
@@ -232,25 +308,27 @@ export async function recordShadowChallengerPredictions(markets:Market[]){
  if(!url)return {written:0,requested:0,challengers:shadows.length,mode:'unconfigured' as const,error:'ML shadow prediction endpoint is not configured'};
  if(!mlServiceCircuitAllows())return {written:0,requested:0,challengers:shadows.length,mode:'circuit-open' as const,error:'ML service circuit is open'};
 
- const exact=new Map<string,ShadowRow>();
- const broad=new Map<string,ShadowRow>();
+ const exact=new Map<string,ShadowRow[]>();
+ const broad=new Map<string,ShadowRow[]>();
  for(const row of shadows){
-  exact.set(row.sport+'|'+row.marketKey.toLowerCase(),row);
-  if(row.marketKey==='*')broad.set(row.sport,row);
+  const key=row.sport+'|'+row.marketKey.toLowerCase();
+  exact.set(key,[...(exact.get(key)||[]),row]);
+  if(row.marketKey==='*')broad.set(row.sport,[...(broad.get(row.sport)||[]),row]);
  }
 
  const requests:Array<{requestId:string;market:Market;shadow:ShadowRow;nativeProbability:number;featureNames:string[];features:number[]}>= [];
  for(const market of markets.slice(0,1000)){
   const sport=canonicalTrainingSport(market.sport||market.league);
-  const shadow=exact.get(sport+'|'+market.market.toLowerCase())||broad.get(sport);
-  if(!shadow)continue;
+  const competitors=exact.get(sport+'|'+market.market.toLowerCase())||broad.get(sport)||[];
+  if(!competitors.length)continue;
   const featureNames=trainingFeatureNames(sport);
   if(!featureNames.length)continue;
-  const requestId=[shadow.id,market.id,market.market,market.selection].join('::');
-  requests.push({
-   requestId,market,shadow,nativeProbability:nativeProbability(market),featureNames,
-   features:trainingFeatureVectorFromMarket(market,featureNames)
-  });
+  const native=nativeProbability(market);
+  const features=trainingFeatureVectorFromMarket(market,featureNames);
+  for(const shadow of competitors){
+   const requestId=[shadow.id,market.id,market.market,market.selection].join('::');
+   requests.push({requestId,market,shadow,nativeProbability:native,featureNames,features});
+  }
  }
  if(!requests.length)return {written:0,requested:0,challengers:shadows.length,mode:'database' as const};
 
