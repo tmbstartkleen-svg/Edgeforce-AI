@@ -67,6 +67,18 @@ type SportsSignalRow={
  lineMovement?:{direction:'TOWARD'|'AWAY'|'FLAT';steam:boolean;steamStrength:'NONE'|'WATCH'|'STRONG';probabilityMove:number;snapshotCount:number}|null;
 };
 type SportsBoardResponse={rows:SportsSignalRow[];generatedAt:string};
+type PositionIntel={
+ position:{id:number;venue:string;title:string;category:string;side:'YES'|'NO';quantity:number;avgEntryProbability:number};
+ current?:{executableExitProbability:number;executableBuyProbability:number};
+ fair?:{sideProbability:number;source:string;confidence:number};
+ action:'ADD'|'HOLD'|'TRIM'|'TAKE_PROFIT'|'EXIT'|'NO_SIGNAL';
+ timing:'NOW'|'PATIENT'|'REVIEW';score:number;remainingEdge:number;unrealizedPnl:number;unrealizedRoi:number;
+ addBelowProbability:number;takeProfitAboveProbability:number;riskFlags:string[];
+};
+type PositionResponse={
+ ok:boolean;summary:{openPositions:number;add:number;hold:number;trim:number;takeProfit:number;exit:number;noSignal:number;unrealizedPnl:number};
+ intelligence:PositionIntel[];
+};
 
 const empty:TerminalResponse={
  ok:false,generatedAt:'',summary:{
@@ -98,8 +110,9 @@ function timeAgo(value:string){
 export default function MobilePredictionTerminal(){
  const [data,setData]=useState<TerminalResponse>(empty);
  const [category,setCategory]=useState('ALL');
- const [tab,setTab]=useState<'SIGNALS'|'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('SIGNALS');
+ const [tab,setTab]=useState<'SIGNALS'|'POSITIONS'|'FLOW'|'MOVERS'|'TRADERS'|'GAPS'|'MARKETS'|'TAPE'>('SIGNALS');
  const [sportsRows,setSportsRows]=useState<SportsSignalRow[]>([]);
+ const [positionData,setPositionData]=useState<PositionResponse|null>(null);
  const [error,setError]=useState('');
 
  useEffect(()=>{
@@ -109,14 +122,16 @@ export default function MobilePredictionTerminal(){
    if(busy)return;
    busy=true;
    try{
-    const [terminalRes,sportsRes]=await Promise.all([
+    const [terminalRes,sportsRes,positionRes]=await Promise.all([
      fetch('/api/prediction-terminal?markets=300&trades=300',{cache:'no-store'}),
-     fetch('/api/live-board?view=today&limit=30&risk=Moderate',{cache:'no-store'})
+     fetch('/api/live-board?view=today&limit=30&risk=Moderate',{cache:'no-store'}),
+     fetch('/api/prediction-positions/intelligence',{cache:'no-store'})
     ]);
     if(!terminalRes.ok)throw new Error('Prediction terminal request failed');
     const json=await terminalRes.json() as TerminalResponse;
     const sportsJson=sportsRes.ok?await sportsRes.json() as SportsBoardResponse:null;
-    if(active){setData(json);setSportsRows(sportsJson?.rows||[]);setError('')}
+    const positionsJson=positionRes.ok?await positionRes.json() as PositionResponse:null;
+    if(active){setData(json);setSportsRows(sportsJson?.rows||[]);setPositionData(positionsJson);setError('')}
    }catch(e){
     if(active)setError(e instanceof Error?e.message:'Unable to refresh');
    }finally{busy=false}
@@ -169,6 +184,7 @@ export default function MobilePredictionTerminal(){
 
   <nav className="pmTabs">
    <button className={tab==='SIGNALS'?'active':''} onClick={()=>setTab('SIGNALS')}>Pro Signals</button>
+   <button className={tab==='POSITIONS'?'active':''} onClick={()=>setTab('POSITIONS')}>Positions</button>
    <button className={tab==='FLOW'?'active':''} onClick={()=>setTab('FLOW')}>Smart Flow</button>
    <button className={tab==='MOVERS'?'active':''} onClick={()=>setTab('MOVERS')}>Movers</button>
    <button className={tab==='TRADERS'?'active':''} onClick={()=>setTab('TRADERS')}>Traders</button>
@@ -191,6 +207,31 @@ export default function MobilePredictionTerminal(){
     <p>{signal.venue} · entry {signal.venueType==='PREDICTION_EXCHANGE'?'≤ '+Math.round(signal.entryMaxProbability*100)+'¢':'at/above '+signal.entryMinAmericanOdds+' odds'} · confidence {pct(signal.confidence)}{row.lineMovement?.steam?' · '+row.lineMovement.steamStrength+' steam '+row.lineMovement.direction.toLowerCase():''}</p>
    </article>)}
    {!sportsSignals.length&&<div className="pmEmpty">No qualified sports signals are available in the current board.</div>}
+  </section>}
+
+  {tab==='POSITIONS'&&<section className="pmStack">
+   <div className="pmSectionHead"><div><small>POSITION-AWARE</small><h2>Add / hold / trim / exit</h2></div><span>{positionData?.summary.openPositions??0}</span></div>
+   <article className="pmCard">
+    <div className="pmCardTop"><span className="pmMatch strong">LIVE PORTFOLIO</span><b className={(positionData?.summary.unrealizedPnl??0)>=0?'up':'down'}>{money(positionData?.summary.unrealizedPnl??0)}</b></div>
+    <div className="pmMetrics">
+     <div><small>Add</small><b>{positionData?.summary.add??0}</b></div>
+     <div><small>Hold</small><b>{positionData?.summary.hold??0}</b></div>
+     <div><small>Reduce</small><b>{(positionData?.summary.trim??0)+(positionData?.summary.takeProfit??0)}</b></div>
+     <div><small>Exit</small><b>{positionData?.summary.exit??0}</b></div>
+    </div>
+   </article>
+   {(positionData?.intelligence||[]).slice(0,40).map(item=><article className="pmCard" key={'position-'+item.position.id}>
+    <div className="pmCardTop"><span className={'pmMatch '+(item.action==='ADD'||item.action==='HOLD'?'strong':'heuristic')}>{item.action} · {item.timing}</span><b className="pmGap">{item.score}/100</b></div>
+    <h3>{item.position.side} · {item.position.title}</h3>
+    <div className="pmMetrics">
+     <div><small>Venue</small><b>{item.position.venue}</b></div>
+     <div><small>Entry</small><b>{pct(item.position.avgEntryProbability)}</b></div>
+     <div><small>Exit now</small><b>{item.current?pct(item.current.executableExitProbability):'—'}</b></div>
+     <div><small>P/L</small><b className={item.unrealizedPnl>=0?'up':'down'}>{money(item.unrealizedPnl)}</b></div>
+    </div>
+    <p>{'fair '+(item.fair?pct(item.fair.sideProbability):'—')+' • add ≤ '+pct(item.addBelowProbability)+' • take-profit review ≥ '+pct(item.takeProfitAboveProbability)}{item.fair?' • '+item.fair.source:''}</p>
+   </article>)}
+   {!positionData?.intelligence?.length&&<div className="pmEmpty">No open prediction positions are recorded yet.</div>}
   </section>}
 
   {tab==='FLOW'&&<section className="pmStack">
