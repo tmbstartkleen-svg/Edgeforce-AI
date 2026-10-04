@@ -141,3 +141,45 @@ export function buildTradeSignal(row:SignalRow):TradeSignal{
   riskFlags
  };
 }
+
+
+export type CrossVenueOpportunity={
+ grossArbitrage:boolean;
+ grossArbitrageMargin:number;
+ buyYesVenue?:string;
+ buyYesAsk?:number;
+ sellYesVenue?:string;
+ sellYesBid?:number;
+ disagreement:number;
+ comparableVenues:number;
+};
+
+export function findCrossVenueOpportunity(quotes:Array<{
+ source:string;
+ probability:number;
+ bidProbability?:number;
+ askProbability?:number;
+ status:string;
+}>):CrossVenueOpportunity{
+ const usable=quotes.filter(x=>x.status==='MATCHED'||x.status==='UNKNOWN_LIQUIDITY');
+ const asks=usable.filter(x=>typeof x.askProbability==='number') as Array<typeof usable[number] & {askProbability:number}>;
+ const bids=usable.filter(x=>typeof x.bidProbability==='number') as Array<typeof usable[number] & {bidProbability:number}>;
+ const bestAsk=[...asks].sort((a,b)=>a.askProbability-b.askProbability)[0];
+ const bestBid=[...bids].sort((a,b)=>b.bidProbability-a.bidProbability)[0];
+ let grossArbitrageMargin=0;
+ if(bestAsk&&bestBid&&bestAsk.source!==bestBid.source){
+  grossArbitrageMargin=Math.max(0,bestBid.bidProbability-bestAsk.askProbability);
+ }
+ const probs=usable.map(x=>x.probability).filter(Number.isFinite);
+ const disagreement=probs.length>=2?Math.max(...probs)-Math.min(...probs):0;
+ return {
+  grossArbitrage:grossArbitrageMargin>0,
+  grossArbitrageMargin,
+  buyYesVenue:bestAsk?.source,
+  buyYesAsk:bestAsk?.askProbability,
+  sellYesVenue:bestBid?.source,
+  sellYesBid:bestBid?.bidProbability,
+  disagreement,
+  comparableVenues:usable.length
+ };
+}
