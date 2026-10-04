@@ -384,6 +384,7 @@ export async function recordPlayerPropSnapshots(rows:Scanned[]){
   const line=parseLine(row);
   const playerName=row.playerContext!.name;
   const athleteId=athleteByName.get(normalizePlayerName(playerName));
+  const eventId=row.id.includes(':')?row.id.split(':')[0]:row.id;
   const statKey=normalizeKey(row.playerContext?.statKey||inferStatKey(row.market,row.selection));
   const venue=row.sourceBook||row.consensus?.bestBook||'Unknown';
   const inserted=await sql`
@@ -391,7 +392,7 @@ export async function recordPlayerPropSnapshots(rows:Scanned[]){
     market_id,athlete_id,player_name,sport,event_id,event_label,stat_key,direction,line,venue,
     offered_odds,model_probability,sim_probability,dynamic_confidence,observed_hour,raw
    ) values(
-    ${row.id},${athleteId??null},${playerName},${row.sport},${row.id},${row.event},
+    ${row.id},${athleteId??null},${playerName},${row.sport},${eventId},${row.event},
     ${statKey||null},${direction},${line??null},${venue},${row.odds},${row.modelProb},
     ${row.simProbability},${row.dynamicConfidence},${observedHour},
     ${sql.json({market:row.market,selection:row.selection,sourceBook:row.sourceBook,consensus:row.consensus||null})}
@@ -404,6 +405,41 @@ export async function recordPlayerPropSnapshots(rows:Scanned[]){
   written+=inserted.length;
  }
  return written;
+}
+
+export type PlayerPropSettlement={
+ eventId:string;
+ marketKey?:string;
+ selectionKey:string;
+ result:'win'|'loss'|'push';
+ closingOdds?:number;
+ settledAt?:string;
+};
+
+export async function settlePlayerPropPredictions(results:PlayerPropSettlement[]){
+ const sql=db();
+ if(!sql)return {matched:0,settled:0};
+ let matched=0;
+ let settled=0;
+ for(const result of results){
+  const rows=await sql`
+   update player_prop_predictions
+   set result=${result.result},
+       closing_odds=coalesce(${result.closingOdds??null},closing_odds),
+       settled_at=${result.settledAt||new Date().toISOString()}
+   where result is null
+    and event_id=${result.eventId}
+    and lower(coalesce(raw->>'selection',''))=lower(${result.selectionKey})
+    and (
+      ${result.marketKey??null}::text is null
+      or lower(coalesce(raw->>'market',''))=lower(${result.marketKey??''})
+    )
+   returning id
+  `;
+  matched+=rows.length;
+  settled+=rows.length;
+ }
+ return {matched,settled};
 }
 
 export async function loadPropPerformance(){
