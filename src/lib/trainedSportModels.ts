@@ -302,8 +302,9 @@ export function trainSportArtifact(
  const holdoutMetrics=metrics(holdout,predict);
  const marketBaseline=baselineMetrics(holdout);
  const brierSkillScore=marketBaseline.brier>0?1-holdoutMetrics.brier/marketBaseline.brier:0;
- const importance=Object.fromEntries(featureNames.map((name,i)=>[name,Math.abs(fitted.weights[i])])
-  .sort((a,b)=>b[1]-a[1]));
+ const importancePairs:[string,number][]=featureNames.map((name,i)=>[name,Math.abs(fitted.weights[i])]);
+ importancePairs.sort((a,b)=>b[1]-a[1]);
+ const importance=Object.fromEntries(importancePairs);
  const enough=sorted.length>=minSample&&holdout.length>=minHoldout;
  const promoted=enough&&brierSkillScore>=.01&&holdoutMetrics.logLoss<=marketBaseline.logLoss+.005&&holdoutMetrics.calibrationError<=.12;
  let promotionReason='Promoted: chronological holdout beat market baseline with acceptable calibration';
