@@ -2,7 +2,91 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V57 ML Deployment Automation
+## Current build — V58 First Champion Tournament
+
+V58 completes the evidence layer required for the first heavyweight external-ML tournament and adds a sport-by-sport champion scoreboard.
+
+### First tournament orchestration
+The authenticated `POST /api/ml/first-tournament` workflow:
+1. records the pre-tournament champion set
+2. runs the V58 ML activation path with a real external tournament
+3. isolates candidates from the exact tournament run
+4. ranks algorithms within each sport / market group
+5. records winner, runner-up and composite-score margin
+6. compares holdout Brier score with the sportsbook baseline
+7. records new, replaced and retained champions
+8. verifies every promoted champion against the hosted service's persistent artifact store
+9. persists the launch decision and evidence
+
+### Hosted champion artifact verification
+The Python service now exposes authenticated `GET /champions`.
+
+For every champion manifest it reports:
+- sport / market
+- algorithm
+- service model ID
+- serialized artifact presence
+- serialized artifact size
+
+A champion row in Edgeforce's database is not considered launch-ready when its corresponding hosted `.joblib` artifact is missing.
+
+### First-tournament evidence grades
+V58 reports:
+- `BLOCKED`
+- `NO_EVIDENCE`
+- `AWAITING_CHAMPION`
+- `ARTIFACT_MISMATCH`
+- `LIMITED_COVERAGE`
+- `VERIFIED`
+
+`READY_AWAITING_EVIDENCE` remains a safe activation state when the hosted service works but no challenger has earned promotion.
+
+### Sport / market algorithm leaderboard
+For each tournament group V58 reports:
+- winning algorithm
+- runner-up
+- winner composite score
+- Brier Skill Score
+- sportsbook baseline Brier
+- market-relative Brier improvement
+- winner / runner-up score margin
+- number of eligible candidates
+- top five algorithms
+
+This is the first Edgeforce view intended to answer **which modeling family actually won out-of-sample for each sport/market**, rather than which algorithms are merely installed.
+
+### Champion history
+Migration `v47` adds:
+- `ml_first_tournament_runs`
+- `external_ml_champion_history`
+
+Champion history records promotions, replacements and retained incumbents with holdout evidence and promotion reasons.
+
+### APIs and UI
+- run: authenticated `POST /api/ml/first-tournament`
+- status: `GET /api/ml/first-tournament`
+- intelligence: `GET /api/intelligence/ml-champions`
+- regression: `GET /api/testing/ml-first-tournament`
+- dashboard: **V58 First Champion Tournament**
+- modeling workspace: `/models`
+
+### Release identity
+- build: `V58`
+- app: `58.0.0`
+- package: `0.58.0`
+- model: `edgeforce-v58`
+- migration: `v47`
+- ML service: `edgeforce-ml-service-v58`
+
+### Guardrails
+- a tournament winner is not automatically a production champion
+- a database champion without its hosted serialized artifact fails launch evidence
+- an external ML service outage leaves native Edgeforce models active
+- insufficient settled history can legitimately produce no champion
+- winner / runner-up rankings are based on holdout evidence, not profitability claims
+- historical edge does not guarantee future betting profit
+
+## Previous build — V57 ML Deployment Automation
 
 V57 automates the production handoff from the V56 activation-ready stack to a verified hosted ML service.
 
