@@ -3,27 +3,24 @@ import type {PredictionContract} from '@/lib/predictionMarkets';
 
 export const dynamic='force-dynamic';
 
-function contract(id:string,source:string,title:string,yes:number,bid:number,ask:number):PredictionContract{
- return {id,source,title,category:'Test',yesProbability:yes,noProbability:1-yes,modelProbability:yes,probabilityDifference:0,bidProbability:bid,askProbability:ask,volume:50000,liquidity:25000};
+function contract(id:string,title:string,yes:number,bid:number,ask:number):PredictionContract{
+ return {id,source:'Kalshi',title,category:'Test',yesProbability:yes,noProbability:1-yes,modelProbability:yes,probabilityDifference:0,bidProbability:bid,askProbability:ask,volume:50000,liquidity:25000};
 }
 
-function position(id:number,contractId:string,title:string,entry:number):PredictionPosition{
- return {id,venue:'Kalshi',contractId,title,category:'TEST',side:'YES',quantity:100,avgEntryProbability:entry,entryFee:0,openedAt:new Date().toISOString()};
+function position(id:number,contractId:string,title:string,entry:number,fair:number):PredictionPosition{
+ return {id,venue:'Kalshi',contractId,title,category:'TEST',side:'YES',quantity:100,avgEntryProbability:entry,entryFee:0,fairProbabilityAtEntry:fair,modelSource:'deterministic-test-fair',openedAt:new Date().toISOString()};
 }
 
 export async function GET(){
  const contracts:PredictionContract[]=[
-  contract('k-add','Kalshi','Will Alpha win the championship?',.445,.44,.45),
-  contract('p-add','Polymarket','Will Alpha win the championship?',.60,.59,.61),
-  contract('k-profit','Kalshi','Will Beta win the championship?',.705,.70,.71),
-  contract('p-profit','Polymarket','Will Beta win the championship?',.62,.61,.63),
-  contract('k-exit','Kalshi','Will Gamma win the championship?',.505,.50,.51),
-  contract('p-exit','Polymarket','Will Gamma win the championship?',.52,.51,.53)
+  contract('k-add','Will Alpha win the championship?',.445,.44,.45),
+  contract('k-profit','Will Beta win the championship?',.705,.70,.71),
+  contract('k-exit','Will Gamma win the championship?',.505,.50,.51)
  ];
  const positions:PredictionPosition[]=[
-  position(1,'k-add','Will Alpha win the championship?',.40),
-  position(2,'k-profit','Will Beta win the championship?',.40),
-  position(3,'k-exit','Will Gamma win the championship?',.65)
+  position(1,'k-add','Will Alpha win the championship?',.40,.60),
+  position(2,'k-profit','Will Beta win the championship?',.40,.62),
+  position(3,'k-exit','Will Gamma win the championship?',.65,.52)
  ];
  const evaluated=evaluatePredictionPositions(positions,contracts);
  const byId=new Map(evaluated.map(x=>[x.position.id,x]));
