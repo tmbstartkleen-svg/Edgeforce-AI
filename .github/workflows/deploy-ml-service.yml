@@ -152,17 +152,15 @@ jobs:
           cat /tmp/edgeforce-diagnostics.json || true
           exit 1
 
-      - name: Activate Edgeforce external ML
+      - name: Run first champion tournament
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tournament }}
+        run: node scripts/ml-first-tournament-doctor.mjs | tee /tmp/ml-first-tournament.json
+
+      - name: Verify activation without tournament
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.run_tournament }}
         env:
-          RUN_TOURNAMENT_INPUT: ${{ inputs.run_tournament }}
-        shell: bash
-        run: |
-          if [ "${RUN_TOURNAMENT_INPUT:-true}" = "false" ]; then
-            export ML_ACTIVATION_RUN_TOURNAMENT=false
-          else
-            export ML_ACTIVATION_RUN_TOURNAMENT=true
-          fi
-          node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
+          ML_ACTIVATION_RUN_TOURNAMENT: "false"
+        run: node scripts/ml-activation-doctor.mjs | tee /tmp/ml-activation.json
 
       - name: Record deployment attestation
         shell: bash
@@ -177,4 +175,8 @@ jobs:
           echo "- Render deploy: ${{ steps.render.outputs.deploy_id }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Target commit: $TARGET_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "- Service version: $EXPECTED_ML_SERVICE_VERSION" >> "$GITHUB_STEP_SUMMARY"
-          node -e "const d=require('/tmp/ml-activation.json'); console.log('- Activation state: '+d.state); console.log('- Active champions: '+d.championsActive); console.log('- Tournament candidates: '+d.candidates)" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f /tmp/ml-first-tournament.json ]; then
+            node -e "const d=require('/tmp/ml-first-tournament.json'); console.log('- First tournament grade: '+d.grade); console.log('- Active champions: '+d.champions); console.log('- Tournament candidates: '+d.candidates); console.log('- Artifacts verified: '+d.artifactsVerified)" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -f /tmp/ml-activation.json ]; then
+            node -e "const d=require('/tmp/ml-activation.json'); console.log('- Activation state: '+d.state); console.log('- Active champions: '+d.championsActive)" >> "$GITHUB_STEP_SUMMARY"
+          fi
