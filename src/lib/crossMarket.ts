@@ -10,6 +10,9 @@ export type PredictionVenueQuote={
  title:string;
  probability:number;
  executionProbability:number;
+ bidProbability?:number;
+ askProbability?:number;
+ spreadProbability?:number;
  volume?:number;
  liquidity?:number;
  matchScore:number;
@@ -105,7 +108,10 @@ function venueQuotes(row:Scanned,contracts:PredictionContract[],minVolume:number
  const quotes:PredictionVenueQuote[]=[];
  for(const {contract,score} of bestBySource.values()){
   const probability=contract.yesProbability;
-  const executionProbability=Math.max(.001,Math.min(.999,contract.askProbability??probability));
+  const bidProbability=contract.bidProbability===undefined?undefined:Math.max(.001,Math.min(.999,contract.bidProbability));
+  const askProbability=contract.askProbability===undefined?undefined:Math.max(.001,Math.min(.999,contract.askProbability));
+  const executionProbability=Math.max(.001,Math.min(.999,askProbability??probability));
+  const spreadProbability=bidProbability!==undefined&&askProbability!==undefined?Math.max(0,askProbability-bidProbability):undefined;
   const depth=contract.volume??contract.liquidity;
   const status:PredictionMarketStatus=depth===undefined
    ?'UNKNOWN_LIQUIDITY'
@@ -118,6 +124,9 @@ function venueQuotes(row:Scanned,contracts:PredictionContract[],minVolume:number
    title:contract.title,
    probability,
    executionProbability,
+   bidProbability,
+   askProbability,
+   spreadProbability,
    volume:contract.volume,
    liquidity:contract.liquidity,
    matchScore:score,
