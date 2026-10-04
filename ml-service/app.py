@@ -85,6 +85,17 @@ class PredictRequest(BaseModel):
     markets: list[PredictMarket]
 
 
+class PromoteRequest(BaseModel):
+    schemaVersion: str
+    sport: str
+    marketKey: str
+    serviceModelId: str
+    algorithm: str
+    artifactUri: str
+    compositeScore: float
+    brierSkillScore: float
+
+
 def require_auth(authorization: str | None) -> None:
     if not API_KEY:
         return
@@ -441,8 +452,7 @@ def train(req: TrainingRequest, authorization: str | None = Header(default=None)
         champion = eligible[0] if eligible else None
         challenger = eligible[1] if len(eligible) > 1 else None
         if champion:
-            champion["role"] = "CHAMPION"
-            save_champion(group.sport, group.marketKey, champion)
+            champion["role"] = "CANDIDATE_WINNER"
         if challenger:
             challenger["role"] = "CHALLENGER"
         for candidate in candidates:
@@ -466,6 +476,32 @@ def train(req: TrainingRequest, authorization: str | None = Header(default=None)
         "serviceVersion": SERVICE_VERSION,
         "algorithmsAvailable": available_algorithms(),
         "groups": groups_out,
+    }
+
+
+@app.post("/promote")
+def promote(req: PromoteRequest, authorization: str | None = Header(default=None)):
+    require_auth(authorization)
+    if req.schemaVersion != "edgeforce-ml-promote-v1":
+        raise HTTPException(status_code=400, detail="unsupported schemaVersion")
+    path = MODEL_DIR / f"{req.serviceModelId}.joblib"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="model artifact not found")
+    candidate = {
+        "algorithm": req.algorithm,
+        "serviceModelId": req.serviceModelId,
+        "artifactUri": req.artifactUri,
+        "compositeScore": req.compositeScore,
+        "brierSkillScore": req.brierSkillScore,
+    }
+    save_champion(req.sport, req.marketKey, candidate)
+    return {
+        "ok": True,
+        "schemaVersion": "edgeforce-ml-promote-result-v1",
+        "serviceVersion": SERVICE_VERSION,
+        "sport": req.sport,
+        "marketKey": req.marketKey,
+        "serviceModelId": req.serviceModelId,
     }
 
 
