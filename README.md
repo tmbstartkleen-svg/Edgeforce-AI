@@ -2,7 +2,95 @@
 
 Production-hardened sports prediction, simulation, market-intelligence, CLV, repricing, bankroll and model-learning workspace.
 
-## Current build — V55 External ML Tournament Engine
+## Current build — V56 ML Service Activation
+
+V56 takes the V55 heavyweight Python tournament service from a repository component to an activation-ready production service with explicit deployment, health, circuit-breaker, handshake and activation states.
+
+### Render deployment blueprint
+A root-level `render.yaml` now defines the `edgeforce-ml` Docker web service with:
+- Docker build from `ml-service/Dockerfile`
+- Ohio region
+- explicit `2c-8g` compute plan
+- `/health` health check
+- persistent 10 GB disk mounted at `/data/models`
+- one instance, because Render services with an attached persistent disk are intentionally single-instance
+- secret `ML_SERVICE_KEY`
+- model-store, sample-size and PyMC controls
+
+The service container honors the hosting platform's `PORT` variable and defaults to port 10000.
+
+### ML service health and circuit breaker
+V56 adds `mlServiceHealth.ts`:
+- derives a health URL from the configured service endpoints or `ML_HEALTH_SERVICE_URL`
+- verifies `/health`
+- records service version, latency and algorithm availability
+- records persistent health snapshots in migration v45
+- counts consecutive failures
+- opens a bounded circuit after the configured failure threshold
+- automatically bypasses external ML inference while the circuit is open
+- leaves all native Edgeforce models active during external-service failure
+- probes service health during the hourly heartbeat
+
+Default controls:
+- `ML_SERVICE_HEALTH_TIMEOUT_MS=5000`
+- `ML_SERVICE_HANDSHAKE_TIMEOUT_MS=7000`
+- `ML_SERVICE_FAILURE_THRESHOLD=3`
+- `ML_SERVICE_CIRCUIT_COOLDOWN_MS=300000`
+
+### Prediction contract handshake
+Before activation, Edgeforce sends an empty `edgeforce-ml-predict-v1` request to the deployed service and requires an `edgeforce-ml-predict-result-v1` response.
+
+A service that is reachable but does not implement the expected inference contract is not considered activation-ready.
+
+### Activation state machine
+The new V56 activation workflow reports one of five states:
+- `UNCONFIGURED`
+- `UNHEALTHY`
+- `READY`
+- `READY_AWAITING_EVIDENCE`
+- `ACTIVE`
+
+`ACTIVE` requires all of the following:
+1. service endpoints configured
+2. successful health check
+3. successful prediction-schema handshake
+4. successful tournament validation
+5. at least one promoted external ML champion
+
+Deploying the container alone therefore cannot silently turn on heavyweight ML predictions.
+
+### Activation workflow
+- status: `GET /api/intelligence/ml-service`
+- authenticated activation: `POST /api/ml/activate`
+- deterministic state regression: `GET /api/testing/ml-activation`
+- dashboard: **V56 ML Service Activation**
+- modeling workspace: `/models`
+
+The activation call can health-check, handshake, run the external tournament and then report the actual production state.
+
+### Durable activation audit
+Migration `v45` adds:
+- `ml_service_health_snapshots`
+- `ml_service_activation_runs`
+
+This preserves service latency/failures, circuit state, algorithm availability, handshake results, tournament result and the final activation decision.
+
+### Release identity
+- build: `V56`
+- app: `56.0.0`
+- package: `0.56.0`
+- model: `edgeforce-v56`
+- migration: `v45`
+
+### Guardrails
+- external ML outages never disable native Edgeforce modeling
+- the service is not labeled active merely because deployment succeeded
+- the prediction contract must match before inference is trusted
+- the first tournament still uses the V55 untouched chronological holdout and incumbent-improvement gates
+- persistent artifact storage is mandatory for stable champion inference
+- an external model remains a probabilistic estimate, not a guarantee of betting profit
+
+## Previous build — V55 External ML Tournament Engine
 
 V55 adds a separate containerized Python training/inference service for heavyweight machine-learning algorithms while keeping the production Edgeforce web/Worker runtime lightweight.
 
