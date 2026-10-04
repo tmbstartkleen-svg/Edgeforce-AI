@@ -116,6 +116,7 @@ assert(health.body?.liveGameStateConfirmationRequired===true,'live game-state co
 assert(health.body?.expertModelingSuite===true,'expert modeling suite flag missing');
 assert(health.body?.nativeExpertModels===true,'native expert model flag missing');
 assert(health.body?.externalMlModelBridge===true,'external ML bridge flag missing');
+assert(health.body?.normalizedPremiumSportsDataBridge===true,'premium data bridge flag missing');
 assert(health.body?.expertModelCouncilIntegration===true,'expert model council integration flag missing');
 
 const liveComebackTest=await get('/api/testing/live-comeback');
