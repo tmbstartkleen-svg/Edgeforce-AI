@@ -75,7 +75,7 @@ export function mlServiceCircuitAllows(){
 
 async function persistSnapshot(input:{
  ok:boolean;configured:boolean;latencyMs?:number;predictionReady?:boolean;trainingReady?:boolean;
- error?:string;serviceVersion?:string|null;algorithms?:Record<string,boolean>;details?:Record<string,unknown>;
+ error?:string|null;serviceVersion?:string|null;algorithms?:Record<string,boolean>;details?:Record<string,unknown>;
 }){
  const sql=db();
  if(!sql)return;
