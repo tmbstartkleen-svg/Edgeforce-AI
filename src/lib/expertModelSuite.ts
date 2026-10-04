@@ -240,6 +240,19 @@ function sharpConsensus(m:Market):ExpertModelOutput|null{
  };
 }
 
+function trainedSportMl(m:Market):ExpertModelOutput|null{
+ const p=raw(m,'trainedSportMlProbability');
+ if(p===undefined||p<=0||p>=1)return null;
+ const confidence=Math.max(.20,Math.min(.97,raw(m,'trainedSportMlConfidence')??.65));
+ const coverage=Math.max(0,Math.min(1,raw(m,'trainedSportMlCoverage')??0));
+ return {
+  id:'trained-sport-ml',name:'Trained Sport ML',family:'MACHINE_LEARNING',
+  probability:clamp(p),weight:.18,confidence:confidence*(.85+.15*coverage),source:'NATIVE',
+  inputs:['settled EdgeForce history','sport-specific feature vector','chronological holdout validation'],
+  explanation:'Promoted sport-specific model trained on settled EdgeForce predictions. It only enters the council after beating the market baseline out of sample.'
+ };
+}
+
 function externalMl(m:Market):ExpertModelOutput|null{
  const p=raw(m,'externalExpertProbability');
  if(p===undefined||p<=0||p>=1)return null;
@@ -255,7 +268,7 @@ function externalMl(m:Market):ExpertModelOutput|null{
 export function runExpertModels(m:Market):ExpertModelOutput[]{
  return [
   marketBayes(m),eloModel(m),glickoModel(m),bradleyTerry(m),poissonOutcome(m),
-  skellamOutcome(m),dixonColes(m),xgModel(m),playerProjection(m),sharpConsensus(m),externalMl(m)
+  skellamOutcome(m),dixonColes(m),xgModel(m),playerProjection(m),sharpConsensus(m),trainedSportMl(m),externalMl(m)
  ].filter((x):x is ExpertModelOutput=>Boolean(x));
 }
 
@@ -297,6 +310,7 @@ export function expertModelCatalog():ExpertCatalogEntry[]{
   {id:'expected-goals',name:'xG / Shot Quality',family:'EXPECTED_VALUE',kind:'MODEL',integration:'NATIVE',status:'ACTIVE',sports:['SOCCER','NHL'],purpose:'chance-quality based strength',requires:['xG or shot-quality inputs']},
   {id:'player-distribution',name:'Player Projection Distribution',family:'PLAYER',kind:'MODEL',integration:'NATIVE',status:'ACTIVE',sports:['PLAYER PROPS'],purpose:'projection distributions for props',requires:['mean','standard deviation','line']},
   {id:'sharp-consensus',name:'Sharp/Public Consensus',family:'MARKET',kind:'MODEL',integration:'NATIVE',status:'ACTIVE',sports:['ALL'],purpose:'market microstructure and book-role signal',requires:['multi-book consensus']},
+  {id:'trained-sport-ml',name:'Trained Sport ML',family:'MACHINE_LEARNING',kind:'MODEL',integration:'NATIVE',status:'ACTIVE',sports:['NFL','NCAAF','MLB','NBA','WNBA','NCAAB','NHL','SOCCER','TENNIS','TABLE TENNIS','UFC','BOXING','GOLF','MOTORSPORTS','CRICKET','RUGBY','VOLLEYBALL','LACROSSE','ESPORTS'],purpose:'chronologically trained and calibrated sport-specific models with out-of-sample promotion gates',requires:['settled historical predictions','minimum sample','market-baseline holdout win']},
   {id:'xgboost',name:'XGBoost',family:'MACHINE_LEARNING',kind:'SOFTWARE',integration:'EXTERNAL_BRIDGE',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'gradient-boosted tree classification/regression',requires:['trained model service'],env:['EXPERT_MODEL_SERVICE_URL']},
   {id:'lightgbm',name:'LightGBM',family:'MACHINE_LEARNING',kind:'SOFTWARE',integration:'EXTERNAL_BRIDGE',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'fast gradient-boosted decision trees',requires:['trained model service'],env:['EXPERT_MODEL_SERVICE_URL']},
   {id:'catboost',name:'CatBoost',family:'MACHINE_LEARNING',kind:'SOFTWARE',integration:'EXTERNAL_BRIDGE',status:externalConfigured?'CONFIGURED':'BRIDGE_READY',sports:['ALL'],purpose:'gradient boosting with strong categorical-feature support',requires:['trained model service'],env:['EXPERT_MODEL_SERVICE_URL']},

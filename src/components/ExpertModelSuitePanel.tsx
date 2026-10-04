@@ -74,7 +74,7 @@ export default function ExpertModelSuitePanel(){
  return <section className="v21Panel">
   <div className="v21PanelHead">
    <div>
-    <div className="eyebrow">V53 EXPERT MODELING SUITE</div>
+    <div className="eyebrow">V54 EXPERT MODELING SUITE</div>
     <h3>Professional model families, ML software bridge, premium data, and model governance</h3>
    </div>
    <div className="panelMeta">
@@ -92,7 +92,7 @@ export default function ExpertModelSuitePanel(){
    <div><small>PROFESSIONAL STACK</small><strong>{(data?.summary.nativeModels??0)+(data?.summary.bridgeTools??0)+(data?.summary.premiumDataPlatforms??0)+(data?.summary.mlopsTools??0)}</strong><span>models, software, data, and MLOps components</span></div>
   </div>
 
-  <div className="historyNote">Built-in models only activate when their required inputs exist. XGBoost, LightGBM, CatBoost, PyMC, Stan, scikit-learn and deep-learning models feed EdgeForce through the external model-service bridge; licensed vendors require your own authorized API/data access.</div>
+  <div className="historyNote">Trained Sport ML activates only after its chronological holdout gates pass. Other built-in models only activate when their required inputs exist. XGBoost, LightGBM, CatBoost, PyMC, Stan, scikit-learn and deep-learning models feed EdgeForce through the external model-service bridge; licensed vendors require your own authorized API/data access.</div>
 
   <div className="historyGrid">
    {stack('Native quantitative models',native)}

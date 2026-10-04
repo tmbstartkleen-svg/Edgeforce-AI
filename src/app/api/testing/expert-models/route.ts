@@ -27,7 +27,8 @@ export async function GET(){
    homeStrength:.55,awayStrength:-.20,
    homeExpectedScore:1.85,awayExpectedScore:.88,
    homeXg:1.80,awayXg:.92,
-   externalExpertProbability:.69,externalExpertConfidence:.84
+   externalExpertProbability:.69,externalExpertConfidence:.84,
+   trainedSportMlProbability:.67,trainedSportMlConfidence:.81,trainedSportMlCoverage:.88
   }
  };
 
@@ -44,6 +45,7 @@ export async function GET(){
   poisson:ids.has('poisson-score'),
   dixonColes:ids.has('dixon-coles'),
   expectedGoals:ids.has('expected-goals'),
+  trainedSportMl:ids.has('trained-sport-ml'),
   externalMl:ids.has('external-ml-ensemble'),
   consensusRange:expert.probability>0&&expert.probability<1,
   councilIntegrated:Boolean(expertVote&&expertVote.weight>0)
@@ -51,7 +53,7 @@ export async function GET(){
  const ok=Object.values(assertions).every(Boolean);
 
  return Response.json({
-  ok,build:'V53',assertions,
+  ok,build:'V54',assertions,
   expert:{probability:expert.probability,modelCount:expert.modelCount,agreement:expert.agreement},
   modelIds:[...ids],
   expertVote:expertVote||null

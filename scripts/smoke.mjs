@@ -27,15 +27,15 @@ function assert(condition,message){
 
 const live=await get('/api/health/live');
 assert(live.res.ok&&live.body?.live===true,'liveness endpoint failed');
-assert(live.body?.version==='53.0.0','liveness version mismatch');
+assert(live.body?.version==='54.0.0','liveness version mismatch');
 
 const health=await get('/api/health');
 assert(health.res.ok,'health endpoint failed');
 assert(health.body?.ok===true,'health payload not ok');
-assert(health.body?.version==='53.0.0','unexpected health version');
-assert(health.body?.modelVersion==='edgeforce-v53','unexpected model version');
+assert(health.body?.version==='54.0.0','unexpected health version');
+assert(health.body?.modelVersion==='edgeforce-v54','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===42,'unexpected migration version');
+assert(health.body?.migrationVersion===43,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -118,6 +118,12 @@ assert(health.body?.nativeExpertModels===true,'native expert model flag missing'
 assert(health.body?.externalMlModelBridge===true,'external ML bridge flag missing');
 assert(health.body?.normalizedPremiumSportsDataBridge===true,'premium data bridge flag missing');
 assert(health.body?.expertModelCouncilIntegration===true,'expert model council integration flag missing');
+assert(health.body?.trainedSportSpecificMl===true,'trained sport ML flag missing');
+assert(health.body?.chronologicalMlTraining===true,'chronological ML training flag missing');
+assert(health.body?.trainedModelCalibration===true,'trained model calibration flag missing');
+assert(health.body?.marketBaselinePromotionGate===true,'trained model market baseline gate missing');
+assert(health.body?.trainedModelRegistry===true,'trained model registry flag missing');
+assert(health.body?.dailyAutoTraining===true,'daily auto training flag missing');
 
 const liveComebackTest=await get('/api/testing/live-comeback');
 assert(liveComebackTest.res.ok&&liveComebackTest.body?.ok===true,'live comeback regression failed');
@@ -129,29 +135,39 @@ assert(expertModelsTest.body?.assertions?.councilIntegrated===true,'expert suite
 
 const expertModels=await get('/api/intelligence/expert-models');
 assert(expertModels.res.ok&&expertModels.body?.ok===true,'expert model API failed');
-assert(expertModels.body?.build==='V53','expert model API build mismatch');
+assert(expertModels.body?.build==='V54','expert model API build mismatch');
 assert(Array.isArray(expertModels.body?.catalog)&&expertModels.body.catalog.length>=20,'expert software catalog incomplete');
+
+const trainedModelsTest=await get('/api/testing/trained-models');
+assert(trainedModelsTest.res.ok&&trainedModelsTest.body?.ok===true,'trained sport ML regression failed');
+assert(trainedModelsTest.body?.assertions?.positiveSkill===true,'trained sport ML failed market baseline skill test');
+assert(trainedModelsTest.body?.assertions?.promoted===true,'trained sport ML synthetic champion was not promoted');
+assert(trainedModelsTest.body?.assertions?.directional===true,'trained sport ML directionality failed');
+
+const trainedModels=await get('/api/intelligence/trained-models');
+assert(trainedModels.res.ok&&trainedModels.body?.ok===true,'trained model status API failed');
+assert(trainedModels.body?.build==='V54'&&trainedModels.body?.schemaVersion==='v54-trained-sport-ml-1','trained model API identity mismatch');
 
 const ready=await get('/api/health/ready');
 assert(ready.res.ok&&ready.body?.ready===true,'local readiness endpoint failed');
 
 const releaseReady=await get('/api/release/readiness');
 assert(releaseReady.res.ok&&releaseReady.body?.ready===true,'release readiness endpoint failed');
-assert(releaseReady.body?.version==='53.0.0','release readiness version mismatch');
+assert(releaseReady.body?.version==='54.0.0','release readiness version mismatch');
 
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
-assert(deployment.body?.version==='53.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v42','deployment migration identity mismatch');
+assert(deployment.body?.version==='54.0.0','deployment smoke version mismatch');
+assert(deployment.body?.checks?.migrations==='v43','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
-assert(diagnostics.body?.version==='53.0.0','diagnostics version mismatch');
+assert(diagnostics.body?.version==='54.0.0','diagnostics version mismatch');
 assert(diagnostics.body?.granularSportEngines===7,'granular sport engine count mismatch');
 
 const ops=await get('/api/ops/status');
 assert(ops.res.ok&&ops.body?.ok===true,'ops status endpoint failed');
-assert(ops.body?.version==='53.0.0','ops status version mismatch');
+assert(ops.body?.version==='54.0.0','ops status version mismatch');
 
 const ledger=await get('/api/ledger/wagers');
 assert(ledger.res.ok&&ledger.body?.ok===true,'ledger endpoint failed');
@@ -176,7 +192,7 @@ const providerCertificationStatus=await get('/api/providers/certify');
 assert(providerCertificationStatus.res.ok&&providerCertificationStatus.body?.ok===true,'provider certification status endpoint failed');
 
 const launchDoctor=await get('/api/launch-doctor');
-assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='53.0.0','launch doctor endpoint failed');
+assert(launchDoctor.body?.ok===true&&launchDoctor.body?.version==='54.0.0','launch doctor endpoint failed');
 
 const jointSimulation=await get('/api/testing/joint-simulation');
 assert(jointSimulation.res.ok&&jointSimulation.body?.ok===true,'joint simulation directionality test failed');
