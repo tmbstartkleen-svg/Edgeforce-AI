@@ -172,7 +172,7 @@ async function rebuildFeatures(sql:NonNullable<ReturnType<typeof db>>,athleteId:
  let written=0;
  const windows:Array<[string,number]>=[['LAST_5',5],['LAST_10',10],['LAST_20',20],['ALL',250]];
  for(const [label,limit] of windows){
-  const features=featureSnapshot(rows as Array<{stats:AnyRow}>,limit);
+  const features=featureSnapshot(rows as unknown as Array<{stats:AnyRow}>,limit);
   await sql`
    insert into player_features(athlete_id,as_of,source_window,features,sample_size,source)
    values(${athleteId},now(),${label},${sql.json(features)},${features.games},${source})
@@ -210,7 +210,7 @@ export async function ingestPlayerHistoryPayload(payload:unknown,source='stats-p
     athlete_id,event_id,stat_date,opponent,home_away,team,minutes,usage_rate,stats,source,raw
    ) values(
     ${row.athleteId},${row.eventId},${row.statDate},${row.opponent??null},${row.homeAway??null},
-    ${row.team??null},${row.minutes??null},${row.usageRate??null},${sql.json(row.stats)},${source},${sql.json(row.raw)}
+    ${row.team??null},${row.minutes??null},${row.usageRate??null},${sql.json(row.stats)},${source},${sql.json(row.raw as any)}
    )
    on conflict (athlete_id,event_id,source) do update set
     stat_date=excluded.stat_date,opponent=excluded.opponent,home_away=excluded.home_away,
@@ -450,7 +450,7 @@ export async function loadPropPerformance(){
   from player_prop_predictions
   where result in ('win','loss','push')
  `;
- const source=rows as Array<{sport:string;statKey:string;direction:string;simProbability:number;result:string}>;
+ const source=rows as unknown as Array<{sport:string;statKey:string;direction:string;simProbability:number;result:string}>;
  const summarizeGroup=(keyFn:(row:typeof source[number])=>string)=>{
   const map=new Map<string,{key:string;count:number;wins:number;losses:number;pushes:number}>();
   for(const row of source){
