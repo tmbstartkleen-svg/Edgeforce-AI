@@ -35,6 +35,7 @@ async function runHourly(env:EdgeforceEnv,ctx:ExecutionContextLike){
   callInternal('/api/cron/decision',env,ctx,'CRON_SECRET'),
   callInternal('/api/cron/settle',env,ctx,'CRON_SECRET'),
   callInternal('/api/cron/heartbeat',env,ctx,'CRON_SECRET'),
+  callInternal('/api/cron/predictions',env,ctx,'CRON_SECRET'),
  ]);
 }
 
