@@ -148,7 +148,6 @@ export async function fetchPolymarketTrades(limit=500):Promise<{ok:boolean;trade
   let signedYesFlow=0;
   if(isYes)signedYesFlow=side==='BUY'?notional:side==='SELL'?-notional:0;
   else if(isNo)signedYesFlow=side==='BUY'?-notional:side==='SELL'?notional:0;
-  const direction:isYes extends true ? never : never = null as never;
   const label:PredictionTrade['direction']=isYes?(side==='BUY'?'YES':'NO'):isNo?(side==='BUY'?'NO':'YES'):(side==='BUY'?'BUY':side==='SELL'?'SELL':'UNKNOWN');
   const timestamp=parseUnixOrIso(row.timestamp ?? row.created_at ?? row.createdAt);
   return {
