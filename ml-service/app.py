@@ -38,7 +38,7 @@ try:
 except Exception:
     pm = None
 
-SERVICE_VERSION = "edgeforce-ml-service-v60"
+SERVICE_VERSION = "edgeforce-ml-service-v61"
 MODEL_DIR = Path(os.getenv("MODEL_STORE_DIR", "./model_store")).resolve()
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 API_KEY = os.getenv("ML_SERVICE_KEY", "")
