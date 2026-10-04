@@ -358,7 +358,7 @@ export async function externalMlTournamentStatus(){
    from external_ml_champions order by sport,market_key
   `;
   const candidates=await sql`
-   select sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
+   select tournament_run_id as "tournamentRunId",sport,market_key as "marketKey",algorithm,service_model_id as "serviceModelId",
     role,status,sample_size as "sampleSize",holdout_size as "holdoutSize",
     holdout_brier::float as "holdoutBrier",holdout_log_loss::float as "holdoutLogLoss",
     market_baseline_brier::float as "marketBaselineBrier",brier_skill_score::float as "brierSkillScore",
