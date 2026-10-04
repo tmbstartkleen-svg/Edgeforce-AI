@@ -65,21 +65,26 @@ export async function fetchPolymarketLeaderboard(
  const result=await fetchJson(url.toString(),Math.max(3000,Number(process.env.POLYMARKET_TIMEOUT_MS||8000)));
  if(!result.ok)return {ok:false,rows:[] as PolymarketLeaderboardRow[],error:result.error,cached:false as const};
  const root=obj(result.data);
- const rows=arr(root.data).map((value,index)=>{
+ const rows:PolymarketLeaderboardRow[]=[];
+ for(const [index,value] of arr(root.data).entries()){
   const row=obj(value);
   const traderId=asStr(row.user_id,asStr(row.user,asStr(row.proxy_wallet,'')));
-  if(!traderId)return null;
-  return {
+  if(!traderId)continue;
+  const item:PolymarketLeaderboardRow={
    rank:Math.max(1,Math.round(asNum(row.rank,index+1))),
    traderId,
-   name:asStr(row.user_name,asStr(row.name,''))||undefined,
    pnl:asNum(row.pnl,asNum(row.profit,0)),
    volume:asNum(row.volume,asNum(row.volume_usdc,0)),
-   verified:Boolean(row.verified),
-   profileImage:asStr(row.profile_image,'')||undefined,
-   xUsername:asStr(row.x_username,'')||undefined
-  } satisfies PolymarketLeaderboardRow;
- }).filter((x):x is PolymarketLeaderboardRow=>Boolean(x));
+   verified:Boolean(row.verified)
+  };
+  const name=asStr(row.user_name,asStr(row.name,''));
+  const profileImage=asStr(row.profile_image,'');
+  const xUsername=asStr(row.x_username,'');
+  if(name)item.name=name;
+  if(profileImage)item.profileImage=profileImage;
+  if(xUsername)item.xUsername=xUsername;
+  rows.push(item);
+ }
 
  leaderboardCache.set(cacheKey,{at:Date.now(),value:rows});
  return {ok:true,rows,cached:false as const};
