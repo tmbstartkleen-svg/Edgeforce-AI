@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V57',
- appVersion:'57.0.0',
- packageVersion:'0.57.0',
- modelVersion:'edgeforce-v57',
- migrationVersion:46
+ build:'V58',
+ appVersion:'58.0.0',
+ packageVersion:'0.58.0',
+ modelVersion:'edgeforce-v58',
+ migrationVersion:47
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -121,7 +121,12 @@ const requiredFiles=[
  'src/components/MlDeploymentAutomationPanel.tsx',
  'scripts/ml-service-doctor.mjs',
  'scripts/ml-activation-doctor.mjs',
- '.github/workflows/deploy-ml-service.yml'
+ '.github/workflows/deploy-ml-service.yml',
+ 'src/lib/mlFirstTournament.ts',
+ 'src/app/api/intelligence/ml-champions/route.ts',
+ 'src/app/api/ml/first-tournament/route.ts',
+ 'src/app/api/testing/ml-first-tournament/route.ts',
+ 'src/components/FirstChampionTournamentPanel.tsx'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -152,13 +157,21 @@ add('trained ML migration schema',read('db/v43.sql').includes('trained_model_art
 add('external ML tournament migration schema',read('db/v44.sql').includes('external_ml_tournament_runs')&&read('db/v44.sql').includes('external_ml_prediction_snapshots'),'v44 external ML tournament registry');
 add('ML service activation migration schema',read('db/v45.sql').includes('ml_service_health_snapshots')&&read('db/v45.sql').includes('ml_service_activation_runs'),'v45 ML service activation audit');
 add('ML deployment attestation migration schema',read('db/v46.sql').includes('ml_service_deployment_attestations')&&read('db/v46.sql').includes('git_commit'),'v46 ML deployment attestation registry');
+add('first tournament evidence migration schema',read('db/v47.sql').includes('ml_first_tournament_runs')&&read('db/v47.sql').includes('external_ml_champion_history'),'v47 first tournament evidence and champion history');
 add('all-market prediction decision engine',read('src/lib/predictionDecisionSignals.ts').includes('BUY_YES')&&read('src/lib/predictionDecisionSignals.ts').includes('BUY_NO')&&read('src/app/api/prediction-terminal/route.ts').includes('decisionSignals'),'cross-venue buy/no-buy decision signals');
 add('hourly prediction signal persistence',read('src/app/api/cron/predictions/route.ts').includes('persistPredictionDecisionSignals'),'Cloudflare hourly collector persists signal history');
 add('prediction trader intelligence',read('src/lib/predictionTraderIntelligence.ts').includes('/leaderboard')&&read('src/lib/predictionTraderIntelligence.ts').includes('buildTraderSignals'),'public trader leaderboard and smart-money scoring');
 add('prediction market movers',read('src/lib/predictionFlow.ts').includes('marketMovers')&&read('src/app/api/prediction-terminal/route.ts').includes('movers'),'market mover analytics exposed');
 add('prediction warehouse persistence',read('src/lib/predictionPersistence.ts').includes('prediction_market_snapshots')&&read('src/app/api/cron/predictions/route.ts').includes('persistPredictionTrades'),'Cloudflare collector persists market and trade history');
 add('iPhone prediction PWA',read('src/app/manifest.ts').includes("start_url:'/mobile'")&&read('src/components/MobilePredictionTerminal.tsx').includes('iPhone install'),'installable mobile prediction terminal');
-add('V57 Render deployment identity',read('ml-service/app.py').includes('edgeforce-ml-service-v57')&&read('ml-service/app.py').includes('RENDER_GIT_COMMIT')&&read('ml-service/app.py').includes('RENDER_SERVICE_ID'),'ML health exposes exact hosted service identity');
+add('V58 hosted champion artifact endpoint',read('ml-service/app.py').includes('@app.get("/champions")')&&read('ml-service/app.py').includes('artifactExists')&&read('ml-service/app.py').includes('edgeforce-ml-champions-v1'),'hosted service exposes persisted champion manifests and artifact presence');
+add('V58 first tournament engine',read('src/lib/mlFirstTournament.ts').includes('runFirstChampionTournament')&&read('src/lib/mlFirstTournament.ts').includes('buildFirstTournamentLeaderboard'),'first tournament orchestration and ranking are implemented');
+add('V58 artifact verification gate',read('src/lib/mlFirstTournament.ts').includes('ARTIFACT_MISMATCH')&&read('src/lib/mlFirstTournament.ts').includes('verifyHostedChampionArtifacts'),'database champion must match hosted persistent artifact');
+add('V58 champion history',read('src/lib/mlFirstTournament.ts').includes('external_ml_champion_history')&&read('db/v47.sql').includes('external_ml_champion_history'),'promotion/replacement history is durable');
+add('V58 first tournament API',read('src/app/api/ml/first-tournament/route.ts').includes('runFirstChampionTournament')&&read('src/app/api/intelligence/ml-champions/route.ts').includes('firstChampionTournamentStatus'),'launch and intelligence APIs exist');
+add('V58 first tournament regression',read('src/app/api/testing/ml-first-tournament/route.ts').includes('blocksMissingArtifact')&&read('src/app/api/testing/ml-first-tournament/route.ts').includes('awaitsChampion'),'ranking and fail-closed evidence states are tested');
+add('V58 first tournament dashboard',read('src/components/Dashboard.tsx').includes('FirstChampionTournamentPanel')&&read('src/components/FirstChampionTournamentPanel.tsx').includes('V58 FIRST CHAMPION TOURNAMENT'),'sport-by-sport winners are visible');
+add('V57 Render deployment identity',read('ml-service/app.py').includes('edgeforce-ml-service-v58')&&read('ml-service/app.py').includes('RENDER_GIT_COMMIT')&&read('ml-service/app.py').includes('RENDER_SERVICE_ID'),'ML health exposes exact hosted service identity');
 add('V57 deployed-service doctor',read('scripts/ml-service-doctor.mjs').includes('EXPECTED_ML_COMMIT')&&read('scripts/ml-service-doctor.mjs').includes('edgeforce-ml-predict-result-v1'),'service doctor verifies exact commit and inference contract');
 add('V57 activation doctor',read('scripts/ml-activation-doctor.mjs').includes('READY_AWAITING_EVIDENCE')&&read('scripts/ml-activation-doctor.mjs').includes('ML_ACTIVATION_SECRET'),'post-deploy activation only accepts safe terminal states');
 add('V57 Render API deploy',read('.github/workflows/deploy-ml-service.yml').includes('api.render.com/v1/services/$RENDER_SERVICE_ID/deploys')&&read('.github/workflows/deploy-ml-service.yml').includes('RENDER_DEPLOY_HOOK_URL'),'workflow supports exact Render API deploy plus deploy-hook fallback');
@@ -167,13 +180,13 @@ add('V57 hardened production redispatch',read('.github/workflows/deploy-ml-servi
 add('V57 deployment attestation registry',read('db/v46.sql').includes('ml_service_deployment_attestations')&&read('src/lib/mlDeploymentAttestation.ts').includes('gitCommit'),'deployed service commit and activation state are durable');
 add('V57 deployment attestation API',read('src/app/api/ml/deploy-attest/route.ts').includes('recordMlDeploymentAttestation')&&read('src/app/api/testing/ml-deployment/route.ts').includes('activeRequiresChampion'),'attestation endpoint and regression exist');
 add('V57 activation secret',read('src/app/api/ml/activate/route.ts').includes('ML_ACTIVATION_SECRET')&&read('.env.example').includes('ML_ACTIVATION_SECRET='),'automation has a dedicated production activation credential');
-add('V57 deployment dashboard',read('src/components/Dashboard.tsx').includes('MlDeploymentAutomationPanel')&&read('src/components/MlDeploymentAutomationPanel.tsx').includes('V57 ML DEPLOYMENT AUTOMATION'),'deployment chain is visible in the dashboard');
+add('V57 deployment dashboard',read('src/components/Dashboard.tsx').includes('MlDeploymentAutomationPanel')&&read('src/components/MlDeploymentAutomationPanel.tsx').includes('V58 ML DEPLOYMENT AUTOMATION'),'deployment chain is visible in the dashboard');
 add('V56 ML service health circuit',read('src/lib/mlServiceHealth.ts').includes('ML_SERVICE_FAILURE_THRESHOLD')&&read('src/lib/mlServiceHealth.ts').includes('circuit open'),'service failures open a bounded circuit');
 add('V56 prediction handshake',read('src/lib/mlServiceHealth.ts').includes('edgeforce-ml-predict-v1')&&read('src/lib/mlServiceHealth.ts').includes('edgeforce-ml-predict-result-v1'),'deployed prediction schema is verified before activation');
 add('V56 activation state machine',read('src/lib/mlActivation.ts').includes("'UNCONFIGURED'|'UNHEALTHY'|'READY'|'READY_AWAITING_EVIDENCE'|'ACTIVE'")&&read('src/lib/mlActivation.ts').includes('championsActive<1'),'ACTIVE requires verified champion evidence');
 add('V56 activation API',read('src/app/api/intelligence/ml-service/route.ts').includes('mlActivationStatus')&&read('src/app/api/ml/activate/route.ts').includes('activateMlService'),'status and authenticated activation endpoints exist');
 add('V56 activation regression',read('src/app/api/testing/ml-activation/route.ts').includes('awaitingEvidence')&&read('src/app/api/testing/ml-activation/route.ts').includes('active'),'activation state machine is guarded by CI');
-add('V56 activation dashboard',read('src/components/Dashboard.tsx').includes('MlServiceActivationPanel')&&read('src/components/MlServiceActivationPanel.tsx').includes('V57 ML SERVICE ACTIVATION'),'service activation remains visible on dashboard');
+add('V56 activation dashboard',read('src/components/Dashboard.tsx').includes('MlServiceActivationPanel')&&read('src/components/MlServiceActivationPanel.tsx').includes('V58 ML SERVICE ACTIVATION'),'service activation remains visible on dashboard');
 add('V56 Render blueprint',read('render.yaml').includes('healthCheckPath: /health')&&read('render.yaml').includes('mountPath: /data/models')&&read('render.yaml').includes('2c-8g'),'Render deployment includes health check, persistent model disk and explicit compute plan');
 add('V56 platform port contract',read('ml-service/Dockerfile').includes('${PORT:-10000}'),'container honors hosting platform PORT');
 add('V56 inference circuit guard',read('src/lib/expertModelBridge.ts').includes('mlServiceCircuitAllows')&&read('src/lib/expertModelBridge.ts').includes('V56_CIRCUIT_OPEN'),'live external inference falls back when circuit is open');
@@ -201,8 +214,8 @@ add('V53 expert modeling suite',read('src/lib/expertModelSuite.ts').includes('Di
 add('V53 expert council integration',read('src/lib/modelCouncil.ts').includes("name:'Expert Suite'")&&read('src/lib/modelCouncil.ts').includes('expertConsensus'),'expert ensemble participates in production model council');
 add('V53 external ML bridge',read('src/lib/expertModelBridge.ts').includes('EXPERT_MODEL_SERVICE_URL')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithExternalExpertModels'),'external trained models are fused before scanning');
 add('V53 premium data bridge',read('src/lib/expertDataBridge.ts').includes('edgeforce-premium-context-v1')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithPremiumData'),'licensed premium feeds can enter through normalized vendor adapters');
-add('V53 expert API',read('src/app/api/intelligence/expert-models/route.ts').includes('v57-expert-models-1')&&read('src/app/api/testing/expert-models/route.ts').includes('councilIntegrated'),'expert endpoint and deterministic regression remain present in V57');
-add('V53 expert dashboard',read('src/components/Dashboard.tsx').includes('ExpertModelSuitePanel')&&read('src/components/ExpertModelSuitePanel.tsx').includes('V57 EXPERT MODELING SUITE'),'expert suite remains visible on dashboard');
+add('V53 expert API',read('src/app/api/intelligence/expert-models/route.ts').includes('v58-expert-models-1')&&read('src/app/api/testing/expert-models/route.ts').includes('councilIntegrated'),'expert endpoint and deterministic regression remain present in V57');
+add('V53 expert dashboard',read('src/components/Dashboard.tsx').includes('ExpertModelSuitePanel')&&read('src/components/ExpertModelSuitePanel.tsx').includes('V58 EXPERT MODELING SUITE'),'expert suite remains visible on dashboard');
 add('V52 live comeback engine',read('src/lib/liveComeback.ts').includes('BUY_LOW_REVIEW')&&read('src/lib/liveComeback.ts').includes('requiresGameStateConfirmation'),'buy-low scoring requires explicit live game-state confirmation');
 add('V52 live comeback API',read('src/app/api/live-comeback/route.ts').includes('v52-live-comeback-1')&&read('src/app/api/testing/live-comeback/route.ts').includes('gameStateGuardrail'),'production endpoint and regression guardrail are present');
 add('V52 dashboard live comeback',read('src/components/Dashboard.tsx').includes('LiveComebackPanel')&&read('src/components/LiveComebackPanel.tsx').includes('LIVE COMEBACK / HALFTIME BUY-LOW WATCH'),'live comeback watch is visible in main dashboard');
