@@ -35,7 +35,7 @@ assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='51.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v51','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===41,'unexpected migration version');
+assert(health.body?.migrationVersion===42,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -99,6 +99,8 @@ assert(health.body?.predictionMarketWarehouse===true,'prediction market warehous
 assert(health.body?.predictionMarketTradeTape===true,'prediction trade tape flag missing');
 assert(health.body?.predictionMarketMovers===true,'prediction market movers flag missing');
 assert(health.body?.predictionTraderIntelligence===true,'prediction trader intelligence flag missing');
+assert(health.body?.predictionDecisionSignals===true,'prediction decision signals flag missing');
+assert(health.body?.durablePredictionSignalHistory===true,'prediction signal history flag missing');
 assert(health.body?.polymarketPublicLeaderboard===true,'Polymarket public leaderboard flag missing');
 assert(health.body?.iPhonePredictionPwa===true,'iPhone prediction PWA flag missing');
 assert(health.body?.cloudflarePredictionCollector===true,'Cloudflare prediction collector flag missing');
@@ -119,7 +121,7 @@ assert(releaseReady.body?.version==='51.0.0','release readiness version mismatch
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
 assert(deployment.body?.version==='51.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v41','deployment migration identity mismatch');
+assert(deployment.body?.checks?.migrations==='v42','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
@@ -289,6 +291,8 @@ assert(predictionIntelligence.res.ok&&predictionIntelligence.body?.ok===true,'pr
 assert(predictionIntelligence.body?.category==='ECONOMICS','prediction category classifier regressed');
 assert(predictionIntelligence.body?.mover?.probabilityChange>0.14,'prediction mover calculation regressed');
 assert(predictionIntelligence.body?.signal?.rank===5,'prediction trader leaderboard join regressed');
+assert(predictionIntelligence.body?.decision?.action==='BUY_YES','all-market buy decision regression failed');
+assert(predictionIntelligence.body?.decision?.venue==='Kalshi','all-market venue routing regression failed');
 
 const liveParlays=await get('/api/parlays?size=2&view=week');
 assert(liveParlays.res.ok&&liveParlays.body?.ok===true,'live parlay endpoint failed');
