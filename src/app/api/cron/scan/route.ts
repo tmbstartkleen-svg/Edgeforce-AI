@@ -16,6 +16,7 @@ import {recordLiveLineupSnapshots} from '@/lib/startingLineupIntelligence';
 import {recordScheduleFatigueSnapshots} from '@/lib/scheduleFatigueIntelligence';
 import {recordVenueConditionSnapshots} from '@/lib/venueWeatherIntelligence';
 import {recordMarketMovementSnapshots} from '@/lib/marketMovementLearning';
+import {runIntelligenceReliabilitySupervisor} from '@/lib/intelligenceReliability';
 
 export const dynamic='force-dynamic';
 
@@ -24,6 +25,7 @@ export async function GET(req:Request){
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
  const started=Date.now();
  try{
+  const reliability=await runIntelligenceReliabilitySupervisor().catch(error=>({configured:false,mode:'DEGRADED' as const,score:.55,opened:0,recovered:0,rows:[],error:error instanceof Error?error.message:'reliability supervisor failed'}));
   const [ingestion,learnedWeights,dynamicCalibration,playerSync]=await Promise.all([
    ingestOdds(),loadLearnedWeightMultipliers(),loadDynamicCalibrationProfiles(),
    syncPlayerWarehouseFromStatsProvider().catch(error=>({
@@ -50,7 +52,9 @@ export async function GET(req:Request){
   await recordAutomationRun('scan','success',started,{
    source:ingestion.source,providerId:ingestion.providerId,qualified:rows.length,modelRunsWritten,
    playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,marketMovementSnapshots,playerSync,
-   dataQualityGrade:audit.grade,dataQualityScore:audit.score
+   dataQualityGrade:audit.grade,dataQualityScore:audit.score,
+   reliabilityMode:(reliability as any).mode??null,reliabilityScore:(reliability as any).score??null,
+   reliabilityOpened:(reliability as any).opened??0,reliabilityRecovered:(reliability as any).recovered??0
   });
   return Response.json({
    ok:true,ranAt:new Date().toISOString(),source:ingestion.source,mode:ingestion.mode,
@@ -58,6 +62,7 @@ export async function GET(req:Request){
    modelRunsWritten,playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,marketMovementSnapshots,playerSync,learnedWeightCount:Object.keys(learnedWeights).length,
    dynamicCalibrationProfileCount:Object.keys(dynamicCalibration).length,
    contextDiagnostics:context.diagnostics,
+   reliability,
    dataQuality:audit,top:rows.slice(0,10)
   },{headers:{'Cache-Control':'no-store'}});
  }catch(error){
