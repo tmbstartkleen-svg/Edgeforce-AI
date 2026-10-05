@@ -1,5 +1,6 @@
 const base=String(process.env.PREVIEW_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'102.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'103.0.0';
+const expectedModel=process.env.EXPECTED_MODEL_VERSION||'edgeforce-v103';
 if(!/^https:\/\//.test(base))throw new Error('PREVIEW_URL must be https');
 
 async function get(path){
@@ -16,8 +17,8 @@ for(let i=0;i<20;i++){
   if(live.res.ok&&live.body?.live===true&&live.body?.version===expected){
    const health=await get('/api/health');
    if(!health.res.ok)throw new Error('health endpoint failed');
-   if(health.body?.version!==expected)throw new Error(`health version mismatch: ${health.body?.version}`);
-   if(health.body?.modelVersion!=='edgeforce-v102')throw new Error(`model mismatch: ${health.body?.modelVersion}`);
+   if(health.body?.version!==expected)throw new Error(`health version mismatch: ${health.body?.version}; expected ${expected}`);
+   if(health.body?.modelVersion!==expectedModel)throw new Error(`model mismatch: ${health.body?.modelVersion}; expected ${expectedModel}`);
    console.log(JSON.stringify({ok:true,preview:base,version:expected,modelVersion:health.body.modelVersion}));
    process.exit(0);
   }

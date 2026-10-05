@@ -66,7 +66,7 @@ jobs:
 
       - name: Start predeploy verification server
         run: |
-          MODEL_VERSION=edgeforce-v102 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
+          MODEL_VERSION=edgeforce-v103 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
           echo $! > /tmp/edgeforce-predeploy.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
@@ -185,7 +185,7 @@ jobs:
             --prod
             --yes
             
-            --env MODEL_VERSION=edgeforce-v102
+            --env MODEL_VERSION=edgeforce-v103
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -297,7 +297,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "102.0.0"
+          EXPECTED_APP_VERSION: "103.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -311,12 +311,12 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Record V102 execution certification
+      - name: Record V103 execution certification
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          BODY=$(jq -cn             --arg releaseVersion "102.0.0"             --arg modelVersion "edgeforce-v102"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:112,commitSha:$commitSha,source:$source,
+          BODY=$(jq -cn             --arg releaseVersion "103.0.0"             --arg modelVersion "edgeforce-v103"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:113,commitSha:$commitSha,source:$source,
               lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
               smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
               evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
@@ -439,25 +439,44 @@ jobs:
             echo
           done
 
-      - name: Record V102 production promotion provenance
+      - name: Record V103 production promotion provenance
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
           BODY=$(jq -cn \
-            --arg releaseVersion "102.0.0" \
-            --arg modelVersion "edgeforce-v102" \
+            --arg releaseVersion "103.0.0" \
+            --arg modelVersion "edgeforce-v103" \
             --arg commitSha "$DEPLOY_COMMIT" \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
             --arg workflowRunAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg launchId "$LAUNCH_ID" \
-            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:112,commitSha:$commitSha,
+            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:113,commitSha:$commitSha,
               platform:"vercel",deploymentUrl:$deploymentUrl,source:"production-deploy",
               workflowRunId:$workflowRunId,workflowRunAttempt:$workflowRunAttempt,
               executionCertified:true,strictCertified:true,canaryPassed:true,v1Ready:true,promoted:true,rolledBack:false,
               evidence:{launchId:$launchId}}')
           vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/promotion-provenance" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "$BODY"
+          echo
+
+      - name: Record Vercel platform convergence evidence
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          HEALTH=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/health")
+          BODY=$(jq -cn \
+            --arg deploymentUrl "$PRODUCTION_URL" \
+            --arg workflowRunId "$GITHUB_RUN_ID" \
+            --argjson runtime "$HEALTH" \
+            '{platform:"vercel",deploymentUrl:$deploymentUrl,version:$runtime.version,
+              modelVersion:$runtime.modelVersion,migrationVersion:$runtime.migrationVersion,
+              commitSha:$runtime.deploymentCommit,workflowRunId:$workflowRunId,source:"production-vercel"}')
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/platform-convergence" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "$BODY"
@@ -502,7 +521,7 @@ jobs:
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V74%20SLO%20canary%20or%20hosted%20launch%20gate%20failure"
 
-      - name: Reconcile V102 rollback evidence
+      - name: Reconcile V103 rollback evidence
         if: failure() && steps.deploy.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
