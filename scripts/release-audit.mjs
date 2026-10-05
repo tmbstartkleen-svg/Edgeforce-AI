@@ -893,7 +893,7 @@ add('V102 preview URL extraction',exists('scripts/extract-cloudflare-preview-url
 add('V102 preview cleanup',read('.github/workflows/preview-cloudflare.yml').includes('preview delete')||read('.github/workflows/preview-cloudflare.yml').includes('preview:cloudflare:delete'),'PR close cleanup exists');
 add('V102 Cloudflare verify parity',read('.github/workflows/verify-cloudflare.yml').includes('npm run preflight:cloudflare')&&read('.github/workflows/verify-cloudflare.yml').includes('set -o pipefail'),'verification uses preflight and pipefail');
 add('V102 Cloudflare deploy pipefail',read('.github/workflows/deploy-cloudflare.yml').includes('set -o pipefail'),'production Cloudflare build cannot hide failures behind tee');
-add('V102 artifact identity',read('.github/workflows/verify-cloudflare.yml').includes('edgeforce-v102-vinext-build')&&read('.github/workflows/deploy-cloudflare.yml').includes('edgeforce-v102-cloudflare-build'),'Cloudflare artifacts carry V102 identity');
+add('Versioned Cloudflare artifact identity',/edgeforce-v\\d+-vinext-build/.test(read('.github/workflows/verify-cloudflare.yml'))&&/edgeforce-v\\d+-cloudflare-build/.test(read('.github/workflows/deploy-cloudflare.yml')),'Cloudflare verification and deployment artifacts carry explicit release identity');
 add('V102 health capability',read('src/app/api/health/route.ts').includes('cloudflareHostedPreviewParity:true'),'health exposes hosted preview parity');
 add('V102 release notes',exists('EDGEFORCE_V102_RELEASE.md'),'V102 release documentation exists');
 
