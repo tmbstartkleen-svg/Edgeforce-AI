@@ -1,4 +1,5 @@
 import {fairAmerican} from './math';
+import {db} from './db';
 import type {MasterEdgeOpportunity} from './masterEdge';
 
 export type PriceTargetState='GREAT_PRICE'|'GOOD_PRICE'|'ACCEPTABLE'|'THIN_EDGE'|'NO_EDGE';
@@ -133,4 +134,28 @@ export function buildPriceTargetBoard(board:MasterEdgeOpportunity[]){
    'Confidence, freshness, Master Edge quality and liquidity influence the width of the acceptable price band.'
   ]
  };
+}
+
+
+export async function persistPriceTargets(rows:PriceTargetRow[]){
+ const sql=db();
+ if(!sql||!rows.length)return {persisted:false};
+ const latest=await sql`select max(observed_at) as latest from price_target_snapshots`;
+ const latestMs=latest[0]?.latest?new Date(latest[0].latest as string).getTime():0;
+ if(latestMs&&Date.now()-latestMs<5*60000)return {persisted:false};
+ for(const x of rows){
+  await sql`
+   insert into price_target_snapshots(
+    observed_at,opportunity_id,domain,category,venue,fair_probability,current_market_probability,
+    great_price_probability,good_price_probability,acceptable_price_probability,no_edge_probability,
+    current_value_state,current_edge_points,target_edge_points,value_score,threshold_confidence,metadata
+   ) values(
+    now(),${x.id},${x.domain},${x.category},${x.venue},${x.fairProbability},${x.marketProbability},
+    ${x.greatPriceProbability},${x.goodPriceProbability},${x.acceptablePriceProbability},${x.noEdgeProbability},
+    ${x.currentValueState},${x.currentEdgePoints},${x.targetEdgePoints},${x.valueScore},${x.thresholdConfidence},
+    ${sql.json(x.metadata as any)}
+   )
+  `;
+ }
+ return {persisted:true};
 }
