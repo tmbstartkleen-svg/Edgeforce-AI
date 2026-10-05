@@ -145,7 +145,9 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  const base=baselineForTeamSport(m);
  if(!base)return null;
  const rng=seeded(`team|${m.id}|${m.startTime}`);
- const p=clamp(m.modelProb);
+ const movementConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.marketMovementConfidence||0)));
+ const movementProbability=(feature(m,'marketClosingLineSignal')*.012+feature(m,'marketSharpSignal')*.003)*movementConfidence;
+ const p=clamp(m.modelProb+movementProbability);
  const strength=(p-.5)*2;
  const scheduleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.scheduleContextConfidence||0)));
  const scheduleContext=scheduleConfidence>0
@@ -156,8 +158,11 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  const homeContext=.10*feature(m,'home')+.12*feature(m,'form')+.10*feature(m,'efficiency')-.08*feature(m,'injury')+scheduleContext+venueHome;
  const legacyWeather=.08*feature(m,'weather');
  const venueTotal=venueConfidence>0?feature(m,'venueTotalEffect')*.10*venueConfidence:legacyWeather*.12;
+ const movementText=lower(`${m.market} ${m.selection}`);
+ const movementTotalDirection=movementText.includes('over')?1:movementText.includes('under')?-1:0;
+ const movementTotal=movementTotalDirection*feature(m,'marketClosingLineSignal')*.025*movementConfidence;
  const fatigueLevel=scheduleConfidence>0?Math.max(0,(Number(m.sportFeatures?.scheduleHomeFatigue||0)+Number(m.sportFeatures?.scheduleAwayFatigue||0))/2):0;
- const totalMean=Math.max(.2,base.total*(1+venueTotal-fatigueLevel*.025*scheduleConfidence));
+ const totalMean=Math.max(.2,base.total*(1+venueTotal+movementTotal-fatigueLevel*.025*scheduleConfidence));
  const marginScale=Math.max(1,totalMean*.22);
  const selectionHome=isHomeSelection(m);
  const selectionAway=isAwaySelection(m);
@@ -270,9 +275,12 @@ function simulateProp(m:Market,runs:SimulationTier){
  const schedulePlayerScale=scheduleConfidence>0?1-teamFatigue*.045*scheduleConfidence+playerSide*feature(m,'scheduleCompositeEdge')*.025*scheduleConfidence:1;
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
  const venuePlayerScale=venueConfidence>0?1+feature(m,'venueTotalEffect')*.035*venueConfidence+playerSide*feature(m,'venueHomeEdge')*.02*venueConfidence:1;
- const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale))*Math.max(.88,Math.min(1.08,schedulePlayerScale))*Math.max(.90,Math.min(1.10,venuePlayerScale));
+ const movementConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.marketMovementConfidence||0)));
+ const movementDirection=text.includes('under')?-1:text.includes('over')?1:0;
+ const movementPlayerScale=1+movementDirection*feature(m,'marketClosingLineSignal')*.025*movementConfidence;
+ const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale))*Math.max(.88,Math.min(1.08,schedulePlayerScale))*Math.max(.90,Math.min(1.10,venuePlayerScale))*Math.max(.94,Math.min(1.06,movementPlayerScale));
  const baseSd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
- const sd=baseSd===undefined?undefined:baseSd*(1+(venueConfidence>0?Math.max(0,feature(m,'venueVolatilityEffect'))*.12*venueConfidence:0));
+ const sd=baseSd===undefined?undefined:baseSd*(1+(venueConfidence>0?Math.max(0,feature(m,'venueVolatilityEffect'))*.12*venueConfidence:0)+(movementConfidence>0?Math.max(0,feature(m,'marketMovementVolatility'))*.08*movementConfidence:0));
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
  const spec=distributionForMarket(m,mean,sd);
