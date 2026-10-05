@@ -336,7 +336,7 @@ add('production workflow release audit',productionWorkflow.includes('npm run rel
 add('direct preview promotion disabled',!candidateWorkflow.includes('vercel promote'),'canonical production deploy required');
 add('production final certification',productionWorkflow.includes('/api/release/certify?strict=1'),'strict final certification required');
 add('V124 production strict v1 readiness',productionWorkflow.includes('/api/release/v1-readiness?strict=1')&&productionWorkflow.includes('V1_READY')&&productionWorkflow.includes('COMPLETE'),'production cannot complete before V123 strict readiness passes');
-add('V124 launch rollback evidence',productionWorkflow.includes('FAILED')&&productionWorkflow.includes('ROLLED_BACK')&&productionWorkflow.includes('vercel rollback'),'failed production launches are recorded and rolled back');
+add('V124 launch rollback evidence',productionWorkflow.includes('FAILED')&&productionWorkflow.includes('ROLLED_BACK')&&productionWorkflow.includes('rollback "$PREVIOUS_DEPLOYMENT_URL"'),'failed production launches are recorded and rolled back');
 add('V124.2 protected deployment auth',productionWorkflow.includes('vercel --token="$VERCEL_TOKEN" curl')&&productionWorkflow.includes('SMOKE_VERCEL_AUTH')&&read('scripts/remote-smoke.mjs').includes("['--token',process.env.VERCEL_TOKEN||'','curl',url]"),'hosted checks use Vercel global auth before the curl subcommand');
 add('V124.2 explicit rollback target',productionWorkflow.includes('PREVIOUS_DEPLOYMENT_URL')&&productionWorkflow.includes('rollback "$PREVIOUS_DEPLOYMENT_URL"'),'rollback targets the captured previous production deployment URL explicitly');
 const cloudflareWorkflow=read('.github/workflows/deploy-cloudflare.yml');
