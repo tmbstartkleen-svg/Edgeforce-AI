@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V101',
- appVersion:'101.0.0',
- packageVersion:'0.101.0',
- modelVersion:'edgeforce-v101',
+ build:'V102',
+ appVersion:'102.0.0',
+ packageVersion:'0.102.0',
+ modelVersion:'edgeforce-v102',
  migrationVersion:112
 };
 const checks=[];
@@ -885,6 +885,17 @@ add('V101 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'r
 add('V101 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('RollbackReconciliationPanel'),'rollback reconciliation is visible in System view');
 add('V101 production rollback writer',read('.github/workflows/deploy-production.yml').includes('/api/release/rollback-reconciliation')&&read('.github/workflows/deploy-production.yml').includes('PREVIOUS_DEPLOYMENT_ID'),'rollback workflow reconciles failed evidence');
 add('V101 release notes',exists('EDGEFORCE_V101_RELEASE.md'),'V101 release documentation exists');
+
+add('V102 hosted preview workflow',exists('.github/workflows/preview-cloudflare.yml')&&read('.github/workflows/preview-cloudflare.yml').includes('preview:cloudflare')&&read('.github/workflows/preview-cloudflare.yml').includes('--temporary'),'repo-owned permanent/temporary Cloudflare PR preview exists');
+add('V102 certified preview artifact',read('.github/workflows/preview-cloudflare.yml').includes('dist/server/wrangler.json')&&exists('scripts/prepare-cloudflare-temporary-preview.mjs')&&read('package.json').includes('wrangler preview --config dist/server/wrangler.json'),'hosted preview uses generated Worker config with isolated temporary fallback');
+add('V102 hosted preview smoke',exists('scripts/cloudflare-preview-smoke.mjs')&&read('.github/workflows/preview-cloudflare.yml').includes('cloudflare-preview-smoke.mjs'),'hosted preview identity smoke exists');
+add('V102 preview URL extraction',exists('scripts/extract-cloudflare-preview-url.mjs'),'machine-readable preview URL extraction exists');
+add('V102 preview cleanup',read('.github/workflows/preview-cloudflare.yml').includes('preview delete')||read('.github/workflows/preview-cloudflare.yml').includes('preview:cloudflare:delete'),'PR close cleanup exists');
+add('V102 Cloudflare verify parity',read('.github/workflows/verify-cloudflare.yml').includes('npm run preflight:cloudflare')&&read('.github/workflows/verify-cloudflare.yml').includes('set -o pipefail'),'verification uses preflight and pipefail');
+add('V102 Cloudflare deploy pipefail',read('.github/workflows/deploy-cloudflare.yml').includes('set -o pipefail'),'production Cloudflare build cannot hide failures behind tee');
+add('V102 artifact identity',read('.github/workflows/verify-cloudflare.yml').includes('edgeforce-v102-vinext-build')&&read('.github/workflows/deploy-cloudflare.yml').includes('edgeforce-v102-cloudflare-build'),'Cloudflare artifacts carry V102 identity');
+add('V102 health capability',read('src/app/api/health/route.ts').includes('cloudflareHostedPreviewParity:true'),'health exposes hosted preview parity');
+add('V102 release notes',exists('EDGEFORCE_V102_RELEASE.md'),'V102 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

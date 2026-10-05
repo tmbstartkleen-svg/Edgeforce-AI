@@ -1,6 +1,6 @@
 {
   "name": "edgeforce-ai",
-  "version": "0.101.0",
+  "version": "0.102.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -21,6 +21,8 @@
     "build:vinext": "npm run clean:build && vite build",
     "preview:vinext": "vite preview",
     "deploy:cloudflare": "npm run preflight:cloudflare && npm run build:vinext && npm run validate:cloudflare-build && vinext-cloudflare deploy --skip-build --config dist/server/wrangler.json",
+    "preview:cloudflare": "wrangler preview --config dist/server/wrangler.json --worker-name edgeforce-ai --ignore-base-config",
+    "preview:cloudflare:delete": "wrangler preview delete --worker-name edgeforce-ai --skip-confirmation",
     "preflight:cloudflare": "node scripts/cloudflare-preflight.mjs",
     "validate:cloudflare-build": "node scripts/validate-cloudflare-build.mjs",
     "configure:cloudflare-live": "node scripts/configure-cloudflare-live.mjs",
