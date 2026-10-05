@@ -16,6 +16,7 @@ export type Scanned=Ranked & {
  regime:MarketRegime;
  historicalShrinkage:number;
  consensusBlend:number;
+ optimizerBlend:{applied:boolean;scope:string;confidence:number;councilWeight:number;simulationWeight:number;marketWeight:number};
  dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'] & {contextQuality?:number};
  daysOut:number;
  bucket:'TODAY'|'WEEK';
@@ -28,7 +29,7 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
  return rankMarkets(rows,risk,learnedWeights).map((r):Scanned=>{
   const runs=simulationTier(r.edge,r.confidence);
   const sim=runSportOutcomeSimulation(r,runs,runGameStateSimulation);
-  const profile=dynamicCalibration[calibrationProfileKey(r.sport,r.market)];
+  const profile=dynamicCalibration[calibrationProfileKey(r.sport,r.market)]??dynamicCalibration[calibrationProfileKey(r.sport,'*')]??dynamicCalibration[calibrationProfileKey('*','*')];
   const calibrated=calibrateDynamicConfidence({
    market:r,
    rawProbability:sim.probability,
@@ -63,6 +64,7 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
    regime:calibrated.regime,
    historicalShrinkage:calibrated.historicalShrinkage,
    consensusBlend:calibrated.consensusBlend,
+   optimizerBlend:calibrated.optimizerBlend,
    dynamicConfidenceComponents:{...calibrated.components,contextQuality:contextScore},
    daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection
   };
