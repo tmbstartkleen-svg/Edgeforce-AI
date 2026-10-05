@@ -1,0 +1,5 @@
+import {loadChampionBaselineSummary,runChampionBaselineGovernor} from '@/lib/preventiveChampionBaseline';
+export const dynamic='force-dynamic';
+function authorized(req:Request){const auth=req.headers.get('authorization');const secrets=[process.env.INGEST_SECRET,process.env.CRON_SECRET].filter(Boolean);return !secrets.length||secrets.some(secret=>auth===`Bearer ${secret}`)}
+export async function GET(){try{return Response.json({ok:true,build:'V87',schemaVersion:'v87-champion-baseline-1',...(await loadChampionBaselineSummary())},{headers:{'Cache-Control':'no-store'}})}catch(error){return Response.json({ok:false,error:error instanceof Error?error.message:'champion baseline load failed'},{status:500})}}
+export async function POST(req:Request){if(!authorized(req))return Response.json({ok:false,error:'unauthorized'},{status:401});try{return Response.json({ok:true,build:'V87',schemaVersion:'v87-champion-baseline-1',...(await runChampionBaselineGovernor())},{headers:{'Cache-Control':'no-store'}})}catch(error){return Response.json({ok:false,error:error instanceof Error?error.message:'champion baseline update failed'},{status:500})}}
