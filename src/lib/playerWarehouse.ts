@@ -20,6 +20,7 @@ type NormalizedPlayerGame={
  homeAway?:string;
  minutes?:number;
  usageRate?:number;
+ starter?:boolean;
  stats:Record<string,number>;
  raw:AnyRow;
 };
@@ -61,6 +62,16 @@ const str=(v:unknown)=>typeof v==='string'?v.trim():'';
 const numeric=(v:unknown)=>{
  const n=typeof v==='number'?v:Number(v);
  return Number.isFinite(n)?n:undefined;
+};
+const booleanish=(v:unknown)=>{
+ if(typeof v==='boolean')return v;
+ if(typeof v==='number')return v!==0;
+ if(typeof v==='string'){
+  const s=v.toLowerCase();
+  if(['true','yes','1','starter','starting','started'].includes(s))return true;
+  if(['false','no','0','bench','reserve','substitute'].includes(s))return false;
+ }
+ return undefined;
 };
 export const normalizePlayerName=(value:string)=>value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
 const normalizeKey=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]+/g,'');
@@ -125,11 +136,12 @@ function normalizeRow(value:unknown,index:number,source:string):NormalizedPlayer
  const homeAway=str(row.homeAway??row.home_away??row.location);
  const minutes=numeric(row.minutes??row.minutesPlayed??row.minutes_played);
  const usageRate=numeric(row.usage??row.usageRate??row.usage_rate);
+ const starter=booleanish(row.starter??row.isStarter??row.is_starter??row.starting??row.started);
  const stats=numericStats(row);
  if(!Object.keys(stats).length)return null;
  return {
   athleteId,sourceId:explicitId||undefined,name,normalizedName,sport,team:team||undefined,position:position||undefined,
-  eventId,statDate,opponent:opponent||undefined,homeAway:homeAway||undefined,minutes,usageRate,stats,raw:row
+  eventId,statDate,opponent:opponent||undefined,homeAway:homeAway||undefined,minutes,usageRate,starter,stats,raw:row
  };
 }
 
@@ -207,14 +219,14 @@ export async function ingestPlayerHistoryPayload(payload:unknown,source='stats-p
   `;
   const inserted=await sql`
    insert into player_game_stats(
-    athlete_id,event_id,stat_date,opponent,home_away,team,minutes,usage_rate,stats,source,raw
+    athlete_id,event_id,stat_date,opponent,home_away,team,minutes,usage_rate,starter,stats,source,raw
    ) values(
     ${row.athleteId},${row.eventId},${row.statDate},${row.opponent??null},${row.homeAway??null},
-    ${row.team??null},${row.minutes??null},${row.usageRate??null},${sql.json(row.stats)},${source},${sql.json(row.raw as any)}
+    ${row.team??null},${row.minutes??null},${row.usageRate??null},${row.starter??null},${sql.json(row.stats)},${source},${sql.json(row.raw as any)}
    )
    on conflict (athlete_id,event_id,source) do update set
     stat_date=excluded.stat_date,opponent=excluded.opponent,home_away=excluded.home_away,
-    team=excluded.team,minutes=excluded.minutes,usage_rate=excluded.usage_rate,
+    team=excluded.team,minutes=excluded.minutes,usage_rate=excluded.usage_rate,starter=excluded.starter,
     stats=excluded.stats,raw=excluded.raw,ingested_at=now()
    returning id
   `;
@@ -232,7 +244,7 @@ export async function ingestPlayerHistoryPayload(payload:unknown,source='stats-p
   try{
    await sql\`
     insert into player_roster_snapshots(athlete_id,sport,team,position,roster_status,source,observed_hour,metadata)
-    values(\${row.athleteId},\${row.sport},\${row.team??null},\${row.position??null},'ACTIVE',\${source},\${observedHour},\${sql.json({sourceId:row.sourceId||null,lastEventId:row.eventId})})
+    values(\${row.athleteId},\${row.sport},\${row.team??null},\${row.position??null},'ACTIVE',\${source},\${observedHour},\${sql.json({sourceId:row.sourceId||null,lastEventId:row.eventId,starter:row.starter??null})})
     on conflict (athlete_id,source,observed_hour) do update set
      sport=excluded.sport,team=excluded.team,position=excluded.position,metadata=excluded.metadata
    \`;

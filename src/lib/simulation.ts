@@ -31,7 +31,11 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
  const matchupAdjustment=feat(m,'opponentMatchupSignal')*.014*matchupConfidence;
  const roleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.roleRedistributionConfidence||0)));
  const roleAdjustment=(feat(m,'roleStatLift')*.010+feat(m,'roleUsageLift')*.006+feat(m,'roleMinutesLift')*.004)*roleConfidence;
- const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment);
+ const lineupConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.lineupRoleConfidence||0)));
+ const lineupAdjustment=(feat(m,'lineupStarterDelta')*.010+feat(m,'lineupPromotionScore')*.006)*lineupConfidence;
+ const lineupProbabilityRaw=Number(m.sportFeatures?.lineupStarterProbability);
+ const lineupUncertainty=Number.isFinite(lineupProbabilityRaw)?Math.abs(.5-Math.max(0,Math.min(1,lineupProbabilityRaw))):0;
+ const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
   Math.abs(feat(m,'injury'))*.025+
@@ -42,7 +46,8 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
   Math.abs(feat(m,'quarterback'))*.020+
   Math.abs(feat(m,'playerVolatility'))*.015*(.5+playerConfidence*.5)+
   Math.abs(feat(m,'opponentMatchupVolatility'))*.010*matchupConfidence+
-  Math.abs(feat(m,'roleAbsenceSeverity'))*.008*roleConfidence
+  Math.abs(feat(m,'roleAbsenceSeverity'))*.008*roleConfidence+
+  lineupUncertainty*.004*(1-lineupConfidence)
  );
  const volatility=.015+uncertainty+context;
  let hits=0;
