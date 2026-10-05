@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V100',
- appVersion:'100.0.0',
- packageVersion:'0.100.0',
- modelVersion:'edgeforce-v100',
- migrationVersion:111
+ build:'V101',
+ appVersion:'101.0.0',
+ packageVersion:'0.101.0',
+ modelVersion:'edgeforce-v101',
+ migrationVersion:112
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -874,6 +874,17 @@ add('V100 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'p
 add('V100 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PostPromotionVerificationPanel'),'live verification is visible in System view');
 add('V100 production verifier',read('.github/workflows/deploy-production.yml').includes('/api/release/post-promotion-verification'),'production workflow records live verification after promotion');
 add('V100 release notes',exists('EDGEFORCE_V100_RELEASE.md'),'V100 release documentation exists');
+
+add('V101 rollback reconciliation schema',exists('db/v112.sql')&&read('db/v112.sql').includes('release_rollback_reconciliations'),'durable rollback reconciliation ledger exists');
+add('V101 rollback reconciler',read('src/lib/releaseRollbackReconciliation.ts').includes('reconcileReleaseRollback')&&read('src/lib/releaseRollbackReconciliation.ts').includes('latestReleaseRollbackReconciliation'),'rollback evidence reconciler exists');
+add('V101 rollback API',exists('src/app/api/release/rollback-reconciliation/route.ts')&&exists('src/app/api/testing/rollback-reconciliation/route.ts'),'rollback API and regression endpoint exist');
+add('V101 promotion revocation',read('src/lib/releaseRollbackReconciliation.ts').includes('update release_promotion_provenance')&&read('src/lib/releaseRollbackReconciliation.ts').includes('rolled_back=true'),'rollback revokes promotion provenance');
+add('V101 live verification invalidation',read('src/lib/releaseRollbackReconciliation.ts').includes('update release_post_promotion_verifications')&&read('src/lib/releaseRollbackReconciliation.ts').includes('certified=false'),'rollback invalidates post-promotion certificate');
+add('V101 strict rollback blocker',read('src/lib/productionCertification.ts').includes('rollbackReconciliation')&&read('src/lib/productionCertification.ts').includes('rollback reconciliation'),'strict production certification checks rollback state');
+add('V101 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'rollback-reconciliation'")&&read('src/lib/v1ReleaseReadiness.ts').includes('rollbackReconciled'),'V1 readiness exposes rollback reconciliation');
+add('V101 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('RollbackReconciliationPanel'),'rollback reconciliation is visible in System view');
+add('V101 production rollback writer',read('.github/workflows/deploy-production.yml').includes('/api/release/rollback-reconciliation')&&read('.github/workflows/deploy-production.yml').includes('PREVIOUS_DEPLOYMENT_ID'),'rollback workflow reconciles failed evidence');
+add('V101 release notes',exists('EDGEFORCE_V101_RELEASE.md'),'V101 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
