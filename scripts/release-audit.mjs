@@ -94,6 +94,9 @@ const requiredFiles=[
  'src/lib/v1ReleaseReadiness.ts',
  'src/app/api/release/v1-readiness/route.ts',
  'src/components/V1ReleaseReadinessPanel.tsx',
+ 'src/lib/productionLaunch.ts',
+ 'src/app/api/release/launch-status/route.ts',
+ 'src/components/ProductionLaunchPanel.tsx',
  'EDGEFORCE_V1_RELEASE.md',
  'src/lib/expertModelSuite.ts',
  'src/lib/expertModelBridge.ts',
@@ -275,6 +278,7 @@ add('V53 expert API',read('src/app/api/intelligence/expert-models/route.ts').inc
 add('V53 expert dashboard',read('src/components/Dashboard.tsx').includes('ExpertModelSuitePanel')&&read('src/components/ExpertModelSuitePanel.tsx').includes('V61 EXPERT MODELING SUITE'),'expert suite remains visible on dashboard');
 add('V52 live comeback engine',read('src/lib/liveComeback.ts').includes('BUY_LOW_REVIEW')&&read('src/lib/liveComeback.ts').includes('requiresGameStateConfirmation'),'buy-low scoring requires explicit live game-state confirmation');
 add('V52 live comeback API',read('src/app/api/live-comeback/route.ts').includes('v52-live-comeback-1')&&read('src/app/api/testing/live-comeback/route.ts').includes('gameStateGuardrail'),'production endpoint and regression guardrail are present');
+add('V124 production launch controller',read('src/components/OperatorCommandCenter.tsx').includes('ProductionLaunchPanel')&&read('src/lib/productionLaunch.ts').includes("'V1_READY','COMPLETE','FAILED','ROLLED_BACK'")&&read('src/app/api/release/launch-status/route.ts').includes('recordProductionLaunchEvent'),'durable production launch ledger is visible and API-backed');
 add('V123 v1 readiness',read('src/components/OperatorCommandCenter.tsx').includes('V1ReleaseReadinessPanel')&&read('src/lib/v1ReleaseReadiness.ts').includes("V1Verdict='GO'|'CONDITIONAL'|'NO_GO'")&&read('src/app/api/release/v1-readiness/route.ts').includes('buildV1ReleaseReadiness'),'final v1 readiness verdict is visible, fail-closed, and API-backed');
 add('V123 v1 release checklist',read('EDGEFORCE_V1_RELEASE.md').includes('NO_GO')&&read('EDGEFORCE_V1_RELEASE.md').includes('/api/release/v1-readiness?strict=1'),'final operator release procedure is documented');
 add('V122 production observability',read('src/components/OperatorCommandCenter.tsx').includes('ProductionObservabilityPanel')&&read('src/lib/productionCertification.ts').includes('observability: production health is CRITICAL'),'production observability is visible and certification-gated');
@@ -331,6 +335,8 @@ add('candidate workflow release audit',candidateWorkflow.includes('npm run relea
 add('production workflow release audit',productionWorkflow.includes('npm run release-audit'),'release audit required');
 add('direct preview promotion disabled',!candidateWorkflow.includes('vercel promote'),'canonical production deploy required');
 add('production final certification',productionWorkflow.includes('/api/release/certify?strict=1'),'strict final certification required');
+add('V124 production strict v1 readiness',productionWorkflow.includes('/api/release/v1-readiness?strict=1')&&productionWorkflow.includes('V1_READY')&&productionWorkflow.includes('COMPLETE'),'production cannot complete before V123 strict readiness passes');
+add('V124 launch rollback evidence',productionWorkflow.includes('FAILED')&&productionWorkflow.includes('ROLLED_BACK')&&productionWorkflow.includes('vercel rollback'),'failed production launches are recorded and rolled back');
 const cloudflareWorkflow=read('.github/workflows/deploy-cloudflare.yml');
 add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflight:cloudflare'),'preflight required');
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
