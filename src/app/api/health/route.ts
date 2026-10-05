@@ -182,6 +182,8 @@ export async function GET(){
   lastKnownSafeThresholdRestore:true,
   thresholdRecoveryGovernor:true,
   adaptiveThresholdReentry:true,
+  thresholdProbationRollout:true,
+  stagedAdaptiveInfluence:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
