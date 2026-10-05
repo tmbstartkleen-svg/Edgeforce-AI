@@ -54,8 +54,16 @@ export function evaluatePreventiveActionGate(input:{
  return {decision,gateScore:score,topAction:a,reasons,predictedCause:input.predictedCause,sourceRiskScore:input.sourceRiskScore,sourceRiskLevel:input.sourceRiskLevel};
 }
 
-export async function buildPreventiveActionDecisionGate(){
- const [ranking,obs,thresholds]=await Promise.all([buildPreventiveActionRanking(),buildProductionObservability(),loadPreventiveDecisionThresholds()]);
+export async function buildPreventiveActionDecisionGate(context?:{
+ ranking?:Awaited<ReturnType<typeof buildPreventiveActionRanking>>;
+ observability?:Awaited<ReturnType<typeof buildProductionObservability>>;
+ thresholds?:PreventiveDecisionThresholds;
+}){
+ const [ranking,obs,thresholds]=await Promise.all([
+  context?.ranking?Promise.resolve(context.ranking):buildPreventiveActionRanking(),
+  context?.observability?Promise.resolve(context.observability):buildProductionObservability(),
+  context?.thresholds?Promise.resolve(context.thresholds):loadPreventiveDecisionThresholds()
+ ]);
  return {
   generatedAt:new Date().toISOString(),
   ...evaluatePreventiveActionGate({
@@ -88,8 +96,8 @@ export async function persistPreventiveActionDecisionGate(report:Awaited<ReturnT
  return {persisted:true};
 }
 
-export async function runPreventiveActionDecisionGate(){
- const report=await buildPreventiveActionDecisionGate();
+export async function runPreventiveActionDecisionGate(context?:Parameters<typeof buildPreventiveActionDecisionGate>[0]){
+ const report=await buildPreventiveActionDecisionGate(context);
  const persistence=await persistPreventiveActionDecisionGate(report);
  return {...report,persistence};
 }
