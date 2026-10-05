@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V84',
- appVersion:'84.0.0',
- packageVersion:'0.84.0',
- modelVersion:'edgeforce-v84',
- migrationVersion:96
+ build:'V85',
+ appVersion:'85.0.0',
+ packageVersion:'0.85.0',
+ modelVersion:'edgeforce-v85',
+ migrationVersion:97
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -255,6 +255,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-threshold-recovery/route.ts',
  'src/components/PreventiveThresholdRecoveryPanel.tsx',
  'EDGEFORCE_V84_RELEASE.md',
+ 'src/lib/preventiveThresholdProbation.ts',
+ 'src/app/api/operations/preventive-threshold-probation/route.ts',
+ 'src/app/api/testing/preventive-threshold-probation/route.ts',
+ 'src/components/PreventiveThresholdProbationPanel.tsx',
+ 'EDGEFORCE_V85_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -678,6 +683,14 @@ add('V84 durable recovery state',read('db/v96.sql').includes('preventive_thresho
 add('V84 recovery regression',read('src/app/api/testing/preventive-threshold-recovery/route.ts').includes("state==='LOCKED'")&&read('src/app/api/testing/preventive-threshold-recovery/route.ts').includes("state==='OPEN'"),'regression covers lock, recovery, and re-entry');
 add('V84 supervision integration',read('src/lib/sloGovernor.ts').includes('runThresholdRecoveryGovernor'),'SLO supervision refreshes threshold recovery');
 add('V84 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdRecoveryPanel'),'threshold recovery is visible');
+
+add('V85 probation governor',read('src/lib/preventiveThresholdProbation.ts').includes('nextThresholdProbationState'),'probation state machine exists');
+add('V85 staged influence',read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.25")&&read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.50")&&read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.75"),'adaptive influence stages at 25, 50, and 75 percent');
+add('V85 threshold weighting',read('src/lib/preventiveDecisionThresholds.ts').includes('applyAdaptiveThresholdWeight')&&read('src/lib/preventiveDecisionThresholds.ts').includes('getAdaptiveThresholdWeight'),'threshold governor consumes probation weight');
+add('V85 rollback-only activation',read('src/lib/preventiveThresholdProbation.ts').includes('rollbackReferenceId'),'probation activates only after rollback recovery');
+add('V85 durable probation state',read('db/v97.sql').includes('preventive_threshold_probation_state')&&read('db/v97.sql').includes('preventive_threshold_probation_snapshots'),'probation state and history are durable');
+add('V85 supervision integration',read('src/lib/sloGovernor.ts').includes('runThresholdProbationGovernor'),'SLO supervision refreshes probation before adaptive threshold writes');
+add('V85 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdProbationPanel'),'probation rollout is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
