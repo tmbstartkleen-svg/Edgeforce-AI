@@ -22,7 +22,8 @@ export const AUTOMATION_JOBS:Array<{jobName:AutomationJobName;maxGapHours:number
  {jobName:'scan',maxGapHours:30,description:'odds scan and model-run persistence'},
  {jobName:'decision',maxGapHours:30,description:'decision journal and alerts'},
  {jobName:'recalibrate',maxGapHours:30,description:'model and SGP recalibration'},
- {jobName:'prediction-intelligence',maxGapHours:3,description:'Kalshi/Polymarket market, trade and trader intelligence collection'}
+ {jobName:'prediction-intelligence',maxGapHours:3,description:'Kalshi/Polymarket market, trade and trader intelligence collection'},
+ {jobName:'injuries',maxGapHours:1,description:'15-minute injury and availability refresh feeding all simulations'}
 ];
 
 export function evaluateAutomationRecords(records:AutomationRunRecord[],now=new Date()){
