@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V79',
- appVersion:'79.0.0',
- packageVersion:'0.79.0',
- modelVersion:'edgeforce-v79',
- migrationVersion:91
+ build:'V80',
+ appVersion:'80.0.0',
+ packageVersion:'0.80.0',
+ modelVersion:'edgeforce-v80',
+ migrationVersion:92
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -230,6 +230,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-action-ranking/route.ts',
  'src/components/PreventiveActionRankingPanel.tsx',
  'EDGEFORCE_V79_RELEASE.md',
+ 'src/lib/preventiveActionDecisionGate.ts',
+ 'src/app/api/operations/preventive-action-decision/route.ts',
+ 'src/app/api/testing/preventive-action-decision/route.ts',
+ 'src/components/PreventiveActionDecisionPanel.tsx',
+ 'EDGEFORCE_V80_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -616,6 +621,13 @@ add('V79 ranking API',read('src/app/api/operations/preventive-action-ranking/rou
 add('V79 ranking regression',read('src/app/api/testing/preventive-action-ranking/route.ts').includes('STRONG'),'ranking regression covers learned evidence quality');
 add('V79 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveActionRanking'),'SLO supervision refreshes ranking automatically');
 add('V79 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionRankingPanel'),'ranking panel is visible');
+
+add('V80 decision gate module',read('src/lib/preventiveActionDecisionGate.ts').includes('evaluatePreventiveActionGate'),'preventive decision gate exists');
+add('V80 durable decisions',read('db/v92.sql').includes('preventive_action_decision_snapshots'),'decision snapshots are durable');
+add('V80 decision API',read('src/app/api/operations/preventive-action-decision/route.ts').includes('v80-preventive-action-decision-1'),'decision API exists');
+add('V80 decision regression',read('src/app/api/testing/preventive-action-decision/route.ts').includes('DO_NOT_USE'),'regression covers recommendation and rejection');
+add('V80 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveActionDecisionGate'),'SLO supervision refreshes the decision gate');
+add('V80 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionDecisionPanel'),'decision panel is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
