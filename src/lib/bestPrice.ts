@@ -1,4 +1,5 @@
 import type {Market} from './types';
+import {db} from './db';
 import type {UniversalMarketQuote} from './universalMarkets';
 import {equivalentContractPair} from './universalMarkets';
 
@@ -188,4 +189,28 @@ export function buildBestPriceBoard(input:{consensus:Market[];panel:Market[];uni
    'Sportsbook comparisons penalize stale quotes and use exact event/market/selection matching.'
   ]
  };
+}
+
+
+export async function persistBestPriceRows(rows:BestPriceRow[]){
+ const sql=db();
+ if(!sql||!rows.length)return {persisted:false};
+ const latest=await sql`select max(observed_at) as latest from best_price_snapshots`;
+ const latestMs=latest[0]?.latest?new Date(latest[0].latest as string).getTime():0;
+ if(latestMs&&Date.now()-latestMs<5*60000)return {persisted:false};
+ for(const x of rows){
+  await sql`
+   insert into best_price_snapshots(
+    observed_at,opportunity_id,domain,category,current_venue,best_venue,current_probability,best_probability,
+    current_american_odds,best_american_odds,price_improvement_points,equivalent_confidence,freshness_score,
+    liquidity_score,spread_score,execution_quality,execution_score,stale,metadata
+   ) values(
+    now(),${x.id},${x.domain},${x.category},${x.currentVenue},${x.bestVenue},${x.currentProbability},${x.bestProbability},
+    ${x.currentAmericanOdds??null},${x.bestAmericanOdds??null},${x.priceImprovementPoints},${x.equivalentConfidence},
+    ${x.freshnessScore},${x.liquidityScore},${x.spreadScore},${x.executionQuality},${x.executionScore},${x.stale},
+    ${sql.json({reason:x.reason} as any)}
+   )
+  `;
+ }
+ return {persisted:true};
 }
