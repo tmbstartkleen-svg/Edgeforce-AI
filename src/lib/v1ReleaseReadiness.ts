@@ -56,6 +56,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('unified-intelligence','Unified intelligence stack',certification.unifiedIntelligence.state==='BLOCKED'?'FAIL':certification.unifiedIntelligence.state==='HEALTHY'?'PASS':'WARN',true,`State ${certification.unifiedIntelligence.state}; score ${(certification.unifiedIntelligence.score*100).toFixed(1)}%; critical coverage ${(certification.unifiedIntelligence.criticalCoverage*100).toFixed(1)}%.`);
  add('reliability-supervisor','Reliability supervisor',certification.reliability.mode==='PROTECTIVE'?'FAIL':certification.reliability.mode==='NORMAL'?'PASS':'WARN',true,`Mode ${certification.reliability.mode}; score ${(certification.reliability.score*100).toFixed(1)}%; open ${certification.reliability.openComponents.length}; half-open ${certification.reliability.halfOpenComponents.length}.`);
  add('slo-error-budget','SLO error budget',certification.sloGovernor.state==='FROZEN'?'FAIL':certification.sloGovernor.state==='OPEN'?'PASS':'WARN',true,`State ${certification.sloGovernor.state}; 1h burn ${certification.sloGovernor.windows.oneHour.burnRate.toFixed(1)}x; 24h burn ${certification.sloGovernor.windows.twentyFourHour.burnRate.toFixed(1)}x; 7d budget ${(Math.max(0,certification.sloGovernor.windows.sevenDay.budgetRemaining)*100).toFixed(1)}% remaining.`);
+ const sloLaunchPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_BUDGET_PASSED'));
+ add('slo-launch-stage','SLO deployment launch stage',sloLaunchPass?'PASS':strict?'FAIL':'WARN',true,sloLaunchPass?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_BUDGET_PASSED.`:'Current launch has not recorded SLO_BUDGET_PASSED.');
  const canaryPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='CANARY_PASSED'));
  add('deployment-canary','Comparative deployment canary',canaryPass?'PASS':strict?'FAIL':'WARN',true,canaryPass?`Launch ${(launchStatus as any).launchId||'current'} passed the comparative canary.`:`No accepted comparative canary stage is recorded; latest probe ${deploymentGuard.latest?.decision||'none'}.`);
 
@@ -90,6 +92,7 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    reliabilityScore:certification.reliability.score,
    sloDeploymentState:certification.sloGovernor.state,
    sloDeploymentAllowed:certification.sloGovernor.deploymentAllowed,
+   sloLaunchStagePassed:sloLaunchPass,
    deploymentCanaryPassed:canaryPass
   },
   certification,
