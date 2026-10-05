@@ -171,7 +171,10 @@ function tennis(m:Market,runs:SimulationTier){
  const s=sport(m);if(!(s.includes('TENNIS')&&!s.includes('TABLE')))return null;
  const text=lower(`${m.market} ${m.selection}`);
  if(kind(m)==='SPREAD'&&text.includes('game'))return null;
- const n=actualRuns(runs),rng=seeded(`tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1),aServe=clamp(.625+strength*.045+feat(m,'serve')*.025+feat(m,'surface')*.012,.52,.76),bServe=clamp(.625-strength*.045+feat(m,'return')*.018,.52,.76),samples:Sample[]=[];
+ const n=actualRuns(runs),rng=seeded(`tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1);
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venueCourt=venueConfidence>0?(feat(m,'venuePaceEffect')*.018+feat(m,'venueSurfaceEffect')*.012)*venueConfidence:0;
+ const aServe=clamp(.625+strength*.045+feat(m,'serve')*.025+feat(m,'surface')*.012+venueCourt,.52,.76),bServe=clamp(.625-strength*.045+feat(m,'return')*.018+venueCourt,.52,.76),samples:Sample[]=[];
  for(let r=0;r<n;r++){let a=0,b=0,points=0,games=0;while(a<2&&b<2){const s=tennisSet(rng,aServe,bServe);points+=s.points;games+=s.games;if(s.aWon)a++;else b++}const marketTotal=text.includes('point')?points:text.includes('game')?games:a+b;samples.push({home:a,away:b,units:points,marketTotal})}
  const scoreUnit=text.includes('point')?'points':text.includes('game')?'games':'sets';
  return finalize(m,n,samples,'TENNIS_POINT_GAME_SET_MONTE_CARLO',scoreUnit,'BERNOULLI','points',rng);
