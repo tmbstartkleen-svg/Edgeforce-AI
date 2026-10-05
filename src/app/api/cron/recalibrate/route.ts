@@ -47,6 +47,8 @@ export async function GET(req:Request){
    opponentMatchupRows:(opponentMatchups as any).rowsRead??null,
    opponentMatchupProfiles:(opponentMatchups as any).profilesWritten??null,
    opponentMatchupQualified:(opponentMatchups as any).qualifiedProfiles??null,
+   opponentPlayerProfiles:(opponentMatchups as any).playerProfilesWritten??null,
+   opponentPlayerQualified:(opponentMatchups as any).qualifiedPlayerProfiles??null,
    externalMlMode:(externalMlTournament as any).mode??null,
    externalMlCandidates:(externalMlTournament as any).candidates??null,
    externalMlPromoted:(externalMlTournament as any).promoted??null,
