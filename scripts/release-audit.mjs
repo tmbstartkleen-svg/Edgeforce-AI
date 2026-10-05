@@ -180,6 +180,10 @@ const requiredFiles=[
  'src/app/api/intelligence/market-movement-learning/route.ts',
  'src/app/api/testing/market-movement-learning/route.ts',
  'src/components/MarketMovementLearningPanel.tsx',
+ 'src/lib/crossSportOptimizer.ts',
+ 'src/app/api/intelligence/cross-sport-optimizer/route.ts',
+ 'src/app/api/testing/cross-sport-optimizer/route.ts',
+ 'src/components/CrossSportOptimizerPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -279,6 +283,10 @@ add('V69 persistence and rebuild',read('src/app/api/cron/scan/route.ts').include
 add('V69 dashboard',read('src/components/Dashboard.tsx').includes('MarketMovementLearningPanel')&&read('src/components/MarketMovementLearningPanel.tsx').includes('V69 MARKET LEARNING'),'movement and closing-line learning are visible');
 add('V69 recommendation-time price audit',read('src/lib/persistence.ts').includes('offeredOdds:x.odds')&&read('src/lib/predictionFeedback.ts').includes('featureSnapshot?.offeredOdds'),'CLV uses the actual recommendation-time price');
 add('V69 continuous drilldown history',read('src/app/api/market/[id]/lines/route.ts').includes('canonicalMovementSelection')&&read('src/components/MarketDrilldown.tsx').includes("'/lines'+(qs.toString()"),'market drilldown follows the same side across point changes');
+add('V70 optimizer schema',read('db/v82.sql').includes('cross_sport_optimizer_profiles')&&read('db/v82.sql').includes('cross_sport_optimizer_runs'),'v82 stores hierarchical optimizer profiles and training runs');
+add('V70 chronological optimizer',read('src/lib/crossSportOptimizer.ts').includes('splitRows')&&read('src/lib/crossSportOptimizer.ts').includes('holdoutBrierGain')&&read('src/lib/crossSportOptimizer.ts').includes('stableLog'),'optimizer uses chronological holdout promotion gates');
+add('V70 hierarchy and shrinkage',read('src/lib/crossSportOptimizer.ts').includes("scope:'GLOBAL'")&&read('src/lib/crossSportOptimizer.ts').includes("scope:'SPORT'")&&read('src/lib/crossSportOptimizer.ts').includes("scope:'SPORT_MARKET'")&&read('src/lib/crossSportOptimizer.ts').includes('shrink(best,prior'),'global, sport and exact-market profiles shrink toward parent priors');
+add('V70 bounded blend',read('src/lib/crossSportOptimizer.ts').includes('market<=25')||read('src/lib/crossSportOptimizer.ts').includes('market<=25'),'placeholder');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
