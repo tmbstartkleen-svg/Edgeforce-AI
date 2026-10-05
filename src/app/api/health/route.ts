@@ -198,6 +198,8 @@ export async function GET(){
   postHandoffReversion:true,
   successorGraduation:true,
   championLifecycleClosure:true,
+  baselineLifecycleConsistency:true,
+  boundedLifecycleReconciliation:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
