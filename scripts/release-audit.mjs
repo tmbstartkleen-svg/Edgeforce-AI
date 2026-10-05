@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V76',
- appVersion:'76.0.0',
- packageVersion:'0.76.0',
- modelVersion:'edgeforce-v76',
- migrationVersion:88
+ build:'V77',
+ appVersion:'77.0.0',
+ packageVersion:'0.77.0',
+ modelVersion:'edgeforce-v77',
+ migrationVersion:89
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -215,6 +215,11 @@ const requiredFiles=[
  'src/app/api/testing/incident-patterns/route.ts',
  'src/components/IncidentPatternLearningPanel.tsx',
  'EDGEFORCE_V76_RELEASE.md',
+ 'src/lib/predictiveIncidentRisk.ts',
+ 'src/app/api/operations/predictive-incident-risk/route.ts',
+ 'src/app/api/testing/predictive-incident-risk/route.ts',
+ 'src/components/PredictiveIncidentRiskPanel.tsx',
+ 'EDGEFORCE_V77_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -581,6 +586,13 @@ add('V76 co-failure learning',read('src/lib/incidentPatternLearning.ts').include
 add('V76 adaptive runbooks',read('src/lib/incidentPatternLearning.ts').includes('recommendedRunbook')&&read('src/components/IncidentPatternLearningPanel.tsx').includes('Priority runbook'),'cause-specific runbooks are visible to operators');
 add('V76 automatic learning cycle',read('src/lib/sloGovernor.ts').includes('runIncidentPatternLearning'),'SLO supervision updates incident pattern learning automatically');
 add('V76 system dashboard',read('src/components/OperatorCommandCenter.tsx').includes('IncidentPatternLearningPanel'),'incident-pattern learning is visible in the system console');
+
+add('V77 predictive incident risk',read('src/lib/predictiveIncidentRisk.ts').includes('scorePredictiveRisk')&&read('src/lib/predictiveIncidentRisk.ts').includes('riskLevel'),'forward-looking subsystem risk scoring exists');
+add('V77 predictive persistence',read('db/v89.sql').includes('predictive_incident_risk_snapshots'),'risk forecasts are durable');
+add('V77 preventive warning threshold',read('src/lib/predictiveIncidentRisk.ts').includes('preventiveWarning')&&read('src/lib/predictiveIncidentRisk.ts').includes('>=.70'),'high-risk preventive warning threshold is enforced');
+add('V77 predictive regression',read('src/app/api/testing/predictive-incident-risk/route.ts').includes('AUTOMATION')&&read('src/app/api/testing/predictive-incident-risk/route.ts').includes('riskScore>=.70'),'deterministic predictive-risk regression exists');
+add('V77 automatic predictive cycle',read('src/lib/sloGovernor.ts').includes('runPredictiveIncidentRisk'),'SLO supervision refreshes predictive risk automatically');
+add('V77 predictive dashboard',read('src/components/OperatorCommandCenter.tsx').includes('PredictiveIncidentRiskPanel')&&read('src/components/PredictiveIncidentRiskPanel.tsx').includes('V77 PREDICTIVE INCIDENT RISK'),'system console exposes preventive forecast');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

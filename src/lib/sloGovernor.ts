@@ -2,6 +2,7 @@ import {db} from './db';
 import {RELEASE} from './releaseManifest';
 import {attributeOperationalIncident,persistIncidentAttribution} from './incidentAttribution';
 import {runIncidentPatternLearning} from './incidentPatternLearning';
+import {runPredictiveIncidentRisk} from './predictiveIncidentRisk';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -277,6 +278,7 @@ export async function runSloGovernor(){
  await persistProductionObservability(obs).catch(()=>({persisted:false}));
  await persistIncidentAttribution({attribution:attributeOperationalIncident(obs),observability:obs}).catch(()=>({persisted:false}));
  await runIncidentPatternLearning().catch(()=>({persisted:false}));
+ await runPredictiveIncidentRisk().catch(()=>({persisted:false}));
  if(!sql){
   const report=await buildSloGovernorReport();
   return {configured:false,...report,transition:false};
