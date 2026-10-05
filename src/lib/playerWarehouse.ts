@@ -222,6 +222,25 @@ export async function ingestPlayerHistoryPayload(payload:unknown,source='stats-p
   touched.add(row.athleteId);
  }
 
+ const latestRoster=new Map<string,NormalizedPlayerGame>();
+ for(const row of normalized){
+  const prior=latestRoster.get(row.athleteId);
+  if(!prior||new Date(row.statDate).getTime()>new Date(prior.statDate).getTime())latestRoster.set(row.athleteId,row);
+ }
+ const observedHour=new Date(Math.floor(Date.now()/3600000)*3600000).toISOString();
+ for(const row of latestRoster.values()){
+  try{
+   await sql\`
+    insert into player_roster_snapshots(athlete_id,sport,team,position,roster_status,source,observed_hour,metadata)
+    values(\${row.athleteId},\${row.sport},\${row.team??null},\${row.position??null},'ACTIVE',\${source},\${observedHour},\${sql.json({sourceId:row.sourceId||null,lastEventId:row.eventId})})
+    on conflict (athlete_id,source,observed_hour) do update set
+     sport=excluded.sport,team=excluded.team,position=excluded.position,metadata=excluded.metadata
+   \`;
+  }catch{
+   // Roster continuity is supplemental and must not block player-history ingestion during staged migrations.
+  }
+ }
+
  let featureSnapshotsWritten=0;
  for(const athleteId of touched)featureSnapshotsWritten+=await rebuildFeatures(sql,athleteId,source);
  return {
