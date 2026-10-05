@@ -37,6 +37,7 @@ import PreventiveProbationPerformancePanel from './PreventiveProbationPerformanc
 import PreventiveChampionBaselinePanel from './PreventiveChampionBaselinePanel';
 import PreventiveChampionBaselineHealthPanel from './PreventiveChampionBaselineHealthPanel';
 import PreventiveBaselineSuccessionPanel from './PreventiveBaselineSuccessionPanel';
+import PreventiveBaselineHandoffPanel from './PreventiveBaselineHandoffPanel';
 import V1ReleaseReadinessPanel from './V1ReleaseReadinessPanel';
 import ProductionLaunchPanel from './ProductionLaunchPanel';
 
@@ -106,6 +107,7 @@ export default function OperatorCommandCenter(){
   <PreventiveChampionBaselinePanel/>
   <PreventiveChampionBaselineHealthPanel/>
   <PreventiveBaselineSuccessionPanel/>
+  <PreventiveBaselineHandoffPanel/>
  </>;
 
  return <section className="operatorCenter">
@@ -115,7 +117,7 @@ export default function OperatorCommandCenter(){
     <h2>EdgeForce Intelligence Console</h2>
     <p>{active.description}</p>
    </div>
-   <div className="operatorCenterBadge">38 MODULES · CONSOLIDATED</div>
+   <div className="operatorCenterBadge">39 MODULES · CONSOLIDATED</div>
   </div>
 
   <div className="operatorNav" role="tablist" aria-label="EdgeForce operator views">
@@ -134,7 +136,7 @@ export default function OperatorCommandCenter(){
    <div><small>EXECUTION</small><strong>6</strong><span>price + timing</span></div>
    <div><small>LEARNING</small><strong>5</strong><span>validation + stress</span></div>
    <div><small>CASH-OUT</small><strong>5</strong><span>offer + policy</span></div>
-   <div><small>SYSTEM</small><strong>18</strong><span>launch + release + health + baseline succession</span></div>
+   <div><small>SYSTEM</small><strong>19</strong><span>launch + release + health + baseline handoff</span></div>
   </div>
 
   <div className="operatorModules">
