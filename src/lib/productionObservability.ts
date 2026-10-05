@@ -1,6 +1,7 @@
 import {db} from './db';
 import {getAutomationHealth} from './automationHealth';
 import {getOpsStatus} from './opsStatus';
+import {loadIntelligenceReliabilityState} from './intelligenceReliability';
 
 export type OpsHealthState='HEALTHY'|'DEGRADED'|'CRITICAL'|'UNKNOWN';
 export type OpsCheck={
@@ -12,8 +13,7 @@ function ageMinutes(value:unknown){if(!value)return null;const t=new Date(String
 
 export async function buildProductionObservability(){
  const sql=db();
- const automation=await getAutomationHealth();
- const ops=await getOpsStatus();
+ const [automation,ops,reliability]=await Promise.all([getAutomationHealth(),getOpsStatus(),loadIntelligenceReliabilityState()]);
  const checks:OpsCheck[]=[];
  let dbLatencyMs:number|null=null;
  let latestMarketAgeMin:number|null=null;
@@ -57,6 +57,13 @@ export async function buildProductionObservability(){
  freshness('automation-freshness','Automation-run freshness',latestAutomationAgeMin,180,1440);
 
  checks.push({
+  id:'reliability-mode',label:'Intelligence reliability mode',
+  state:reliability.mode==='PROTECTIVE'?'CRITICAL':reliability.mode==='DEGRADED'?'DEGRADED':'HEALTHY',
+  value:Math.round(reliability.score*100),unit:'%',threshold:'NORMAL mode; no required OPEN circuits',
+  reason:`${reliability.mode}; open ${reliability.openComponents.length}, half-open ${reliability.halfOpenComponents.length}.`
+ });
+
+ checks.push({
   id:'automation-health',label:'Automation health',
   state:automation.failedCount>0||automation.staleCount>0?'CRITICAL':automation.pendingCount>0?'DEGRADED':'HEALTHY',
   value:automation.healthyCount,unit:'healthy jobs',threshold:'no failed/stale jobs',
@@ -78,6 +85,7 @@ export async function buildProductionObservability(){
   generatedAt:new Date().toISOString(),overall,score,checks,
   summary:{healthy,degraded,critical,unknown,total:checks.length},
   automation,
+  reliability,
   incidents:{action,watch,total:incidents.length},
   database:{configured:Boolean(sql),latencyMs:dbLatencyMs,error:queryError},
   freshness:{latestMarketAgeMin,latestConsensusAgeMin,latestModelRunAgeMin,latestAutomationAgeMin},
