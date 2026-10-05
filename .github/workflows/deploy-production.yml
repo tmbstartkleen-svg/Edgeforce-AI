@@ -23,6 +23,7 @@ jobs:
       ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
+      DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Verify deployment credential
         run: test -n "$VERCEL_TOKEN"
@@ -56,6 +57,8 @@ jobs:
           echo "INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
           echo "CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
           echo "DEPLOY_BOOTSTRAP_SECRET=$DEPLOY_BOOTSTRAP_SECRET" >> "$GITHUB_ENV"
+          LAUNCH_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${DEPLOY_COMMIT:0:12}"
+          echo "LAUNCH_ID=$LAUNCH_ID" >> "$GITHUB_ENV"
 
       - name: Pull production project settings
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
@@ -77,6 +80,7 @@ jobs:
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
             --env DEPLOY_BOOTSTRAP_SECRET="$DEPLOY_BOOTSTRAP_SECRET"
+            --env DEPLOYMENT_COMMIT="$DEPLOY_COMMIT"
             --env TARGET_BOOKMAKER=DraftKings
             --env ALLOW_DEMO_DATA=false
             --env THE_ODDS_API_MAX_SPORTS=12
@@ -126,6 +130,18 @@ jobs:
             -H "Content-Type: application/json"
           echo
 
+      - name: Record deployed and migrated launch stages
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          for STAGE in DEPLOYED MIGRATED; do
+            curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+              -H "Authorization: Bearer $INGEST_SECRET" \
+              -H "Content-Type: application/json" \
+              --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+            echo
+          done
+
       - name: Certify live production providers
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
@@ -135,16 +151,46 @@ jobs:
             -H "Content-Type: application/json"
           echo
 
+      - name: Record provider certification launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"PROVIDERS_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
       - name: Require strict launch doctor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: curl --fail --silent --show-error "$PRODUCTION_URL/api/launch-doctor?strict=1"
+
+      - name: Record launch-doctor stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"LAUNCH_DOCTOR_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
 
       - name: Smoke test production deployment
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
           EXPECTED_APP_VERSION: "61.0.0"
+
+      - name: Record production smoke launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
 
       - name: Record production release attestation
         env:
@@ -156,6 +202,16 @@ jobs:
             --data '{"source":"production-prebuilt","buildPassed":true,"smokePassed":true,"loadPassed":true}'
           echo
 
+      - name: Record attested launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ATTESTED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
       - name: Certify final production release
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
@@ -165,6 +221,59 @@ jobs:
             -H "Content-Type: application/json"
           echo
 
+      - name: Record strict certification launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"STRICT_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
+      - name: Require V123 strict v1 readiness
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/v1-readiness?strict=1" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json"
+          echo
+
+      - name: Record v1-ready and complete launch stages
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          for STAGE in V1_READY COMPLETE; do
+            curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+              -H "Authorization: Bearer $INGEST_SECRET" \
+              -H "Content-Type: application/json" \
+              --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+            echo
+          done
+
+      - name: Record failed launch before rollback
+        if: failure() && steps.deploy.outcome == 'success'
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"FAILED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}" || true
+          echo
+
       - name: Roll back production on hosted failure
         if: failure() && steps.deploy.outcome == 'success'
         run: vercel rollback --yes --token="$VERCEL_TOKEN"
+
+      - name: Record rollback completion
+        if: failure() && steps.deploy.outcome == 'success'
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          curl --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ROLLED_BACK\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}" || true
+          echo
