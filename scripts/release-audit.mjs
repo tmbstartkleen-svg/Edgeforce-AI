@@ -172,6 +172,10 @@ const requiredFiles=[
  'src/app/api/intelligence/schedule-fatigue/route.ts',
  'src/app/api/testing/schedule-fatigue/route.ts',
  'src/components/ScheduleFatiguePanel.tsx',
+ 'src/lib/venueWeatherIntelligence.ts',
+ 'src/app/api/intelligence/venue-conditions/route.ts',
+ 'src/app/api/testing/venue-conditions/route.ts',
+ 'src/components/VenueConditionsPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -253,6 +257,13 @@ add('V67 live schedule context',read('src/lib/providers/publicSportsContext.ts')
 add('V67 all-sim integration',read('src/lib/simulation.ts').includes('scheduleCompositeEdge')&&read('src/lib/sportOutcomeSimulation.ts').includes('schedulePlayerScale')&&read('src/lib/sportMicroSimulation.ts').includes('scheduleEdge')&&read('src/lib/sharedEventState.ts').includes('scheduleFatigue'),'fallback, team, prop, micro and shared-event sims consume V67');
 add('V67 persistence and rebuild',read('src/app/api/cron/scan/route.ts').includes('recordScheduleFatigueSnapshots')&&read('src/app/api/cron/recalibrate/route.ts').includes('rebuildScheduleFatigueProfiles'),'live snapshots persist and sport profiles rebuild daily');
 add('V67 regression and dashboard',read('src/app/api/testing/schedule-fatigue/route.ts').includes('away.backToBack===1')&&read('src/components/Dashboard.tsx').includes('ScheduleFatiguePanel'),'deterministic schedule regression and dashboard visibility are present');
+add('V68 venue schema',read('db/v80.sql').includes('venue_condition_snapshots')&&read('db/v80.sql').includes('venue_condition_profiles'),'v80 stores live venue conditions and empirical venue profiles');
+add('V68 condition engine',read('src/lib/venueWeatherIntelligence.ts').includes('deriveVenueConditionSignals')&&read('src/lib/venueWeatherIntelligence.ts').includes('temperatureF')&&read('src/lib/venueWeatherIntelligence.ts').includes('windGustMph')&&read('src/lib/venueWeatherIntelligence.ts').includes('elevationFt'),'temperature, wind, precipitation and altitude are modeled');
+add('V68 sport-aware effects',read('src/lib/venueWeatherIntelligence.ts').includes("family==='football'")&&read('src/lib/venueWeatherIntelligence.ts').includes("family==='baseball'")&&read('src/lib/venueWeatherIntelligence.ts').includes("family==='soccer'")&&read('src/lib/venueWeatherIntelligence.ts').includes("family==='basketball'"),'playing conditions are sport-specific');
+add('V68 live context',read('src/lib/providers/publicSportsContext.ts').includes('edgeforce-v68-venue-conditions')&&read('src/lib/providers/publicSportsContext.ts').includes('relative_humidity_2m')&&read('src/lib/providers/publicSportsContext.ts').includes('apparent_temperature'),'live forecast and venue metadata feed V68');
+add('V68 all-sim integration',read('src/lib/simulation.ts').includes('venueAdjustment')&&read('src/lib/sportOutcomeSimulation.ts').includes('venuePlayerScale')&&read('src/lib/sportMicroSimulation.ts').includes('venuePace')&&read('src/lib/sharedEventState.ts').includes('venueTotalScale'),'fallback, team, prop, micro and shared-event sims consume V68');
+add('V68 persistence and rebuild',read('src/app/api/cron/scan/route.ts').includes('recordVenueConditionSnapshots')&&read('src/app/api/cron/recalibrate/route.ts').includes('rebuildVenueConditionProfiles'),'live venue snapshots persist and venue profiles rebuild daily');
+add('V68 regression and dashboard',read('src/app/api/testing/venue-conditions/route.ts').includes('storm.venueTotalEffect<calm.venueTotalEffect')&&read('src/components/Dashboard.tsx').includes('VenueConditionsPanel'),'deterministic condition regression and dashboard visibility are present');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
