@@ -157,6 +157,8 @@ export async function GET(){
   intelligenceCircuitBreakers:true,
   automaticReliabilityRecovery:true,
   protectiveRecommendationMode:true,
+  comparativeCanaryDeploymentGuard:true,
+  automaticHostedRollback:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,

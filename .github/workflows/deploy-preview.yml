@@ -25,7 +25,7 @@ jobs:
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-audit
-      - run: npm install --global vercel@62.1.0
+      - run: npm install --global vercel@62.2.0
       - name: Pull preview environment
         run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
         env:
@@ -37,7 +37,7 @@ jobs:
           set -a
           test -f .vercel/.env.preview.local && . .vercel/.env.preview.local || true
           set +a
-          MODEL_VERSION=edgeforce-v72 DEFAULT_BANKROLL="${DEFAULT_BANKROLL:-1000}" npm run validate-env
+          MODEL_VERSION=edgeforce-v73 DEFAULT_BANKROLL="${DEFAULT_BANKROLL:-1000}" npm run validate-env
         env:
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -63,4 +63,4 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
-          EXPECTED_APP_VERSION: "72.0.0"
+          EXPECTED_APP_VERSION: "73.0.0"

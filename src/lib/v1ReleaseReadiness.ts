@@ -1,5 +1,7 @@
 import {db} from './db';
 import {runProductionCertification} from './productionCertification';
+import {loadDeploymentGuardSummary} from './deploymentGuard';
+import {getProductionLaunchStatus} from './productionLaunch';
 
 export type V1Verdict='GO'|'CONDITIONAL'|'NO_GO';
 export type V1GateState='PASS'|'WARN'|'FAIL'|'UNKNOWN';
@@ -8,7 +10,7 @@ export type V1Gate={id:string;label:string;state:V1GateState;required:boolean;de
 export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const certification=await runProductionCertification({strict});
+ const [certification,deploymentGuard,launchStatus]=await Promise.all([runProductionCertification({strict}),loadDeploymentGuardSummary(),getProductionLaunchStatus()]);
  const sql=db();
  let replay:any=null;
  let stress:any=null;
@@ -53,6 +55,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('model-governance','Model governance',certification.modelGovernance.latestRun?.status==='failed'?'FAIL':certification.modelGovernance.latestRun?'PASS':'WARN',true,certification.modelGovernance.latestRun?`Latest governance run ${certification.modelGovernance.latestRun.status}; critical ${certification.modelGovernance.summary.critical}, drifting ${certification.modelGovernance.summary.drifting}.`:'No completed governance run yet.');
  add('unified-intelligence','Unified intelligence stack',certification.unifiedIntelligence.state==='BLOCKED'?'FAIL':certification.unifiedIntelligence.state==='HEALTHY'?'PASS':'WARN',true,`State ${certification.unifiedIntelligence.state}; score ${(certification.unifiedIntelligence.score*100).toFixed(1)}%; critical coverage ${(certification.unifiedIntelligence.criticalCoverage*100).toFixed(1)}%.`);
  add('reliability-supervisor','Reliability supervisor',certification.reliability.mode==='PROTECTIVE'?'FAIL':certification.reliability.mode==='NORMAL'?'PASS':'WARN',true,`Mode ${certification.reliability.mode}; score ${(certification.reliability.score*100).toFixed(1)}%; open ${certification.reliability.openComponents.length}; half-open ${certification.reliability.halfOpenComponents.length}.`);
+ const canaryPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='CANARY_PASSED'));
+ add('deployment-canary','Comparative deployment canary',canaryPass?'PASS':strict?'FAIL':'WARN',true,canaryPass?`Launch ${(launchStatus as any).launchId||'current'} passed the comparative canary.`:`No accepted comparative canary stage is recorded; latest probe ${deploymentGuard.latest?.decision||'none'}.`);
 
  const replayState=String(replay?.ordering_status||'INSUFFICIENT');
  add('decision-replay','Decision ordering replay',replayState==='MISORDERED'?'FAIL':replayState==='ORDERED'?'PASS':'WARN',false,replay?`Historical ordering ${replayState}; separation score ${(Number(replay.ordering_score||0)*100).toFixed(1)}%.`:'No durable replay snapshot yet; historical validation is still accumulating.');
@@ -82,7 +86,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    unifiedIntelligenceState:certification.unifiedIntelligence.state,
    unifiedIntelligenceScore:certification.unifiedIntelligence.score,
    reliabilityMode:certification.reliability.mode,
-   reliabilityScore:certification.reliability.score
+   reliabilityScore:certification.reliability.score,
+   deploymentCanaryPassed:canaryPass
   },
   certification,
   notes:[

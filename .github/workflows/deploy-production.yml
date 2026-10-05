@@ -78,6 +78,38 @@ jobs:
           echo "PREVIOUS_DEPLOYMENT_ID=$PREVIOUS_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "PREVIOUS_DEPLOYMENT_URL=$PREVIOUS_DEPLOYMENT_URL" >> "$GITHUB_ENV"
 
+      - name: Capture production baseline
+        shell: bash
+        run: |
+          OBS=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/operations/observability")
+          REL=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/intelligence/reliability")
+          READY=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/health/ready")
+          HEALTH=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/health")
+          BASELINE_JSON=$(jq -cn --argjson obs "$OBS" --argjson rel "$REL" --argjson ready "$READY" --argjson health "$HEALTH" '{
+            releaseVersion:($health.version // null),
+            modelVersion:($health.modelVersion // null),
+            ready:($ready.ready // false),
+            productionReady:($ready.productionReady // $ready.ready // false),
+            certified:($ready.productionReady // $ready.ready // false),
+            observabilityOverall:($obs.overall // "UNKNOWN"),
+            observabilityScore:($obs.score // 0.5),
+            criticalChecks:($obs.summary.critical // 0),
+            degradedChecks:($obs.summary.degraded // 0),
+            reliabilityMode:($rel.mode // "DEGRADED"),
+            reliabilityScore:($rel.score // 0.55),
+            openCircuits:(($rel.openComponents // [])|length),
+            halfOpenCircuits:(($rel.halfOpenComponents // [])|length),
+            automationFailed:($obs.automation.failedCount // 0),
+            automationStale:($obs.automation.staleCount // 0),
+            actionIncidents:($obs.incidents.action // 0),
+            watchIncidents:($obs.incidents.watch // 0),
+            latestMarketAgeMin:($obs.freshness.latestMarketAgeMin // null),
+            latestModelRunAgeMin:($obs.freshness.latestModelRunAgeMin // null),
+            capturedAt:(now|todate)
+          }')
+          BASELINE_B64=$(printf '%s' "$BASELINE_JSON" | base64 -w0)
+          echo "DEPLOYMENT_BASELINE_B64=$BASELINE_B64" >> "$GITHUB_ENV"
+
       - name: Build exact production artifact
         run: vercel --token="$VERCEL_TOKEN" build --prod 
 
@@ -90,7 +122,7 @@ jobs:
             --prod
             --yes
             
-            --env MODEL_VERSION=edgeforce-v72
+            --env MODEL_VERSION=edgeforce-v73
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -202,7 +234,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "72.0.0"
+          EXPECTED_APP_VERSION: "73.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -255,7 +287,44 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"STRICT_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Require V123 strict v1 readiness
+      - name: Run comparative canary guard
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          BASELINE_JSON=$(printf '%s' "$DEPLOYMENT_BASELINE_B64" | base64 --decode)
+          PASSES=0
+          for ATTEMPT in 1 2 3; do
+            BODY=$(jq -cn --argjson baseline "$BASELINE_JSON" --arg launchId "$LAUNCH_ID" '{baseline:$baseline,launchId:$launchId}')
+            set +e
+            RESPONSE=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/deployment-guard"               -X POST               -H "Authorization: Bearer $INGEST_SECRET"               -H "Content-Type: application/json"               --data "$BODY" 2>&1)
+            CODE=$?
+            set -e
+            echo "$RESPONSE"
+            DECISION=$(printf '%s' "$RESPONSE" | jq -r '.decision // "BLOCK"' 2>/dev/null || echo BLOCK)
+            HARD=$(printf '%s' "$RESPONSE" | jq -r '.hardBlock // true' 2>/dev/null || echo true)
+            if [ "$CODE" -eq 0 ] && [ "$DECISION" = "PASS" ]; then
+              PASSES=$((PASSES+1))
+            fi
+            if [ "$HARD" = "true" ]; then
+              echo "Hard canary blocker detected."
+              exit 1
+            fi
+            if [ "$ATTEMPT" -lt 3 ]; then sleep 10; fi
+          done
+          test "$PASSES" -ge 2
+
+      - name: Record canary-passed launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"CANARY_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
+      - name: Require V73 strict v1 readiness
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
@@ -294,7 +363,7 @@ jobs:
           curl --fail --silent --show-error \
             -X POST \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20hosted%20launch%20gate%20failure"
+            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V73%20canary%20or%20hosted%20launch%20gate%20failure"
 
       - name: Record rollback completion
         if: failure() && steps.deploy.outcome == 'success'
