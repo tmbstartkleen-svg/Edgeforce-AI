@@ -168,6 +168,10 @@ const requiredFiles=[
  'src/app/api/intelligence/starting-lineups/route.ts',
  'src/app/api/testing/starting-lineups/route.ts',
  'src/components/StartingLineupPanel.tsx',
+ 'src/lib/scheduleFatigueIntelligence.ts',
+ 'src/app/api/intelligence/schedule-fatigue/route.ts',
+ 'src/app/api/testing/schedule-fatigue/route.ts',
+ 'src/components/ScheduleFatiguePanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -242,6 +246,13 @@ add('V66 depth chart learner',read('src/lib/startingLineupIntelligence.ts').incl
 add('V66 live lineup runtime',read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithStartingLineups')&&read('src/app/api/cron/scan/route.ts').includes('recordLiveLineupSnapshots'),'live starter context and snapshots feed runtime');
 add('V66 lineup simulation integration',read('src/lib/simulation.ts').includes('lineupStarterDelta')&&read('src/lib/startingLineupIntelligence.ts').includes('lineupPromotionScore'),'starter uncertainty and injury-driven promotions affect simulation probability');
 add('V66 dashboard',read('src/components/Dashboard.tsx').includes('StartingLineupPanel')&&read('src/components/StartingLineupPanel.tsx').includes('V66 LINEUP INTELLIGENCE'),'lineup and depth-chart intelligence is visible');
+add('V67 schedule schema',read('db/v79.sql').includes('schedule_fatigue_snapshots')&&read('db/v79.sql').includes('schedule_fatigue_profiles'),'v79 stores event fatigue snapshots and sport profiles');
+add('V67 schedule load engine',read('src/lib/scheduleFatigueIntelligence.ts').includes('backToBack')&&read('src/lib/scheduleFatigueIntelligence.ts').includes('threeInFour')&&read('src/lib/scheduleFatigueIntelligence.ts').includes('fourInSix'),'schedule density and short-rest load are modeled');
+add('V67 travel engine',read('src/lib/scheduleFatigueIntelligence.ts').includes('haversineMiles')&&read('src/lib/scheduleFatigueIntelligence.ts').includes('timezoneShiftHours')&&read('src/lib/scheduleFatigueIntelligence.ts').includes('eastward'),'distance, timezone and eastward travel burden are modeled');
+add('V67 live schedule context',read('src/lib/providers/publicSportsContext.ts').includes('combineScheduleSignals')&&read('src/lib/providers/publicSportsContext.ts').includes('edgeforce-v67-schedule'),'live team schedules feed V67 context');
+add('V67 all-sim integration',read('src/lib/simulation.ts').includes('scheduleCompositeEdge')&&read('src/lib/sportOutcomeSimulation.ts').includes('schedulePlayerScale')&&read('src/lib/sportMicroSimulation.ts').includes('scheduleEdge')&&read('src/lib/sharedEventState.ts').includes('scheduleFatigue'),'fallback, team, prop, micro and shared-event sims consume V67');
+add('V67 persistence and rebuild',read('src/app/api/cron/scan/route.ts').includes('recordScheduleFatigueSnapshots')&&read('src/app/api/cron/recalibrate/route.ts').includes('rebuildScheduleFatigueProfiles'),'live snapshots persist and sport profiles rebuild daily');
+add('V67 regression and dashboard',read('src/app/api/testing/schedule-fatigue/route.ts').includes('away.backToBack===1')&&read('src/components/Dashboard.tsx').includes('ScheduleFatiguePanel'),'deterministic schedule regression and dashboard visibility are present');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
