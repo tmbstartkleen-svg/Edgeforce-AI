@@ -7,7 +7,7 @@ import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
 import {buildUniversalSnapshot} from '@/lib/universalMarkets';
 import {buildDailyEdgePlan} from '@/lib/adaptiveRouter';
 import {buildMasterEdgeBoard} from '@/lib/masterEdge';
-import {buildPriceTargetBoard} from '@/lib/priceTargets';
+import {buildPriceTargetBoard,persistPriceTargets} from '@/lib/priceTargets';
 
 export const dynamic='force-dynamic';
 
@@ -24,11 +24,13 @@ export async function GET(){
  const universal=buildUniversalSnapshot(ingestion.markets,prediction.contracts);
  const master=buildMasterEdgeBoard({sports,markets:universal.markets,router,limit:50});
  const report=buildPriceTargetBoard(master.board);
+ const persistence=await persistPriceTargets(report.rows);
  return Response.json({
   ok:true,
   generatedAt:new Date().toISOString(),
   analyticsOnly:true,
   executionEnabled:false,
+  persisted:persistence.persisted,
   ...report
  },{headers:{'Cache-Control':'no-store, max-age=0'}});
 }
