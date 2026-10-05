@@ -5,6 +5,7 @@ export type CashoutAction='CASH_OUT'|'HOLD'|'NO_ACTION';
 export type CashoutOutcome='WON'|'LOST'|'VOID'|'PENDING';
 
 export type CashoutObservationInput={
+ observationId?:number;
  commandId?:string;
  ladderId?:string;
  checkpointLabel?:string;
@@ -50,23 +51,39 @@ export async function recordCashoutObservation(input:CashoutObservationInput){
  const sql=db();
  if(!sql)return {configured:false,written:false};
  const model=cashoutDecision({stake:input.stake,originalOdds:input.originalOdds,currentWinProbability:input.currentWinProbability,cashoutOffer:input.cashoutOffer});
- await sql`
+ if(input.observationId){
+  const updated=await sql`
+   update cashout_observations set
+    command_id=coalesce(${input.commandId??null},command_id),
+    ladder_id=coalesce(${input.ladderId??null},ladder_id),
+    checkpoint_label=coalesce(${input.checkpointLabel??null},checkpoint_label),
+    stake=${input.stake},original_odds=${input.originalOdds},current_win_probability=${input.currentWinProbability},
+    cashout_offer=${input.cashoutOffer},model_hold_value=${model.adjustedHold},model_cashout_edge=${model.cashoutEdge},
+    model_decision=${model.decision},user_action=${input.action},outcome=${input.outcome??'PENDING'},
+    final_payout=${input.finalPayout??null},sportsbook=coalesce(${input.sportsbook??null},sportsbook),
+    metadata=${sql.json((input.metadata||{}) as any)},updated_at=now()
+   where id=${input.observationId}
+   returning id
+  `;
+  return {configured:true,written:updated.length>0,observationId:updated[0]?.id??input.observationId,model};
+ }
+ const inserted=await sql`
   insert into cashout_observations(
    command_id,ladder_id,checkpoint_label,stake,original_odds,current_win_probability,cashout_offer,
    model_hold_value,model_cashout_edge,model_decision,user_action,outcome,final_payout,sportsbook,metadata,updated_at
   ) values(
    ${input.commandId??null},${input.ladderId??null},${input.checkpointLabel??null},${input.stake},${input.originalOdds},${input.currentWinProbability},${input.cashoutOffer},
    ${model.adjustedHold},${model.cashoutEdge},${model.decision},${input.action},${input.outcome??'PENDING'},${input.finalPayout??null},${input.sportsbook??null},${sql.json((input.metadata||{}) as any)},now()
-  )
+  ) returning id
  `;
- return {configured:true,written:true,model};
+ return {configured:true,written:true,observationId:inserted[0]?.id??null,model};
 }
 
 export async function cashoutLearningSummary(){
  const sql=db();
  if(!sql)return {configured:false,rows:[] as CashoutLearningRow[],pending:0};
  const observations=await sql`
-  select command_id,stake::float8,original_odds,current_win_probability::float8,cashout_offer::float8,
+  select command_id,checkpoint_label,stake::float8,original_odds,current_win_probability::float8,cashout_offer::float8,
    model_cashout_edge::float8,user_action,outcome,final_payout::float8,created_at
   from cashout_observations
   where created_at >= now() - interval '90 days'
@@ -86,7 +103,8 @@ export async function cashoutLearningSummary(){
  let pending=0;
  for(const raw of observations as any[]){
   const mapped=commandType.get(String(raw.command_id||''));
-  const type=(mapped==='FINAL_LEG_REVIEW'?'FINAL_LEG_REVIEW':'CASHOUT_REVIEW') as 'CASHOUT_REVIEW'|'FINAL_LEG_REVIEW';
+  const fallbackFinal=String(raw.checkpoint_label||'').toLowerCase().includes('final');
+  const type=(mapped==='FINAL_LEG_REVIEW'||(!mapped&&fallbackFinal)?'FINAL_LEG_REVIEW':'CASHOUT_REVIEW') as 'CASHOUT_REVIEW'|'FINAL_LEG_REVIEW';
   const g=groups.get(type)||{utility:[],edge:[],samples:0,graded:0,positive:0};
   g.samples++;
   g.edge.push(Number(raw.model_cashout_edge||0));
