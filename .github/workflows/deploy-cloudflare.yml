@@ -37,6 +37,9 @@ jobs:
         run: |
           set -o pipefail
           npm run build:vinext 2>&1 | tee /tmp/edgeforce-vinext-build.log
+      - name: Stamp Cloudflare deployment commit
+        run: node scripts/stamp-cloudflare-deployment.mjs
+
       - name: Upload Cloudflare build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -153,6 +156,16 @@ jobs:
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "$BODY"
+          echo
+
+      - name: Attempt final production closure
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          HEALTH=$(curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health")
+          BODY=$(jq -cn --arg commitSha "$(echo "$HEALTH" | jq -r '.deploymentCommit // empty')" --arg workflowRunId "$GITHUB_RUN_ID"             '{commitSha:$commitSha,workflowRunId:$workflowRunId,source:"production-cloudflare"}')
+          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/release/final-closure"             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY"
           echo
 
       - name: Publish deployment URL
