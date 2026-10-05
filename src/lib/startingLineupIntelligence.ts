@@ -174,7 +174,7 @@ export async function enrichMarketsWithStartingLineups(markets:Market[]){
   const player=m.playerContext; if(!player?.name)return m;
   const athlete=byName.get(normalizePlayerName(player.name)); if(!athlete)return m;
   const profile=profileById.get(String(athlete.id));
-  if(!profile&&!player.starter)return m;
+  if(!profile&&player.starter===undefined)return m;
   const liveStarter=player.starter;
   let starterProbability=liveStarter===true?1:liveStarter===false?0:clamp(Number(profile?.starterRate||profile?.roleScore||.5));
   let promotionScore=0;
@@ -194,20 +194,24 @@ export async function enrichMarketsWithStartingLineups(markets:Market[]){
    if(promotionScore>0){starterProbability=clamp(starterProbability+(1-starterProbability)*promotionScore);promotions++;}
   }
   const roleConfidence=clamp(Number(profile?.confidence||.45));
+  const baselineStarterProbability=clamp(Number(profile?.starterRate??profile?.roleScore??.5));
+  const roleDelta=starterProbability-baselineStarterProbability;
   const sportFeatures={
    ...(m.sportFeatures||{}),
    lineupStarterProbability:starterProbability,
    lineupRoleConfidence:roleConfidence,
    lineupPromotionScore:promotionScore,
    lineupDepthRank:Number(profile?.depthRank||99),
-   lineupRoleScore:Number(profile?.roleScore||starterProbability)
+   lineupRoleScore:Number(profile?.roleScore||starterProbability),
+   lineupStarterDelta:roleDelta
   };
-  const projection=player.projection===undefined?undefined:player.projection*(.82+.18*starterProbability);
+  const projectionScale=Math.max(.82,Math.min(1.18,1+roleDelta*.16*roleConfidence));
+  const projection=player.projection===undefined?undefined:player.projection*projectionScale;
   const provenance:ContextProvenance[]=[...(m.contextProvenance||[]),{
    source:'starting-lineup',providerId:'edgeforce-v66-lineup-engine',
    field:'player.lineup-role',observedAt:new Date().toISOString(),
    confidence:.72+.25*roleConfidence,status:liveStarter===undefined?'CACHED':'LIVE',
-   detail:{starterProbability,liveStarter:liveStarter??null,depthRank:Number(profile?.depthRank||99),promotionScore,displacedBy:displacedBy||null}
+   detail:{starterProbability,baselineStarterProbability,roleDelta,liveStarter:liveStarter??null,depthRank:Number(profile?.depthRank||99),promotionScore,displacedBy:displacedBy||null}
   }];
   matched++;
   return {
