@@ -2,6 +2,7 @@ import {db} from './db';
 import {buildPreventiveActionRanking,type RankedPreventiveAction} from './preventiveActionRanking';
 import {buildProductionObservability} from './productionObservability';
 import {RELEASE} from './releaseManifest';
+import {loadPreventiveDecisionThresholds,type PreventiveDecisionThresholds} from './preventiveDecisionThresholds';
 
 export type PreventiveActionDecision='RECOMMEND'|'HOLD_FOR_EVIDENCE'|'DO_NOT_USE'|'NO_ACTION';
 
@@ -25,7 +26,9 @@ export function evaluatePreventiveActionGate(input:{
  criticalChecks:number;
  actionIncidents:number;
  predictedCause:string;
+ thresholds?:PreventiveDecisionThresholds;
 }):PreventiveActionGateResult{
+ const thresholds=input.thresholds||{recommendThreshold:.72,confidenceFloor:.45,riskFloor:.60,rejectEffectivenessCeiling:.38} as PreventiveDecisionThresholds;
  const a=input.topAction;
  if(!a){
   return {decision:'NO_ACTION',gateScore:0,topAction:null,reasons:['No ranked safeguard is currently available.'],predictedCause:input.predictedCause,sourceRiskScore:input.sourceRiskScore,sourceRiskLevel:input.sourceRiskLevel};
@@ -45,14 +48,14 @@ export function evaluatePreventiveActionGate(input:{
  ];
  if(healthPenalty>0)reasons.push('Current system health is degraded enough to reduce recommendation strength.');
  let decision:PreventiveActionDecision;
- if(a.effectivenessScore<.38&&a.confidence>=.45)decision='DO_NOT_USE';
- else if(score>=.72&&a.confidence>=.45&&input.sourceRiskScore>=.60&&healthPenalty===0)decision='RECOMMEND';
+ if(a.effectivenessScore<thresholds.rejectEffectivenessCeiling&&a.confidence>=thresholds.confidenceFloor)decision='DO_NOT_USE';
+ else if(score>=thresholds.recommendThreshold&&a.confidence>=thresholds.confidenceFloor&&input.sourceRiskScore>=thresholds.riskFloor&&healthPenalty===0)decision='RECOMMEND';
  else decision='HOLD_FOR_EVIDENCE';
  return {decision,gateScore:score,topAction:a,reasons,predictedCause:input.predictedCause,sourceRiskScore:input.sourceRiskScore,sourceRiskLevel:input.sourceRiskLevel};
 }
 
 export async function buildPreventiveActionDecisionGate(){
- const [ranking,obs]=await Promise.all([buildPreventiveActionRanking(),buildProductionObservability()]);
+ const [ranking,obs,thresholds]=await Promise.all([buildPreventiveActionRanking(),buildProductionObservability(),loadPreventiveDecisionThresholds()]);
  return {
   generatedAt:new Date().toISOString(),
   ...evaluatePreventiveActionGate({
@@ -62,9 +65,11 @@ export async function buildPreventiveActionDecisionGate(){
    overallHealth:String(obs.overall),
    criticalChecks:Number(obs.summary?.critical||0),
    actionIncidents:Number(obs.incidents?.action||0),
-   predictedCause:ranking.predictedCause
+   predictedCause:ranking.predictedCause,
+   thresholds
   }),
   systemHealth:{overall:obs.overall,criticalChecks:Number(obs.summary?.critical||0),actionIncidents:Number(obs.incidents?.action||0)},
+  thresholds,
   advisoryOnly:true
  };
 }
