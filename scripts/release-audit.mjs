@@ -835,6 +835,8 @@ add('V96 shared decision context',read('src/lib/preventiveActionDecisionGate.ts'
 add('V96 SLO consolidation',read('src/lib/sloGovernor.ts').includes('runPreventiveSupervisionCycle')&&!read('src/lib/sloGovernor.ts').includes('runPreventiveActionRanking')&&!read('src/lib/sloGovernor.ts').includes('runPreventiveActionDecisionGate'),'SLO supervision calls one unified preventive cycle');
 add('V96 durable cycle snapshots',read('db/v108.sql').includes('preventive_supervision_cycle_snapshots')&&read('db/v108.sql').includes('evidence_digest'),'shared evidence and outputs are durably snapshotted');
 add('V96 reuse regression',read('src/app/api/testing/preventive-supervision-cycle/route.ts').includes('reusedContextCount===8'),'regression verifies eight avoided evidence rebuilds');
+add('V96 supervision lease',read('src/lib/preventiveSupervisionCycle.ts').includes("interval '5 minutes'")&&read('db/v108.sql').includes('locked_until timestamptz'),'unified supervision cycle suppresses concurrent execution');
+add('V96 lease regression',read('src/app/api/testing/preventive-supervision-cycle/route.ts').includes("SKIPPED_LOCKED"),'supervision regression covers concurrent lock suppression');
 add('V96 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSupervisionCyclePanel'),'unified supervision cycle is visible');
 
 const failed=checks.filter(x=>!x.ok);
