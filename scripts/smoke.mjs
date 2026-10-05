@@ -592,6 +592,12 @@ assert(rollbackReconciliationTest.body?.assertions?.validRestoreIdentity===true,
 const rollbackStatus=await get('/api/release/rollback-reconciliation');
 assert(rollbackStatus.res.ok&&rollbackStatus.body?.ok===true,'rollback reconciliation endpoint failed');
 
+const platformConvergenceTest=await get('/api/testing/platform-convergence');
+assert(platformConvergenceTest.res.ok&&platformConvergenceTest.body?.ok===true,'platform convergence regression failed');
+assert(platformConvergenceTest.body?.assertions?.commitIdentityMatches===true,'platform convergence commit assertion failed');
+const platformConvergenceStatus=await get('/api/release/platform-convergence');
+assert(platformConvergenceStatus.res.ok&&platformConvergenceStatus.body?.ok===true,'platform convergence endpoint failed');
+
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
 
