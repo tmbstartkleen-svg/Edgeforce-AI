@@ -1,4 +1,5 @@
 import {loadSloGovernorSummary,runSloGovernor} from '@/lib/sloGovernor';
+import {recordAutomationRun} from '@/lib/automationHealth';
 
 export const dynamic='force-dynamic';
 
@@ -19,13 +20,20 @@ export async function GET(){
 
 export async function POST(req:Request){
  if(!authorized(req))return Response.json({ok:false,error:'unauthorized'},{status:401});
+ const started=Date.now();
  try{
   const report=await runSloGovernor();
+  await recordAutomationRun('slo-governor','success',started,{
+   state:report.state,deploymentAllowed:report.deploymentAllowed,
+   oneHourBurn:report.windows.oneHour.burnRate,twentyFourHourBurn:report.windows.twentyFourHour.burnRate
+  });
   return Response.json({ok:report.deploymentAllowed,build:'V74',schemaVersion:'v74-slo-governor-1',...report},{
    status:report.deploymentAllowed?200:503,
    headers:{'Cache-Control':'no-store'}
   });
  }catch(error){
-  return Response.json({ok:false,error:error instanceof Error?error.message:'SLO governor failed'},{status:500});
+  const message=error instanceof Error?error.message:'SLO governor failed';
+  await recordAutomationRun('slo-governor','failed',started,{},message);
+  return Response.json({ok:false,error:message},{status:500});
  }
 }
