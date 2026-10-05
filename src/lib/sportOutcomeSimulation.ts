@@ -250,7 +250,9 @@ function simulateProp(m:Market,runs:SimulationTier){
  const baseMean=player?.projection??rawFeature(m,'propMean')??rawFeature(m,'projection');
  const availability=player?.availability??1;
  const starterScale=player?.starter===false?.72:1;
- const mean=baseMean===undefined?undefined:baseMean*availability*starterScale;
+ const roleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.roleRedistributionConfidence||0)));
+ const roleProjectionScale=1+feature(m,'roleStatLift')*.12*roleConfidence+feature(m,'roleUsageLift')*.05*roleConfidence+feature(m,'roleMinutesLift')*.04*roleConfidence;
+ const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale));
  const sd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
