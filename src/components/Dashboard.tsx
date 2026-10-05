@@ -14,6 +14,7 @@ import ForecastSkillPanel from './ForecastSkillPanel';
 import DailyEdgeRouterPanel from './DailyEdgeRouterPanel';
 import MasterEdgePanel from './MasterEdgePanel';
 import EdgeLifecyclePanel from './EdgeLifecyclePanel';
+import EntryWindowPanel from './EntryWindowPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1084,6 +1085,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <EntryWindowPanel/>
     <EdgeLifecyclePanel/>
     <MasterEdgePanel/>
     <DailyEdgeRouterPanel/>
