@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V86',
- appVersion:'86.0.0',
- packageVersion:'0.86.0',
- modelVersion:'edgeforce-v86',
- migrationVersion:98
+ build:'V87',
+ appVersion:'87.0.0',
+ packageVersion:'0.87.0',
+ modelVersion:'edgeforce-v87',
+ migrationVersion:99
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -265,6 +265,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-probation-performance/route.ts',
  'src/components/PreventiveProbationPerformancePanel.tsx',
  'EDGEFORCE_V86_RELEASE.md',
+ 'src/lib/preventiveChampionBaseline.ts',
+ 'src/app/api/operations/preventive-champion-baseline/route.ts',
+ 'src/app/api/testing/preventive-champion-baseline/route.ts',
+ 'src/components/PreventiveChampionBaselinePanel.tsx',
+ 'EDGEFORCE_V87_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -704,6 +709,14 @@ add('V86 durable performance state',read('db/v98.sql').includes('preventive_prob
 add('V86 performance regression',read('src/app/api/testing/preventive-probation-performance/route.ts').includes("rollback.status==='ROLLBACK'"),'regression covers stable and rollback performance');
 add('V86 supervision ordering',read('src/lib/sloGovernor.ts').includes('runProbationPerformanceGovernor'),'probation performance runs before adaptive threshold writes');
 add('V86 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveProbationPerformancePanel'),'probation performance is visible');
+
+add('V87 champion baseline governor',read('src/lib/preventiveChampionBaseline.ts').includes('shouldPromoteChampionBaseline'),'champion baseline promotion gate exists');
+add('V87 full rollout promotion criteria',read('src/lib/preventiveChampionBaseline.ts').includes("probationState==='FULL'")&&read('src/lib/preventiveChampionBaseline.ts').includes('sampleSize>=20'),'promotion requires full rollout and mature evidence');
+add('V87 champion baseline persistence',read('db/v99.sql').includes('preventive_champion_baseline_state')&&read('db/v99.sql').includes('preventive_champion_baseline_snapshots'),'champion baseline state and history are durable');
+add('V87 V86 baseline handoff',read('src/lib/preventiveProbationPerformance.ts').includes('preventive_champion_baseline_state'),'probation performance prefers the validated champion baseline');
+add('V87 baseline regression',read('src/app/api/testing/preventive-champion-baseline/route.ts').includes('yes.eligible')&&read('src/app/api/testing/preventive-champion-baseline/route.ts').includes('!no.eligible'),'promotion regression covers eligible and ineligible cases');
+add('V87 supervision integration',read('src/lib/sloGovernor.ts').includes('runChampionBaselineGovernor'),'SLO supervision refreshes champion baseline governance');
+add('V87 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveChampionBaselinePanel'),'champion baseline is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
