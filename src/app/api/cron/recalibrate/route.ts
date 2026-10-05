@@ -15,6 +15,7 @@ import {rebuildScheduleFatigueProfiles} from '@/lib/scheduleFatigueIntelligence'
 import {rebuildVenueConditionProfiles} from '@/lib/venueWeatherIntelligence';
 import {rebuildMarketMovementProfiles} from '@/lib/marketMovementLearning';
 import {rebuildCrossSportOptimizerProfiles} from '@/lib/crossSportOptimizer';
+import {buildUnifiedIntelligenceCertification,persistUnifiedIntelligenceCertification} from '@/lib/unifiedIntelligence';
 
 export const dynamic='force-dynamic';
 
@@ -38,6 +39,8 @@ export async function GET(req:Request){
    rebuildMarketMovementProfiles(),
    rebuildCrossSportOptimizerProfiles()
   ]);
+  const unifiedIntelligence=await buildUnifiedIntelligenceCertification().catch(error=>({state:'DEGRADED',score:0,criticalCoverage:0,blockers:[],warnings:[error instanceof Error?error.message:'unified intelligence certification failed'],components:[],release:{build:'V71',version:'71.0.0',modelVersion:'edgeforce-v71',migrationVersion:83},environment:process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local',generatedAt:new Date().toISOString()} as any));
+  const unifiedPersistence=await persistUnifiedIntelligenceCertification(unifiedIntelligence as any).catch(()=>({persisted:false,id:null}));
   const championDrift=await runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}));
   const shadowRecovery=await runShadowRecovery().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'shadow recovery failed'}));
   const externalMlTournament=await runExternalMlTournament().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'external ML tournament failed'}));
@@ -74,6 +77,9 @@ export async function GET(req:Request){
    optimizerEligibleRows:(crossSportOptimizer as any).eligibleRows??null,
    optimizerProfiles:(crossSportOptimizer as any).profilesWritten??null,
    optimizerPromoted:(crossSportOptimizer as any).profilesPromoted??null,
+   unifiedIntelligenceState:(unifiedIntelligence as any).state??null,
+   unifiedIntelligenceScore:(unifiedIntelligence as any).score??null,
+   unifiedIntelligencePersisted:(unifiedPersistence as any).persisted??false,
    externalMlMode:(externalMlTournament as any).mode??null,
    externalMlCandidates:(externalMlTournament as any).candidates??null,
    externalMlPromoted:(externalMlTournament as any).promoted??null,
@@ -87,7 +93,7 @@ export async function GET(req:Request){
    shadowRecoveryRecovered:(shadowRecovery as any).recovered??null,
    shadowRecoveryRejected:(shadowRecovery as any).rejected??null
   });
-  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,depthCharts,scheduleFatigue,venueConditions,marketMovement,crossSportOptimizer,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,depthCharts,scheduleFatigue,venueConditions,marketMovement,crossSportOptimizer,unifiedIntelligence,unifiedPersistence,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'recalibration failed';
   await recordAutomationRun('recalibrate','failed',started,{},message);

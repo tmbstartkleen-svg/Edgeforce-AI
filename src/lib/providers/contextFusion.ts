@@ -13,6 +13,7 @@ import {enrichMarketsWithMarketMovement} from '../marketMovementLearning';
 import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
+import {enrichMarketsWithUnifiedIntelligence} from '../unifiedIntelligence';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -239,7 +240,9 @@ export async function enrichMarketsWithContext(markets:Market[]){
   'starting-lineup':startingLineups.matched?.96:0,
   'market-movement':marketMovement.matched?.94:0
  };
- const finalMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
+ const qualityMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
+ const unified=enrichMarketsWithUnifiedIntelligence(qualityMarkets);
+ const finalMarkets=unified.markets;
  const qualitySummary=summarizeContextQuality(finalMarkets);
  return {
   markets:finalMarkets,
@@ -255,6 +258,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    lineupRedistribution:{matchedRows:lineupRedistribution.matched,profiles:lineupRedistribution.profiles,activeAbsences:lineupRedistribution.activeAbsences},
    startingLineups:{matchedRows:startingLineups.matched,profiles:startingLineups.profiles,promotions:startingLineups.promotions},
    marketMovement:{matchedRows:marketMovement.matched,profiles:marketMovement.profiles,steam:marketMovement.steam,reversals:marketMovement.reversals},
+   unifiedIntelligence:unified.diagnostics,
    trainedSportMl:trainedSportMl.diagnostics,
    expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,

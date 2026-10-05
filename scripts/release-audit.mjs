@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V61',
- appVersion:'61.0.0',
- packageVersion:'0.61.0',
- modelVersion:'edgeforce-v61',
- migrationVersion:50
+ build:'V71',
+ appVersion:'71.0.0',
+ packageVersion:'0.71.0',
+ modelVersion:'edgeforce-v71',
+ migrationVersion:83
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -184,6 +184,11 @@ const requiredFiles=[
  'src/app/api/intelligence/cross-sport-optimizer/route.ts',
  'src/app/api/testing/cross-sport-optimizer/route.ts',
  'src/components/CrossSportOptimizerPanel.tsx',
+ 'src/lib/unifiedIntelligence.ts',
+ 'src/app/api/intelligence/unified-stack/route.ts',
+ 'src/app/api/testing/unified-intelligence/route.ts',
+ 'src/components/UnifiedIntelligencePanel.tsx',
+ 'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -293,6 +298,16 @@ add('V70 consensus de-duplication',read('src/lib/regimeConfidence.ts').includes(
 add('V70 optimizer audit trail',read('src/lib/scanner.ts').includes('optimizerBlend:calibrated.optimizerBlend')&&read('src/lib/persistence.ts').includes('optimizerBlend:x.optimizerBlend'),'each recommendation persists the applied optimizer blend');
 add('V70 daily retraining',read('src/app/api/cron/recalibrate/route.ts').includes('rebuildCrossSportOptimizerProfiles'),'daily recalibration rebuilds cross-sport optimizer profiles');
 add('V70 regression and dashboard',read('src/app/api/testing/cross-sport-optimizer/route.ts').includes('buildCrossSportOptimizerProfiles')&&read('src/components/Dashboard.tsx').includes('CrossSportOptimizerPanel'),'deterministic optimizer regression and dashboard visibility are present');
+add('V71 unified schema',read('db/v83.sql').includes('intelligence_stack_certifications'),'v83 stores unified intelligence certification snapshots');
+add('V71 market intelligence gate',read('src/lib/unifiedIntelligence.ts').includes('assessMarketIntelligence')&&read('src/lib/scanner.ts').includes('intelligenceStakeScale')&&read('src/lib/scanner.ts').includes('intelligenceStackReady'),'thin intelligence can only reduce recommendation confidence and stake');
+add('V71 context integration',read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithUnifiedIntelligence')&&read('src/lib/providers/contextFusion.ts').includes('unifiedIntelligence:unified.diagnostics'),'unified scoring closes the context enrichment stack');
+add('V71 system certification',read('src/lib/unifiedIntelligence.ts').includes('buildUnifiedIntelligenceCertification')&&read('src/lib/productionCertification.ts').includes('unifiedIntelligence.state'),'production certification consumes unified intelligence health');
+add('V71 injury automation monitoring',read('src/lib/automationHealth.ts').includes("jobName:'injuries'")&&read('src/lib/automationHealth.ts').includes('maxGapHours:1'),'15-minute injury refresh is monitored as a required automation');
+add('V71 daily certification',read('src/app/api/cron/recalibrate/route.ts').includes('persistUnifiedIntelligenceCertification'),'daily recalibration persists unified intelligence certification');
+add('V71 release identity',read('src/lib/releaseManifest.ts').includes("build:'V71'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v71'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:83'),'final release identity is synchronized');
+add('V71 regression and dashboard',read('src/app/api/testing/unified-intelligence/route.ts').includes('healthy.ready')&&read('src/components/Dashboard.tsx').includes('UnifiedIntelligencePanel'),'unified intelligence regression and dashboard visibility are present');
+add('V71 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v71')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v71')&&read('.github/workflows/deploy-cloudflare.yml').includes('71.0.0'),'verification and production deployment workflows target V71');
+add('V71 final release note',read('EDGEFORCE_V71_RELEASE.md').includes('final bundle')&&read('EDGEFORCE_V71_RELEASE.md').includes('fail-soft'),'final intelligence program handoff is documented');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
