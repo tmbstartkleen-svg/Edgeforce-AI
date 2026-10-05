@@ -42,6 +42,7 @@ export async function POST(req:Request){
     category,
     venue:typeof row.venue==='string'?row.venue:undefined,
     modelVersion:String(row.modelVersion||'unknown'),
+    strategyKey:typeof row.strategyKey==='string'?row.strategyKey:'GENERAL',
     predictedProbability:probability,
     marketProbability:Number.isFinite(Number(row.marketProbability))?Number(row.marketProbability):undefined,
     outcome
