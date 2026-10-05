@@ -1,5 +1,6 @@
 import type {Market,ContextProvenance} from '../types';
-import {fetchWeatherContext,fetchInjuryContext,fetchStatsContext} from './context';
+import {fetchWeatherContext,fetchStatsContext} from './context';
+import {fetchTrackedInjuryContext} from '../liveInjuryTracking';
 import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
 import {fetchPublicSportsContext,type PublicContextRow} from './publicSportsContext';
 import {enrichMarketsWithPlayerWarehouse} from '../playerWarehouse';
@@ -91,12 +92,23 @@ function normalizeRows(payload:unknown,kind:ContextKind,providerId?:string):Cont
   const minutes=rawNum(r.minutes??r.projectedMinutes??r.projected_minutes);
   const usage=rawNum(r.usage??r.usageRate??r.usage_rate);
   const availabilityRaw=rawNum(r.availability??r.availabilityProbability??r.availability_probability);
+  const status=str(r.status||r.injuryStatus||r.injury_status);
+  const statusAvailability=(()=>{
+   const s=status.toLowerCase();
+   if(!s)return undefined;
+   if(/out|inactive|ir|injured reserve|suspended/.test(s))return 0;
+   if(/doubtful/.test(s))return .25;
+   if(/questionable|game[- ]?time/.test(s))return .55;
+   if(/probable/.test(s))return .85;
+   if(/active|available|healthy/.test(s))return 1;
+   return undefined;
+  })();
   const player=playerName?{
    name:playerName,
    team:str(r.team||r.teamName||r.team_name)||undefined,
-   status:str(r.status||r.injuryStatus||r.injury_status)||undefined,
+   status:status||undefined,
    starter:bool(r.starter??r.isStarter??r.is_starter??r.starting),
-   availability:availabilityRaw===undefined?undefined:Math.max(0,Math.min(1,availabilityRaw)),
+   availability:(availabilityRaw??statusAvailability)===undefined?undefined:Math.max(0,Math.min(1,Number(availabilityRaw??statusAvailability))),
    projection,
    stdDev,
    minutes,
@@ -139,7 +151,7 @@ function sourceNames(row:PublicContextRow){
 export async function enrichMarketsWithContext(markets:Market[]){
  const [weather,injuries,stats,publicNetwork]=await Promise.all([
   fetchWeatherContext(),
-  fetchInjuryContext(),
+  fetchTrackedInjuryContext(),
   fetchStatsContext(),
   fetchPublicSportsContext(markets)
  ]);
