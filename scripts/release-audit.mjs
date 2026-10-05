@@ -564,13 +564,13 @@ add('no tracked secret env files',forbiddenTracked.length===0,forbiddenTracked.j
 const releaseAuditScript=String(pkg.scripts?.['release-audit']||'');
 add('release-audit package script',releaseAuditScript.includes('scripts/release-audit.mjs'),releaseAuditScript);
 
-const failed=checks.filter(x=>!x.ok);
-const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
-console.log(JSON.stringify(report,null,2));
-if(failed.length)process.exit(1);
-
 add('V75 incident attribution engine',read('src/lib/incidentAttribution.ts').includes('attributeOperationalIncident')&&read('src/lib/incidentAttribution.ts').includes("'MARKET_FRESHNESS'")&&read('src/lib/incidentAttribution.ts').includes("'RELIABILITY'"),'root-cause classifier spans production health domains');
 add('V75 attribution persistence',read('db/v87.sql').includes('incident_attribution_snapshots')&&read('src/lib/incidentAttribution.ts').includes('persistIncidentAttribution'),'incident evidence is durable');
 add('V75 remediation API',read('src/app/api/operations/incident-attribution/route.ts').includes('v75-incident-attribution-1'),'operator API exposes bounded remediation guidance');
 add('V75 attribution regression',read('src/app/api/testing/incident-attribution/route.ts').includes('MARKET_FRESHNESS'),'deterministic root-cause regression exists');
 add('V75 attribution dashboard',read('src/components/OperatorCommandCenter.tsx').includes('IncidentAttributionPanel')&&read('src/components/IncidentAttributionPanel.tsx').includes('V75 INCIDENT ATTRIBUTION'),'system dashboard exposes incident attribution');
+
+const failed=checks.filter(x=>!x.ok);
+const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
+console.log(JSON.stringify(report,null,2));
+if(failed.length)process.exit(1);
