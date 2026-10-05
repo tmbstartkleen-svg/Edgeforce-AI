@@ -204,6 +204,8 @@ export async function GET(){
   governanceCycleIdempotency:true,
   governanceWatchdog:true,
   staleLeaseRecovery:true,
+  unifiedSupervisionCycle:true,
+  sharedEvidenceContext:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
