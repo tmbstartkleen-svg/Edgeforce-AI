@@ -56,9 +56,9 @@ const num=(v:unknown,fallback=0)=>{const n=Number(v);return Number.isFinite(n)?n
 
 function sampleBadWeight(sample:SloHealthSample){
  const state=String(sample.overallState||'UNKNOWN').toUpperCase();
- const stateWeight=state==='CRITICAL'?1:state==='UNKNOWN'?.25:state==='DEGRADED'?.05:0;
- const incidentWeight=sample.actionIncidents>0?1:sample.watchIncidents>0?.10:0;
- const checkWeight=sample.criticalChecks>0?.75:sample.degradedChecks>0?.05:0;
+ const stateWeight=state==='CRITICAL' ? 1 : state==='UNKNOWN' ? .25 : state==='DEGRADED' ? .05 : 0;
+ const incidentWeight=sample.actionIncidents>0 ? 1 : sample.watchIncidents>0 ? .10 : 0;
+ const checkWeight=sample.criticalChecks>0 ? .75 : sample.degradedChecks>0 ? .05 : 0;
  return Math.max(stateWeight,incidentWeight,checkWeight);
 }
 
