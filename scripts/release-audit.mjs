@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V90',
- appVersion:'90.0.0',
- packageVersion:'0.90.0',
- modelVersion:'edgeforce-v90',
- migrationVersion:102
+ build:'V91',
+ appVersion:'91.0.0',
+ packageVersion:'0.91.0',
+ modelVersion:'edgeforce-v91',
+ migrationVersion:103
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -285,6 +285,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-baseline-handoff/route.ts',
  'src/components/PreventiveBaselineHandoffPanel.tsx',
  'EDGEFORCE_V90_RELEASE.md',
+ 'src/lib/preventiveSuccessorValidation.ts',
+ 'src/app/api/operations/preventive-successor-validation/route.ts',
+ 'src/app/api/testing/preventive-successor-validation/route.ts',
+ 'src/components/PreventiveSuccessorValidationPanel.tsx',
+ 'EDGEFORCE_V91_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -756,6 +761,14 @@ add('V90 durable handoff',read('db/v102.sql').includes('preventive_baseline_hand
 add('V90 champion handoff write',read('src/lib/preventiveBaselineHandoff.ts').includes("'SUCCESSION_CHAMPION'"),'validated successor becomes the new champion baseline');
 add('V90 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'handoff runs after succession readiness');
 add('V90 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineHandoffPanel'),'baseline handoff is visible');
+
+add('V91 successor validation',read('src/lib/preventiveSuccessorValidation.ts').includes('evaluateSuccessorValidation'),'post-handoff successor validation exists');
+add('V91 three-window confirmation',read('src/lib/preventiveSuccessorValidation.ts').includes('streak>=3')&&read('src/lib/preventiveSuccessorValidation.ts').includes("status:'CONFIRMED'"),'succession champion requires three healthy validation windows');
+add('V91 safe reversion',read('src/lib/preventiveSuccessorValidation.ts').includes("'REVERTED_SUCCESSION_CHAMPION'")&&read('src/lib/preventiveSuccessorValidation.ts').includes("status='BUILDING'"),'failed successor is revoked and succession reopens');
+add('V91 durable validation',read('db/v103.sql').includes('preventive_successor_validation_state')&&read('db/v103.sql').includes('preventive_successor_validation_snapshots'),'validation and reversion history are durable');
+add('V91 regression',read('src/app/api/testing/preventive-successor-validation/route.ts').includes("healthy.status==='CONFIRMED'")&&read('src/app/api/testing/preventive-successor-validation/route.ts').includes("revert.status==='REVERT'"),'regression covers confirmation and reversion');
+add('V91 supervision ordering',read('src/lib/sloGovernor.ts').includes('runSuccessorValidationGovernor'),'post-handoff validation runs immediately after handoff');
+add('V91 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSuccessorValidationPanel'),'successor validation is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
