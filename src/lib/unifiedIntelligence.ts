@@ -22,7 +22,7 @@ export type UnifiedIntelligenceCertification={
 
 const clamp=(n:number,min=0,max=1)=>Math.max(min,Math.min(max,n));
 const finite=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?n:undefined};
-const stateScore=(s:IntelligenceComponentState)=>s==='HEALTHY'?1:s==='DEGRADED'?.72:s==='WARMING'?.55:s==='STALE'?.22:s==='UNAVAILABLE'?.30:0;
+const stateScore=(s:IntelligenceComponentState)=>s==='HEALTHY' ? 1 : s==='DEGRADED' ? .72 : s==='WARMING' ? .55 : s==='STALE' ? .22 : s==='UNAVAILABLE' ? .30 : 0;
 const provenanceNames=(m:Market)=>new Set((m.contextProvenance||[]).flatMap((p:ContextProvenance)=>[String(p.source||'').toLowerCase(),String(p.providerId||'').toLowerCase()]));
 
 function anySource(names:Set<string>,patterns:string[]){
@@ -41,7 +41,7 @@ export function assessMarketIntelligence(m:Market):MarketIntelligenceAssessment{
  const playerMarket=Boolean(m.playerContext?.name)||anySource(names,['player-history','player-feature','player-calibration','opponent-matchup','lineup-redistribution','starting-lineup']);
 
  const injurySource=anySource(names,['injur','live-injury'])||Object.prototype.hasOwnProperty.call(m.sportFeatures||{},'injury')||m.playerContext?.availability!==undefined;
- const injury=injurySource?.90:.58;
+ const injury=injurySource ? .90 : .58;
 
  const playerSignals=[
   anySource(names,['player-history'])?1:0,
@@ -52,7 +52,7 @@ export function assessMarketIntelligence(m:Market):MarketIntelligenceAssessment{
   anySource(names,['starting-lineup'])?1:0
  ];
  const playerStack=playerMarket
-  ?clamp(playerSignals.reduce((s,x)=>s+x,0)/playerSignals.length+(m.playerContext?.projection!==undefined?.12:0))
+  ?clamp(playerSignals.reduce((s,x)=>s+x,0)/playerSignals.length+(m.playerContext?.projection!==undefined ? .12 : 0))
   :1;
 
  const schedule=featureConfidence(m,'scheduleFatigueConfidence',.58);
@@ -136,7 +136,7 @@ async function queryComponent(
   else if(result.ageMinutes!==null&&healthyAge!==null&&result.ageMinutes>healthyAge){
    state=degradedAge!==null&&result.ageMinutes>degradedAge?'STALE':'DEGRADED';
   }
-  return {id,label,state,required,rows:result.rows,ageMinutes:result.ageMinutes,detail:result.rows?${result.rows} row(s):'No durable evidence yet'};
+  return {id,label,state,required,rows:result.rows,ageMinutes:result.ageMinutes,detail:result.rows?`${result.rows} row(s)`:'No durable evidence yet'};
  }catch(error){
   return {id,label,state:'UNAVAILABLE',required,rows:0,ageMinutes:null,detail:error instanceof Error?error.message:'query unavailable'};
  }
