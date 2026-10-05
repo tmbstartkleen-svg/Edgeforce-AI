@@ -470,6 +470,12 @@ assert(productionCertification.body?.security?.ok===true,'production certificati
 assert(productionCertification.body?.modelGovernance?.ok===true,'production certification model governance status missing');
 assert(productionCertification.body?.modelValidation?.ok===true,'production certification model validation status missing');
 
+const v1Readiness=await get('/api/release/v1-readiness');
+assert(v1Readiness.res.ok,'v1 readiness endpoint failed');
+assert(['GO','CONDITIONAL'].includes(String(v1Readiness.body?.verdict)),'local v1 readiness should not be NO_GO');
+assert(Array.isArray(v1Readiness.body?.gates)&&v1Readiness.body.gates.length>=10,'v1 readiness gate set missing');
+assert(v1Readiness.body?.evidence?.securityOk===true,'v1 readiness security evidence missing');
+
 const modelDiagnostics=await get('/api/intelligence/model-diagnostics');
 assert(modelDiagnostics.res.ok&&modelDiagnostics.body?.ok===true,'model diagnostics endpoint failed');
 
