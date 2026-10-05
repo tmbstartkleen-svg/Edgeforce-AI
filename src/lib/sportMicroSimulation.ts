@@ -63,7 +63,9 @@ function hit(m:Market,sample:Sample){
 function homeEdge(m:Market){
  const directional=(kind(m)==='MONEYLINE'||kind(m)==='SPREAD')?(m.modelProb-.5)*2:0;
  const side=isAway(m)?-1:isHome(m)?1:0;
- return unit(directional*side*.72+feat(m,'home')*.10+feat(m,'efficiency')*.12+feat(m,'form')*.08-feat(m,'injury')*.08+feat(m,'rest')*.05-feat(m,'travel')*.04);
+ const scheduleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.scheduleContextConfidence||0)));
+ const scheduleEdge=scheduleConfidence>0?feat(m,'scheduleCompositeEdge')*.10*scheduleConfidence:feat(m,'rest')*.05-feat(m,'travel')*.04;
+ return unit(directional*side*.72+feat(m,'home')*.10+feat(m,'efficiency')*.12+feat(m,'form')*.08-feat(m,'injury')*.08+scheduleEdge);
 }
 function finalize(m:Market,runs:SimulationTier,samples:Sample[],engine:string,scoreUnit:string,family:DistributionFamily,microUnit:string,random:Rng):MicroSimulationResult{
  let hits=0,homeSum=0,awaySum=0,unitSum=0;

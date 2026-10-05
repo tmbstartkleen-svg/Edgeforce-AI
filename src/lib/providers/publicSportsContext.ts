@@ -1,4 +1,5 @@
 import type {Market,ContextProvenance} from '../types';
+import {combineScheduleSignals,deriveScheduleLoad,deriveTravelBurden} from '../scheduleFatigueIntelligence';
 
 export type PublicContextRow={
  event?:string;
@@ -334,7 +335,7 @@ async function geocode(city:string,state?:string,country?:string){
  const best=results[0];
  const latitude=Number(best?.latitude),longitude=Number(best?.longitude);
  if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return null;
- return {latitude,longitude,name:str(best.name),admin1:str(best.admin1),country:str(best.country)};
+ return {latitude,longitude,name:str(best.name),admin1:str(best.admin1),country:str(best.country),timezone:str(best.timezone)||undefined};
 }
 
 async function weatherAt(latitude:number,longitude:number,startTime:string){
@@ -439,7 +440,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
  }
 
  const rows:PublicContextRow[]=[];
- let weatherRows=0,summaryRows=0,restRows=0,playerRows=0;
+ let weatherRows=0,summaryRows=0,restRows=0,scheduleFatigueRows=0,playerRows=0;
 
  for(let index=0;index<matched.length;index++){
   const {market,spec,event,injuries}=matched[index];
@@ -486,12 +487,35 @@ export async function fetchPublicSportsContext(markets:Market[]){
     fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/teams/${event.awayId}/schedule`,30*60000)
    ]);
    requests+=2;
-   const homeRest=homeSchedule.ok?deriveRestDays(homeSchedule.value,market.startTime):undefined;
-   const awayRest=awaySchedule.ok?deriveRestDays(awaySchedule.value,market.startTime):undefined;
-   if(homeRest!==undefined&&awayRest!==undefined){
-    features.rest=clamp((homeRest-awayRest)/4);
+   if(homeSchedule.ok&&awaySchedule.ok){
+    const homeLoad=deriveScheduleLoad(homeSchedule.value,market.startTime,event.homeId,'home');
+    const awayLoad=deriveScheduleLoad(awaySchedule.value,market.startTime,event.awayId,'away');
+    const currentGeo=event.venue?.city?await geocode(event.venue.city,event.venue.state,event.venue.country):null;
+    if(event.venue?.city)requests++;
+    const [homePriorGeo,awayPriorGeo]=await Promise.all([
+     homeLoad.priorVenue?.city?geocode(homeLoad.priorVenue.city,homeLoad.priorVenue.state,homeLoad.priorVenue.country):Promise.resolve(null),
+     awayLoad.priorVenue?.city?geocode(awayLoad.priorVenue.city,awayLoad.priorVenue.state,awayLoad.priorVenue.country):Promise.resolve(null)
+    ]);
+    if(homeLoad.priorVenue?.city)requests++;
+    if(awayLoad.priorVenue?.city)requests++;
+    const homeTravel=deriveTravelBurden(homePriorGeo||undefined,currentGeo||undefined,homeLoad.restDays,market.startTime);
+    const awayTravel=deriveTravelBurden(awayPriorGeo||undefined,currentGeo||undefined,awayLoad.restDays,market.startTime);
+    const scheduleSignals=combineScheduleSignals(homeLoad,awayLoad,homeTravel,awayTravel);
+    Object.assign(features,scheduleSignals);
     restRows++;
-    provenance.push({source:'espn-public',providerId:'espn-site-api',field:'rest',observedAt:now,confidence:.68,status:'LIVE'});
+    scheduleFatigueRows++;
+    provenance.push({
+     source:'espn-public',providerId:'edgeforce-v67-schedule',field:'scheduleCompositeEdge',observedAt:now,
+     confidence:.70+.25*scheduleSignals.scheduleContextConfidence,status:'LIVE',
+     detail:{
+      homeRestDays:homeLoad.restDays??null,awayRestDays:awayLoad.restDays??null,
+      homeGames7d:homeLoad.games7d+1,awayGames7d:awayLoad.games7d+1,
+      homeRoadStreak:homeLoad.roadStreak,awayRoadStreak:awayLoad.roadStreak,
+      homeTravelMiles:Math.round(homeTravel.distanceMiles),awayTravelMiles:Math.round(awayTravel.distanceMiles),
+      homeTimezoneShift:homeTravel.timezoneShiftHours,awayTimezoneShift:awayTravel.timezoneShiftHours,
+      homeFatigue:homeLoad.fatigueLoad,awayFatigue:awayLoad.fatigueLoad
+     }
+    });
    }
   }
 
@@ -544,6 +568,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
    weatherRows,
    summaryRows,
    restRows,
+   scheduleFatigueRows,
    playerRows,
    requests,
    cacheEntries:requestCache.size,

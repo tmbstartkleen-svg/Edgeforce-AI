@@ -12,7 +12,7 @@ export async function GET(req:Request){
   await recordAutomationRun('injuries','success',started,{
    providerId:result.providerId||null,rows:result.snapshotRows,degraded:result.degraded
   });
-  return Response.json({ok:result.ok,build:'V64.1',schemaVersion:'v64-live-injuries-1',...result},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({...result,build:'V64.1',schemaVersion:'v64-live-injuries-1'},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'injury refresh failed';
   await recordAutomationRun('injuries','failed',started,{},message);
