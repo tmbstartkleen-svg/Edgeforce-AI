@@ -13,7 +13,7 @@ import {runThresholdStabilityGovernor} from './preventiveThresholdStability';
 import {runPreventiveActionDecisionGate} from './preventiveActionDecisionGate';
 import {buildProductionObservability} from './productionObservability';
 
-export type SupervisionCycleStatus='COMPLETED'|'FAILED'|'SKIPPED_IDEMPOTENT';
+export type SupervisionCycleStatus='COMPLETED'|'FAILED'|'SKIPPED_IDEMPOTENT'|'SKIPPED_LOCKED';
 
 function cycleKey(now=new Date()){
  const d=new Date(now);
@@ -30,6 +30,33 @@ async function completedCycle(key:string){
   where cycle_key=${key} and status='COMPLETED'
  `;
  return row||null;
+}
+
+export function evaluateSupervisionCycleGate(input:{alreadyCompleted:boolean;lockAvailable:boolean}){
+ if(input.alreadyCompleted)return {status:'SKIPPED_IDEMPOTENT' as const,run:false};
+ if(!input.lockAvailable)return {status:'SKIPPED_LOCKED' as const,run:false};
+ return {status:'RUN' as const,run:true};
+}
+
+async function acquireCycleLease(key:string){
+ const sql=db();if(!sql)return {acquired:false,token:null as string|null};
+ const token=`${RELEASE.modelVersion}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+ const rows=await sql`
+  update preventive_supervision_cycle_state
+  set lock_token=${token},locked_until=now()+interval '5 minutes',cycle_key=${key},updated_at=now()
+  where singleton_key=1 and (locked_until is null or locked_until<now())
+  returning lock_token
+ `;
+ return {acquired:(rows as any[]).length===1,token:(rows as any[])?.[0]?.lock_token?String((rows as any[])[0].lock_token):null};
+}
+
+async function releaseCycleLease(token:string|null){
+ const sql=db();if(!sql||!token)return;
+ await sql`
+  update preventive_supervision_cycle_state
+  set lock_token=null,locked_until=null,updated_at=now()
+  where singleton_key=1 and lock_token=${token}
+ `;
 }
 
 async function recordStart(key:string){
@@ -81,8 +108,12 @@ export async function runPreventiveSupervisionCycle(input:{
  if(!sql)return {configured:false,cycleKey:key,status:'FAILED' as SupervisionCycleStatus,reusedContextCount:0,stepCount:0,reason:'Database is not configured.'};
 
  const prior=await completedCycle(key);
- if(prior){
-  return {configured:true,...prior,status:'SKIPPED_IDEMPOTENT' as SupervisionCycleStatus,reason:'This minute-bucket supervision cycle already completed.'};
+ const lease=await acquireCycleLease(key);
+ const gate=evaluateSupervisionCycleGate({alreadyCompleted:Boolean(prior),lockAvailable:lease.acquired});
+ if(!gate.run){
+  if(lease.acquired)await releaseCycleLease(lease.token).catch(()=>undefined);
+  if(prior)return {configured:true,...prior,status:'SKIPPED_IDEMPOTENT' as SupervisionCycleStatus,reason:'This minute-bucket supervision cycle already completed.'};
+  return {configured:true,cycleKey:key,status:'SKIPPED_LOCKED' as SupervisionCycleStatus,reusedContextCount:0,stepCount:0,reason:'Another unified supervision cycle holds the active lease.'};
  }
 
  await recordStart(key);
@@ -122,6 +153,8 @@ export async function runPreventiveSupervisionCycle(input:{
   const message=error instanceof Error?error.message:'unified supervision cycle failed';
   await recordFinish({key,status:'FAILED',reusedContextCount,stepCount,evidenceDigest:{},outputs,errorText:message}).catch(()=>undefined);
   return {configured:true,cycleKey:key,status:'FAILED' as SupervisionCycleStatus,reusedContextCount,stepCount,reason:message,outputs};
+ }finally{
+  await releaseCycleLease(lease.token).catch(()=>undefined);
  }
 }
 
