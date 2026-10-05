@@ -61,10 +61,13 @@ export function rankPreventiveActions(
  return ranked.sort((a,b)=>b.priorityScore-a.priorityScore||b.confidence-a.confidence);
 }
 
-export async function buildPreventiveActionRanking(){
+export async function buildPreventiveActionRanking(context?:{
+ risk?:Awaited<ReturnType<typeof buildPredictiveIncidentRisk>>;
+ learning?:{profiles?:any[]};
+}){
  const [risk,learning]=await Promise.all([
-  buildPredictiveIncidentRisk(),
-  loadPreventiveActionLearningSummary()
+  context?.risk?Promise.resolve(context.risk):buildPredictiveIncidentRisk(),
+  context?.learning?Promise.resolve(context.learning):loadPreventiveActionLearningSummary()
  ]);
  const predicted=risk.componentRisks.find(x=>x.cause===risk.predictedCause)||risk.componentRisks[0];
  const cause=risk.predictedCause;
@@ -109,8 +112,8 @@ export async function persistPreventiveActionRanking(report:Awaited<ReturnType<t
  return {persisted:true};
 }
 
-export async function runPreventiveActionRanking(){
- const report=await buildPreventiveActionRanking();
+export async function runPreventiveActionRanking(context?:Parameters<typeof buildPreventiveActionRanking>[0]){
+ const report=await buildPreventiveActionRanking(context);
  const persistence=await persistPreventiveActionRanking(report);
  return {...report,persistence};
 }

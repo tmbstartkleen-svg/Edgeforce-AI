@@ -64,8 +64,14 @@ export function scorePredictiveRisk(
  return {cause:profile.cause,riskScore,riskLevel,horizonHours:24,evidence,preventiveActions};
 }
 
-export async function buildPredictiveIncidentRisk(){
- const [patterns,obs]=await Promise.all([buildIncidentPatternLearning(),buildProductionObservability()]);
+export async function buildPredictiveIncidentRisk(context?:{
+ patterns?:Awaited<ReturnType<typeof buildIncidentPatternLearning>>;
+ observability?:Awaited<ReturnType<typeof buildProductionObservability>>;
+}){
+ const [patterns,obs]=await Promise.all([
+  context?.patterns?Promise.resolve(context.patterns):buildIncidentPatternLearning(),
+  context?.observability?Promise.resolve(context.observability):buildProductionObservability()
+ ]);
  const risks=patterns.profiles.map(p=>scorePredictiveRisk(p,obs.checks)).sort((a,b)=>b.riskScore-a.riskScore);
  const top=risks[0]||{
   cause:'NONE',riskScore:0,riskLevel:'LOW' as const,horizonHours:24,
@@ -103,8 +109,8 @@ export async function persistPredictiveIncidentRisk(report:Awaited<ReturnType<ty
  return {persisted:true};
 }
 
-export async function runPredictiveIncidentRisk(){
- const report=await buildPredictiveIncidentRisk();
+export async function runPredictiveIncidentRisk(context?:Parameters<typeof buildPredictiveIncidentRisk>[0]){
+ const report=await buildPredictiveIncidentRisk(context);
  const persistence=await persistPredictiveIncidentRisk(report);
  return {...report,persistence};
 }

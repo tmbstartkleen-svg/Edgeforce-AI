@@ -1,17 +1,7 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
+import {runPreventiveSupervisionCycle} from './preventiveSupervisionCycle';
 import {attributeOperationalIncident,persistIncidentAttribution} from './incidentAttribution';
-import {runIncidentPatternLearning} from './incidentPatternLearning';
-import {runPredictiveIncidentRisk} from './predictiveIncidentRisk';
-import {runPreventiveActionLearning} from './preventiveActionLearning';
-import {runPreventiveActionRanking} from './preventiveActionRanking';
-import {runPreventiveActionDecisionGate} from './preventiveActionDecisionGate';
-import {runPreventiveDecisionCalibration} from './preventiveDecisionCalibration';
-import {runPreventiveDecisionThresholdGovernor} from './preventiveDecisionThresholds';
-import {runThresholdStabilityGovernor} from './preventiveThresholdStability';
-import {runThresholdRecoveryGovernor} from './preventiveThresholdRecovery';
-import {runThresholdProbationGovernor} from './preventiveThresholdProbation';
-import {runBaselineGovernanceCycle} from './preventiveBaselineGovernanceCycle';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -286,17 +276,7 @@ export async function runSloGovernor(){
  const obs=await buildProductionObservability();
  await persistProductionObservability(obs).catch(()=>({persisted:false}));
  await persistIncidentAttribution({attribution:attributeOperationalIncident(obs),observability:obs}).catch(()=>({persisted:false}));
- await runIncidentPatternLearning().catch(()=>({persisted:false}));
- await runPredictiveIncidentRisk().catch(()=>({persisted:false}));
- await runPreventiveActionLearning().catch(()=>({persisted:false}));
- await runPreventiveActionRanking().catch(()=>({persisted:false}));
- await runPreventiveDecisionCalibration().catch(()=>({configured:false}));
- await runThresholdRecoveryGovernor().catch(()=>({configured:false}));
- await runThresholdProbationGovernor().catch(()=>({configured:false}));
- await runBaselineGovernanceCycle().catch(()=>({configured:false,status:'FAILED'}));
- await runPreventiveDecisionThresholdGovernor().catch(()=>({persisted:false}));
- await runThresholdStabilityGovernor().catch(()=>({configured:false}));
- await runPreventiveActionDecisionGate().catch(()=>({persisted:false}));
+ await runPreventiveSupervisionCycle({observability:obs}).catch(()=>({configured:false,status:'FAILED'}));
  if(!sql){
   const report=await buildSloGovernorReport();
   return {configured:false,...report,transition:false};
