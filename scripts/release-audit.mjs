@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V102',
- appVersion:'102.0.0',
- packageVersion:'0.102.0',
- modelVersion:'edgeforce-v102',
- migrationVersion:112
+ build:'V103',
+ appVersion:'103.0.0',
+ packageVersion:'0.103.0',
+ modelVersion:'edgeforce-v103',
+ migrationVersion:113
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -896,6 +896,17 @@ add('V102 Cloudflare deploy pipefail',read('.github/workflows/deploy-cloudflare.
 add('V102 artifact identity',read('.github/workflows/verify-cloudflare.yml').includes('edgeforce-v102-vinext-build')&&read('.github/workflows/deploy-cloudflare.yml').includes('edgeforce-v102-cloudflare-build'),'Cloudflare artifacts carry V102 identity');
 add('V102 health capability',read('src/app/api/health/route.ts').includes('cloudflareHostedPreviewParity:true'),'health exposes hosted preview parity');
 add('V102 release notes',exists('EDGEFORCE_V102_RELEASE.md'),'V102 release documentation exists');
+
+add('V103 convergence schema',exists('db/v113.sql')&&read('db/v113.sql').includes('release_platform_convergence'),'durable cross-platform convergence ledger exists');
+add('V103 convergence evaluator',read('src/lib/releasePlatformConvergence.ts').includes('recordPlatformEvidence')&&read('src/lib/releasePlatformConvergence.ts').includes('latestPlatformConvergence'),'platform convergence evaluator exists');
+add('V103 convergence API',exists('src/app/api/release/platform-convergence/route.ts')&&exists('src/app/api/testing/platform-convergence/route.ts'),'convergence API and regression endpoint exist');
+add('V103 Vercel evidence writer',read('.github/workflows/deploy-production.yml').includes('/api/release/platform-convergence')&&read('.github/workflows/deploy-production.yml').includes('platform:"vercel"'),'Vercel production writes convergence evidence');
+add('V103 Cloudflare evidence writer',read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/platform-convergence')&&read('.github/workflows/deploy-cloudflare.yml').includes('platform:"cloudflare"'),'Cloudflare production writes convergence evidence');
+add('V103 strict convergence gate',read('src/lib/productionCertification.ts').includes('platformConvergence')&&read('src/lib/productionCertification.ts').includes('Vercel and Cloudflare are not certified'),'strict production certification checks convergence');
+add('V103 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'platform-convergence'")&&read('src/lib/v1ReleaseReadiness.ts').includes('platformConverged'),'V1 readiness exposes cross-platform convergence');
+add('V103 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PlatformConvergencePanel'),'platform convergence is visible in System view');
+add('V103 health capability',read('src/app/api/health/route.ts').includes('crossPlatformProductionConvergence:true'),'health exposes convergence capability');
+add('V103 release notes',exists('EDGEFORCE_V103_RELEASE.md'),'V103 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
