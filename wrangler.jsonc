@@ -19,7 +19,7 @@
     "binding": "ASSETS"
   },
   "vars": {
-    "MODEL_VERSION": "edgeforce-v73",
+    "MODEL_VERSION": "edgeforce-v74",
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
     "DEFAULT_BANKROLL": "1000",
@@ -62,7 +62,8 @@
     "PUBLIC_CONTEXT_MAX_EVENTS": "16",
     "PUBLIC_CONTEXT_SUMMARY_EVENTS": "8",
     "PUBLIC_CONTEXT_SCHEDULE_EVENTS": "6",
-    "ALLOW_DEMO_DATA": "false"
+    "ALLOW_DEMO_DATA": "false",
+    "EDGEFORCE_SLO_TARGET": "0.99"
   },
   "account_id": "de9b84b39940a0b5b622ae5d27b415dc",
   "triggers": {
