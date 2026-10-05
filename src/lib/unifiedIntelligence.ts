@@ -203,7 +203,7 @@ export async function buildUnifiedIntelligenceCertification():Promise<UnifiedInt
   id:'automation',label:'Intelligence automation',required:true,
   state:automation.failedCount||automation.staleCount?'FAILED':automation.pendingCount?'WARMING':'HEALTHY',
   rows:automation.healthyCount,ageMinutes:injuryJob?.ageHours===null||injuryJob?.ageHours===undefined?null:injuryJob.ageHours*60,
-  detail:${automation.healthyCount} healthy / ${automation.failedCount} failed / ${automation.staleCount} stale / ${automation.pendingCount} pending
+   detail:`${automation.healthyCount} healthy / ${automation.failedCount} failed / ${automation.staleCount} stale / ${automation.pendingCount} pending`
  };
  const validationComponent:IntelligenceComponent={
   id:'validation',label:'Out-of-sample validation',required:true,
