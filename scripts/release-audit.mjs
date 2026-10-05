@@ -856,5 +856,7 @@ add('V97 dashboard surface',read('src/components/OperatorCommandCenter.tsx').inc
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
-console.log(JSON.stringify(report,null,2));
+const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
+console.log(JSON.stringify(summary,null,2));
+if(process.env.RELEASE_AUDIT_VERBOSE==='true')console.log(JSON.stringify(report,null,2));
 if(failed.length)process.exit(1);
