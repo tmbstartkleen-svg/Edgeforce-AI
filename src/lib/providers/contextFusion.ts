@@ -7,6 +7,7 @@ import {enrichMarketsWithPlayerWarehouse} from '../playerWarehouse';
 import {enrichMarketsWithPlayerFeatureFrames} from '../playerFeatureFrames';
 import {enrichMarketsWithPlayerCalibration} from '../playerCalibration';
 import {enrichMarketsWithOpponentMatchups} from '../opponentMatchupLearning';
+import {enrichMarketsWithLineupRedistribution} from '../lineupRoleRedistribution';
 import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
@@ -220,15 +221,17 @@ export async function enrichMarketsWithContext(markets:Market[]){
  const historical=await enrichMarketsWithPlayerWarehouse(premium.markets).catch(()=>({markets:premium.markets,matched:0,players:0}));
  const playerFrames=await enrichMarketsWithPlayerFeatureFrames(historical.markets).catch(()=>({markets:historical.markets,matched:0,players:0,frames:[]}));
  const playerCalibration=await enrichMarketsWithPlayerCalibration(playerFrames.markets).catch(()=>({markets:playerFrames.markets,matched:0,profiles:0}));
- const opponentMatchups=await enrichMarketsWithOpponentMatchups(playerCalibration.markets).catch(()=>({markets:playerCalibration.markets,matched:0,profiles:0}));
- const trainedSportMl=await enrichMarketsWithTrainedSportModels(opponentMatchups.markets);
+ const opponentMatchups=await enrichMarketsWithOpponentMatchups(playerCalibration.markets).catch(()=>({markets:playerCalibration.markets,matched:0,profiles:0,playerProfiles:0}));
+ const lineupRedistribution=await enrichMarketsWithLineupRedistribution(opponentMatchups.markets).catch(()=>({markets:opponentMatchups.markets,matched:0,profiles:0,activeAbsences:0}));
+ const trainedSportMl=await enrichMarketsWithTrainedSportModels(lineupRedistribution.markets);
  const externalExpert=await enrichMarketsWithExternalExpertModels(trainedSportMl.markets);
  const finalSourceQuality={
   ...sourceQuality,...premium.sourceQuality,
   'player-history-db':historical.matched?.92:0,
   'player-feature-frame':playerFrames.matched?.95:0,
   'player-calibration':playerCalibration.matched?.96:0,
-  'opponent-matchup':opponentMatchups.matched?.94:0
+  'opponent-matchup':opponentMatchups.matched?.94:0,
+  'lineup-redistribution':lineupRedistribution.matched?.95:0
  };
  const finalMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
  const qualitySummary=summarizeContextQuality(finalMarkets);
@@ -242,7 +245,8 @@ export async function enrichMarketsWithContext(markets:Market[]){
    playerWarehouse:{matchedRows:historical.matched,players:historical.players},
    playerFeatureFrames:{matchedRows:playerFrames.matched,players:playerFrames.players,frames:playerFrames.frames.length},
    playerCalibration:{matchedRows:playerCalibration.matched,profiles:playerCalibration.profiles},
-   opponentMatchups:{matchedRows:opponentMatchups.matched,profiles:opponentMatchups.profiles},
+   opponentMatchups:{matchedRows:opponentMatchups.matched,profiles:opponentMatchups.profiles,playerProfiles:opponentMatchups.playerProfiles},
+   lineupRedistribution:{matchedRows:lineupRedistribution.matched,profiles:lineupRedistribution.profiles,activeAbsences:lineupRedistribution.activeAbsences},
    trainedSportMl:trainedSportMl.diagnostics,
    expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,
