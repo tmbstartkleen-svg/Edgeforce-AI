@@ -318,10 +318,13 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/launch-status" -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "{"launchId":"$LAUNCH_ID","stage":"CANARY_PASSED","deploymentUrl":"$PRODUCTION_URL","commitSha":"$DEPLOY_COMMIT"}"
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"CANARY_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Require V123 strict v1 readiness
+      - name: Require V73 strict v1 readiness
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
