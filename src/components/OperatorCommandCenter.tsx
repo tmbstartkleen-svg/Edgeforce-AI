@@ -21,14 +21,16 @@ import CashoutPolicyPanel from './CashoutPolicyPanel';
 import CashoutPolicyGovernancePanel from './CashoutPolicyGovernancePanel';
 import DecisionReplayPanel from './DecisionReplayPanel';
 import StressScenarioLabPanel from './StressScenarioLabPanel';
+import ProductionObservabilityPanel from './ProductionObservabilityPanel';
 
-type View='TODAY'|'EXECUTION'|'LEARNING'|'CASHOUT'|'ALL';
+type View='TODAY'|'EXECUTION'|'LEARNING'|'CASHOUT'|'SYSTEM'|'ALL';
 
 const views:Array<{id:View;label:string;description:string}>= [
  {id:'TODAY',label:'Today',description:'Priority queue, final decisions, live movement and current edge board.'},
  {id:'EXECUTION',label:'Execution',description:'Timing, fair price, venue shopping, lifecycle and CLV quality.'},
  {id:'LEARNING',label:'Learning',description:'Skill, routing, alert learning, replay validation and stress testing.'},
  {id:'CASHOUT',label:'Cash-Out',description:'Ladder, real offer learning, reconciliation, learned policy and governance.'},
+ {id:'SYSTEM',label:'System',description:'Production health, freshness, automation, incidents and SLA status.'},
  {id:'ALL',label:'All Modules',description:'Expanded view of every V100+ operator module.'}
 ];
 
@@ -68,6 +70,10 @@ export default function OperatorCommandCenter(){
   <CashoutPolicyGovernancePanel/>
  </>;
 
+ const system=<>
+  <ProductionObservabilityPanel/>
+ </>;
+
  return <section className="operatorCenter">
   <div className="operatorCenterHead">
    <div>
@@ -94,6 +100,7 @@ export default function OperatorCommandCenter(){
    <div><small>EXECUTION</small><strong>6</strong><span>price + timing</span></div>
    <div><small>LEARNING</small><strong>5</strong><span>validation + stress</span></div>
    <div><small>CASH-OUT</small><strong>5</strong><span>offer + policy</span></div>
+   <div><small>SYSTEM</small><strong>1</strong><span>health + SLA</span></div>
   </div>
 
   <div className="operatorModules">
@@ -101,7 +108,8 @@ export default function OperatorCommandCenter(){
    {view==='EXECUTION'&&execution}
    {view==='LEARNING'&&learning}
    {view==='CASHOUT'&&cashout}
-   {view==='ALL'&&<>{today}{execution}{learning}{cashout}</>}
+   {view==='SYSTEM'&&system}
+   {view==='ALL'&&<>{today}{execution}{learning}{cashout}{system}</>}
   </div>
 
   <div className="operatorCenterNote">
