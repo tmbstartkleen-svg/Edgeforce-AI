@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V77',
- appVersion:'77.0.0',
- packageVersion:'0.77.0',
- modelVersion:'edgeforce-v77',
- migrationVersion:89
+ build:'V78',
+ appVersion:'78.0.0',
+ packageVersion:'0.78.0',
+ modelVersion:'edgeforce-v78',
+ migrationVersion:90
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -220,6 +220,11 @@ const requiredFiles=[
  'src/app/api/testing/predictive-incident-risk/route.ts',
  'src/components/PredictiveIncidentRiskPanel.tsx',
  'EDGEFORCE_V77_RELEASE.md',
+ 'src/lib/preventiveActionLearning.ts',
+ 'src/app/api/operations/preventive-actions/route.ts',
+ 'src/app/api/testing/preventive-actions/route.ts',
+ 'src/components/PreventiveActionLearningPanel.tsx',
+ 'EDGEFORCE_V78_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
