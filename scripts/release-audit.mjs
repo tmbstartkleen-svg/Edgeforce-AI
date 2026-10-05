@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V97',
- appVersion:'97.0.0',
- packageVersion:'0.97.0',
- modelVersion:'edgeforce-v97',
- migrationVersion:109
+ build:'V99',
+ appVersion:'99.0.0',
+ packageVersion:'0.99.0',
+ modelVersion:'edgeforce-v99',
+ migrationVersion:110
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -855,6 +855,15 @@ add('V97 compile regression repair',read('src/lib/preventiveThresholdRecovery.ts
 add('V97 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleaseExecutionCertificationPanel'),'execution certification is visible');
 
 add('V97 smoke authenticated mutations',read('scripts/smoke.mjs').includes("headers.authorization=\`Bearer \${secret}\`"),'local smoke mutations authenticate when deployment secrets are configured');
+
+add('V99 promotion provenance schema',exists('db/v110.sql')&&read('db/v110.sql').includes('release_promotion_provenance'),'durable production promotion ledger exists');
+add('V99 promotion provenance evaluator',read('src/lib/releasePromotionProvenance.ts').includes('evaluateReleasePromotionEvidence')&&read('src/lib/releasePromotionProvenance.ts').includes('currentReleasePromotionProvenance'),'promotion evidence is evaluated and queryable');
+add('V99 promotion provenance API',exists('src/app/api/release/promotion-provenance/route.ts')&&exists('src/app/api/testing/release-promotion-provenance/route.ts'),'promotion provenance API and regression endpoint exist');
+add('V99 promotion consistency gate',read('src/lib/productionCertification.ts').includes('promotionProvenance')&&read('src/lib/productionCertification.ts').includes('promoted commit'),'production certification fails closed on recorded commit drift');
+add('V99 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'promotion-provenance'")&&read('src/lib/v1ReleaseReadiness.ts').includes('promotionProvenanceRecorded'),'V1 readiness exposes promotion provenance');
+add('V99 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleasePromotionProvenancePanel'),'promotion provenance is visible in System view');
+add('V99 production promotion writer',read('.github/workflows/deploy-production.yml').includes('/api/release/promotion-provenance')&&read('.github/workflows/deploy-production.yml').includes('workflowRunId'),'successful production workflow persists exact promotion provenance');
+add('V99 release notes',exists('EDGEFORCE_V99_RELEASE.md'),'V99 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
