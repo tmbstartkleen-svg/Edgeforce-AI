@@ -6,6 +6,7 @@ export type CashoutOutcome='WON'|'LOST'|'VOID'|'PENDING';
 
 export type CashoutObservationInput={
  observationId?:number;
+ eventKey?:string;
  commandId?:string;
  ladderId?:string;
  checkpointLabel?:string;
@@ -54,6 +55,7 @@ export async function recordCashoutObservation(input:CashoutObservationInput){
  if(input.observationId){
   const updated=await sql`
    update cashout_observations set
+    event_key=coalesce(${input.eventKey??null},event_key),
     command_id=coalesce(${input.commandId??null},command_id),
     ladder_id=coalesce(${input.ladderId??null},ladder_id),
     checkpoint_label=coalesce(${input.checkpointLabel??null},checkpoint_label),
@@ -69,10 +71,10 @@ export async function recordCashoutObservation(input:CashoutObservationInput){
  }
  const inserted=await sql`
   insert into cashout_observations(
-   command_id,ladder_id,checkpoint_label,stake,original_odds,current_win_probability,cashout_offer,
+   event_key,command_id,ladder_id,checkpoint_label,stake,original_odds,current_win_probability,cashout_offer,
    model_hold_value,model_cashout_edge,model_decision,user_action,outcome,final_payout,sportsbook,metadata,updated_at
   ) values(
-   ${input.commandId??null},${input.ladderId??null},${input.checkpointLabel??null},${input.stake},${input.originalOdds},${input.currentWinProbability},${input.cashoutOffer},
+   ${input.eventKey??null},${input.commandId??null},${input.ladderId??null},${input.checkpointLabel??null},${input.stake},${input.originalOdds},${input.currentWinProbability},${input.cashoutOffer},
    ${model.adjustedHold},${model.cashoutEdge},${model.decision},${input.action},${input.outcome??'PENDING'},${input.finalPayout??null},${input.sportsbook??null},${sql.json((input.metadata||{}) as any)},now()
   ) returning id
  `;
