@@ -188,6 +188,8 @@ export async function GET(){
   baselineStageProtection:true,
   championBaselineGovernor:true,
   validatedBaselinePromotion:true,
+  championBaselineHealth:true,
+  championBaselineRetirement:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
