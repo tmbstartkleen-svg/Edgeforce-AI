@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V77',
- appVersion:'77.0.0',
- packageVersion:'0.77.0',
- modelVersion:'edgeforce-v77',
- migrationVersion:89
+ build:'V78',
+ appVersion:'78.0.0',
+ packageVersion:'0.78.0',
+ modelVersion:'edgeforce-v78',
+ migrationVersion:90
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -220,6 +220,11 @@ const requiredFiles=[
  'src/app/api/testing/predictive-incident-risk/route.ts',
  'src/components/PredictiveIncidentRiskPanel.tsx',
  'EDGEFORCE_V77_RELEASE.md',
+ 'src/lib/preventiveActionLearning.ts',
+ 'src/app/api/operations/preventive-actions/route.ts',
+ 'src/app/api/testing/preventive-actions/route.ts',
+ 'src/components/PreventiveActionLearningPanel.tsx',
+ 'EDGEFORCE_V78_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -593,6 +598,12 @@ add('V77 preventive warning threshold',read('src/lib/predictiveIncidentRisk.ts')
 add('V77 predictive regression',read('src/app/api/testing/predictive-incident-risk/route.ts').includes('AUTOMATION')&&read('src/app/api/testing/predictive-incident-risk/route.ts').includes('riskScore>=.70'),'deterministic predictive-risk regression exists');
 add('V77 automatic predictive cycle',read('src/lib/sloGovernor.ts').includes('runPredictiveIncidentRisk'),'SLO supervision refreshes predictive risk automatically');
 add('V77 predictive dashboard',read('src/components/OperatorCommandCenter.tsx').includes('PredictiveIncidentRiskPanel')&&read('src/components/PredictiveIncidentRiskPanel.tsx').includes('V77 PREDICTIVE INCIDENT RISK'),'system console exposes preventive forecast');
+
+add('V78 learning module',read('src/lib/preventiveActionLearning.ts').includes('buildActionEffectivenessProfiles'),'effectiveness learning module exists');
+add('V78 durable schema',read('db/v90.sql').includes('preventive_action_effectiveness'),'learning schema exists');
+add('V78 API surface',read('src/app/api/operations/preventive-actions/route.ts').includes('v78-preventive-action-learning-1'),'learning API exists');
+add('V78 regression surface',read('src/app/api/testing/preventive-actions/route.ts').includes('v78-preventive-action-learning-test-1'),'learning regression exists');
+add('V78 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionLearningPanel'),'learning panel is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
