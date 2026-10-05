@@ -188,6 +188,7 @@ const requiredFiles=[
  'src/app/api/intelligence/unified-stack/route.ts',
  'src/app/api/testing/unified-intelligence/route.ts',
  'src/components/UnifiedIntelligencePanel.tsx',
+ 'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -305,6 +306,8 @@ add('V71 injury automation monitoring',read('src/lib/automationHealth.ts').inclu
 add('V71 daily certification',read('src/app/api/cron/recalibrate/route.ts').includes('persistUnifiedIntelligenceCertification'),'daily recalibration persists unified intelligence certification');
 add('V71 release identity',read('src/lib/releaseManifest.ts').includes("build:'V71'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v71'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:83'),'final release identity is synchronized');
 add('V71 regression and dashboard',read('src/app/api/testing/unified-intelligence/route.ts').includes('healthy.ready')&&read('src/components/Dashboard.tsx').includes('UnifiedIntelligencePanel'),'unified intelligence regression and dashboard visibility are present');
+add('V71 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v71')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v71')&&read('.github/workflows/deploy-cloudflare.yml').includes('71.0.0'),'verification and production deployment workflows target V71');
+add('V71 final release note',read('EDGEFORCE_V71_RELEASE.md').includes('final bundle')&&read('EDGEFORCE_V71_RELEASE.md').includes('fail-soft'),'final intelligence program handoff is documented');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
