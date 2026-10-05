@@ -29,6 +29,7 @@ import CrossSportOptimizerPanel from './CrossSportOptimizerPanel';
 import UnifiedIntelligencePanel from './UnifiedIntelligencePanel';
 import ReliabilitySupervisorPanel from './ReliabilitySupervisorPanel';
 import DeploymentGuardPanel from './DeploymentGuardPanel';
+import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -739,8 +740,8 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V73</div>
-        <h1>Canary Deployment + Reliability Auto-Recovery</h1>
+        <div className="eyebrow">EDGEFORCE AI • V74</div>
+        <h1>SLO Governance + Canary Deployment Protection</h1>
         <p>Player learning, injuries, matchups, lineups, schedule, venue, market movement and optimized simulation weights now feed one fail-soft, self-auditing production stack.</p>
       </div>
       <div className="v21Status">
@@ -1074,6 +1075,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <SloGovernorPanel/>
 
     <DeploymentGuardPanel/>
 

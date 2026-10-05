@@ -1,12 +1,12 @@
 import {db} from './db';
 
 export const PRODUCTION_LAUNCH_STAGES=[
- 'DEPLOYED','MIGRATED','PROVIDERS_CERTIFIED','LAUNCH_DOCTOR_PASSED','SMOKE_PASSED','ATTESTED','STRICT_CERTIFIED','CANARY_PASSED','V1_READY','COMPLETE','FAILED','ROLLED_BACK'
+ 'DEPLOYED','MIGRATED','PROVIDERS_CERTIFIED','LAUNCH_DOCTOR_PASSED','SMOKE_PASSED','ATTESTED','STRICT_CERTIFIED','SLO_BUDGET_PASSED','CANARY_PASSED','V1_READY','COMPLETE','FAILED','ROLLED_BACK'
 ] as const;
 export type ProductionLaunchStage=typeof PRODUCTION_LAUNCH_STAGES[number];
 export type ProductionLaunchState='NOT_STARTED'|'IN_PROGRESS'|'READY'|'FAILED'|'ROLLED_BACK'|'STALE';
 
-const requiredStages:ProductionLaunchStage[]=['DEPLOYED','MIGRATED','PROVIDERS_CERTIFIED','LAUNCH_DOCTOR_PASSED','SMOKE_PASSED','ATTESTED','STRICT_CERTIFIED','CANARY_PASSED','V1_READY','COMPLETE'];
+const requiredStages:ProductionLaunchStage[]=['DEPLOYED','MIGRATED','PROVIDERS_CERTIFIED','LAUNCH_DOCTOR_PASSED','SMOKE_PASSED','ATTESTED','STRICT_CERTIFIED','SLO_BUDGET_PASSED','CANARY_PASSED','V1_READY','COMPLETE'];
 
 export async function recordProductionLaunchEvent(input:{launchId:string;stage:ProductionLaunchStage;deploymentUrl?:string|null;commitSha?:string|null;detail?:Record<string,unknown>|null}){
  const sql=db();

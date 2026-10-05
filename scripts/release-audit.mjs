@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V73',
- appVersion:'73.0.0',
- packageVersion:'0.73.0',
- modelVersion:'edgeforce-v73',
- migrationVersion:85
+ build:'V74',
+ appVersion:'74.0.0',
+ packageVersion:'0.74.0',
+ modelVersion:'edgeforce-v74',
+ migrationVersion:86
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -199,6 +199,12 @@ const requiredFiles=[
  'src/app/api/testing/deployment-guard/route.ts',
  'src/components/DeploymentGuardPanel.tsx',
  'EDGEFORCE_V73_RELEASE.md',
+ 'src/lib/sloGovernor.ts',
+ 'src/app/api/release/error-budget/route.ts',
+ 'src/app/api/cron/slo-governor/route.ts',
+ 'src/app/api/testing/slo-governor/route.ts',
+ 'src/components/SloGovernorPanel.tsx',
+ 'EDGEFORCE_V74_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -335,11 +341,22 @@ add('V73 hard rollback gates',read('src/lib/deploymentGuard.ts').includes("obser
 add('V73 baseline capture',read('.github/workflows/deploy-production.yml').includes('Capture production baseline')&&read('.github/workflows/deploy-production.yml').includes('DEPLOYMENT_BASELINE_B64'),'deployment captures the previous production health baseline before replacing it');
 add('V73 three-probe canary',read('.github/workflows/deploy-production.yml').includes('for ATTEMPT in 1 2 3')&&read('.github/workflows/deploy-production.yml').includes('test "$PASSES" -ge 2'),'candidate must pass two of three comparative probes');
 add('V73 canary launch stage',read('src/lib/productionLaunch.ts').includes("'CANARY_PASSED'")&&read('.github/workflows/deploy-production.yml').includes('CANARY_PASSED'),'launch completion requires a successful comparative canary');
-add('V73 automatic rollback',read('.github/workflows/deploy-production.yml').includes('V73%20canary%20or%20hosted%20launch%20gate%20failure')&&read('.github/workflows/deploy-production.yml').includes('rollback/$PREVIOUS_DEPLOYMENT_ID'),'canary failure routes to the captured prior deployment');
-add('V73 release identity',read('src/lib/releaseManifest.ts').includes("build:'V73'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v73'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:85'),'V73 release identity is synchronized');
-add('V73 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v73')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v73')&&read('.github/workflows/deploy-cloudflare.yml').includes('73.0.0'),'verification and production workflows target V73');
+add('V73 automatic rollback',read('.github/workflows/deploy-production.yml').includes('canary%20or%20hosted%20launch%20gate%20failure')&&read('.github/workflows/deploy-production.yml').includes('rollback/$PREVIOUS_DEPLOYMENT_ID'),'canary failure routes to the captured prior deployment');
+add('V73 release milestone',read('db/v85.sql').includes('deployment_guard_runs')&&read('EDGEFORCE_V73_RELEASE.md').includes('V73'),'V73 comparative canary milestone remains preserved');
+add('V73 deployment handoff',read('EDGEFORCE_V73_RELEASE.md').includes('Comparative Canary')&&read('src/lib/deploymentGuard.ts').includes('evaluateDeploymentGuard'),'V73 deployment-guard handoff remains documented');
 add('V73 regression and dashboard',read('src/app/api/testing/deployment-guard/route.ts').includes("healthy.decision==='PASS'")&&read('src/components/Dashboard.tsx').includes('DeploymentGuardPanel'),'deterministic canary regression and dashboard visibility are present');
 add('V73 CLI pin',read('src/lib/releaseManifest.ts').includes("vercelCliVersion:'62.2.0'")&&read('.github/workflows/deploy-production.yml').includes('vercel@62.2.0')&&read('.github/workflows/rollback.yml').includes('vercel@62.2.0'),'production and rollback workflows use the same pinned Vercel CLI');
+add('V74 SLO schema',read('db/v86.sql').includes('slo_error_budget_state')&&read('db/v86.sql').includes('slo_error_budget_snapshots')&&read('db/v86.sql').includes('slo_error_budget_events'),'v86 stores deployment freeze state, budget snapshots and transitions');
+add('V74 multi-window burn',read('src/lib/sloGovernor.ts').includes("evaluateSloWindow")&&read('src/lib/sloGovernor.ts').includes("'1h'")&&read('src/lib/sloGovernor.ts').includes("'24h'")&&read('src/lib/sloGovernor.ts').includes("'7d'"),'SLO governor evaluates 1h, 24h and 7d windows');
+add('V74 freeze thresholds',read('src/lib/sloGovernor.ts').includes('oneHour.burnRate>=8')&&read('src/lib/sloGovernor.ts').includes('twentyFourHour.burnRate>=4')&&read('src/lib/sloGovernor.ts').includes('sevenDay.budgetRemaining<=0'),'fast and slow burn thresholds freeze unsafe deployments');
+add('V74 sustained recovery',read('src/lib/sloGovernor.ts').includes('three consecutive safe checks passed')&&read('src/app/api/testing/slo-governor/route.ts').includes("reopened.state==='OPEN'"),'deployment freeze needs three safe recovery checks before reopening');
+add('V74 hourly governor automation',read('src/lib/automationHealth.ts').includes("jobName:'slo-governor'")&&read('vercel.json').includes('/api/cron/slo-governor')&&read('worker/index.ts').includes('/api/cron/slo-governor'),'Vercel and Cloudflare run the governor hourly');
+add('V74 predeploy freeze',read('.github/workflows/deploy-production.yml').includes('Enforce current production SLO budget')&&read('.github/workflows/deploy-production.yml').includes('deploymentAllowed // false'),'existing production can freeze the next deploy before build');
+add('V74 candidate SLO gate',read('.github/workflows/deploy-production.yml').includes('Refresh candidate SLO governor')&&read('.github/workflows/deploy-production.yml').includes('SLO_BUDGET_PASSED'),'candidate must pass the error-budget gate before comparative canary');
+add('V74 production certification',read('src/lib/productionCertification.ts').includes("sloGovernor.state==='FROZEN'")&&read('src/lib/v1ReleaseReadiness.ts').includes("'slo-error-budget'"),'production certification and final readiness consume SLO state');
+add('V74 release identity',read('src/lib/releaseManifest.ts').includes("build:'V74'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v74'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:86'),'V74 release identity is synchronized');
+add('V74 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v74')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v74')&&read('.github/workflows/deploy-cloudflare.yml').includes('74.0.0'),'verification and production workflows target V74');
+add('V74 regression and dashboard',read('src/app/api/testing/slo-governor/route.ts').includes('bad.freezeTriggered')&&read('src/components/Dashboard.tsx').includes('SloGovernorPanel'),'SLO freeze/recovery regression and dashboard visibility are present');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');

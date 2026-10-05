@@ -1,7 +1,7 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
 
-export type AutomationJobName='heartbeat'|'settle'|'scan'|'decision'|'recalibrate'|'prediction-intelligence'|'injuries';
+export type AutomationJobName='heartbeat'|'settle'|'scan'|'decision'|'recalibrate'|'prediction-intelligence'|'injuries'|'slo-governor';
 export type AutomationRunStatus='success'|'failed';
 export type AutomationHealthState='HEALTHY'|'STALE'|'FAILED'|'PENDING';
 
@@ -23,7 +23,8 @@ export const AUTOMATION_JOBS:Array<{jobName:AutomationJobName;maxGapHours:number
  {jobName:'decision',maxGapHours:30,description:'decision journal and alerts'},
  {jobName:'recalibrate',maxGapHours:30,description:'model and SGP recalibration'},
  {jobName:'prediction-intelligence',maxGapHours:3,description:'Kalshi/Polymarket market, trade and trader intelligence collection'},
- {jobName:'injuries',maxGapHours:1,description:'15-minute injury and availability refresh feeding all simulations'}
+ {jobName:'injuries',maxGapHours:1,description:'15-minute injury and availability refresh feeding all simulations'},
+ {jobName:'slo-governor',maxGapHours:2,description:'hourly SLO burn-rate and deployment-freeze supervisor'}
 ];
 
 export function evaluateAutomationRecords(records:AutomationRunRecord[],now=new Date()){

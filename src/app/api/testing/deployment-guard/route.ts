@@ -1,9 +1,10 @@
 import {evaluateDeploymentGuard,type DeploymentGuardSnapshot} from '@/lib/deploymentGuard';
+import {RELEASE} from '@/lib/releaseManifest';
 
 export const dynamic='force-dynamic';
 
 const base:DeploymentGuardSnapshot={
- releaseVersion:'73.0.0',modelVersion:'edgeforce-v73',ready:true,productionReady:true,certified:true,
+ releaseVersion:RELEASE.appVersion,modelVersion:RELEASE.modelVersion,ready:true,productionReady:true,certified:true,
  observabilityOverall:'HEALTHY',observabilityScore:.91,criticalChecks:0,degradedChecks:0,
  reliabilityMode:'NORMAL',reliabilityScore:.94,openCircuits:0,halfOpenCircuits:0,
  automationFailed:0,automationStale:0,actionIncidents:0,watchIncidents:0,
