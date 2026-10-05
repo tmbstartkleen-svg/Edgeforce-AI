@@ -32,12 +32,16 @@ jobs:
       - run: npm run preflight:cloudflare
       - run: npm run typecheck
       - run: npm run check:vinext
-      - run: npm run build:vinext 2>&1 | tee /tmp/edgeforce-vinext-build.log
+      - name: Build Cloudflare Worker
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build:vinext 2>&1 | tee /tmp/edgeforce-vinext-build.log
       - name: Upload Cloudflare build diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v101-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v102-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -126,11 +130,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V101 smoke test
+      - name: Hosted V102 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "101.0.0"
+          EXPECTED_APP_VERSION: "102.0.0"
 
       - name: Publish deployment URL
         env:
@@ -138,9 +142,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V101 rollback evidence reconciliation" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V101" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v101" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V102 Cloudflare hosted preview parity" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V102" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v102" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v112" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
