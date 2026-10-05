@@ -6,6 +6,8 @@ create table if not exists preventive_supervision_cycle_state (
   status text not null default 'IDLE',
   reused_context_count int not null default 0,
   step_count int not null default 0,
+  lock_token text,
+  locked_until timestamptz,
   last_reason text,
   updated_at timestamptz not null default now()
 );
