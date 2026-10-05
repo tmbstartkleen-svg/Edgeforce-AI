@@ -162,6 +162,8 @@ export async function GET(){
   sloErrorBudgetGovernance:true,
   automaticDeploymentFreeze:true,
   sustainedDeploymentRecovery:true,
+  incidentAttribution:true,
+  remediationGuidance:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
