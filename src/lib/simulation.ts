@@ -33,20 +33,26 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
  const roleAdjustment=(feat(m,'roleStatLift')*.010+feat(m,'roleUsageLift')*.006+feat(m,'roleMinutesLift')*.004)*roleConfidence;
  const lineupConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.lineupRoleConfidence||0)));
  const lineupAdjustment=(feat(m,'lineupStarterDelta')*.010+feat(m,'lineupPromotionScore')*.006)*lineupConfidence;
+ const scheduleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.scheduleContextConfidence||0)));
+ const playerTeam=String(m.playerContext?.team||'').toLowerCase();
+ const home=String(m.home||'').toLowerCase(),away=String(m.away||'').toLowerCase(),selection=String(m.selection||'').toLowerCase();
+ const scheduleSide=playerTeam?(playerTeam===home?1:playerTeam===away?-1:0):(selection.includes(home)&&home?1:selection.includes(away)&&away?-1:0);
+ const scheduleAdjustment=scheduleConfidence>0?feat(m,'scheduleCompositeEdge')*.012*scheduleConfidence*scheduleSide:0;
  const lineupProbabilityRaw=Number(m.sportFeatures?.lineupStarterProbability);
  const lineupUncertainty=Number.isFinite(lineupProbabilityRaw)?Math.abs(.5-Math.max(0,Math.min(1,lineupProbabilityRaw))):0;
- const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment);
+ const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment+scheduleAdjustment);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
   Math.abs(feat(m,'injury'))*.025+
   Math.abs(feat(m,'weather'))*.018+
-  Math.abs(feat(m,'travel'))*.012+
+  (scheduleConfidence>0?Math.abs(feat(m,'scheduleUncertainty'))*.010:Math.abs(feat(m,'travel'))*.012)+
   Math.abs(feat(m,'starter'))*.018+
   Math.abs(feat(m,'goalie'))*.018+
   Math.abs(feat(m,'quarterback'))*.020+
   Math.abs(feat(m,'playerVolatility'))*.015*(.5+playerConfidence*.5)+
   Math.abs(feat(m,'opponentMatchupVolatility'))*.010*matchupConfidence+
   Math.abs(feat(m,'roleAbsenceSeverity'))*.008*roleConfidence+
+  (scheduleConfidence>0?Math.max(Math.abs(feat(m,'scheduleHomeFatigue')),Math.abs(feat(m,'scheduleAwayFatigue')))*.008*scheduleConfidence:0)+
   lineupUncertainty*.004*(1-lineupConfidence)
  );
  const volatility=.015+uncertainty+context;
