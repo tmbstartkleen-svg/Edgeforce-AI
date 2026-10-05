@@ -1,6 +1,7 @@
 import {db} from './db';
 import type {Market} from './types';
 import {applyOptimizerBlend,loadCrossSportOptimizerProfiles,selectOptimizerProfile,type OptimizerProfile,type OptimizerProfileMap} from './crossSportOptimizer';
+import {loadIntelligenceReliabilityState} from './intelligenceReliability';
 
 export type MarketRegime='STABLE'|'VOLATILE'|'DISLOCATED'|'THIN'|'UNKNOWN';
 export type DynamicConfidenceLabel='HIGH'|'MEDIUM'|'LOW';
@@ -165,7 +166,7 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
  const sql=db();
  if(!sql)return {};
  try{
-  const [rows,optimizerMap]=await Promise.all([
+  const [rows,optimizerMap,reliability]=await Promise.all([
    sql`
    select sport,market_key as "marketKey",sample_size as "sampleSize",
     calibration_error::float as "calibrationError",
@@ -177,8 +178,10 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
    order by as_of desc
    limit 2000
   `,
-   loadCrossSportOptimizerProfiles().catch(()=>({} as OptimizerProfileMap))
+   loadCrossSportOptimizerProfiles().catch(()=>({} as OptimizerProfileMap)),
+   loadIntelligenceReliabilityState().catch(()=>({openComponents:[]} as Awaited<ReturnType<typeof loadIntelligenceReliabilityState>>))
   ]);
+  const optimizerAvailable=!reliability.openComponents.includes('optimizer');
   const grouped=new Map<string,DynamicCalibrationProfile[]>();
   for(const raw of rows as any[]){
    const p:DynamicCalibrationProfile={
@@ -207,10 +210,10 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
     brierScore:list.reduce((s,x)=>s+x.brierScore*Math.max(1,x.sampleSize),0)/Math.max(1,weight),
     decayedScore:list.reduce((s,x)=>s+x.decayedScore*Math.max(1,x.sampleSize),0)/Math.max(1,weight),
     confidenceLabel:list.some(x=>x.confidenceLabel==='HIGH')?'HIGH':list.some(x=>x.confidenceLabel==='MEDIUM')?'MEDIUM':'LOW',
-    optimizer:selectOptimizerProfile(optimizerMap,sport,marketKey)
+    optimizer:optimizerAvailable?selectOptimizerProfile(optimizerMap,sport,marketKey):undefined
    };
   }
-  for(const optimizer of Object.values(optimizerMap)){
+  if(optimizerAvailable)for(const optimizer of Object.values(optimizerMap)){
    const k=calibrationProfileKey(optimizer.sport,optimizer.marketKey);
    if(out[k]){if(!out[k].optimizer)out[k].optimizer=optimizer;continue}
    out[k]={
