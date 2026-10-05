@@ -110,3 +110,20 @@ export async function cashoutLearningSummary(){
  });
  return {configured:true,rows,pending};
 }
+export async function persistCashoutLearning(rows:CashoutLearningRow[]){
+ const sql=db();
+ if(!sql||!rows.length)return {persisted:false};
+ const latest=await sql`select max(observed_at) as latest from cashout_learning_snapshots`;
+ const latestMs=latest[0]?.latest?new Date(latest[0].latest as string).getTime():0;
+ if(latestMs&&Date.now()-latestMs<15*60000)return {persisted:false};
+ for(const x of rows){
+  await sql`
+   insert into cashout_learning_snapshots(
+    observed_at,alert_type,samples,graded_samples,positive_samples,positive_rate,average_decision_utility,average_offer_edge,confidence,multiplier,state,metadata
+   ) values(
+    now(),${x.alertType},${x.samples},${x.gradedSamples},${x.positiveSamples},${x.positiveRate},${x.averageDecisionUtility},${x.averageOfferEdge},${x.confidence},${x.multiplier},${x.state},${sql.json({} as any)}
+   )
+  `;
+ }
+ return {persisted:true};
+}
