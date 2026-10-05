@@ -37,7 +37,7 @@ export type DynamicConfidenceResult={
   distributionConfidence:number;
   historicalReliability:number;
   regimeMultiplier:number;
-  optimizerConfidence:number;
+  optimizerConfidence?:number;
  };
  optimizerBlend:{applied:boolean;scope:string;confidence:number;councilWeight:number;simulationWeight:number;marketWeight:number};
  profile?:DynamicCalibrationProfile;
