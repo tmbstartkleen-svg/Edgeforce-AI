@@ -64,6 +64,9 @@ assert(health.body?.unifiedIntelligenceCertification===true,'unified intelligenc
 assert(health.body?.failSoftIntelligenceGate===true,'fail-soft intelligence gate flag missing');
 assert(health.body?.intradayInjuryAutomationMonitored===true,'injury automation monitoring flag missing');
 assert(health.body?.crossSportFinalBlendOptimizer===true,'cross-sport final blend optimizer flag missing');
+assert(health.body?.intelligenceCircuitBreakers===true,'intelligence circuit-breaker flag missing');
+assert(health.body?.automaticReliabilityRecovery===true,'automatic reliability recovery flag missing');
+assert(health.body?.protectiveRecommendationMode===true,'protective recommendation mode flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
