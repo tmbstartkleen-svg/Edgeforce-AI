@@ -50,6 +50,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('automation','Automation health',certification.automation.failedCount===0&&certification.automation.staleCount===0?'PASS':'FAIL',true,`${certification.automation.healthyCount} healthy, ${certification.automation.pendingCount} pending, ${certification.automation.failedCount} failed, ${certification.automation.staleCount} stale.`);
  add('live-data','Live sportsbook data',certification.ingestion.source==='live'?'PASS':strict?'FAIL':'WARN',true,`Current ingestion source: ${certification.ingestion.source}; markets: ${certification.ingestion.marketCount}.`);
  add('release-attestation','Release attestation',certification.releaseAttestation.found&&certification.releaseAttestation.buildPassed&&certification.releaseAttestation.smokePassed&&certification.releaseAttestation.loadPassed&&certification.releaseAttestation.readinessPassed?'PASS':strict?'FAIL':'WARN',true,certification.releaseAttestation.found?`Attestation ${certification.releaseAttestation.version}: build=${certification.releaseAttestation.buildPassed}, smoke=${certification.releaseAttestation.smokePassed}, load=${certification.releaseAttestation.loadPassed}, readiness=${certification.releaseAttestation.readinessPassed}.`:'No current release attestation found.');
+ const execCert=certification.executionCertification;
+ add('release-execution','Release execution evidence',execCert?.certified?'PASS':strict?'FAIL':'WARN',true,execCert?`Execution certificate ${execCert.releaseVersion} @ ${execCert.commitSha.slice(0,8)}; source ${execCert.source}.`:'No current-release execution certificate found.');
  add('provider-certification','Provider certification',certification.providerCertification?.launchReady?'PASS':strict?'FAIL':'WARN',true,certification.providerCertification?`Provider launchReady=${Boolean(certification.providerCertification.launchReady)}.`:'No persisted provider certification yet.');
  add('model-validation','Model validation',certification.modelValidation.latestRun?.status==='failed'?'FAIL':certification.modelValidation.latestRun?'PASS':'WARN',true,certification.modelValidation.latestRun?`Latest validation run ${certification.modelValidation.latestRun.status}; evidence failures ${certification.modelValidation.report.evidence.failed}.`:'No durable validation run yet.');
  add('model-governance','Model governance',certification.modelGovernance.latestRun?.status==='failed'?'FAIL':certification.modelGovernance.latestRun?'PASS':'WARN',true,certification.modelGovernance.latestRun?`Latest governance run ${certification.modelGovernance.latestRun.status}; critical ${certification.modelGovernance.summary.critical}, drifting ${certification.modelGovernance.summary.drifting}.`:'No completed governance run yet.');
@@ -84,6 +86,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    replayOrdering:replayState,
    stressPrimeReadyFragile:stress?fragile:null,
    releaseAttestation:certification.releaseAttestation,
+   releaseExecutionCertified:Boolean(certification.executionCertification?.certified),
+   releaseExecutionCommit:certification.executionCertification?.commitSha||null,
    securityOk:certification.security.ok,
    liveData:certification.ingestion.source==='live',
    unifiedIntelligenceState:certification.unifiedIntelligence.state,
