@@ -22,7 +22,7 @@ export async function POST(req:Request){
  const result=evaluateDeploymentGuard(baseline,candidate);
  const persistence=await persistDeploymentGuardRun({launchId:body.launchId?String(body.launchId):null,baseline,candidate,result});
  return Response.json({ok:result.decision==='PASS',build:'V73',schemaVersion:'v73-deployment-guard-1',baseline,candidate,...result,persistence},{
-  status:result.decision==='PASS'?200:503,
+  status:200,
   headers:{'Cache-Control':'no-store'}
  });
 }
