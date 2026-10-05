@@ -168,6 +168,8 @@ export async function GET(){
   adaptiveIncidentRunbooks:true,
   predictiveIncidentRisk:true,
   preventiveIncidentWarnings:true,
+  preventiveActionLearning:true,
+  preventiveOutcomeEvaluation:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
