@@ -116,6 +116,8 @@ assert(health.body?.governanceWatchdog===true,'governance watchdog flag missing'
 assert(health.body?.staleLeaseRecovery===true,'stale lease recovery flag missing');
 assert(health.body?.unifiedSupervisionCycle===true,'unified supervision cycle flag missing');
 assert(health.body?.sharedEvidenceContext===true,'shared evidence context flag missing');
+assert(health.body?.releaseExecutionCertification===true,'release execution certification flag missing');
+assert(health.body?.verifiedPromotionEvidence===true,'verified promotion evidence flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
