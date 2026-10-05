@@ -69,6 +69,9 @@ assert(health.body?.automaticReliabilityRecovery===true,'automatic reliability r
 assert(health.body?.protectiveRecommendationMode===true,'protective recommendation mode flag missing');
 assert(health.body?.comparativeCanaryDeploymentGuard===true,'comparative canary deployment guard flag missing');
 assert(health.body?.automaticHostedRollback===true,'automatic hosted rollback flag missing');
+assert(health.body?.sloErrorBudgetGovernance===true,'SLO error-budget governance flag missing');
+assert(health.body?.automaticDeploymentFreeze===true,'automatic deployment freeze flag missing');
+assert(health.body?.sustainedDeploymentRecovery===true,'sustained deployment recovery flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
@@ -498,6 +501,12 @@ assert(deploymentGuardTest.body?.healthy?.decision==='PASS','healthy deployment 
 assert(deploymentGuardTest.body?.softBlock?.decision==='BLOCK'&&deploymentGuardTest.body?.softBlock?.hardBlock===false,'soft deployment regression should block without hard flag');
 assert(deploymentGuardTest.body?.hardBlock?.decision==='BLOCK'&&deploymentGuardTest.body?.hardBlock?.hardBlock===true,'hard deployment regression should hard block');
 
+const sloGovernorTest=await get('/api/testing/slo-governor');
+assert(sloGovernorTest.res.ok&&sloGovernorTest.body?.ok===true,'SLO governor regression failed');
+assert(sloGovernorTest.body?.good?.freezeTriggered===false,'healthy SLO window should remain open');
+assert(sloGovernorTest.body?.bad?.freezeTriggered===true,'critical SLO window should freeze');
+assert(sloGovernorTest.body?.transitions?.reopened?.state==='OPEN','SLO recovery sequence did not reopen');
+
 const recalibration=await get('/api/testing/recalibration');
 assert(recalibration.res.ok&&recalibration.body?.ok===true,'recalibration guardrail simulation failed');
 assert(recalibration.body?.good?.promoted===true,'qualified model was not promoted');
@@ -527,5 +536,5 @@ assert(String(health.res.headers.get('cache-control')||'').includes('no-store'),
 
 console.log(JSON.stringify({ok:true,base,checks:[
  'liveness','health','readiness','release-readiness','deployment-smoke','diagnostics','ops-status','ledger',
- 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','context-quality','context-intelligence','public-context-network','validation-lab-regression','validation-lab','recommendation-quality','parlay-fallback','odds-refresh-policy','prediction-intelligence','live-parlays','data-quality','production-certification','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
+ 'provider-failure','payload-quality','provider-certification','launch-doctor','joint-simulation','sgp-correlation','micro-simulation','micro-catalog','market-consensus','market-consensus-status','regime-confidence','regime-confidence-status','model-governance','model-governance-status','portfolio-stress','explainability','what-if','model-diagnostics','data-contract','automation-health-test','security-hardening','automation-health','context-quality','context-intelligence','public-context-network','validation-lab-regression','validation-lab','recommendation-quality','parlay-fallback','odds-refresh-policy','prediction-intelligence','live-parlays','data-quality','production-certification','slo-governor','recalibration','context-changes','line-movement','calibration-status','backtest','dashboard-security'
 ]}));
