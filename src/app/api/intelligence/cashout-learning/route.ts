@@ -38,6 +38,7 @@ export async function POST(req:Request){
   ?body.outcome
   :'PENDING';
  const result=await recordCashoutObservation({
+  observationId:Number.isFinite(Number(body.observationId))?Number(body.observationId):undefined,
   commandId:body.commandId,
   ladderId:body.ladderId,
   checkpointLabel:body.checkpointLabel,
