@@ -886,8 +886,8 @@ add('V101 dashboard surface',read('src/components/OperatorCommandCenter.tsx').in
 add('V101 production rollback writer',read('.github/workflows/deploy-production.yml').includes('/api/release/rollback-reconciliation')&&read('.github/workflows/deploy-production.yml').includes('PREVIOUS_DEPLOYMENT_ID'),'rollback workflow reconciles failed evidence');
 add('V101 release notes',exists('EDGEFORCE_V101_RELEASE.md'),'V101 release documentation exists');
 
-add('V102 hosted preview workflow',exists('.github/workflows/preview-cloudflare.yml')&&read('.github/workflows/preview-cloudflare.yml').includes('wrangler preview'),'repo-owned Cloudflare PR preview exists');
-add('V102 certified preview artifact',read('.github/workflows/preview-cloudflare.yml').includes('dist/server/wrangler.json')&&read('.github/workflows/preview-cloudflare.yml').includes('--ignore-base-config'),'hosted preview uses generated Worker config and ignores dashboard drift');
+add('V102 hosted preview workflow',exists('.github/workflows/preview-cloudflare.yml')&&read('.github/workflows/preview-cloudflare.yml').includes('preview:cloudflare')&&read('.github/workflows/preview-cloudflare.yml').includes('--temporary'),'repo-owned permanent/temporary Cloudflare PR preview exists');
+add('V102 certified preview artifact',read('.github/workflows/preview-cloudflare.yml').includes('dist/server/wrangler.json')&&exists('scripts/prepare-cloudflare-temporary-preview.mjs')&&read('package.json').includes('wrangler preview --config dist/server/wrangler.json'),'hosted preview uses generated Worker config with isolated temporary fallback');
 add('V102 hosted preview smoke',exists('scripts/cloudflare-preview-smoke.mjs')&&read('.github/workflows/preview-cloudflare.yml').includes('cloudflare-preview-smoke.mjs'),'hosted preview identity smoke exists');
 add('V102 preview URL extraction',exists('scripts/extract-cloudflare-preview-url.mjs'),'machine-readable preview URL extraction exists');
 add('V102 preview cleanup',read('.github/workflows/preview-cloudflare.yml').includes('preview delete')||read('.github/workflows/preview-cloudflare.yml').includes('preview:cloudflare:delete'),'PR close cleanup exists');
