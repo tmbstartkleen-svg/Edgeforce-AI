@@ -57,14 +57,17 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
  const awayEvidence=legs.filter(x=>mentions(`${x.market} ${x.selection}`,away)&&!isPlayer(x)).map(x=>x.modelProb??x.simProbability);
  const avg=(a:number[])=>a.length?a.reduce((s,x)=>s+x,0)/a.length:.5;
  const homeStrength=clamp(avg(homeEvidence)-avg(awayEvidence),-.35,.35);
- const homeMean0=Math.max(.05,base.total/2+homeStrength*base.total*.28);
- const awayMean0=Math.max(.05,base.total-homeMean0);
+ const injurySignals=legs.map(x=>Number(x.sportFeatures?.injury||0)).filter(Number.isFinite);
+ const injuryShock=injurySignals.length?clamp(injurySignals.reduce((s,x)=>s+Math.abs(x),0)/injurySignals.length,0,1):0;
+ const injuryTotalScale=1-.035*injuryShock;
+ const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28)*injuryTotalScale);
+ const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28))*injuryTotalScale);
 
  for(let r=0;r<runs;r++){
   const paceZ=random.normal();
   const homeFormZ=random.normal();
   const awayFormZ=random.normal();
-  const paceScale=Math.exp(paceZ*.07);
+  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock));
   const homeMean=Math.max(.01,homeMean0*paceScale*Math.exp(homeFormZ*.05));
   const awayMean=Math.max(.01,awayMean0*paceScale*Math.exp(awayFormZ*.05));
   const homeScore=base.discrete?poisson(random,homeMean):Math.max(0,homeMean+base.sd*(.26*paceZ+.42*homeFormZ+.36*random.normal()));
