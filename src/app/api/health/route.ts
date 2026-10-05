@@ -172,6 +172,8 @@ export async function GET(){
   preventiveOutcomeEvaluation:true,
   preventiveActionRanking:true,
   riskAwareSafeguardPriority:true,
+  preventiveActionDecisionGate:true,
+  evidenceGatedSafeguardDecision:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
