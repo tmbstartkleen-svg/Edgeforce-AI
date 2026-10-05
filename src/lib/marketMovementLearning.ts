@@ -2,10 +2,6 @@ import {db} from './db';
 import type {Market,ContextProvenance} from './types';
 import {canonicalConsensusMarket,normalizeConsensusText} from './marketConsensus';
 
-type SnapshotRow={
- sport:string;home:string;away:string;startTime:string;eventId:string;
- marketKey:string;selectionKey:string;odds:number;probability:number;pulledAt:string;
-};
 export type MovementPoint={odds:number;probability:number;pulledAt:string;point?:number};
 export type MarketMovementProfile={
  sport:string;marketKey:string;sampleCount:number;avgClvProbability:number;positiveClvRate:number;
@@ -50,7 +46,8 @@ export function canonicalMovementSelection(selection:string,market:string){
 
 function minuteKey(iso:string){
  const d=new Date(iso); if(!Number.isFinite(d.getTime()))return iso;
- d.setUTCSeconds(0,0);return d.toISOString();
+ const tenMinutes=10*60000;
+ return new Date(Math.round(d.getTime()/tenMinutes)*tenMinutes).toISOString();
 }
 export function movementEventIdentity(sport:string,home:string,away:string,startTime:string){
  return [normalizeConsensusText(sport),normalizeConsensusText(home),normalizeConsensusText(away),minuteKey(startTime)].join('|');
@@ -70,7 +67,7 @@ function movementVolatility(points:MovementPoint[]){
 
 export function buildMovementSignals(points:MovementPoint[],profile?:MarketMovementProfile,sharpPublicGap=0):MarketMovementSignals|null{
  const sorted=[...points].filter(x=>Number.isFinite(x.odds)&&Number.isFinite(x.probability)).sort((a,b)=>new Date(a.pulledAt).getTime()-new Date(b.pulledAt).getTime());
- if(!sorted.length)return null;
+ if(sorted.length<2)return null;
  const opener=sorted[0],current=sorted[sorted.length-1];
  const probabilityMove=current.probability-opener.probability;
  const cutoff=new Date(current.pulledAt).getTime()-60*60000;
