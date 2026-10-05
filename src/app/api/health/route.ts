@@ -9,6 +9,7 @@ export async function GET(){
  const database=await dbHealth();
  const providers=configuredProviders();
  const runtimeModelVersion=process.env.MODEL_VERSION||null;
+ const deploymentCommit=process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null;
  const releaseIdentityMatch=!runtimeModelVersion||runtimeModelVersion===RELEASE.modelVersion;
  return Response.json({
   ok:true,
@@ -20,6 +21,7 @@ export async function GET(){
   runtimeModelVersion,
   releaseIdentityMatch,
   migrationVersion:RELEASE.migrationVersion,
+  deploymentCommit,
   releaseCandidate:true,
   productionHardened:true,
   readinessEndpoint:true,
