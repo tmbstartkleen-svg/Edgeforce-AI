@@ -85,7 +85,8 @@ export async function cashoutLearningSummary(){
  const groups=new Map<string,{utility:number[];edge:number[];samples:number;graded:number;positive:number}>();
  let pending=0;
  for(const raw of observations as any[]){
-  const type=(commandType.get(String(raw.command_id||''))||String(raw.command_id||'').startsWith('cashout:')?'CASHOUT_REVIEW':'FINAL_LEG_REVIEW') as 'CASHOUT_REVIEW'|'FINAL_LEG_REVIEW';
+  const mapped=commandType.get(String(raw.command_id||''));
+  const type=(mapped==='FINAL_LEG_REVIEW'?'FINAL_LEG_REVIEW':'CASHOUT_REVIEW') as 'CASHOUT_REVIEW'|'FINAL_LEG_REVIEW';
   const g=groups.get(type)||{utility:[],edge:[],samples:0,graded:0,positive:0};
   g.samples++;
   g.edge.push(Number(raw.model_cashout_edge||0));
