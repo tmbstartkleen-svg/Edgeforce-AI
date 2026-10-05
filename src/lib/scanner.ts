@@ -16,7 +16,7 @@ export type Scanned=Ranked & {
  regime:MarketRegime;
  historicalShrinkage:number;
  consensusBlend:number;
- optimizerBlend:{applied:boolean;scope:string;confidence:number;councilWeight:number;simulationWeight:number;marketWeight:number};
+ optimizerBlend?:{applied:boolean;scope:string;confidence:number;councilWeight:number;simulationWeight:number;marketWeight:number};
  dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'] & {contextQuality?:number};
  daysOut:number;
  bucket:'TODAY'|'WEEK';
