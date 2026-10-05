@@ -130,7 +130,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "97.0.0"
+          EXPECTED_APP_VERSION: "99.0.0"
 
       - name: Publish deployment URL
         env:
@@ -140,7 +140,7 @@ jobs:
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Certification build: V98 cross-platform verification" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime release: V97" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v97" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v99" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v109" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
