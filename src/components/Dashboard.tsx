@@ -8,26 +8,7 @@ import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
 import PredictionIntelligencePanel from './PredictionIntelligencePanel';
-import LiveComebackPanel from './LiveComebackPanel';
-import EarlyCashoutPanel from './EarlyCashoutPanel';
-import ForecastSkillPanel from './ForecastSkillPanel';
-import DailyEdgeRouterPanel from './DailyEdgeRouterPanel';
-import MasterEdgePanel from './MasterEdgePanel';
-import EdgeLifecyclePanel from './EdgeLifecyclePanel';
-import EntryWindowPanel from './EntryWindowPanel';
-import PriceTargetPanel from './PriceTargetPanel';
-import BestPricePanel from './BestPricePanel';
-import PriceCapturePanel from './PriceCapturePanel';
-import ExecutionFeedbackPanel from './ExecutionFeedbackPanel';
-import FinalDecisionGatePanel from './FinalDecisionGatePanel';
-import OpportunityCommandQueuePanel from './OpportunityCommandQueuePanel';
-import CommandLearningPanel from './CommandLearningPanel';
-import CashoutLearningPanel from './CashoutLearningPanel';
-import CashoutReconciliationPanel from './CashoutReconciliationPanel';
-import CashoutPolicyPanel from './CashoutPolicyPanel';
-import CashoutPolicyGovernancePanel from './CashoutPolicyGovernancePanel';
-import DecisionReplayPanel from './DecisionReplayPanel';
-import StressScenarioLabPanel from './StressScenarioLabPanel';
+import OperatorCommandCenter from './OperatorCommandCenter';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1098,26 +1079,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
-    <StressScenarioLabPanel/>
-    <DecisionReplayPanel/>
-    <CashoutPolicyGovernancePanel/>
-    <CashoutPolicyPanel/>
-    <CashoutReconciliationPanel/>
-    <CashoutLearningPanel/>
-    <CommandLearningPanel/>
-    <OpportunityCommandQueuePanel/>
-    <FinalDecisionGatePanel/>
-    <ExecutionFeedbackPanel/>
-    <PriceCapturePanel/>
-    <BestPricePanel/>
-    <PriceTargetPanel/>
-    <EntryWindowPanel/>
-    <EdgeLifecyclePanel/>
-    <MasterEdgePanel/>
-    <DailyEdgeRouterPanel/>
-    <ForecastSkillPanel/>
-    <EarlyCashoutPanel/>
-    <LiveComebackPanel/>
+    <OperatorCommandCenter/>
 
     <section className="v21Grid two">
       <div className="v21Card">
