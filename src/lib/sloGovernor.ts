@@ -11,14 +11,7 @@ import {runPreventiveDecisionThresholdGovernor} from './preventiveDecisionThresh
 import {runThresholdStabilityGovernor} from './preventiveThresholdStability';
 import {runThresholdRecoveryGovernor} from './preventiveThresholdRecovery';
 import {runThresholdProbationGovernor} from './preventiveThresholdProbation';
-import {runProbationPerformanceGovernor} from './preventiveProbationPerformance';
-import {runChampionBaselineGovernor} from './preventiveChampionBaseline';
-import {runChampionBaselineHealthGovernor} from './preventiveChampionBaselineHealth';
-import {runBaselineSuccessionGovernor} from './preventiveBaselineSuccession';
-import {runBaselineHandoffGovernor} from './preventiveBaselineHandoff';
-import {runSuccessorValidationGovernor} from './preventiveSuccessorValidation';
-import {runSuccessorGraduationGovernor} from './preventiveSuccessorGraduation';
-import {runBaselineConsistencyGovernor} from './preventiveBaselineConsistency';
+import {runBaselineGovernanceCycle} from './preventiveBaselineGovernanceCycle';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -300,14 +293,7 @@ export async function runSloGovernor(){
  await runPreventiveDecisionCalibration().catch(()=>({configured:false}));
  await runThresholdRecoveryGovernor().catch(()=>({configured:false}));
  await runThresholdProbationGovernor().catch(()=>({configured:false}));
- await runChampionBaselineHealthGovernor().catch(()=>({configured:false}));
- await runBaselineSuccessionGovernor().catch(()=>({configured:false}));
- await runBaselineHandoffGovernor().catch(()=>({configured:false}));
- await runSuccessorValidationGovernor().catch(()=>({configured:false}));
- await runSuccessorGraduationGovernor().catch(()=>({configured:false}));
- await runBaselineConsistencyGovernor().catch(()=>({configured:false}));
- await runProbationPerformanceGovernor().catch(()=>({configured:false}));
- await runChampionBaselineGovernor().catch(()=>({configured:false}));
+ await runBaselineGovernanceCycle().catch(()=>({configured:false,status:'FAILED'}));
  await runPreventiveDecisionThresholdGovernor().catch(()=>({persisted:false}));
  await runThresholdStabilityGovernor().catch(()=>({configured:false}));
  await runPreventiveActionDecisionGate().catch(()=>({persisted:false}));

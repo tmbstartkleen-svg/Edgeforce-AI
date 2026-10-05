@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V93',
- appVersion:'93.0.0',
- packageVersion:'0.93.0',
- modelVersion:'edgeforce-v93',
- migrationVersion:105
+ build:'V94',
+ appVersion:'94.0.0',
+ packageVersion:'0.94.0',
+ modelVersion:'edgeforce-v94',
+ migrationVersion:106
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -300,6 +300,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-baseline-consistency/route.ts',
  'src/components/PreventiveBaselineConsistencyPanel.tsx',
  'EDGEFORCE_V93_RELEASE.md',
+ 'src/lib/preventiveBaselineGovernanceCycle.ts',
+ 'src/app/api/operations/preventive-baseline-governance-cycle/route.ts',
+ 'src/app/api/testing/preventive-baseline-governance-cycle/route.ts',
+ 'src/components/PreventiveBaselineGovernanceCyclePanel.tsx',
+ 'EDGEFORCE_V94_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -795,6 +800,14 @@ add('V93 durable consistency',read('db/v105.sql').includes('preventive_baseline_
 add('V93 regression',read('src/app/api/testing/preventive-baseline-consistency/route.ts').includes("healthy.status==='HEALTHY'")&&read('src/app/api/testing/preventive-baseline-consistency/route.ts').includes("broken.status==='REPAIR_REQUIRED'"),'regression covers healthy and broken lifecycle states');
 add('V93 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineConsistencyGovernor'),'lifecycle reconciliation runs during SLO supervision');
 add('V93 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineConsistencyPanel'),'lifecycle consistency is visible');
+
+add('V94 governance cycle coordinator',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('runBaselineGovernanceCycle'),'baseline governance coordinator exists');
+add('V94 lease locking',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("interval '90 seconds'")&&read('db/v106.sql').includes('preventive_baseline_governance_lock'),'database-backed governance lease exists');
+add('V94 cycle idempotency',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('SKIPPED_IDEMPOTENT')&&read('db/v106.sql').includes('cycle_key text not null unique'),'completed minute-bucket cycles are duplicate-safe');
+add('V94 transition journal',read('db/v106.sql').includes('preventive_baseline_governance_cycles')&&read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("'COMPLETED'"),'governance cycle journal is durable');
+add('V94 SLO coordination',read('src/lib/sloGovernor.ts').includes('runBaselineGovernanceCycle')&&!read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'SLO supervision uses the coordinated baseline-governance cycle');
+add('V94 regression',read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_LOCKED')&&read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_IDEMPOTENT'),'regression covers locking and idempotency');
+add('V94 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineGovernanceCyclePanel'),'governance cycle status is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
