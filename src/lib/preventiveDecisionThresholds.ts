@@ -82,8 +82,10 @@ export function derivePreventiveDecisionThresholds(input:{
  };
 }
 
-export async function buildPreventiveDecisionThresholds(){
- const c:any=await loadPreventiveDecisionCalibrationSummary();
+export async function buildPreventiveDecisionThresholds(calibration?:{
+ sampleSize?:number;brierScore?:number;calibrationError?:number;recommendSuccessRate?:number;rejectSuccessRate?:number;
+}){
+ const c:any=calibration||await loadPreventiveDecisionCalibrationSummary();
  return derivePreventiveDecisionThresholds({
   sampleSize:Number(c.sampleSize||0),
   brierScore:Number(c.brierScore||0),
@@ -123,14 +125,14 @@ export async function persistPreventiveDecisionThresholds(report:PreventiveDecis
  return {persisted:true};
 }
 
-export async function runPreventiveDecisionThresholdGovernor(){
+export async function runPreventiveDecisionThresholdGovernor(context?:{calibration?:Parameters<typeof buildPreventiveDecisionThresholds>[0]}){
  const reentryAllowed=await adaptiveThresholdReentryAllowed();
  if(!reentryAllowed){
   const active=await loadPreventiveDecisionThresholds();
   return {...active,persisted:false,reentryAllowed:false,governorState:'RECOVERY_LOCK'};
  }
  const weight=await getAdaptiveThresholdWeight();
- const target=await buildPreventiveDecisionThresholds();
+ const target=await buildPreventiveDecisionThresholds(context?.calibration);
  const report=applyAdaptiveThresholdWeight(target,weight);
  const persistence=await persistPreventiveDecisionThresholds(report);
  return {...report,persistence,reentryAllowed:true,adaptiveWeight:weight,governorState:weight<1?'PROBATION':'ADAPTIVE'};
