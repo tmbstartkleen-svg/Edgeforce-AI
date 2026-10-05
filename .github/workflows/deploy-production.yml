@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
-      VERCEL_PROJECT_ID: prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ
+      VERCEL_PROJECT_ID: prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo
       VERCEL_SCOPE: tmbstartkleen-4716s-projects
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
