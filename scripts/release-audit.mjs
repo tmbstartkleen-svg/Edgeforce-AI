@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V83',
- appVersion:'83.0.0',
- packageVersion:'0.83.0',
- modelVersion:'edgeforce-v83',
- migrationVersion:95
+ build:'V84',
+ appVersion:'84.0.0',
+ packageVersion:'0.84.0',
+ modelVersion:'edgeforce-v84',
+ migrationVersion:96
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -250,6 +250,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-threshold-stability/route.ts',
  'src/components/PreventiveThresholdStabilityPanel.tsx',
  'EDGEFORCE_V83_RELEASE.md',
+ 'src/lib/preventiveThresholdRecovery.ts',
+ 'src/app/api/operations/preventive-threshold-recovery/route.ts',
+ 'src/app/api/testing/preventive-threshold-recovery/route.ts',
+ 'src/components/PreventiveThresholdRecoveryPanel.tsx',
+ 'EDGEFORCE_V84_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -665,6 +670,14 @@ add('V83 safe rollback target',read('src/lib/preventiveThresholdStability.ts').i
 add('V83 rollback integration',read('src/lib/sloGovernor.ts').includes('runThresholdStabilityGovernor'),'SLO supervision runs stability check before the preventive decision gate');
 add('V83 stability regression',read('src/app/api/testing/preventive-threshold-stability/route.ts').includes("status==='ROLLBACK'"),'regression covers stable and rollback states');
 add('V83 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdStabilityPanel'),'stability governor is visible');
+
+add('V84 threshold recovery governor',read('src/lib/preventiveThresholdRecovery.ts').includes('nextThresholdRecoveryState'),'threshold recovery state machine exists');
+add('V84 three-window re-entry',read('src/lib/preventiveThresholdRecovery.ts').includes('streak>=3')&&read('src/lib/preventiveThresholdRecovery.ts').includes("state:'RECOVERING'"),'adaptive re-entry requires three healthy windows');
+add('V84 recovery lock integration',read('src/lib/preventiveDecisionThresholds.ts').includes('adaptiveThresholdReentryAllowed')&&read('src/lib/preventiveDecisionThresholds.ts').includes('RECOVERY_LOCK'),'adaptive threshold writes pause while recovery is locked');
+add('V84 durable recovery state',read('db/v96.sql').includes('preventive_threshold_recovery_state')&&read('db/v96.sql').includes('preventive_threshold_recovery_snapshots'),'recovery state and history are durable');
+add('V84 recovery regression',read('src/app/api/testing/preventive-threshold-recovery/route.ts').includes("state==='LOCKED'")&&read('src/app/api/testing/preventive-threshold-recovery/route.ts').includes("state==='OPEN'"),'regression covers lock, recovery, and re-entry');
+add('V84 supervision integration',read('src/lib/sloGovernor.ts').includes('runThresholdRecoveryGovernor'),'SLO supervision refreshes threshold recovery');
+add('V84 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdRecoveryPanel'),'threshold recovery is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

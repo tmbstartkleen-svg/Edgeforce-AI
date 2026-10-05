@@ -180,6 +180,8 @@ export async function GET(){
   boundedThresholdGovernor:true,
   thresholdStabilityRollback:true,
   lastKnownSafeThresholdRestore:true,
+  thresholdRecoveryGovernor:true,
+  adaptiveThresholdReentry:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,

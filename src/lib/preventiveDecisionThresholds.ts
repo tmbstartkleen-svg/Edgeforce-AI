@@ -1,6 +1,7 @@
 import {db} from './db';
 import {loadPreventiveDecisionCalibrationSummary} from './preventiveDecisionCalibration';
 import {RELEASE} from './releaseManifest';
+import {adaptiveThresholdReentryAllowed} from './preventiveThresholdRecovery';
 
 export type PreventiveDecisionThresholds={
  recommendThreshold:number;
@@ -109,9 +110,14 @@ export async function persistPreventiveDecisionThresholds(report:PreventiveDecis
 }
 
 export async function runPreventiveDecisionThresholdGovernor(){
+ const reentryAllowed=await adaptiveThresholdReentryAllowed();
+ if(!reentryAllowed){
+  const active=await loadPreventiveDecisionThresholds();
+  return {...active,persisted:false,reentryAllowed:false,governorState:'RECOVERY_LOCK'};
+ }
  const report=await buildPreventiveDecisionThresholds();
  const persistence=await persistPreventiveDecisionThresholds(report);
- return {...report,persistence};
+ return {...report,persistence,reentryAllowed:true,governorState:'ADAPTIVE'};
 }
 
 export async function loadPreventiveDecisionThresholds(){
