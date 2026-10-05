@@ -242,9 +242,10 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  }else if(rollbackReconciliation.rollbackConfirmed===true){
   const failedCommit=String(rollbackReconciliation.failedCommitSha||'');
   const deployCommit=process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null;
-  if(strict)blockers.push(`rollback reconciliation: current release commit ${failedCommit||'unknown'} was rolled back and is not eligible for certification`);
-  if(strict&&deployCommit&&failedCommit&&failedCommit!==String(deployCommit)){
-   warnings.push(`rollback reconciliation: recorded rollback commit ${failedCommit} differs from current runtime commit ${deployCommit}`);
+  if(strict&&(!deployCommit||failedCommit===String(deployCommit))){
+   blockers.push(`rollback reconciliation: current release commit ${failedCommit||'unknown'} was rolled back and is not eligible for certification`);
+  }else if(deployCommit&&failedCommit&&failedCommit!==String(deployCommit)){
+   warnings.push(`rollback reconciliation: historical rollback commit ${failedCommit} differs from current runtime commit ${deployCommit}; repaired commit may proceed`);
   }
  }
 
