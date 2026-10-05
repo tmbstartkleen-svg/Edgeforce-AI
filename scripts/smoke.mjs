@@ -476,6 +476,10 @@ assert(['GO','CONDITIONAL'].includes(String(v1Readiness.body?.verdict)),'local v
 assert(Array.isArray(v1Readiness.body?.gates)&&v1Readiness.body.gates.length>=10,'v1 readiness gate set missing');
 assert(v1Readiness.body?.evidence?.securityOk===true,'v1 readiness security evidence missing');
 
+const productionLaunch=await get('/api/release/launch-status');
+assert(productionLaunch.res.ok&&productionLaunch.body?.ok===true,'production launch status endpoint failed');
+assert(['NOT_STARTED','IN_PROGRESS','READY','FAILED','ROLLED_BACK','STALE'].includes(String(productionLaunch.body?.state)),'production launch state invalid');
+
 const modelDiagnostics=await get('/api/intelligence/model-diagnostics');
 assert(modelDiagnostics.res.ok&&modelDiagnostics.body?.ok===true,'model diagnostics endpoint failed');
 
