@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V88',
- appVersion:'88.0.0',
- packageVersion:'0.88.0',
- modelVersion:'edgeforce-v88',
- migrationVersion:100
+ build:'V89',
+ appVersion:'89.0.0',
+ packageVersion:'0.89.0',
+ modelVersion:'edgeforce-v89',
+ migrationVersion:101
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -275,6 +275,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-champion-baseline-health/route.ts',
  'src/components/PreventiveChampionBaselineHealthPanel.tsx',
  'EDGEFORCE_V88_RELEASE.md',
+ 'src/lib/preventiveBaselineSuccession.ts',
+ 'src/app/api/operations/preventive-baseline-succession/route.ts',
+ 'src/app/api/testing/preventive-baseline-succession/route.ts',
+ 'src/components/PreventiveBaselineSuccessionPanel.tsx',
+ 'EDGEFORCE_V89_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -730,6 +735,14 @@ add('V88 durable health state',read('db/v100.sql').includes('preventive_champion
 add('V88 health regression',read('src/app/api/testing/preventive-champion-baseline-health/route.ts').includes("retire.status==='RETIRE'"),'regression covers active and retirement states');
 add('V88 supervision ordering',read('src/lib/sloGovernor.ts').includes('runChampionBaselineHealthGovernor'),'champion health is evaluated before V86 baseline comparison');
 add('V88 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveChampionBaselineHealthPanel'),'champion baseline health is visible');
+
+add('V89 baseline succession',read('src/lib/preventiveBaselineSuccession.ts').includes('evaluateBaselineSuccession'),'baseline succession governor exists');
+add('V89 readiness evidence',read('src/lib/preventiveBaselineSuccession.ts').includes("status:'READY'")&&read('src/lib/preventiveBaselineSuccession.ts').includes('windows.length<3'),'replacement readiness requires multi-window evidence');
+add('V89 durable succession',read('db/v101.sql').includes('preventive_baseline_succession_state')&&read('db/v101.sql').includes('preventive_baseline_succession_snapshots'),'succession readiness and history are durable');
+add('V89 V86 successor handoff',read('src/lib/preventiveProbationPerformance.ts').includes('preventive_baseline_succession_state')&&read('src/lib/preventiveProbationPerformance.ts').includes("status='READY'"),'V86 uses only validated replacement candidates');
+add('V89 regression',read('src/app/api/testing/preventive-baseline-succession/route.ts').includes("ready.status==='READY'")&&read('src/app/api/testing/preventive-baseline-succession/route.ts').includes("idle.status==='IDLE'"),'succession regression covers ready and idle states');
+add('V89 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineSuccessionGovernor'),'succession is evaluated before probation baseline comparison');
+add('V89 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineSuccessionPanel'),'baseline succession is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

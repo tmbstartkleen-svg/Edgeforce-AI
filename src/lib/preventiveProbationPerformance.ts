@@ -42,6 +42,13 @@ async function loadBaseline(){
    from preventive_champion_baseline_state where singleton_key=1 and promoted_at is not null
   `;
   if(champion)return champion;
+  const [successor]=await sql`
+   select candidate_calibration_error::float as "calibrationError",
+    candidate_brier_score::float as "brierScore"
+   from preventive_baseline_succession_state
+   where singleton_key=1 and status='READY'
+  `;
+  if(successor)return successor;
   const [row]=await sql`
    select calibration_error::float as "calibrationError",brier_score::float as "brierScore"
    from preventive_threshold_recovery_snapshots
