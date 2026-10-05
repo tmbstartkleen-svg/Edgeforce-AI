@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V89',
- appVersion:'89.0.0',
- packageVersion:'0.89.0',
- modelVersion:'edgeforce-v89',
- migrationVersion:101
+ build:'V90',
+ appVersion:'90.0.0',
+ packageVersion:'0.90.0',
+ modelVersion:'edgeforce-v90',
+ migrationVersion:102
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -280,6 +280,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-baseline-succession/route.ts',
  'src/components/PreventiveBaselineSuccessionPanel.tsx',
  'EDGEFORCE_V89_RELEASE.md',
+ 'src/lib/preventiveBaselineHandoff.ts',
+ 'src/app/api/operations/preventive-baseline-handoff/route.ts',
+ 'src/app/api/testing/preventive-baseline-handoff/route.ts',
+ 'src/components/PreventiveBaselineHandoffPanel.tsx',
+ 'EDGEFORCE_V90_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -743,6 +748,14 @@ add('V89 V86 successor handoff',read('src/lib/preventiveProbationPerformance.ts'
 add('V89 regression',read('src/app/api/testing/preventive-baseline-succession/route.ts').includes("ready.status==='READY'")&&read('src/app/api/testing/preventive-baseline-succession/route.ts').includes("idle.status==='IDLE'"),'succession regression covers ready and idle states');
 add('V89 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineSuccessionGovernor'),'succession is evaluated before probation baseline comparison');
 add('V89 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineSuccessionPanel'),'baseline succession is visible');
+
+add('V90 baseline handoff',read('src/lib/preventiveBaselineHandoff.ts').includes('evaluateSuccessorPromotion'),'successor promotion governor exists');
+add('V90 strengthened promotion gates',read('src/lib/preventiveBaselineHandoff.ts').includes('readinessScore>=.80')&&read('src/lib/preventiveBaselineHandoff.ts').includes('candidateSampleSize>=25'),'successor promotion requires stronger evidence than V89 readiness alone');
+add('V90 active champion protection',read('src/lib/preventiveBaselineHandoff.ts').includes('hasActiveChampion'),'active champions cannot be replaced');
+add('V90 durable handoff',read('db/v102.sql').includes('preventive_baseline_handoff_state')&&read('db/v102.sql').includes('preventive_baseline_handoff_snapshots'),'handoff state and history are durable');
+add('V90 champion handoff write',read('src/lib/preventiveBaselineHandoff.ts').includes("'SUCCESSION_CHAMPION'"),'validated successor becomes the new champion baseline');
+add('V90 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'handoff runs after succession readiness');
+add('V90 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineHandoffPanel'),'baseline handoff is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

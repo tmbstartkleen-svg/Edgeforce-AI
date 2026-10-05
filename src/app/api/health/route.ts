@@ -192,6 +192,8 @@ export async function GET(){
   championBaselineRetirement:true,
   baselineSuccession:true,
   replacementBaselineReadiness:true,
+  baselineHandoff:true,
+  successorChampionPromotion:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
