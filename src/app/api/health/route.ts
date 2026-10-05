@@ -170,6 +170,8 @@ export async function GET(){
   preventiveIncidentWarnings:true,
   preventiveActionLearning:true,
   preventiveOutcomeEvaluation:true,
+  preventiveActionRanking:true,
+  riskAwareSafeguardPriority:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
