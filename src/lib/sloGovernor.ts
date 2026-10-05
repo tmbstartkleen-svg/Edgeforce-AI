@@ -9,6 +9,7 @@ import {runPreventiveActionDecisionGate} from './preventiveActionDecisionGate';
 import {runPreventiveDecisionCalibration} from './preventiveDecisionCalibration';
 import {runPreventiveDecisionThresholdGovernor} from './preventiveDecisionThresholds';
 import {runThresholdStabilityGovernor} from './preventiveThresholdStability';
+import {runThresholdRecoveryGovernor} from './preventiveThresholdRecovery';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -290,6 +291,7 @@ export async function runSloGovernor(){
  await runPreventiveDecisionCalibration().catch(()=>({configured:false}));
  await runPreventiveDecisionThresholdGovernor().catch(()=>({persisted:false}));
  await runThresholdStabilityGovernor().catch(()=>({configured:false}));
+ await runThresholdRecoveryGovernor().catch(()=>({configured:false}));
  await runPreventiveActionDecisionGate().catch(()=>({persisted:false}));
  if(!sql){
   const report=await buildSloGovernorReport();
