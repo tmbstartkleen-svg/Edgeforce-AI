@@ -501,6 +501,15 @@ jobs:
             --data "$BODY"
           echo
 
+      - name: Attempt final production closure
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          BODY=$(jq -cn --arg commitSha "$DEPLOY_COMMIT" --arg workflowRunId "$GITHUB_RUN_ID"             '{commitSha:$commitSha,workflowRunId:$workflowRunId,source:"production-vercel"}')
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/final-closure" -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY"
+          echo
+
       - name: Record failed launch before rollback
         if: failure() && steps.deploy.outcome == 'success'
         env:
@@ -519,7 +528,7 @@ jobs:
           curl --fail --silent --show-error \
             -X POST \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V74%20SLO%20canary%20or%20hosted%20launch%20gate%20failure"
+            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V104%20production%20certification%20or%20hosted%20launch%20gate%20failure"
 
       - name: Reconcile V104 rollback evidence
         if: failure() && steps.deploy.outcome == 'success'
