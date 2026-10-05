@@ -17,6 +17,9 @@ export type Scanned=Ranked & {
  historicalShrinkage:number;
  consensusBlend:number;
  optimizerBlend?:{applied:boolean;scope:string;confidence:number;councilWeight:number;simulationWeight:number;marketWeight:number};
+ intelligenceStackScore?:number;
+ intelligenceCriticalCoverage?:number;
+ intelligenceStackReady?:boolean;
  dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'] & {contextQuality?:number};
  daysOut:number;
  bucket:'TODAY'|'WEEK';
@@ -43,13 +46,20 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
   const bucket:Scanned['bucket']=daysOut<1?'TODAY':'WEEK';
   const contextScore=r.contextQuality?.score??0;
   const contextMultiplier=.72+.28*contextScore;
-  const dynamicConfidence=Math.max(.18,Math.min(.98,calibrated.dynamicConfidence*contextMultiplier));
+  const intelligenceStackScore=Math.max(0,Math.min(1,Number(r.sportFeatures?.intelligenceStackScore??contextScore)));
+  const intelligenceCriticalCoverage=Math.max(0,Math.min(1,Number(r.sportFeatures?.intelligenceCriticalCoverage??r.contextQuality?.criticalCoverage??contextScore)));
+  const intelligenceStackReady=Number(r.sportFeatures?.intelligenceStackReady??1)>=.5;
+  const intelligenceConfidenceScale=.90+.10*intelligenceStackScore;
+  const dynamicConfidence=Math.max(.18,Math.min(.98,calibrated.dynamicConfidence*contextMultiplier*intelligenceConfidenceScale));
   const confidenceDowngrade=calibrated.confidenceLabel==='LOW'||calibrated.regime==='DISLOCATED';
   const contextDowngrade=Boolean(r.contextQuality&&!r.contextQuality.recommendationReady);
+  const intelligenceDowngrade=!intelligenceStackReady||intelligenceStackScore<.45||intelligenceCriticalCoverage<.42;
   let grade=r.grade;
-  if(confidenceDowngrade||contextDowngrade)grade=grade==='ELITE'?'STRONG':grade==='STRONG'?'WATCH':grade;
+  if(confidenceDowngrade||contextDowngrade||intelligenceDowngrade)grade=grade==='ELITE'?'STRONG':grade==='STRONG'?'WATCH':grade;
   if((r.contextQuality?.criticalCoverage??1)<.34&&grade==='STRONG')grade='WATCH';
-  const stakeScale=Math.max(.30,.50+.50*dynamicConfidence);
+  if(intelligenceStackScore<.32&&grade!=='PASS')grade='WATCH';
+  const intelligenceStakeScale=intelligenceStackReady?(.85+.15*intelligenceStackScore):(.55+.25*intelligenceStackScore);
+  const stakeScale=Math.max(.25,(.50+.50*dynamicConfidence)*intelligenceStakeScale);
   return {
    ...r,
    grade,
@@ -65,6 +75,9 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
    historicalShrinkage:calibrated.historicalShrinkage,
    consensusBlend:calibrated.consensusBlend,
    optimizerBlend:calibrated.optimizerBlend,
+   intelligenceStackScore,
+   intelligenceCriticalCoverage,
+   intelligenceStackReady,
    dynamicConfidenceComponents:{...calibrated.components,contextQuality:contextScore},
    daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection
   };
