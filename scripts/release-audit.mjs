@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V72',
- appVersion:'72.0.0',
- packageVersion:'0.72.0',
- modelVersion:'edgeforce-v72',
- migrationVersion:84
+ build:'V73',
+ appVersion:'73.0.0',
+ packageVersion:'0.73.0',
+ modelVersion:'edgeforce-v73',
+ migrationVersion:85
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -194,6 +194,11 @@ const requiredFiles=[
  'src/app/api/testing/intelligence-reliability/route.ts',
  'src/components/ReliabilitySupervisorPanel.tsx',
  'EDGEFORCE_V72_RELEASE.md',
+ 'src/lib/deploymentGuard.ts',
+ 'src/app/api/release/deployment-guard/route.ts',
+ 'src/app/api/testing/deployment-guard/route.ts',
+ 'src/components/DeploymentGuardPanel.tsx',
+ 'EDGEFORCE_V73_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -321,9 +326,20 @@ add('V72 protective recommendation brake',read('src/lib/scanner.ts').includes("r
 add('V72 incident auto-recovery',read('src/lib/intelligenceReliability.ts').includes('INTELLIGENCE_CIRCUIT_OPEN')&&read('src/lib/intelligenceReliability.ts').includes('autoRecovered'),'circuit incidents are created and automatically resolved after recovery');
 add('V72 automation supervisor',read('src/app/api/cron/scan/route.ts').includes('runIntelligenceReliabilitySupervisor')&&read('src/app/api/cron/recalibrate/route.ts').includes('runIntelligenceReliabilitySupervisor'),'scan and recalibration loops refresh reliability state');
 add('V72 production certification',read('src/lib/productionCertification.ts').includes("reliability.mode==='PROTECTIVE'")&&read('src/lib/productionObservability.ts').includes('reliability-mode'),'certification and observability consume reliability state');
-add('V72 release identity',read('src/lib/releaseManifest.ts').includes("build:'V72'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v72'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:84'),'V72 release identity is synchronized');
-add('V72 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v72')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v72')&&read('.github/workflows/deploy-cloudflare.yml').includes('72.0.0'),'verification and production workflows target V72');
+add('V72 release milestone',read('db/v84.sql').includes('intelligence_reliability_state')&&read('EDGEFORCE_V72_RELEASE.md').includes('V72'),'V72 reliability milestone remains preserved');
+add('V72 deployment handoff',read('EDGEFORCE_V72_RELEASE.md').includes('circuit breakers')&&read('src/lib/intelligenceReliability.ts').includes('edgeforce-v72-reliability'),'V72 reliability runtime handoff remains documented');
 add('V72 regression and dashboard',read('src/app/api/testing/intelligence-reliability/route.ts').includes("second.circuitState==='OPEN'")&&read('src/components/Dashboard.tsx').includes('ReliabilitySupervisorPanel'),'deterministic circuit regression and dashboard visibility are present');
+add('V73 deployment guard schema',read('db/v85.sql').includes('deployment_guard_runs')&&read('db/v85.sql').includes('hard_block'),'v85 stores comparative canary decisions and rollback evidence');
+add('V73 comparative guard engine',read('src/lib/deploymentGuard.ts').includes('evaluateDeploymentGuard')&&read('src/lib/deploymentGuard.ts').includes('scoreDelta')&&read('src/lib/deploymentGuard.ts').includes('reliabilityDelta'),'candidate health is compared against the production baseline');
+add('V73 hard rollback gates',read('src/lib/deploymentGuard.ts').includes("observabilityOverall==='CRITICAL'")&&read('src/lib/deploymentGuard.ts').includes("reliabilityMode==='PROTECTIVE'")&&read('src/lib/deploymentGuard.ts').includes('candidate.certified'),'hard blockers cover certification, readiness, observability and reliability');
+add('V73 baseline capture',read('.github/workflows/deploy-production.yml').includes('Capture production baseline')&&read('.github/workflows/deploy-production.yml').includes('DEPLOYMENT_BASELINE_B64'),'deployment captures the previous production health baseline before replacing it');
+add('V73 three-probe canary',read('.github/workflows/deploy-production.yml').includes('for ATTEMPT in 1 2 3')&&read('.github/workflows/deploy-production.yml').includes('test "$PASSES" -ge 2'),'candidate must pass two of three comparative probes');
+add('V73 canary launch stage',read('src/lib/productionLaunch.ts').includes("'CANARY_PASSED'")&&read('.github/workflows/deploy-production.yml').includes('CANARY_PASSED'),'launch completion requires a successful comparative canary');
+add('V73 automatic rollback',read('.github/workflows/deploy-production.yml').includes('V73%20canary%20or%20hosted%20launch%20gate%20failure')&&read('.github/workflows/deploy-production.yml').includes('rollback/$PREVIOUS_DEPLOYMENT_ID'),'canary failure routes to the captured prior deployment');
+add('V73 release identity',read('src/lib/releaseManifest.ts').includes("build:'V73'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v73'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:85'),'V73 release identity is synchronized');
+add('V73 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v73')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v73')&&read('.github/workflows/deploy-cloudflare.yml').includes('73.0.0'),'verification and production workflows target V73');
+add('V73 regression and dashboard',read('src/app/api/testing/deployment-guard/route.ts').includes("healthy.decision==='PASS'")&&read('src/components/Dashboard.tsx').includes('DeploymentGuardPanel'),'deterministic canary regression and dashboard visibility are present');
+add('V73 CLI pin',read('src/lib/releaseManifest.ts').includes("vercelCliVersion:'62.2.0'")&&read('.github/workflows/deploy-production.yml').includes('vercel@62.2.0')&&read('.github/workflows/rollback.yml').includes('vercel@62.2.0'),'production and rollback workflows use the same pinned Vercel CLI');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
