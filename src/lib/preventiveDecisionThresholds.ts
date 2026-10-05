@@ -2,6 +2,7 @@ import {db} from './db';
 import {loadPreventiveDecisionCalibrationSummary} from './preventiveDecisionCalibration';
 import {RELEASE} from './releaseManifest';
 import {adaptiveThresholdReentryAllowed} from './preventiveThresholdRecovery';
+import {getAdaptiveThresholdWeight} from './preventiveThresholdProbation';
 
 export type PreventiveDecisionThresholds={
  recommendThreshold:number;
@@ -16,6 +17,19 @@ export type PreventiveDecisionThresholds={
 };
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
+const BASELINE_THRESHOLDS={recommendThreshold:.72,confidenceFloor:.45,riskFloor:.60,rejectEffectivenessCeiling:.38};
+
+export function applyAdaptiveThresholdWeight(report:PreventiveDecisionThresholds,weight:number):PreventiveDecisionThresholds{
+ const w=clamp(weight,0,1);
+ return {
+  ...report,
+  recommendThreshold:BASELINE_THRESHOLDS.recommendThreshold+(report.recommendThreshold-BASELINE_THRESHOLDS.recommendThreshold)*w,
+  confidenceFloor:BASELINE_THRESHOLDS.confidenceFloor+(report.confidenceFloor-BASELINE_THRESHOLDS.confidenceFloor)*w,
+  riskFloor:BASELINE_THRESHOLDS.riskFloor+(report.riskFloor-BASELINE_THRESHOLDS.riskFloor)*w,
+  rejectEffectivenessCeiling:BASELINE_THRESHOLDS.rejectEffectivenessCeiling+(report.rejectEffectivenessCeiling-BASELINE_THRESHOLDS.rejectEffectivenessCeiling)*w,
+  rationale:[...report.rationale,`V85 adaptive influence applied at ${Math.round(w*100)}%.`]
+ };
+}
 
 export function derivePreventiveDecisionThresholds(input:{
  sampleSize:number;
@@ -24,7 +38,7 @@ export function derivePreventiveDecisionThresholds(input:{
  recommendSuccessRate:number;
  rejectSuccessRate:number;
 }):PreventiveDecisionThresholds{
- const base={recommendThreshold:.72,confidenceFloor:.45,riskFloor:.60,rejectEffectivenessCeiling:.38};
+ const base=BASELINE_THRESHOLDS;
  const rationale:string[]=[];
  let mode:PreventiveDecisionThresholds['mode']='BASELINE';
  let recommend=base.recommendThreshold;
@@ -115,9 +129,11 @@ export async function runPreventiveDecisionThresholdGovernor(){
   const active=await loadPreventiveDecisionThresholds();
   return {...active,persisted:false,reentryAllowed:false,governorState:'RECOVERY_LOCK'};
  }
- const report=await buildPreventiveDecisionThresholds();
+ const weight=await getAdaptiveThresholdWeight();
+ const target=await buildPreventiveDecisionThresholds();
+ const report=applyAdaptiveThresholdWeight(target,weight);
  const persistence=await persistPreventiveDecisionThresholds(report);
- return {...report,persistence,reentryAllowed:true,governorState:'ADAPTIVE'};
+ return {...report,persistence,reentryAllowed:true,adaptiveWeight:weight,governorState:weight<1?'PROBATION':'ADAPTIVE'};
 }
 
 export async function loadPreventiveDecisionThresholds(){

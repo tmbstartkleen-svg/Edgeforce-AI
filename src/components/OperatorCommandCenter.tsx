@@ -32,6 +32,7 @@ import PreventiveDecisionCalibrationPanel from './PreventiveDecisionCalibrationP
 import PreventiveDecisionThresholdPanel from './PreventiveDecisionThresholdPanel';
 import PreventiveThresholdStabilityPanel from './PreventiveThresholdStabilityPanel';
 import PreventiveThresholdRecoveryPanel from './PreventiveThresholdRecoveryPanel';
+import PreventiveThresholdProbationPanel from './PreventiveThresholdProbationPanel';
 import V1ReleaseReadinessPanel from './V1ReleaseReadinessPanel';
 import ProductionLaunchPanel from './ProductionLaunchPanel';
 
@@ -96,6 +97,7 @@ export default function OperatorCommandCenter(){
   <PreventiveDecisionThresholdPanel/>
   <PreventiveThresholdStabilityPanel/>
   <PreventiveThresholdRecoveryPanel/>
+  <PreventiveThresholdProbationPanel/>
  </>;
 
  return <section className="operatorCenter">
@@ -105,7 +107,7 @@ export default function OperatorCommandCenter(){
     <h2>EdgeForce Intelligence Console</h2>
     <p>{active.description}</p>
    </div>
-   <div className="operatorCenterBadge">33 MODULES · CONSOLIDATED</div>
+   <div className="operatorCenterBadge">34 MODULES · CONSOLIDATED</div>
   </div>
 
   <div className="operatorNav" role="tablist" aria-label="EdgeForce operator views">
@@ -124,7 +126,7 @@ export default function OperatorCommandCenter(){
    <div><small>EXECUTION</small><strong>6</strong><span>price + timing</span></div>
    <div><small>LEARNING</small><strong>5</strong><span>validation + stress</span></div>
    <div><small>CASH-OUT</small><strong>5</strong><span>offer + policy</span></div>
-   <div><small>SYSTEM</small><strong>13</strong><span>launch + release + health + recovery</span></div>
+   <div><small>SYSTEM</small><strong>14</strong><span>launch + release + health + staged re-entry</span></div>
   </div>
 
   <div className="operatorModules">
