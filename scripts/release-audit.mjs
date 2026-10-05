@@ -162,6 +162,7 @@ const requiredFiles=[
  'src/components/OpponentMatchupPanel.tsx',
  'src/lib/lineupRoleRedistribution.ts',
  'src/app/api/intelligence/lineup-redistribution/route.ts',
+ 'src/app/api/testing/lineup-redistribution/route.ts',
  'src/components/LineupRedistributionPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -227,7 +228,7 @@ add('V64 matchup automation',read('src/app/api/cron/recalibrate/route.ts').inclu
 add('V64 matchup API',read('src/app/api/intelligence/opponent-matchups/route.ts').includes('v64-opponent-matchup-2')&&read('src/app/api/testing/opponent-matchups/route.ts').includes('buildPlayerOpponentProfiles'),'opponent and exact player matchup observability/regression endpoints exist');
 add('V64 matchup dashboard',read('src/components/Dashboard.tsx').includes('OpponentMatchupPanel')&&read('src/components/OpponentMatchupPanel.tsx').includes('V64 MATCHUP LEARNING'),'opponent matchup learning is visible on dashboard');
 add('V65 redistribution schema',read('db/v77.sql').includes('lineup_redistribution_profiles')&&read('db/v77.sql').includes('lineup_redistribution_runs'),'v77 lineup redistribution warehouse');
-add('V65 redistribution learner',read('src/lib/lineupRoleRedistribution.ts').includes('deriveRedistributionProfiles')&&read('src/lib/lineupRoleRedistribution.ts').includes('withoutRows'),'learns teammate opportunity changes when a role player is absent');
+add('V65 redistribution learner',read('src/lib/lineupRoleRedistribution.ts').includes('deriveRedistributionProfiles')&&read('src/lib/lineupRoleRedistribution.ts').includes('withoutRows')&&read('src/app/api/testing/lineup-redistribution/route.ts').includes('statLift>0'),'learns and regression-tests teammate opportunity changes when a role player is absent');
 add('V65 live injury activation',read('src/lib/lineupRoleRedistribution.ts').includes('injury_context_snapshots')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithLineupRedistribution'),'fresh injury snapshots activate learned teammate lifts');
 add('V65 simulation integration',read('src/lib/simulation.ts').includes('roleRedistributionConfidence')&&read('src/lib/sportOutcomeSimulation.ts').includes('roleProjectionScale'),'redistribution changes probability and player-prop simulation means');
 add('V65 dashboard',read('src/components/Dashboard.tsx').includes('LineupRedistributionPanel')&&read('src/components/LineupRedistributionPanel.tsx').includes('V65 ROLE REDISTRIBUTION'),'injury-driven role shifts are visible');
