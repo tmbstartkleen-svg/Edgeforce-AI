@@ -210,6 +210,7 @@ export async function GET(){
   sharedEvidenceContext:true,
   releaseExecutionCertification:true,
   verifiedPromotionEvidence:true,
+  rollbackEvidenceReconciliation:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,

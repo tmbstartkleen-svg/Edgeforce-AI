@@ -56,6 +56,9 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('promotion-provenance','Production promotion provenance',promotion?.promoted&&!promotion?.rolledBack&&!promotion?.blockers?.length?'PASS':'WARN',true,promotion?`Promotion ${promotion.releaseVersion} @ ${promotion.commitSha.slice(0,8)} on ${promotion.platform}; workflow ${promotion.workflowRunId||'unknown'}.`:'First promotion of the current release has not written provenance yet.');
  const postVerify=certification.postPromotionVerification;
  add('post-promotion-verification','Live post-promotion verification',postVerify?.certified?'PASS':'WARN',true,postVerify?`Live verification commit ${String(postVerify.deployedCommitSha).slice(0,8)}; platform ${postVerify.platform}.`:'First promotion of the current release has not written live verification yet.');
+ const rollback=certification.rollbackReconciliation;
+ const rollbackApplies=Boolean(rollback?.rollbackConfirmed&&(!certification.release.commit||String(rollback.failedCommitSha||'')===String(certification.release.commit)));
+ add('rollback-reconciliation','Rollback evidence reconciliation',rollbackApplies?(strict?'FAIL':'WARN'):'PASS',true,rollback?.rollbackConfirmed?(rollbackApplies?`Current release commit ${String(rollback.failedCommitSha||'').slice(0,8)} was rolled back; promotion and live verification evidence were reconciled.`:`Historical rollback ${String(rollback.failedCommitSha||'').slice(0,8)} does not match current commit ${String(certification.release.commit||'unknown').slice(0,8)}.`):'No confirmed rollback exists for the current release.');
  add('provider-certification','Provider certification',certification.providerCertification?.launchReady?'PASS':strict?'FAIL':'WARN',true,certification.providerCertification?`Provider launchReady=${Boolean(certification.providerCertification.launchReady)}.`:'No persisted provider certification yet.');
  add('model-validation','Model validation',certification.modelValidation.latestRun?.status==='failed'?'FAIL':certification.modelValidation.latestRun?'PASS':'WARN',true,certification.modelValidation.latestRun?`Latest validation run ${certification.modelValidation.latestRun.status}; evidence failures ${certification.modelValidation.report.evidence.failed}.`:'No durable validation run yet.');
  add('model-governance','Model governance',certification.modelGovernance.latestRun?.status==='failed'?'FAIL':certification.modelGovernance.latestRun?'PASS':'WARN',true,certification.modelGovernance.latestRun?`Latest governance run ${certification.modelGovernance.latestRun.status}; critical ${certification.modelGovernance.summary.critical}, drifting ${certification.modelGovernance.summary.drifting}.`:'No completed governance run yet.');
@@ -97,6 +100,10 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    promotionProvenancePlatform:certification.promotionProvenance?.platform||null,
    postPromotionVerified:Boolean(certification.postPromotionVerification?.certified),
    postPromotionCommit:certification.postPromotionVerification?.deployedCommitSha||null,
+   rollbackReconciled:Boolean(certification.rollbackReconciliation?.rollbackConfirmed),
+   rollbackFailedCommit:certification.rollbackReconciliation?.failedCommitSha||null,
+   rollbackPromotionRevoked:Boolean(certification.rollbackReconciliation?.promotionReconciled),
+   rollbackLiveVerificationInvalidated:Boolean(certification.rollbackReconciliation?.verificationInvalidated),
    securityOk:certification.security.ok,
    liveData:certification.ingestion.source==='live',
    unifiedIntelligenceState:certification.unifiedIntelligence.state,
