@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V99',
- appVersion:'99.0.0',
- packageVersion:'0.99.0',
- modelVersion:'edgeforce-v99',
- migrationVersion:110
+ build:'V100',
+ appVersion:'100.0.0',
+ packageVersion:'0.100.0',
+ modelVersion:'edgeforce-v100',
+ migrationVersion:111
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -864,6 +864,16 @@ add('V99 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'pr
 add('V99 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleasePromotionProvenancePanel'),'promotion provenance is visible in System view');
 add('V99 production promotion writer',read('.github/workflows/deploy-production.yml').includes('/api/release/promotion-provenance')&&read('.github/workflows/deploy-production.yml').includes('workflowRunId'),'successful production workflow persists exact promotion provenance');
 add('V99 release notes',exists('EDGEFORCE_V99_RELEASE.md'),'V99 release documentation exists');
+
+add('V100 post-promotion schema',exists('db/v111.sql')&&read('db/v111.sql').includes('release_post_promotion_verifications'),'durable live verification certificates exist');
+add('V100 post-promotion evaluator',read('src/lib/postPromotionVerification.ts').includes('evaluatePostPromotionVerification')&&read('src/lib/postPromotionVerification.ts').includes('latestPostPromotionVerification'),'live verification evaluator exists');
+add('V100 post-promotion API',exists('src/app/api/release/post-promotion-verification/route.ts')&&exists('src/app/api/testing/post-promotion-verification/route.ts'),'live verification API and regression endpoint exist');
+add('V100 live commit health identity',read('src/app/api/health/route.ts').includes('deploymentCommit'),'health exposes deployed commit identity');
+add('V100 strict live verification gate',read('src/lib/productionCertification.ts').includes('postPromotionVerification')&&read('src/lib/productionCertification.ts').includes('verified live commit'),'strict certification checks live verification consistency');
+add('V100 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'post-promotion-verification'")&&read('src/lib/v1ReleaseReadiness.ts').includes('postPromotionVerified'),'V1 readiness exposes live verification');
+add('V100 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PostPromotionVerificationPanel'),'live verification is visible in System view');
+add('V100 production verifier',read('.github/workflows/deploy-production.yml').includes('/api/release/post-promotion-verification'),'production workflow records live verification after promotion');
+add('V100 release notes',exists('EDGEFORCE_V100_RELEASE.md'),'V100 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
