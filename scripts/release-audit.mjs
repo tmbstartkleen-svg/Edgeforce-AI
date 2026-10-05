@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V94',
- appVersion:'94.0.0',
- packageVersion:'0.94.0',
- modelVersion:'edgeforce-v94',
- migrationVersion:106
+ build:'V95',
+ appVersion:'95.0.0',
+ packageVersion:'0.95.0',
+ modelVersion:'edgeforce-v95',
+ migrationVersion:107
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -305,6 +305,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-baseline-governance-cycle/route.ts',
  'src/components/PreventiveBaselineGovernanceCyclePanel.tsx',
  'EDGEFORCE_V94_RELEASE.md',
+ 'src/lib/preventiveBaselineGovernanceWatchdog.ts',
+ 'src/app/api/operations/preventive-baseline-governance-watchdog/route.ts',
+ 'src/app/api/testing/preventive-baseline-governance-watchdog/route.ts',
+ 'src/components/PreventiveBaselineGovernanceWatchdogPanel.tsx',
+ 'EDGEFORCE_V95_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -808,6 +813,14 @@ add('V94 transition journal',read('db/v106.sql').includes('preventive_baseline_g
 add('V94 SLO coordination',read('src/lib/sloGovernor.ts').includes('runBaselineGovernanceCycle')&&!read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'SLO supervision uses the coordinated baseline-governance cycle');
 add('V94 regression',read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_LOCKED')&&read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_IDEMPOTENT'),'regression covers locking and idempotency');
 add('V94 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineGovernanceCyclePanel'),'governance cycle status is visible');
+
+add('V95 governance watchdog',read('src/lib/preventiveBaselineGovernanceWatchdog.ts').includes('runBaselineGovernanceWatchdog'),'governance watchdog exists');
+add('V95 heartbeat renewal',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('heartbeatLease')&&read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("interval '90 seconds'"),'governance cycle renews its lease before each lifecycle step');
+add('V95 lease-loss stop',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('governance lease lost before')&&read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('noteGovernanceLeaseLoss'),'cycle stops and records lease loss instead of continuing');
+add('V95 stale recovery',read('src/lib/preventiveBaselineGovernanceWatchdog.ts').includes("status='STARTED'")&&read('src/lib/preventiveBaselineGovernanceWatchdog.ts').includes("interval '3 minutes'"),'stale STARTED cycles are detected by heartbeat timeout');
+add('V95 durable watchdog state',read('db/v107.sql').includes('preventive_baseline_governance_watchdog_state')&&read('db/v107.sql').includes('heartbeat_at'),'watchdog state and heartbeats are durable');
+add('V95 watchdog regression',read('src/app/api/testing/preventive-baseline-governance-watchdog/route.ts').includes("RECOVERY_REQUIRED"),'watchdog regression covers healthy and recovery-required states');
+add('V95 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineGovernanceWatchdogPanel'),'governance watchdog is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
