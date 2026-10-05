@@ -20,6 +20,7 @@ import {buildSloGovernorReport} from './sloGovernor';
 import {currentReleaseExecutionCertification} from './releaseExecutionCertification';
 import {currentReleasePromotionProvenance} from './releasePromotionProvenance';
 import {latestPostPromotionVerification} from './postPromotionVerification';
+import {latestReleaseRollbackReconciliation} from './releaseRollbackReconciliation';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -47,6 +48,7 @@ sloGovernor:Awaited<ReturnType<typeof buildSloGovernorReport>>;
  executionCertification:Awaited<ReturnType<typeof currentReleaseExecutionCertification>>;
  promotionProvenance:Awaited<ReturnType<typeof currentReleasePromotionProvenance>>;
  postPromotionVerification:Awaited<ReturnType<typeof latestPostPromotionVerification>>;
+ rollbackReconciliation:Awaited<ReturnType<typeof latestReleaseRollbackReconciliation>>;
  observability:Awaited<ReturnType<typeof buildProductionObservability>>;
  security:{
   ok:boolean;
@@ -97,7 +99,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
@@ -113,7 +115,8 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   buildProductionObservability(),
   currentReleaseExecutionCertification(),
   currentReleasePromotionProvenance(),
-  latestPostPromotionVerification()
+  latestPostPromotionVerification(),
+  latestReleaseRollbackReconciliation()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -234,6 +237,17 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   }
  }
 
+ if(!rollbackReconciliation){
+  warnings.push('rollback reconciliation: no rollback event is recorded for the current release');
+ }else if(rollbackReconciliation.rollbackConfirmed===true){
+  const failedCommit=String(rollbackReconciliation.failedCommitSha||'');
+  const deployCommit=process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null;
+  if(strict)blockers.push(`rollback reconciliation: current release commit ${failedCommit||'unknown'} was rolled back and is not eligible for certification`);
+  if(strict&&deployCommit&&failedCommit&&failedCommit!==String(deployCommit)){
+   warnings.push(`rollback reconciliation: recorded rollback commit ${failedCommit} differs from current runtime commit ${deployCommit}`);
+  }
+ }
+
  const certified=readiness.ready&&blockers.length===0;
  return {
   certified,blockers:[...new Set(blockers)],warnings:[...new Set(warnings)],
@@ -243,7 +257,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    environment
   },
   readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,security,
-  executionCertification,promotionProvenance,postPromotionVerification,
+  executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
