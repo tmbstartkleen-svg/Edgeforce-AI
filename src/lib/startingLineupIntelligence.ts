@@ -108,7 +108,7 @@ export async function rebuildDepthChartProfiles(){
    ) values(
     ${p.athleteId},${p.sport},${p.teamKey},${p.positionKey},${p.games},${p.starts},${p.starterEvidenceGames},${p.starterRate},
     ${p.averageMinutes},${p.averageUsage},${p.roleScore},${p.depthRank},${p.confidence},now(),
-    ${sql.json({lookbackDays:730,explicitStarterSupport:p.starts>0})}
+    ${sql.json({lookbackDays:730,explicitStarterSupport:p.starterEvidenceGames>0})}
    )
    on conflict (athlete_id) do update set
     sport=excluded.sport,team_key=excluded.team_key,position_key=excluded.position_key,games=excluded.games,
