@@ -234,7 +234,9 @@ function simulateCombat(m:Market,runs:SimulationTier){
  if(!(s.includes('UFC')||s.includes('MMA')||s.includes('BOXING')))return null;
  const rng=seeded(`combat|${m.id}|${m.startTime}`);
  const winP=clamp(m.modelProb);
- const finishBias=.5+.18*feature(m,'finishRisk')+.10*feature(m,'striking')+.10*feature(m,'grappling')-.08*feature(m,'cardio');
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venueFinish=venueConfidence>0?(Math.max(0,feature(m,'venueVolatilityEffect'))*.04+feature(m,'venuePaceEffect')*.025)*venueConfidence:0;
+ const finishBias=.5+.18*feature(m,'finishRisk')+.10*feature(m,'striking')+.10*feature(m,'grappling')-.08*feature(m,'cardio')+venueFinish;
  const finishP=clamp(finishBias,.15,.85);
  let hits=0,roundSum=0;
  const kind=marketKind(m);
