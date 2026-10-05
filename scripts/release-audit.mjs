@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V82',
- appVersion:'82.0.0',
- packageVersion:'0.82.0',
- modelVersion:'edgeforce-v82',
- migrationVersion:94
+ build:'V83',
+ appVersion:'83.0.0',
+ packageVersion:'0.83.0',
+ modelVersion:'edgeforce-v83',
+ migrationVersion:95
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -245,6 +245,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-decision-thresholds/route.ts',
  'src/components/PreventiveDecisionThresholdPanel.tsx',
  'EDGEFORCE_V82_RELEASE.md',
+ 'src/lib/preventiveThresholdStability.ts',
+ 'src/app/api/operations/preventive-threshold-stability/route.ts',
+ 'src/app/api/testing/preventive-threshold-stability/route.ts',
+ 'src/components/PreventiveThresholdStabilityPanel.tsx',
+ 'EDGEFORCE_V83_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -653,6 +658,13 @@ add('V82 gate integration',read('src/lib/preventiveActionDecisionGate.ts').inclu
 add('V82 threshold regression',read('src/app/api/testing/preventive-decision-thresholds/route.ts').includes('CONSERVATIVE')&&read('src/app/api/testing/preventive-decision-thresholds/route.ts').includes('TUNED'),'regression covers tightening and bounded tuning');
 add('V82 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveDecisionThresholdGovernor'),'SLO supervision refreshes adaptive thresholds');
 add('V82 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveDecisionThresholdPanel'),'threshold governor is visible');
+
+add('V83 threshold stability governor',read('src/lib/preventiveThresholdStability.ts').includes('evaluateThresholdStability'),'threshold stability engine exists');
+add('V83 durable stability state',read('db/v95.sql').includes('preventive_threshold_stability_state')&&read('db/v95.sql').includes('preventive_threshold_stability_snapshots'),'stability state and rollback history are durable');
+add('V83 safe rollback target',read('src/lib/preventiveThresholdStability.ts').includes('loadLastSafeSnapshot')&&read('src/lib/preventiveThresholdStability.ts').includes('source_calibration_error<=.12'),'rollback targets only previously safe threshold evidence');
+add('V83 rollback integration',read('src/lib/sloGovernor.ts').includes('runThresholdStabilityGovernor'),'SLO supervision runs stability check before the preventive decision gate');
+add('V83 stability regression',read('src/app/api/testing/preventive-threshold-stability/route.ts').includes("status==='ROLLBACK'"),'regression covers stable and rollback states');
+add('V83 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdStabilityPanel'),'stability governor is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
