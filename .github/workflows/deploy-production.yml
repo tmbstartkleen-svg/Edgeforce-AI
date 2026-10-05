@@ -85,7 +85,7 @@ jobs:
           GOVERNOR=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/release/error-budget" 2>/tmp/edgeforce-slo-governor.err)
           GOV_CODE=$?
           set -e
-          if [ "$GOV_CODE" -eq 0 ]; then
+          if [ "$GOV_CODE" -eq 0 ] && printf '%s' "$GOVERNOR" | jq -e '.schemaVersion=="v74-slo-governor-1"' >/dev/null 2>&1; then
             echo "$GOVERNOR"
             ALLOWED=$(printf '%s' "$GOVERNOR" | jq -r '.deploymentAllowed // false')
             STATE=$(printf '%s' "$GOVERNOR" | jq -r '.state // "UNKNOWN"')
