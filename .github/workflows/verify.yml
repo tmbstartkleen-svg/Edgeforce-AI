@@ -22,7 +22,7 @@ jobs:
       - run: npm run release-audit
       - name: Start production server
         run: |
-          MODEL_VERSION=edgeforce-v84 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
+          MODEL_VERSION=edgeforce-v85 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
           echo $! > /tmp/edgeforce.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
