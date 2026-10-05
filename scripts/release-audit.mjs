@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V96',
- appVersion:'96.0.0',
- packageVersion:'0.96.0',
- modelVersion:'edgeforce-v96',
- migrationVersion:108
+ build:'V97',
+ appVersion:'97.0.0',
+ packageVersion:'0.97.0',
+ modelVersion:'edgeforce-v97',
+ migrationVersion:109
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -838,6 +838,21 @@ add('V96 reuse regression',read('src/app/api/testing/preventive-supervision-cycl
 add('V96 supervision lease',read('src/lib/preventiveSupervisionCycle.ts').includes("interval '5 minutes'")&&read('db/v108.sql').includes('locked_until timestamptz'),'unified supervision cycle suppresses concurrent execution');
 add('V96 lease regression',read('src/app/api/testing/preventive-supervision-cycle/route.ts').includes("SKIPPED_LOCKED"),'supervision regression covers concurrent lock suppression');
 add('V96 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSupervisionCyclePanel'),'unified supervision cycle is visible');
+
+add('V97 explicit typecheck script',pkg.scripts?.typecheck==='tsc --noEmit','TypeScript-only gate is explicit');
+add('V97 verify workflow typecheck',read('.github/workflows/verify.yml').includes('npm run typecheck'),'primary verification includes explicit typecheck');
+add('V97 production workflow typecheck',read('.github/workflows/deploy-production.yml').includes('npm run typecheck'),'production deploy includes explicit typecheck');
+add('V97 production predeploy smoke',read('.github/workflows/deploy-production.yml').includes('Predeploy local smoke')&&read('.github/workflows/deploy-production.yml').includes('Predeploy local load check'),'manual/automatic production deploys run local smoke and load gates');
+add('V97 ML compile gate',read('.github/workflows/deploy-production.yml').includes('python3 -m py_compile ml-service/app.py'),'production deploy compiles ML service before promotion');
+add('V97 execution certification',read('src/lib/releaseExecutionCertification.ts').includes('evaluateReleaseExecutionCertification'),'commit-specific execution certification exists');
+add('V97 strict certification integration',read('src/lib/productionCertification.ts').includes('currentReleaseExecutionCertification')&&read('src/lib/productionCertification.ts').includes('current-release execution certificate'),'strict runtime certification consumes execution evidence');
+add('V97 production evidence post',read('.github/workflows/deploy-production.yml').includes('/api/release/execution-certification')&&read('.github/workflows/deploy-production.yml').includes('remoteSmokePassed:true'),'production workflow records full execution evidence before strict certification');
+add('V97 durable execution history',read('db/v109.sql').includes('release_execution_certifications'),'execution certifications are durable');
+add('V97 regression endpoint',read('src/app/api/testing/release-execution-certification/route.ts').includes('fail.blockers.length===2'),'execution certification regression covers passing and failed evidence');
+add('V97 V1 readiness gate',read('src/lib/v1ReleaseReadiness.ts').includes("'release-execution'"),'V1 readiness exposes execution evidence as a required gate');
+add('V97 CI evidence artifact',read('.github/workflows/verify.yml').includes('actions/upload-artifact@v4')&&read('scripts/write-execution-evidence.mjs').includes('sha256'),'verification produces inspectable hashed execution evidence');
+add('V97 compile regression repair',read('src/lib/preventiveThresholdRecovery.ts').includes('export type ThresholdRecoverySummary')&&read('src/lib/preventiveThresholdStability.ts').includes('export type ThresholdStabilitySummary')&&read('src/lib/preventiveChampionBaseline.ts').includes('export type ChampionBaselineSummary'),'V96 TypeScript inference regressions are repaired with explicit summary contracts');
+add('V97 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleaseExecutionCertificationPanel'),'execution certification is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
