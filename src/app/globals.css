@@ -10,7 +10,7 @@
 .operatorNav button{border:1px solid #2b281f;background:#12110e;color:var(--muted);border-radius:999px;padding:9px 14px;cursor:pointer;font-size:10px;font-weight:900;letter-spacing:.07em;white-space:nowrap}
 .operatorNav button.active{color:var(--gold2);border-color:var(--gold);box-shadow:inset 0 0 20px #49391566,0 0 0 1px #3a2d12}
 .operatorNav button:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
-.operatorSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.operatorSummary{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
 .operatorSummary>div{background:#0d0d0c;padding:14px 18px}
 .operatorSummary small{display:block;color:var(--muted);font-size:9px;letter-spacing:.09em}
 .operatorSummary strong{display:block;color:var(--gold2);font-size:20px;margin:5px 0 2px}
