@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V103',
- appVersion:'103.0.0',
- packageVersion:'0.103.0',
- modelVersion:'edgeforce-v103',
- migrationVersion:113
+ build:'V104',
+ appVersion:'104.0.0',
+ packageVersion:'0.104.0',
+ modelVersion:'edgeforce-v104',
+ migrationVersion:114
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -907,6 +907,20 @@ add('V103 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'p
 add('V103 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PlatformConvergencePanel'),'platform convergence is visible in System view');
 add('V103 health capability',read('src/app/api/health/route.ts').includes('crossPlatformProductionConvergence:true'),'health exposes convergence capability');
 add('V103 release notes',exists('EDGEFORCE_V103_RELEASE.md'),'V103 release documentation exists');
+
+add('V104 closure schema',exists('db/v114.sql')&&read('db/v114.sql').includes('release_final_closures'),'durable final closure ledger exists');
+add('V104 closure evaluator',read('src/lib/finalProductionClosure.ts').includes('evaluateFinalProductionClosure')&&read('src/lib/finalProductionClosure.ts').includes('saveFinalProductionClosure'),'final production closure evaluator exists');
+add('V104 closure API',exists('src/app/api/release/final-closure/route.ts')&&exists('src/app/api/testing/final-closure/route.ts'),'final closure API and regression endpoint exist');
+add('V104 dual-platform closure writers',read('.github/workflows/deploy-production.yml').includes('/api/release/final-closure')&&read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/final-closure'),'both production workflows can seal closure');
+add('V104 Cloudflare commit stamp',exists('scripts/stamp-cloudflare-deployment.mjs')&&read('.github/workflows/deploy-cloudflare.yml').includes('stamp-cloudflare-deployment.mjs'),'Cloudflare runtime receives exact deployment commit');
+add('V104 convergence fail-fast',read('src/app/api/release/platform-convergence/route.ts').includes('status:invalid?422:200'),'invalid convergence evidence fails fast');
+add('V104 bootstrap-safe convergence',read('src/lib/productionCertification.ts').includes('awaiting evidence from the second production platform'),'one-sided convergence remains bootstrap-safe');
+add('V104 strict closure integration',read('src/lib/productionCertification.ts').includes('finalClosure')&&read('src/lib/productionCertification.ts').includes('durable closure evidence'),'production certification consumes final closure state');
+add('V104 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'final-production-closure'")&&read('src/lib/v1ReleaseReadiness.ts').includes('finalProductionClosed'),'V1 readiness exposes final closure');
+add('V104 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('FinalProductionClosurePanel'),'final closure is visible in System view');
+add('V104 health capability',read('src/app/api/health/route.ts').includes('finalProductionClosure:true'),'health exposes final closure capability');
+add('V104 rollback description',!read('.github/workflows/deploy-production.yml').includes('V74%20SLO'),'rollback description no longer carries stale V74 identity');
+add('V104 release notes',exists('EDGEFORCE_V104_RELEASE.md'),'V104 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
