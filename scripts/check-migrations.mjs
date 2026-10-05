@@ -8,7 +8,7 @@ const files=(await fs.readdir(dir))
 
 const versions=files.map(name=>Number(name.match(/\d+/)?.[0]||0));
 const latest=versions.at(-1)||0;
-const expected=97;
+const expected=98;
 const gaps=[];
 for(let i=6;i<=expected;i++)if(!versions.includes(i))gaps.push(i);
 
