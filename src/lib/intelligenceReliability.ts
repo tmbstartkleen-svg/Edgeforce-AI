@@ -54,8 +54,8 @@ export function nextCircuitTransition(previous:PreviousState|undefined,component
  const prevFailures=previous?.consecutiveFailures??0;
  const prevHealthy=previous?.consecutiveHealthy??0;
  const healthy=component.state==='HEALTHY';
- const hard=hardFailure(component.state);
- const soft=softFailure(component.state);
+ const hard=hardFailure(component.state)||(component.required&&component.state==='UNAVAILABLE');
+ const soft=softFailure(component.state)&&!hard;
 
  if(current==='OPEN'){
   if(healthy){
@@ -141,19 +141,25 @@ export async function loadIntelligenceReliabilityState():Promise<ReliabilitySnap
  const sql=db();
  if(!sql)return {mode:'DEGRADED',score:.60,criticalOpen:false,openComponents:[],halfOpenComponents:[],rows:[],generatedAt:new Date().toISOString()};
  try{
-  const rows=await sql`
-   select component_id as "componentId",label,required,circuit_state as "circuitState",observed_state as "observedState",
-    consecutive_failures as "consecutiveFailures",consecutive_healthy as "consecutiveHealthy",
-    reliability_score::float as "reliabilityScore",last_reason as "lastReason",opened_at as "openedAt",
-    recovered_at as "recoveredAt",last_transition_at as "lastTransitionAt",updated_at as "updatedAt"
-   from intelligence_reliability_state
-   order by required desc,component_id
-  `;
+  const [rows,runs]=await Promise.all([
+   sql`
+    select component_id as "componentId",label,required,circuit_state as "circuitState",observed_state as "observedState",
+     consecutive_failures as "consecutiveFailures",consecutive_healthy as "consecutiveHealthy",
+     reliability_score::float as "reliabilityScore",last_reason as "lastReason",opened_at as "openedAt",
+     recovered_at as "recoveredAt",last_transition_at as "lastTransitionAt",updated_at as "updatedAt"
+    from intelligence_reliability_state
+    order by required desc,component_id
+   `,
+   sql`select system_mode as "systemMode" from intelligence_reliability_runs order by started_at desc limit 1`
+  ]);
   const typed=rows as unknown as ReliabilityStateRow[];
   const openComponents=typed.filter(x=>x.circuitState==='OPEN').map(x=>x.componentId);
   const halfOpenComponents=typed.filter(x=>x.circuitState==='HALF_OPEN').map(x=>x.componentId);
+  const rowMode=modeFromRows(typed);
+  const lastMode=String((runs as any[])[0]?.systemMode||'');
+  const mode:ReliabilityMode=lastMode==='PROTECTIVE'?'PROTECTIVE':rowMode==='PROTECTIVE'?'PROTECTIVE':lastMode==='DEGRADED'||rowMode==='DEGRADED'?'DEGRADED':'NORMAL';
   return {
-   mode:modeFromRows(typed),score:snapshotScore(typed),
+   mode,score:snapshotScore(typed),
    criticalOpen:typed.some(x=>x.required&&x.circuitState==='OPEN'),
    openComponents,halfOpenComponents,rows:typed,generatedAt:new Date().toISOString()
   };
