@@ -147,7 +147,11 @@ const requiredFiles=[
  'src/app/api/intelligence/ml-shadow-recovery/route.ts',
  'src/app/api/ml/shadow-recovery/route.ts',
  'src/app/api/testing/ml-shadow-recovery/route.ts',
- 'src/components/ShadowRecoveryPanel.tsx'
+ 'src/components/ShadowRecoveryPanel.tsx',
+ 'src/lib/playerFeatureFrames.ts',
+ 'src/app/api/intelligence/player-frames/route.ts',
+ 'src/app/api/testing/player-frames/route.ts',
+ 'src/components/PlayerFeatureFramesPanel.tsx'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -188,6 +192,12 @@ add('prediction market movers',read('src/lib/predictionFlow.ts').includes('marke
 add('prediction warehouse persistence',read('src/lib/predictionPersistence.ts').includes('prediction_market_snapshots')&&read('src/app/api/cron/predictions/route.ts').includes('persistPredictionTrades'),'Cloudflare collector persists market and trade history');
 add('iPhone prediction PWA',read('src/app/manifest.ts').includes("start_url:'/mobile'")&&read('src/components/MobilePredictionTerminal.tsx').includes('iPhone install'),'installable mobile prediction terminal');
 add('shadow league migration schema',read('db/v50.sql').includes('external_ml_shadow_leagues')&&read('db/v50.sql').includes('league_rank')&&read('db/v50.sql').includes('league_winners_ready'),'v50 multi-challenger shadow league registry');
+add('V62 player frame migration schema',read('db/v73.sql').includes('player_feature_frames')&&read('db/v73.sql').includes('player_learning_state')&&read('db/v73.sql').includes('player_roster_snapshots'),'v73 player dataframe and roster continuity warehouse');
+add('V62 feature-frame enrichment',read('src/lib/playerFeatureFrames.ts').includes('derivePlayerFeatureSignals')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithPlayerFeatureFrames'),'rolling player dataframe joins live context before modeling');
+add('V62 simulation integration',read('src/lib/simulation.ts').includes("feat(m,'playerForm')")&&read('src/lib/simulation.ts').includes("feat(m,'playerVolatility')"),'form, matchup, roster and volatility signals affect Monte Carlo inputs');
+add('V62 persistent learning loop',read('src/app/api/cron/scan/route.ts').includes('recordPlayerFeatureFrames')&&read('src/lib/playerWarehouse.ts').includes('player_roster_snapshots'),'cron scan persists player frames and roster snapshots');
+add('V62 player intelligence API',read('src/app/api/intelligence/player-frames/route.ts').includes('v62-player-feature-frames-1')&&read('src/app/api/testing/player-frames/route.ts').includes('derivePlayerFeatureSignals'),'player-frame observability and regression endpoints exist');
+add('V62 player dataframe dashboard',read('src/components/Dashboard.tsx').includes('PlayerFeatureFramesPanel')&&read('src/components/PlayerFeatureFramesPanel.tsx').includes('V62 PLAYER INTELLIGENCE'),'sim-ready player frames are visible on dashboard');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
