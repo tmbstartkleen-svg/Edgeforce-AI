@@ -27,7 +27,6 @@ export async function GET(){
  const persistence=await persistPriceTargets(report.rows);
  return Response.json({
   ok:true,
-  generatedAt:new Date().toISOString(),
   analyticsOnly:true,
   executionEnabled:false,
   persisted:persistence.persisted,
