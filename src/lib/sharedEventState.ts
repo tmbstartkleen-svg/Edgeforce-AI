@@ -59,15 +59,23 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
  const homeStrength=clamp(avg(homeEvidence)-avg(awayEvidence),-.35,.35);
  const injurySignals=legs.map(x=>Number(x.sportFeatures?.injury||0)).filter(Number.isFinite);
  const injuryShock=injurySignals.length?clamp(injurySignals.reduce((s,x)=>s+Math.abs(x),0)/injurySignals.length,0,1):0;
+ const scheduleEdges=legs.map(x=>Number(x.sportFeatures?.scheduleCompositeEdge)).filter(Number.isFinite);
+ const scheduleConfidences=legs.map(x=>Number(x.sportFeatures?.scheduleContextConfidence)).filter(Number.isFinite);
+ const scheduleConfidence=scheduleConfidences.length?clamp(scheduleConfidences.reduce((s,x)=>s+x,0)/scheduleConfidences.length,0,1):0;
+ const scheduleEdge=scheduleEdges.length?clamp(scheduleEdges.reduce((s,x)=>s+x,0)/scheduleEdges.length,-1,1)*scheduleConfidence:0;
+ const fatigueValues=legs.flatMap(x=>[Number(x.sportFeatures?.scheduleHomeFatigue),Number(x.sportFeatures?.scheduleAwayFatigue)]).filter(Number.isFinite);
+ const scheduleFatigue=fatigueValues.length?clamp(fatigueValues.reduce((s,x)=>s+x,0)/fatigueValues.length,0,1):0;
  const injuryTotalScale=1-.035*injuryShock;
- const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28)*injuryTotalScale);
- const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28))*injuryTotalScale);
+ const fatigueTotalScale=1-.025*scheduleFatigue*scheduleConfidence;
+ const scheduleMargin=base.total*.055*scheduleEdge;
+ const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28+scheduleMargin)*injuryTotalScale*fatigueTotalScale);
+ const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28)-scheduleMargin)*injuryTotalScale*fatigueTotalScale);
 
  for(let r=0;r<runs;r++){
   const paceZ=random.normal();
   const homeFormZ=random.normal();
   const awayFormZ=random.normal();
-  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock));
+  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock+.015*scheduleFatigue*scheduleConfidence));
   const homeMean=Math.max(.01,homeMean0*paceScale*Math.exp(homeFormZ*.05));
   const awayMean=Math.max(.01,awayMean0*paceScale*Math.exp(awayFormZ*.05));
   const homeScore=base.discrete?poisson(random,homeMean):Math.max(0,homeMean+base.sd*(.26*paceZ+.42*homeFormZ+.36*random.normal()));
@@ -80,10 +88,13 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
    let hit=false;
    if(isPlayer(leg)){
     const p=leg.playerContext!;
-    const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1);
-    const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)));
     const teamHome=mentions(p.team||'',home);
     const teamAway=mentions(p.team||'',away);
+    const legScheduleConfidence=Math.max(0,Math.min(1,Number(leg.sportFeatures?.scheduleContextConfidence||0)));
+    const teamFatigue=teamHome?Number(leg.sportFeatures?.scheduleHomeFatigue||0):teamAway?Number(leg.sportFeatures?.scheduleAwayFatigue||0):0;
+    const playerScheduleScale=1-teamFatigue*.045*legScheduleConfidence+(teamHome?1:teamAway?-1:0)*Number(leg.sportFeatures?.scheduleCompositeEdge||0)*.025*legScheduleConfidence;
+    const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1)*Math.max(.88,Math.min(1.08,playerScheduleScale));
+    const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)));
     const teamZ=teamHome?homeFormZ:teamAway?awayFormZ:(homeFormZ+awayFormZ)/2;
     const eventScale=Math.exp(.08*paceZ+.07*teamZ);
     const value=Math.max(0,mean*eventScale+sd*.72*random.normal());
