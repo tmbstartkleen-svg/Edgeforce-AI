@@ -20,3 +20,10 @@ V64 learns opponent tendencies directly from the player game-history warehouse a
 Player game history → player baselines → team/position defense profiles + exact player/opponent profiles → V62 player feature stack → V63 calibration → bounded Monte Carlo adjustment.
 
 V64 supplements the model council, V62 player frames and V63 player calibration rather than replacing their quality, calibration or recommendation gates.
+
+## V64.1 intraday injury tracking
+- Refreshes configured injury feeds every 15 minutes throughout the day
+- Persists fresh injury snapshots for provider-failure fallback
+- Converts OUT / doubtful / questionable / probable / active statuses into bounded availability when numeric availability is absent
+- Carries injury context into probability-state, team-score, sport micro, player-prop and same-game shared-event simulations
+- Adds injury-driven uncertainty so late scratches and status changes affect both projection means and simulation variance
