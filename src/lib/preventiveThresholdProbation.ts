@@ -11,12 +11,17 @@ export function nextThresholdProbationState(input:{
  stageStreak:number;
  reentryAllowed:boolean;
  recoveryState:string;
+ rollbackReferenceId?:number|null;
  instabilityScore:number;
  calibrationError:number;
  brierScore:number;
  sampleSize:number;
 }){
  const rationale:string[]=[];
+ if(!input.rollbackReferenceId&&input.previousState==='INACTIVE'){
+  rationale.push('No rollback recovery is active; full bounded adaptive influence remains enabled.');
+  return {state:'FULL' as const,stage:4,stageStreak:0,adaptiveWeight:1,rationale};
+ }
  if(!input.reentryAllowed||input.recoveryState!=='OPEN'){
   rationale.push('Adaptive re-entry is not open; probation remains inactive.');
   return {state:'INACTIVE' as const,stage:0,stageStreak:0,adaptiveWeight:0,rationale};
@@ -70,6 +75,7 @@ export async function runThresholdProbationGovernor(){
   stageStreak:Number(previous?.stageStreak||0),
   reentryAllowed:recovery?.adaptiveReentryAllowed!==false,
   recoveryState:String(recovery?.state||'OPEN'),
+  rollbackReferenceId:recovery?.rollbackReferenceId?Number(recovery.rollbackReferenceId):null,
   instabilityScore:Number(stability?.instabilityScore||0),
   calibrationError:Number((calibration as any)?.calibrationError||0),
   brierScore:Number((calibration as any)?.brierScore||0),
@@ -106,5 +112,6 @@ export async function loadThresholdProbationSummary(){
 
 export async function getAdaptiveThresholdWeight(){
  const summary=await loadThresholdProbationSummary();
+ if(String(summary?.state||'INACTIVE')==='INACTIVE')return 1;
  return Math.max(0,Math.min(1,Number(summary?.adaptiveWeight||0)));
 }
