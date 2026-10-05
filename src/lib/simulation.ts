@@ -22,7 +22,9 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
   feat(m,'playerUsage')*.006+
   (feat(m,'playerRosterContinuity')-.5)*.004
  )*playerConfidence;
- const base=clamp(m.modelProb+playerAdjustment);
+ const calibrationConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerCalibrationConfidence||0)));
+ const calibrationBias=Math.max(-.06,Math.min(.06,Number(m.sportFeatures?.playerCalibrationBias||0)))*calibrationConfidence;
+ const base=clamp(m.modelProb+playerAdjustment+calibrationBias);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
   Math.abs(feat(m,'injury'))*.025+
