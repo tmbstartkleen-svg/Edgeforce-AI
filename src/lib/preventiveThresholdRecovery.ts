@@ -5,6 +5,16 @@ import {RELEASE} from './releaseManifest';
 
 export type ThresholdRecoveryState='OPEN'|'LOCKED'|'RECOVERING';
 
+export type ThresholdRecoverySummary={
+ state:ThresholdRecoveryState;
+ recoveryStreak:number;
+ rollbackReferenceId:number|null;
+ adaptiveReentryAllowed:boolean;
+ rationale:string[];
+ updatedAt:string|null;
+ recent:any[];
+};
+
 export function nextThresholdRecoveryState(input:{
  previousState:ThresholdRecoveryState;
  recoveryStreak:number;
@@ -114,9 +124,9 @@ export async function runThresholdRecoveryGovernor(){
  return {configured:true,...report};
 }
 
-export async function loadThresholdRecoverySummary(){
+export async function loadThresholdRecoverySummary():Promise<ThresholdRecoverySummary>{
  const sql=db();
- if(!sql)return {state:'OPEN',recoveryStreak:0,adaptiveReentryAllowed:true,rationale:['Database is not configured.'],recent:[]};
+ if(!sql)return {state:'OPEN',recoveryStreak:0,rollbackReferenceId:null,adaptiveReentryAllowed:true,rationale:['Database is not configured.'],updatedAt:null,recent:[]};
  try{
   const [state]=await sql`
    select state,recovery_streak as "recoveryStreak",rollback_reference_id as "rollbackReferenceId",
@@ -129,8 +139,16 @@ export async function loadThresholdRecoverySummary(){
     instability_score::float as "instabilityScore",generated_at as "generatedAt"
    from preventive_threshold_recovery_snapshots order by generated_at desc limit 20
   `;
-  return {...state,rationale:state?.lastReason?[String(state.lastReason)]:[],recent};
- }catch{return {state:'OPEN',recoveryStreak:0,adaptiveReentryAllowed:true,rationale:[],recent:[]}}
+  return {
+   state:String(state?.state||'OPEN') as ThresholdRecoveryState,
+   recoveryStreak:Number(state?.recoveryStreak||0),
+   rollbackReferenceId:state?.rollbackReferenceId==null?null:Number(state.rollbackReferenceId),
+   adaptiveReentryAllowed:state?.adaptiveReentryAllowed!==false,
+   rationale:state?.lastReason?[String(state.lastReason)]:[],
+   updatedAt:state?.updatedAt?new Date(state.updatedAt).toISOString():null,
+   recent:recent as any[]
+  };
+ }catch{return {state:'OPEN',recoveryStreak:0,rollbackReferenceId:null,adaptiveReentryAllowed:true,rationale:[],updatedAt:null,recent:[]}}
 }
 
 export async function adaptiveThresholdReentryAllowed(){
