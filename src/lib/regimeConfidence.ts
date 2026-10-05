@@ -1,6 +1,6 @@
 import {db} from './db';
 import type {Market} from './types';
-import {applyOptimizerBlend,loadCrossSportOptimizerProfiles,selectOptimizerProfile,type OptimizerProfile} from './crossSportOptimizer';
+import {applyOptimizerBlend,loadCrossSportOptimizerProfiles,selectOptimizerProfile,type OptimizerProfile,type OptimizerProfileMap} from './crossSportOptimizer';
 
 export type MarketRegime='STABLE'|'VOLATILE'|'DISLOCATED'|'THIN'|'UNKNOWN';
 export type DynamicConfidenceLabel='HIGH'|'MEDIUM'|'LOW';
@@ -126,7 +126,7 @@ export function calibrateDynamicConfidence(args:{
  const calibratedProbability=clamp(historyAdjusted*(1-consensusBlend)+consensusProbability*consensusBlend,.001,.999);
 
  const extraWidth=uncertainty*.045+(regime==='DISLOCATED'?.025:regime==='VOLATILE'?.012:0);
- const centerShift=calibratedProbability-raw;
+ const centerShift=calibratedProbability-rawSimulation;
  const calibratedCi:[number,number]=[
   clamp(ciLow+centerShift-extraWidth),
   clamp(ciHigh+centerShift+extraWidth)
@@ -177,7 +177,7 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
    order by as_of desc
    limit 2000
   `,
-   loadCrossSportOptimizerProfiles().catch(()=>({}))
+   loadCrossSportOptimizerProfiles().catch(()=>({} as OptimizerProfileMap))
   ]);
   const grouped=new Map<string,DynamicCalibrationProfile[]>();
   for(const raw of rows as any[]){
