@@ -155,7 +155,11 @@ const requiredFiles=[
  'src/lib/playerCalibration.ts',
  'src/app/api/intelligence/player-calibration/route.ts',
  'src/app/api/testing/player-calibration/route.ts',
- 'src/components/PlayerCalibrationPanel.tsx'
+ 'src/components/PlayerCalibrationPanel.tsx',
+ 'src/lib/opponentMatchupLearning.ts',
+ 'src/app/api/intelligence/opponent-matchups/route.ts',
+ 'src/app/api/testing/opponent-matchups/route.ts',
+ 'src/components/OpponentMatchupPanel.tsx'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -208,6 +212,12 @@ add('V63 player calibration runtime',read('src/lib/providers/contextFusion.ts').
 add('V63 player calibration automation',read('src/app/api/cron/recalibrate/route.ts').includes('rebuildPlayerCalibrationProfiles'),'daily recalibration rebuilds player profiles');
 add('V63 player calibration API',read('src/app/api/intelligence/player-calibration/route.ts').includes('v63-player-calibration-1')&&read('src/app/api/testing/player-calibration/route.ts').includes('buildPlayerCalibrationProfile'),'player calibration observability and regression endpoints exist');
 add('V63 player calibration dashboard',read('src/components/Dashboard.tsx').includes('PlayerCalibrationPanel')&&read('src/components/PlayerCalibrationPanel.tsx').includes('V63 PLAYER LEARNING'),'settled player learning is visible on dashboard');
+add('V64 opponent matchup migration schema',read('db/v75.sql').includes('opponent_matchup_profiles')&&read('db/v75.sql').includes('opponent_matchup_runs'),'v75 opponent matchup learning warehouse');
+add('V64 opponent profile builder',read('src/lib/opponentMatchupLearning.ts').includes('buildOpponentMatchupProfiles')&&read('src/lib/opponentMatchupLearning.ts').includes('leagueMean'),'opponent tendencies are normalized to league baselines');
+add('V64 matchup runtime',read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithOpponentMatchups')&&read('src/lib/simulation.ts').includes('opponentMatchupSignal'),'qualified opponent signals feed Monte Carlo');
+add('V64 matchup automation',read('src/app/api/cron/recalibrate/route.ts').includes('rebuildOpponentMatchupProfiles'),'daily recalibration rebuilds matchup profiles');
+add('V64 matchup API',read('src/app/api/intelligence/opponent-matchups/route.ts').includes('v64-opponent-matchup-1')&&read('src/app/api/testing/opponent-matchups/route.ts').includes('buildOpponentMatchupProfiles'),'opponent matchup observability and regression endpoints exist');
+add('V64 matchup dashboard',read('src/components/Dashboard.tsx').includes('OpponentMatchupPanel')&&read('src/components/OpponentMatchupPanel.tsx').includes('V64 MATCHUP LEARNING'),'opponent matchup learning is visible on dashboard');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
