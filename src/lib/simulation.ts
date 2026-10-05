@@ -14,7 +14,15 @@ const clamp=(x:number,min=.01,max=.99)=>Math.max(min,Math.min(max,x));
 const feat=(m:Market,k:string)=>Math.max(-1,Math.min(1,Number(m.sportFeatures?.[k]||0)));
 
 export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationResult{
- const base=clamp(m.modelProb);
+ const playerConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerSampleConfidence||0)));
+ const playerAdjustment=(
+  feat(m,'playerForm')*.012+
+  feat(m,'playerHomeAway')*.008+
+  feat(m,'playerOpponent')*.008+
+  feat(m,'playerUsage')*.006+
+  (feat(m,'playerRosterContinuity')-.5)*.004
+ )*playerConfidence;
+ const base=clamp(m.modelProb+playerAdjustment);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
   Math.abs(feat(m,'injury'))*.025+
@@ -22,7 +30,8 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
   Math.abs(feat(m,'travel'))*.012+
   Math.abs(feat(m,'starter'))*.018+
   Math.abs(feat(m,'goalie'))*.018+
-  Math.abs(feat(m,'quarterback'))*.020
+  Math.abs(feat(m,'quarterback'))*.020+
+  Math.abs(feat(m,'playerVolatility'))*.015*(.5+playerConfidence*.5)
  );
  const volatility=.015+uncertainty+context;
  let hits=0;
