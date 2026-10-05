@@ -73,19 +73,31 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
  const venueTotal=venueTotals.length?clamp(venueTotals.reduce((s,x)=>s+x,0)/venueTotals.length,-1,1)*venueConfidence:0;
  const venueHome=venueHomes.length?clamp(venueHomes.reduce((s,x)=>s+x,0)/venueHomes.length,-1,1)*venueConfidence:0;
  const venueVolatility=venueVols.length?clamp(venueVols.reduce((s,x)=>s+x,0)/venueVols.length,0,1)*venueConfidence:0;
+ const movementRows=legs.map(leg=>{
+  const confidence=clamp(Number(leg.sportFeatures?.marketMovementConfidence||0),0,1);
+  const signal=Number(leg.sportFeatures?.marketClosingLineSignal||0)*confidence;
+  const k=kind(leg);
+  const side=mentions(leg.selection,home)?1:mentions(leg.selection,away)?-1:0;
+  return {home:(k==='MONEYLINE'||k==='SPREAD')?signal*side:0,total:k==='OVER'?signal:k==='UNDER'?-signal:0,volatility:Number(leg.sportFeatures?.marketMovementVolatility||0)*confidence};
+ });
+ const movementHome=movementRows.length?clamp(movementRows.reduce((s,x)=>s+x.home,0)/movementRows.length,-1,1):0;
+ const movementTotal=movementRows.length?clamp(movementRows.reduce((s,x)=>s+x.total,0)/movementRows.length,-1,1):0;
+ const movementVolatility=movementRows.length?clamp(movementRows.reduce((s,x)=>s+x.volatility,0)/movementRows.length,0,1):0;
  const injuryTotalScale=1-.035*injuryShock;
  const fatigueTotalScale=1-.025*scheduleFatigue*scheduleConfidence;
  const venueTotalScale=1+venueTotal*.08;
+ const movementTotalScale=1+movementTotal*.035;
  const scheduleMargin=base.total*.055*scheduleEdge;
  const venueMargin=base.total*.045*venueHome;
- const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28+scheduleMargin+venueMargin)*injuryTotalScale*fatigueTotalScale*venueTotalScale);
- const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28)-scheduleMargin-venueMargin)*injuryTotalScale*fatigueTotalScale*venueTotalScale);
+ const movementMargin=base.total*.035*movementHome;
+ const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28+scheduleMargin+venueMargin+movementMargin)*injuryTotalScale*fatigueTotalScale*venueTotalScale*movementTotalScale);
+ const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28)-scheduleMargin-venueMargin-movementMargin)*injuryTotalScale*fatigueTotalScale*venueTotalScale*movementTotalScale);
 
  for(let r=0;r<runs;r++){
   const paceZ=random.normal();
   const homeFormZ=random.normal();
   const awayFormZ=random.normal();
-  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock+.015*scheduleFatigue*scheduleConfidence+.020*venueVolatility));
+  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock+.015*scheduleFatigue*scheduleConfidence+.020*venueVolatility+.012*movementVolatility));
   const homeMean=Math.max(.01,homeMean0*paceScale*Math.exp(homeFormZ*.05));
   const awayMean=Math.max(.01,awayMean0*paceScale*Math.exp(awayFormZ*.05));
   const homeScore=base.discrete?poisson(random,homeMean):Math.max(0,homeMean+base.sd*(.26*paceZ+.42*homeFormZ+.36*random.normal()));
@@ -105,8 +117,11 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
     const playerScheduleScale=1-teamFatigue*.045*legScheduleConfidence+(teamHome?1:teamAway?-1:0)*Number(leg.sportFeatures?.scheduleCompositeEdge||0)*.025*legScheduleConfidence;
     const legVenueConfidence=Math.max(0,Math.min(1,Number(leg.sportFeatures?.venueWeatherConfidence||0)));
     const playerVenueScale=1+Number(leg.sportFeatures?.venueTotalEffect||0)*.035*legVenueConfidence+(teamHome?1:teamAway?-1:0)*Number(leg.sportFeatures?.venueHomeEdge||0)*.02*legVenueConfidence;
-    const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1)*Math.max(.88,Math.min(1.08,playerScheduleScale))*Math.max(.90,Math.min(1.10,playerVenueScale));
-    const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)))*(1+Math.max(0,Number(leg.sportFeatures?.venueVolatilityEffect||0))*.12*legVenueConfidence);
+    const legMovementConfidence=Math.max(0,Math.min(1,Number(leg.sportFeatures?.marketMovementConfidence||0)));
+    const movementDirection=k==='UNDER'?-1:k==='OVER'?1:0;
+    const playerMovementScale=1+movementDirection*Number(leg.sportFeatures?.marketClosingLineSignal||0)*.02*legMovementConfidence;
+    const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1)*Math.max(.88,Math.min(1.08,playerScheduleScale))*Math.max(.90,Math.min(1.10,playerVenueScale))*Math.max(.95,Math.min(1.05,playerMovementScale));
+    const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)))*(1+Math.max(0,Number(leg.sportFeatures?.venueVolatilityEffect||0))*.12*legVenueConfidence+Math.max(0,Number(leg.sportFeatures?.marketMovementVolatility||0))*.08*legMovementConfidence);
     const teamZ=teamHome?homeFormZ:teamAway?awayFormZ:(homeFormZ+awayFormZ)/2;
     const eventScale=Math.exp(.08*paceZ+.07*teamZ);
     const value=Math.max(0,mean*eventScale+sd*.72*random.normal());

@@ -176,6 +176,10 @@ const requiredFiles=[
  'src/app/api/intelligence/venue-conditions/route.ts',
  'src/app/api/testing/venue-conditions/route.ts',
  'src/components/VenueConditionsPanel.tsx',
+ 'src/lib/marketMovementLearning.ts',
+ 'src/app/api/intelligence/market-movement-learning/route.ts',
+ 'src/app/api/testing/market-movement-learning/route.ts',
+ 'src/components/MarketMovementLearningPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -264,6 +268,17 @@ add('V68 live context',read('src/lib/providers/publicSportsContext.ts').includes
 add('V68 all-sim integration',read('src/lib/simulation.ts').includes('venueAdjustment')&&read('src/lib/sportOutcomeSimulation.ts').includes('venuePlayerScale')&&read('src/lib/sportMicroSimulation.ts').includes('venuePace')&&read('src/lib/sharedEventState.ts').includes('venueTotalScale'),'fallback, team, prop, micro and shared-event sims consume V68');
 add('V68 persistence and rebuild',read('src/app/api/cron/scan/route.ts').includes('recordVenueConditionSnapshots')&&read('src/app/api/cron/recalibrate/route.ts').includes('rebuildVenueConditionProfiles'),'live venue snapshots persist and venue profiles rebuild daily');
 add('V68 regression and dashboard',read('src/app/api/testing/venue-conditions/route.ts').includes('storm.venueTotalEffect<calm.venueTotalEffect')&&read('src/components/Dashboard.tsx').includes('VenueConditionsPanel'),'deterministic condition regression and dashboard visibility are present');
+add('V69 movement schema',read('db/v81.sql').includes('market_movement_snapshots')&&read('db/v81.sql').includes('market_movement_profiles'),'v81 stores canonical line movement and settled CLV profiles');
+add('V69 canonical continuity',read('src/lib/marketMovementLearning.ts').includes('canonicalMovementSelection')&&read('src/app/api/testing/market-movement-learning/route.ts').includes("Chiefs -2.5")&&read('src/app/api/testing/market-movement-learning/route.ts').includes("Chiefs -3.5"),'point changes remain one continuous market history');
+add('V69 movement signals',read('src/lib/marketMovementLearning.ts').includes('marketSteamSignal')&&read('src/lib/marketMovementLearning.ts').includes('marketReversalSignal')&&read('src/lib/marketMovementLearning.ts').includes('marketMoveVelocity'),'steam, reversal and velocity features are explicit');
+add('V69 closing-line learning',read('src/lib/marketMovementLearning.ts').includes('closingSkill')&&read('src/lib/marketMovementLearning.ts').includes('closingBrier')&&read('src/lib/marketMovementLearning.ts').includes('offeredBrier'),'settled offered-vs-close efficiency is learned by sport and market');
+add('V69 canonical settlement close',read('src/lib/predictionFeedback.ts').includes('inferCanonicalClosingLine')&&read('src/lib/lineMovement.ts').includes('inferCanonicalClosingLine'),'settlement can recover the true pregame close across line changes');
+add('V69 context runtime',read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithMarketMovement')&&read('src/lib/providers/contextFusion.ts').includes("'market-movement'"),'movement learning enriches markets before trained ML');
+add('V69 all-sim integration',read('src/lib/simulation.ts').includes('movementAdjustment')&&read('src/lib/sportOutcomeSimulation.ts').includes('movementPlayerScale')&&read('src/lib/sportMicroSimulation.ts').includes('marketTotalLean')&&read('src/lib/sharedEventState.ts').includes('movementTotalScale'),'fallback, team, prop, micro and shared-event sims consume V69');
+add('V69 persistence and rebuild',read('src/app/api/cron/scan/route.ts').includes('recordMarketMovementSnapshots')&&read('src/app/api/cron/recalibrate/route.ts').includes('rebuildMarketMovementProfiles'),'movement snapshots persist and settled profiles rebuild daily');
+add('V69 dashboard',read('src/components/Dashboard.tsx').includes('MarketMovementLearningPanel')&&read('src/components/MarketMovementLearningPanel.tsx').includes('V69 MARKET LEARNING'),'movement and closing-line learning are visible');
+add('V69 recommendation-time price audit',read('src/lib/persistence.ts').includes('offeredOdds:x.odds')&&read('src/lib/predictionFeedback.ts').includes('featureSnapshot?.offeredOdds'),'CLV uses the actual recommendation-time price');
+add('V69 continuous drilldown history',read('src/app/api/market/[id]/lines/route.ts').includes('canonicalMovementSelection')&&read('src/components/MarketDrilldown.tsx').includes("'/lines'+(qs.toString()"),'market drilldown follows the same side across point changes');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');

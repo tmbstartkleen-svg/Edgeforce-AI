@@ -1,5 +1,6 @@
 import {db} from './db';
 import type {Market} from './types';
+import {inferCanonicalClosingLine} from './marketMovementLearning';
 
 export type LinePoint={odds:number;pulledAt:string|Date};
 export type LineMovementSummary={
@@ -96,7 +97,5 @@ export async function backfillClosingOddsForSlip(betSlipId:string){
 }
 
 export async function closingLineForMarket(eventId:string,marketKey:string,selectionKey:string){
- const sql=db(); if(!sql)return null;
- const rows=await sql`select ms.american_odds as odds,coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float as probability,ms.pulled_at as "pulledAt" from market_snapshots ms join events e on e.id=ms.event_id where ms.event_id=${eventId} and lower(ms.market_key)=lower(${marketKey}) and lower(ms.selection_key)=lower(${selectionKey}) and ms.pulled_at<=e.start_time order by ms.pulled_at desc limit 1`;
- return rows[0]||null;
+ return inferCanonicalClosingLine(eventId,marketKey,selectionKey);
 }

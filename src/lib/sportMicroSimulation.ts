@@ -60,6 +60,9 @@ function hit(m:Market,sample:Sample){
  if(isHome(m))return home>away;
  return undefined;
 }
+function movementConfidence(m:Market){return Math.max(0,Math.min(1,Number(m.sportFeatures?.marketMovementConfidence||0)))}
+function marketMove(m:Market){return feat(m,'marketClosingLineSignal')*movementConfidence(m)}
+function marketTotalLean(m:Market){const k=kind(m);return k==='OVER'?marketMove(m):k==='UNDER'?-marketMove(m):0}
 function homeEdge(m:Market){
  const directional=(kind(m)==='MONEYLINE'||kind(m)==='SPREAD')?(m.modelProb-.5)*2:0;
  const side=isAway(m)?-1:isHome(m)?1:0;
@@ -67,7 +70,8 @@ function homeEdge(m:Market){
  const scheduleEdge=scheduleConfidence>0?feat(m,'scheduleCompositeEdge')*.10*scheduleConfidence:feat(m,'rest')*.05-feat(m,'travel')*.04;
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
  const venueEdge=venueConfidence>0?feat(m,'venueHomeEdge')*.10*venueConfidence:0;
- return unit(directional*side*.72+feat(m,'home')*.10+feat(m,'efficiency')*.12+feat(m,'form')*.08-feat(m,'injury')*.08+scheduleEdge+venueEdge);
+ const movementEdge=(marketMove(m)*.08+feat(m,'marketSharpSignal')*.015*movementConfidence(m))*side;
+ return unit(directional*side*.72+feat(m,'home')*.10+feat(m,'efficiency')*.12+feat(m,'form')*.08-feat(m,'injury')*.08+scheduleEdge+venueEdge+movementEdge);
 }
 function finalize(m:Market,runs:SimulationTier,samples:Sample[],engine:string,scoreUnit:string,family:DistributionFamily,microUnit:string,random:Rng):MicroSimulationResult{
  let hits=0,homeSum=0,awaySum=0,unitSum=0;
@@ -92,9 +96,10 @@ function basketball(m:Market,runs:SimulationTier){
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
  const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0;
  const venueScoring=venueConfidence>0?feat(m,'venueTotalEffect')*.045*venueConfidence:0;
+ const movementScoring=marketTotalLean(m)*.025;
  const pace=Math.max(55,Math.round(basePoss*(1+feat(m,'pace',feat(m,'tempo'))*.08+venuePace))),samples:Sample[]=[];
  const points=(ppp:number)=>{const score=clamp(ppp/2.15,.30,.68);if(rng.next()>score)return 0;const u=rng.next();return u<.09?1:u<.09+clamp(.25+(ppp-1)*.22,.18,.42)?3:2};
- for(let r=0;r<n;r++){let home=0,away=0;const poss=Math.max(50,Math.round(pace+rng.normal()*4));for(let i=0;i<poss;i++){home+=points(basePpp*(1+venueScoring+edge*.075+feat(m,'shooting')*.035));away+=points(basePpp*(1+venueScoring-edge*.075))}samples.push({home,away,units:poss*2})}
+ for(let r=0;r<n;r++){let home=0,away=0;const poss=Math.max(50,Math.round(pace+rng.normal()*4));for(let i=0;i<poss;i++){home+=points(basePpp*(1+venueScoring+movementScoring+edge*.075+feat(m,'shooting')*.035));away+=points(basePpp*(1+venueScoring+movementScoring-edge*.075))}samples.push({home,away,units:poss*2})}
  return finalize(m,n,samples,'BASKETBALL_POSSESSION_MONTE_CARLO','points','NORMAL','possessions',rng);
 }
 
@@ -106,8 +111,9 @@ function football(m:Market,runs:SimulationTier){
  const weather=venueConfidence>0?Math.max(0,-feat(m,'venueTotalEffect'))*venueConfidence:Math.max(0,-feat(m,'weather'));
  const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0;
  const venueVariance=venueConfidence>0?feat(m,'venueVolatilityEffect')*.55*venueConfidence:0;
+ const movementScoring=marketTotalLean(m)*.012;
  const baseDrives=college?12.5:10.8,samples:Sample[]=[];
- const drive=(e:number)=>{const td=clamp(.215+e*.045-weather*.025,.10,.36),fg=clamp(.155+e*.018-weather*.012,.08,.24),u=rng.next();return u<td?(rng.next()<.94?7:6):u<td+fg?3:u<td+fg+.004?2:0};
+ const drive=(e:number)=>{const td=clamp(.215+movementScoring+e*.045-weather*.025,.10,.36),fg=clamp(.155+movementScoring*.55+e*.018-weather*.012,.08,.24),u=rng.next();return u<td?(rng.next()<.94?7:6):u<td+fg?3:u<td+fg+.004?2:0};
  for(let r=0;r<n;r++){let home=0,away=0;const drives=Math.max(7,Math.round(baseDrives*(1+feat(m,'tempo')*.08+venuePace)+rng.normal()*(1.25+venueVariance)));for(let d=0;d<drives;d++){home+=drive(edge);away+=drive(-edge)}samples.push({home,away,units:drives*2})}
  return finalize(m,n,samples,'FOOTBALL_DRIVE_MONTE_CARLO','points','NORMAL','drives',rng);
 }
@@ -135,7 +141,8 @@ function baseball(m:Market,runs:SimulationTier){
  const n=actualRuns(runs),rng=seeded(`mlb|${m.id}|${m.startTime}`),edge=homeEdge(m),samples:Sample[]=[];
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
  const conditionOff=venueConfidence>0?feat(m,'venueTotalEffect')*.30*venueConfidence:0;
- const homeOff=edge*.55+feat(m,'lineup')*.22+feat(m,'park')*.06+conditionOff,awayOff=-edge*.55+feat(m,'lineup')*.10+feat(m,'park')*.06+conditionOff,starter=feat(m,'starter')*.35,bullpen=feat(m,'bullpen')*.22;
+ const movementOff=marketTotalLean(m)*.10;
+ const homeOff=edge*.55+feat(m,'lineup')*.22+feat(m,'park')*.06+conditionOff+movementOff,awayOff=-edge*.55+feat(m,'lineup')*.10+feat(m,'park')*.06+conditionOff+movementOff,starter=feat(m,'starter')*.35,bullpen=feat(m,'bullpen')*.22;
  for(let r=0;r<n;r++){let home=0,away=0,pa=0;for(let inn=1;inn<=9;inn++){const a=halfInning(rng,awayOff,starter*(inn<=5?1:.2)+bullpen*(inn>5?1:.25)),h=halfInning(rng,homeOff,-starter*(inn<=5?1:.2)-bullpen*(inn>5?1:.25));away+=a.runs;home+=h.runs;pa+=a.pa+h.pa}if(home===away){if(rng.next()<clamp(.5+edge*.08,.36,.64))home++;else away++}samples.push({home,away,units:pa})}
  return finalize(m,n,samples,'MLB_PLATE_APPEARANCE_MONTE_CARLO','runs','POISSON','plate appearances',rng);
 }
@@ -145,8 +152,8 @@ function hockey(m:Market,runs:SimulationTier){
  if(!sport(m).includes('NHL'))return null;
  const n=actualRuns(runs),rng=seeded(`nhl|${m.id}|${m.startTime}`),edge=homeEdge(m)+feat(m,'goalie')*.08+feat(m,'shotQuality')*.08,samples:Sample[]=[];
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
- const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0,venueScore=venueConfidence>0?feat(m,'venueTotalEffect')*.025*venueConfidence:0;
- for(let r=0;r<n;r++){let home=0,away=0;const shifts=Math.max(38,Math.round(58*(1+feat(m,'pace')*.10+venuePace)+rng.normal()*5)),hp=clamp(.051+venueScore+edge*.010+feat(m,'specialTeams')*.004,.028,.085),ap=clamp(.051+venueScore-edge*.010,.028,.085);for(let sh=0;sh<shifts;sh++){if(rng.next()<hp)home++;if(rng.next()<ap)away++}if(home===away&&kind(m)==='MONEYLINE'){if(rng.next()<clamp(.5+edge*.10,.35,.65))home++;else away++}samples.push({home,away,units:shifts})}
+ const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0,venueScore=venueConfidence>0?feat(m,'venueTotalEffect')*.025*venueConfidence:0,marketScore=marketTotalLean(m)*.004;
+ for(let r=0;r<n;r++){let home=0,away=0;const shifts=Math.max(38,Math.round(58*(1+feat(m,'pace')*.10+venuePace)+rng.normal()*5)),hp=clamp(.051+venueScore+marketScore+edge*.010+feat(m,'specialTeams')*.004,.028,.085),ap=clamp(.051+venueScore+marketScore-edge*.010,.028,.085);for(let sh=0;sh<shifts;sh++){if(rng.next()<hp)home++;if(rng.next()<ap)away++}if(home===away&&kind(m)==='MONEYLINE'){if(rng.next()<clamp(.5+edge*.10,.35,.65))home++;else away++}samples.push({home,away,units:shifts})}
  return finalize(m,n,samples,'NHL_SHIFT_MONTE_CARLO','goals','POISSON','shifts',rng);
 }
 
@@ -155,8 +162,8 @@ function soccer(m:Market,runs:SimulationTier){
  const s=sport(m);if(!(s.includes('SOCCER')||(!s.includes('NFL')&&!s.includes('NCAAF')&&s.includes('FOOTBALL'))))return null;
  const n=actualRuns(runs),rng=seeded(`soccer|${m.id}|${m.startTime}`),edge=homeEdge(m)+feat(m,'xg')*.10+feat(m,'keeper')*.04,samples:Sample[]=[];
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
- const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.10*venueConfidence:0,venueScore=venueConfidence>0?feat(m,'venueTotalEffect')*.018*venueConfidence:0;
- for(let r=0;r<n;r++){let home=0,away=0;const hc=Math.max(4,Math.round(12*(1+edge*.06+venuePace)+rng.normal()*2)),ac=Math.max(4,Math.round(12*(1-edge*.06+venuePace)+rng.normal()*2)),hp=clamp(.108+venueScore+edge*.022+feat(m,'setPieces')*.006,.055,.18),ap=clamp(.108+venueScore-edge*.022,.055,.18);for(let c=0;c<hc;c++)if(rng.next()<hp)home++;for(let c=0;c<ac;c++)if(rng.next()<ap)away++;samples.push({home,away,units:hc+ac})}
+ const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.10*venueConfidence:0,venueScore=venueConfidence>0?feat(m,'venueTotalEffect')*.018*venueConfidence:0,marketScore=marketTotalLean(m)*.003;
+ for(let r=0;r<n;r++){let home=0,away=0;const hc=Math.max(4,Math.round(12*(1+edge*.06+venuePace)+rng.normal()*2)),ac=Math.max(4,Math.round(12*(1-edge*.06+venuePace)+rng.normal()*2)),hp=clamp(.108+venueScore+marketScore+edge*.022+feat(m,'setPieces')*.006,.055,.18),ap=clamp(.108+venueScore+marketScore-edge*.022,.055,.18);for(let c=0;c<hc;c++)if(rng.next()<hp)home++;for(let c=0;c<ac;c++)if(rng.next()<ap)away++;samples.push({home,away,units:hc+ac})}
  return finalize(m,n,samples,'SOCCER_CHANCE_MONTE_CARLO','goals','POISSON','chances',rng);
 }
 
@@ -171,7 +178,7 @@ function tennis(m:Market,runs:SimulationTier){
  const s=sport(m);if(!(s.includes('TENNIS')&&!s.includes('TABLE')))return null;
  const text=lower(`${m.market} ${m.selection}`);
  if(kind(m)==='SPREAD'&&text.includes('game'))return null;
- const n=actualRuns(runs),rng=seeded(`tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1);
+ const n=actualRuns(runs),rng=seeded(`tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1)+marketMove(m)*.08*(selectedAway?-1:1);
  const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
  const venueCourt=venueConfidence>0?(feat(m,'venuePaceEffect')*.018+feat(m,'venueSurfaceEffect')*.012)*venueConfidence:0;
  const aServe=clamp(.625+strength*.045+feat(m,'serve')*.025+feat(m,'surface')*.012+venueCourt,.52,.76),bServe=clamp(.625-strength*.045+feat(m,'return')*.018+venueCourt,.52,.76),samples:Sample[]=[];
@@ -185,7 +192,7 @@ function tableTennis(m:Market,runs:SimulationTier){
  const s=sport(m);if(!(s.includes('TABLE TENNIS')||s.includes('PING PONG')))return null;
  const text=lower(`${m.market} ${m.selection}`);
  if(kind(m)==='SPREAD'&&text.includes('point'))return null;
- const n=actualRuns(runs),rng=seeded(`table-tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1)+feat(m,'serve')*.06+feat(m,'return')*.07,p=clamp(.5+strength*.12,.38,.62),samples:Sample[]=[];
+ const n=actualRuns(runs),rng=seeded(`table-tennis|${m.id}|${m.startTime}`),selectedAway=isAway(m),strength=(m.modelProb-.5)*2*(selectedAway?-1:1)+feat(m,'serve')*.06+feat(m,'return')*.07+marketMove(m)*.08*(selectedAway?-1:1),p=clamp(.5+strength*.12,.38,.62),samples:Sample[]=[];
  for(let r=0;r<n;r++){let a=0,b=0,points=0;while(a<3&&b<3){const g=tennisGame(rng,p,11);points+=g.points;if(g.aWon)a++;else b++}const marketTotal=text.includes('point')?points:a+b;samples.push({home:a,away:b,units:points,marketTotal})}
  const scoreUnit=text.includes('point')?'points':'games';
  return finalize(m,n,samples,'TABLE_TENNIS_POINT_GAME_MONTE_CARLO',scoreUnit,'BERNOULLI','points',rng);

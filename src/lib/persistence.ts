@@ -156,7 +156,10 @@ export async function recordModelRuns(rows:any[]){
           consensus:x.consensus||null,
           sourceBook:x.sourceBook||null,
           sourceProviderId:x.sourceProviderId||null,
-          marketRole:x.marketRole||null
+          marketRole:x.marketRole||null,
+          offeredOdds:x.odds,
+          marketKey:x.market,
+          selectionKey:x.selection
         })}
       )
     `;

@@ -15,6 +15,7 @@ import {recordShadowChallengerPredictions} from '@/lib/mlShadowRecovery';
 import {recordLiveLineupSnapshots} from '@/lib/startingLineupIntelligence';
 import {recordScheduleFatigueSnapshots} from '@/lib/scheduleFatigueIntelligence';
 import {recordVenueConditionSnapshots} from '@/lib/venueWeatherIntelligence';
+import {recordMarketMovementSnapshots} from '@/lib/marketMovementLearning';
 
 export const dynamic='force-dynamic';
 
@@ -34,7 +35,7 @@ export async function GET(req:Request){
   const audit=auditMarketBatch(context.markets);
   const scanned=weekTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
   const rows=applyQualityGate(scanned);
-  const [modelRunsWritten,playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots]=await Promise.all([
+  const [modelRunsWritten,playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,marketMovementSnapshots]=await Promise.all([
    recordModelRuns(rows).catch(()=>0),
    recordPlayerPropSnapshots(scanned).catch(()=>0),
    recordPlayerFeatureFrames(context.markets).catch(()=>0),
@@ -43,17 +44,18 @@ export async function GET(req:Request){
    recordShadowChallengerPredictions(context.markets).catch(error=>({written:0,requested:0,challengers:0,mode:'failed',error:error instanceof Error?error.message:'shadow prediction failed'})),
    recordLiveLineupSnapshots(context.markets).catch(()=>0),
    recordScheduleFatigueSnapshots(context.markets).catch(()=>0),
-   recordVenueConditionSnapshots(context.markets).catch(()=>0)
+   recordVenueConditionSnapshots(context.markets).catch(()=>0),
+   recordMarketMovementSnapshots(context.markets).catch(()=>0)
   ]);
   await recordAutomationRun('scan','success',started,{
    source:ingestion.source,providerId:ingestion.providerId,qualified:rows.length,modelRunsWritten,
-   playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,playerSync,
+   playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,marketMovementSnapshots,playerSync,
    dataQualityGrade:audit.grade,dataQualityScore:audit.score
   });
   return Response.json({
    ok:true,ranAt:new Date().toISOString(),source:ingestion.source,mode:ingestion.mode,
    providerId:ingestion.providerId,attempts:ingestion.attempts,qualified:rows.length,
-   modelRunsWritten,playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,playerSync,learnedWeightCount:Object.keys(learnedWeights).length,
+   modelRunsWritten,playerPropSnapshots,playerFeatureFrames,trainedModelSnapshots,externalMlSnapshots,shadowMlSnapshots,lineupSnapshots,scheduleFatigueSnapshots,venueConditionSnapshots,marketMovementSnapshots,playerSync,learnedWeightCount:Object.keys(learnedWeights).length,
    dynamicCalibrationProfileCount:Object.keys(dynamicCalibration).length,
    contextDiagnostics:context.diagnostics,
    dataQuality:audit,top:rows.slice(0,10)
