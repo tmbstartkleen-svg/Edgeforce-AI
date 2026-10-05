@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V95',
- appVersion:'95.0.0',
- packageVersion:'0.95.0',
- modelVersion:'edgeforce-v95',
- migrationVersion:107
+ build:'V96',
+ appVersion:'96.0.0',
+ packageVersion:'0.96.0',
+ modelVersion:'edgeforce-v96',
+ migrationVersion:108
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -27,6 +27,11 @@ const security=read('src/lib/security.ts');
 const proxy=read('src/proxy.ts');
 const vercel=JSON.parse(read('vercel.json'));
 const wrangler=read('wrangler.jsonc');
+const supervisionSources=[
+ read('src/lib/sloGovernor.ts'),
+ read('src/lib/preventiveSupervisionCycle.ts'),
+ read('src/lib/preventiveBaselineGovernanceCycle.ts')
+].join('\n');
 
 add('package version',pkg.version===expected.packageVersion,`${pkg.version} expected ${expected.packageVersion}`);
 add('typescript-eslint deterministic pin',pkg.overrides?.['@typescript-eslint/project-service']==='8.71.0'&&pkg.overrides?.['@typescript-eslint/typescript-estree']==='8.71.0','stable 8.71.0 family pin prevents partial-publish CI drift');
@@ -674,14 +679,14 @@ add('V76 incident pattern learning',read('src/lib/incidentPatternLearning.ts').i
 add('V76 pattern persistence',read('db/v88.sql').includes('incident_pattern_profiles')&&read('db/v88.sql').includes('incident_pattern_snapshots'),'recurrence profiles and history are durable');
 add('V76 co-failure learning',read('src/lib/incidentPatternLearning.ts').includes('cofailureComponents')&&read('src/app/api/testing/incident-patterns/route.ts').includes('injury-feed'),'repeating component co-failures are identified');
 add('V76 adaptive runbooks',read('src/lib/incidentPatternLearning.ts').includes('recommendedRunbook')&&read('src/components/IncidentPatternLearningPanel.tsx').includes('Priority runbook'),'cause-specific runbooks are visible to operators');
-add('V76 automatic learning cycle',read('src/lib/sloGovernor.ts').includes('runIncidentPatternLearning'),'SLO supervision updates incident pattern learning automatically');
+add('V76 automatic learning cycle',supervisionSources.includes('runIncidentPatternLearning'),'SLO supervision updates incident pattern learning automatically');
 add('V76 system dashboard',read('src/components/OperatorCommandCenter.tsx').includes('IncidentPatternLearningPanel'),'incident-pattern learning is visible in the system console');
 
 add('V77 predictive incident risk',read('src/lib/predictiveIncidentRisk.ts').includes('scorePredictiveRisk')&&read('src/lib/predictiveIncidentRisk.ts').includes('riskLevel'),'forward-looking subsystem risk scoring exists');
 add('V77 predictive persistence',read('db/v89.sql').includes('predictive_incident_risk_snapshots'),'risk forecasts are durable');
 add('V77 preventive warning threshold',read('src/lib/predictiveIncidentRisk.ts').includes('preventiveWarning')&&read('src/lib/predictiveIncidentRisk.ts').includes('>=.70'),'high-risk preventive warning threshold is enforced');
 add('V77 predictive regression',read('src/app/api/testing/predictive-incident-risk/route.ts').includes('AUTOMATION')&&read('src/app/api/testing/predictive-incident-risk/route.ts').includes('riskScore>=.70'),'deterministic predictive-risk regression exists');
-add('V77 automatic predictive cycle',read('src/lib/sloGovernor.ts').includes('runPredictiveIncidentRisk'),'SLO supervision refreshes predictive risk automatically');
+add('V77 automatic predictive cycle',supervisionSources.includes('runPredictiveIncidentRisk'),'SLO supervision refreshes predictive risk automatically');
 add('V77 predictive dashboard',read('src/components/OperatorCommandCenter.tsx').includes('PredictiveIncidentRiskPanel')&&read('src/components/PredictiveIncidentRiskPanel.tsx').includes('V77 PREDICTIVE INCIDENT RISK'),'system console exposes preventive forecast');
 
 add('V78 learning module',read('src/lib/preventiveActionLearning.ts').includes('buildActionEffectivenessProfiles'),'effectiveness learning module exists');
@@ -694,21 +699,21 @@ add('V79 ranking module',read('src/lib/preventiveActionRanking.ts').includes('ra
 add('V79 durable ranking',read('db/v91.sql').includes('preventive_action_ranking_snapshots'),'ranking snapshots are durable');
 add('V79 ranking API',read('src/app/api/operations/preventive-action-ranking/route.ts').includes('v79-preventive-action-ranking-1'),'ranking API exists');
 add('V79 ranking regression',read('src/app/api/testing/preventive-action-ranking/route.ts').includes('STRONG'),'ranking regression covers learned evidence quality');
-add('V79 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveActionRanking'),'SLO supervision refreshes ranking automatically');
+add('V79 supervision integration',supervisionSources.includes('runPreventiveActionRanking'),'SLO supervision refreshes ranking automatically');
 add('V79 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionRankingPanel'),'ranking panel is visible');
 
 add('V80 decision gate module',read('src/lib/preventiveActionDecisionGate.ts').includes('evaluatePreventiveActionGate'),'preventive decision gate exists');
 add('V80 durable decisions',read('db/v92.sql').includes('preventive_action_decision_snapshots'),'decision snapshots are durable');
 add('V80 decision API',read('src/app/api/operations/preventive-action-decision/route.ts').includes('v80-preventive-action-decision-1'),'decision API exists');
 add('V80 decision regression',read('src/app/api/testing/preventive-action-decision/route.ts').includes('DO_NOT_USE'),'regression covers recommendation and rejection');
-add('V80 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveActionDecisionGate'),'SLO supervision refreshes the decision gate');
+add('V80 supervision integration',supervisionSources.includes('runPreventiveActionDecisionGate'),'SLO supervision refreshes the decision gate');
 add('V80 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionDecisionPanel'),'decision panel is visible');
 
 add('V81 calibration module',read('src/lib/preventiveDecisionCalibration.ts').includes('buildPreventiveDecisionCalibration'),'decision calibration engine exists');
 add('V81 durable calibration',read('db/v93.sql').includes('preventive_decision_calibration_snapshots'),'calibration snapshots are durable');
 add('V81 calibration API',read('src/app/api/operations/preventive-decision-calibration/route.ts').includes('v81-preventive-decision-calibration-1'),'calibration API exists');
 add('V81 calibration regression',read('src/app/api/testing/preventive-decision-calibration/route.ts').includes('brierScore'),'calibration regression covers Brier and error metrics');
-add('V81 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveDecisionCalibration'),'SLO supervision refreshes calibration');
+add('V81 supervision integration',supervisionSources.includes('runPreventiveDecisionCalibration'),'SLO supervision refreshes calibration');
 add('V81 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveDecisionCalibrationPanel'),'calibration panel is visible');
 
 add('V82 threshold governor',read('src/lib/preventiveDecisionThresholds.ts').includes('derivePreventiveDecisionThresholds'),'adaptive threshold governor exists');
@@ -716,13 +721,13 @@ add('V82 hard threshold bounds',read('src/lib/preventiveDecisionThresholds.ts').
 add('V82 durable thresholds',read('db/v94.sql').includes('preventive_decision_threshold_state')&&read('db/v94.sql').includes('preventive_decision_threshold_snapshots'),'threshold state and history are durable');
 add('V82 gate integration',read('src/lib/preventiveActionDecisionGate.ts').includes('loadPreventiveDecisionThresholds')&&read('src/lib/preventiveActionDecisionGate.ts').includes('thresholds.recommendThreshold'),'decision gate consumes adaptive thresholds');
 add('V82 threshold regression',read('src/app/api/testing/preventive-decision-thresholds/route.ts').includes('CONSERVATIVE')&&read('src/app/api/testing/preventive-decision-thresholds/route.ts').includes('TUNED'),'regression covers tightening and bounded tuning');
-add('V82 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveDecisionThresholdGovernor'),'SLO supervision refreshes adaptive thresholds');
+add('V82 supervision integration',supervisionSources.includes('runPreventiveDecisionThresholdGovernor'),'SLO supervision refreshes adaptive thresholds');
 add('V82 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveDecisionThresholdPanel'),'threshold governor is visible');
 
 add('V83 threshold stability governor',read('src/lib/preventiveThresholdStability.ts').includes('evaluateThresholdStability'),'threshold stability engine exists');
 add('V83 durable stability state',read('db/v95.sql').includes('preventive_threshold_stability_state')&&read('db/v95.sql').includes('preventive_threshold_stability_snapshots'),'stability state and rollback history are durable');
 add('V83 safe rollback target',read('src/lib/preventiveThresholdStability.ts').includes('loadLastSafeSnapshot')&&read('src/lib/preventiveThresholdStability.ts').includes('source_calibration_error<=.12'),'rollback targets only previously safe threshold evidence');
-add('V83 rollback integration',read('src/lib/sloGovernor.ts').includes('runThresholdStabilityGovernor'),'SLO supervision runs stability check before the preventive decision gate');
+add('V83 rollback integration',supervisionSources.includes('runThresholdStabilityGovernor'),'SLO supervision runs stability check before the preventive decision gate');
 add('V83 stability regression',read('src/app/api/testing/preventive-threshold-stability/route.ts').includes("status==='ROLLBACK'"),'regression covers stable and rollback states');
 add('V83 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdStabilityPanel'),'stability governor is visible');
 
@@ -731,7 +736,7 @@ add('V84 three-window re-entry',read('src/lib/preventiveThresholdRecovery.ts').i
 add('V84 recovery lock integration',read('src/lib/preventiveDecisionThresholds.ts').includes('adaptiveThresholdReentryAllowed')&&read('src/lib/preventiveDecisionThresholds.ts').includes('RECOVERY_LOCK'),'adaptive threshold writes pause while recovery is locked');
 add('V84 durable recovery state',read('db/v96.sql').includes('preventive_threshold_recovery_state')&&read('db/v96.sql').includes('preventive_threshold_recovery_snapshots'),'recovery state and history are durable');
 add('V84 recovery regression',read('src/app/api/testing/preventive-threshold-recovery/route.ts').includes("state==='LOCKED'")&&read('src/app/api/testing/preventive-threshold-recovery/route.ts').includes("state==='OPEN'"),'regression covers lock, recovery, and re-entry');
-add('V84 supervision integration',read('src/lib/sloGovernor.ts').includes('runThresholdRecoveryGovernor'),'SLO supervision refreshes threshold recovery');
+add('V84 supervision integration',supervisionSources.includes('runThresholdRecoveryGovernor'),'SLO supervision refreshes threshold recovery');
 add('V84 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdRecoveryPanel'),'threshold recovery is visible');
 
 add('V85 probation governor',read('src/lib/preventiveThresholdProbation.ts').includes('nextThresholdProbationState'),'probation state machine exists');
@@ -739,7 +744,7 @@ add('V85 staged influence',read('src/lib/preventiveThresholdProbation.ts').inclu
 add('V85 threshold weighting',read('src/lib/preventiveDecisionThresholds.ts').includes('applyAdaptiveThresholdWeight')&&read('src/lib/preventiveDecisionThresholds.ts').includes('getAdaptiveThresholdWeight'),'threshold governor consumes probation weight');
 add('V85 rollback-only activation',read('src/lib/preventiveThresholdProbation.ts').includes('rollbackReferenceId'),'probation activates only after rollback recovery');
 add('V85 durable probation state',read('db/v97.sql').includes('preventive_threshold_probation_state')&&read('db/v97.sql').includes('preventive_threshold_probation_snapshots'),'probation state and history are durable');
-add('V85 supervision integration',read('src/lib/sloGovernor.ts').includes('runThresholdProbationGovernor'),'SLO supervision refreshes probation before adaptive threshold writes');
+add('V85 supervision integration',supervisionSources.includes('runThresholdProbationGovernor'),'SLO supervision refreshes probation before adaptive threshold writes');
 add('V85 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdProbationPanel'),'probation rollout is visible');
 
 add('V86 probation performance governor',read('src/lib/preventiveProbationPerformance.ts').includes('evaluateProbationPerformance'),'probation performance monitor exists');
@@ -747,7 +752,7 @@ add('V86 baseline comparison',read('src/lib/preventiveProbationPerformance.ts').
 add('V86 stage rollback',read('src/lib/preventiveProbationPerformance.ts').includes('rollbackStage')&&read('src/lib/preventiveProbationPerformance.ts').includes("status:'ROLLBACK'"),'material degradation can roll back one probation stage');
 add('V86 durable performance state',read('db/v98.sql').includes('preventive_probation_performance_state')&&read('db/v98.sql').includes('preventive_probation_performance_snapshots'),'probation performance and rollback history are durable');
 add('V86 performance regression',read('src/app/api/testing/preventive-probation-performance/route.ts').includes("rollback.status==='ROLLBACK'"),'regression covers stable and rollback performance');
-add('V86 supervision ordering',read('src/lib/sloGovernor.ts').includes('runProbationPerformanceGovernor'),'probation performance runs before adaptive threshold writes');
+add('V86 supervision ordering',supervisionSources.includes('runProbationPerformanceGovernor'),'probation performance runs before adaptive threshold writes');
 add('V86 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveProbationPerformancePanel'),'probation performance is visible');
 
 add('V87 champion baseline governor',read('src/lib/preventiveChampionBaseline.ts').includes('shouldPromoteChampionBaseline'),'champion baseline promotion gate exists');
@@ -755,7 +760,7 @@ add('V87 full rollout promotion criteria',read('src/lib/preventiveChampionBaseli
 add('V87 champion baseline persistence',read('db/v99.sql').includes('preventive_champion_baseline_state')&&read('db/v99.sql').includes('preventive_champion_baseline_snapshots'),'champion baseline state and history are durable');
 add('V87 V86 baseline handoff',read('src/lib/preventiveProbationPerformance.ts').includes('preventive_champion_baseline_state'),'probation performance prefers the validated champion baseline');
 add('V87 baseline regression',read('src/app/api/testing/preventive-champion-baseline/route.ts').includes('yes.eligible')&&read('src/app/api/testing/preventive-champion-baseline/route.ts').includes('!no.eligible'),'promotion regression covers eligible and ineligible cases');
-add('V87 supervision integration',read('src/lib/sloGovernor.ts').includes('runChampionBaselineGovernor'),'SLO supervision refreshes champion baseline governance');
+add('V87 supervision integration',supervisionSources.includes('runChampionBaselineGovernor'),'SLO supervision refreshes champion baseline governance');
 add('V87 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveChampionBaselinePanel'),'champion baseline is visible');
 
 add('V88 champion baseline health',read('src/lib/preventiveChampionBaselineHealth.ts').includes('evaluateChampionBaselineHealth'),'champion baseline health governor exists');
@@ -763,7 +768,7 @@ add('V88 champion retirement',read('src/lib/preventiveChampionBaselineHealth.ts'
 add('V88 fallback behavior',read('src/lib/preventiveProbationPerformance.ts').includes('where singleton_key=1 and promoted_at is not null'),'V86 ignores retired champions and falls back to recovery baseline');
 add('V88 durable health state',read('db/v100.sql').includes('preventive_champion_baseline_health_state')&&read('db/v100.sql').includes('preventive_champion_baseline_health_snapshots'),'champion health and retirement history are durable');
 add('V88 health regression',read('src/app/api/testing/preventive-champion-baseline-health/route.ts').includes("retire.status==='RETIRE'"),'regression covers active and retirement states');
-add('V88 supervision ordering',read('src/lib/sloGovernor.ts').includes('runChampionBaselineHealthGovernor'),'champion health is evaluated before V86 baseline comparison');
+add('V88 supervision ordering',supervisionSources.includes('runChampionBaselineHealthGovernor'),'champion health is evaluated before V86 baseline comparison');
 add('V88 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveChampionBaselineHealthPanel'),'champion baseline health is visible');
 
 add('V89 baseline succession',read('src/lib/preventiveBaselineSuccession.ts').includes('evaluateBaselineSuccession'),'baseline succession governor exists');
@@ -771,7 +776,7 @@ add('V89 readiness evidence',read('src/lib/preventiveBaselineSuccession.ts').inc
 add('V89 durable succession',read('db/v101.sql').includes('preventive_baseline_succession_state')&&read('db/v101.sql').includes('preventive_baseline_succession_snapshots'),'succession readiness and history are durable');
 add('V89 V86 successor handoff',read('src/lib/preventiveProbationPerformance.ts').includes('preventive_baseline_succession_state')&&read('src/lib/preventiveProbationPerformance.ts').includes("status='READY'"),'V86 uses only validated replacement candidates');
 add('V89 regression',read('src/app/api/testing/preventive-baseline-succession/route.ts').includes("ready.status==='READY'")&&read('src/app/api/testing/preventive-baseline-succession/route.ts').includes("idle.status==='IDLE'"),'succession regression covers ready and idle states');
-add('V89 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineSuccessionGovernor'),'succession is evaluated before probation baseline comparison');
+add('V89 supervision ordering',supervisionSources.includes('runBaselineSuccessionGovernor'),'succession is evaluated before probation baseline comparison');
 add('V89 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineSuccessionPanel'),'baseline succession is visible');
 
 add('V90 baseline handoff',read('src/lib/preventiveBaselineHandoff.ts').includes('evaluateSuccessorPromotion'),'successor promotion governor exists');
@@ -779,7 +784,7 @@ add('V90 strengthened promotion gates',read('src/lib/preventiveBaselineHandoff.t
 add('V90 active champion protection',read('src/lib/preventiveBaselineHandoff.ts').includes('hasActiveChampion'),'active champions cannot be replaced');
 add('V90 durable handoff',read('db/v102.sql').includes('preventive_baseline_handoff_state')&&read('db/v102.sql').includes('preventive_baseline_handoff_snapshots'),'handoff state and history are durable');
 add('V90 champion handoff write',read('src/lib/preventiveBaselineHandoff.ts').includes("'SUCCESSION_CHAMPION'"),'validated successor becomes the new champion baseline');
-add('V90 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'handoff runs after succession readiness');
+add('V90 supervision ordering',supervisionSources.includes('runBaselineHandoffGovernor'),'handoff runs after succession readiness');
 add('V90 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineHandoffPanel'),'baseline handoff is visible');
 
 add('V91 successor validation',read('src/lib/preventiveSuccessorValidation.ts').includes('evaluateSuccessorValidation'),'post-handoff successor validation exists');
@@ -787,7 +792,7 @@ add('V91 three-window confirmation',read('src/lib/preventiveSuccessorValidation.
 add('V91 safe reversion',read('src/lib/preventiveSuccessorValidation.ts').includes("'REVERTED_SUCCESSION_CHAMPION'")&&read('src/lib/preventiveSuccessorValidation.ts').includes("status='BUILDING'"),'failed successor is revoked and succession reopens');
 add('V91 durable validation',read('db/v103.sql').includes('preventive_successor_validation_state')&&read('db/v103.sql').includes('preventive_successor_validation_snapshots'),'validation and reversion history are durable');
 add('V91 regression',read('src/app/api/testing/preventive-successor-validation/route.ts').includes("healthy.status==='CONFIRMED'")&&read('src/app/api/testing/preventive-successor-validation/route.ts').includes("revert.status==='REVERT'"),'regression covers confirmation and reversion');
-add('V91 supervision ordering',read('src/lib/sloGovernor.ts').includes('runSuccessorValidationGovernor'),'post-handoff validation runs immediately after handoff');
+add('V91 supervision ordering',supervisionSources.includes('runSuccessorValidationGovernor'),'post-handoff validation runs immediately after handoff');
 add('V91 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSuccessorValidationPanel'),'successor validation is visible');
 
 add('V92 successor graduation',read('src/lib/preventiveSuccessorGraduation.ts').includes('evaluateSuccessorGraduation'),'successor graduation governor exists');
@@ -795,7 +800,7 @@ add('V92 confirmed-only graduation',read('src/lib/preventiveSuccessorGraduation.
 add('V92 champion source transition',read('src/lib/preventiveSuccessorGraduation.ts').includes("'CONFIRMED_SUCCESSION_CHAMPION'"),'confirmed successor moves into normal champion lifecycle');
 add('V92 durable graduation',read('db/v104.sql').includes('preventive_successor_graduation_state')&&read('db/v104.sql').includes('preventive_successor_graduation_snapshots'),'graduation state and history are durable');
 add('V92 regression',read('src/app/api/testing/preventive-successor-graduation/route.ts').includes("yes.status==='GRADUATE'")&&read('src/app/api/testing/preventive-successor-graduation/route.ts').includes('!no.eligible'),'regression covers eligible and ineligible graduation');
-add('V92 supervision ordering',read('src/lib/sloGovernor.ts').includes('runSuccessorGraduationGovernor'),'graduation runs immediately after successor validation');
+add('V92 supervision ordering',supervisionSources.includes('runSuccessorGraduationGovernor'),'graduation runs immediately after successor validation');
 add('V92 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSuccessorGraduationPanel'),'successor graduation is visible');
 
 add('V93 lifecycle consistency',read('src/lib/preventiveBaselineConsistency.ts').includes('evaluateBaselineLifecycleConsistency'),'baseline lifecycle consistency evaluator exists');
@@ -803,14 +808,14 @@ add('V93 conservative repair set',read('src/lib/preventiveBaselineConsistency.ts
 add('V93 no promotion path',!read('src/lib/preventiveBaselineConsistency.ts').includes("source='SUCCESSION_CHAMPION'")&&!read('src/lib/preventiveBaselineConsistency.ts').includes("source='CONFIRMED_SUCCESSION_CHAMPION'"),'reconciler cannot promote champion source');
 add('V93 durable consistency',read('db/v105.sql').includes('preventive_baseline_consistency_state')&&read('db/v105.sql').includes('preventive_baseline_consistency_snapshots'),'consistency state and history are durable');
 add('V93 regression',read('src/app/api/testing/preventive-baseline-consistency/route.ts').includes("healthy.status==='HEALTHY'")&&read('src/app/api/testing/preventive-baseline-consistency/route.ts').includes("broken.status==='REPAIR_REQUIRED'"),'regression covers healthy and broken lifecycle states');
-add('V93 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineConsistencyGovernor'),'lifecycle reconciliation runs during SLO supervision');
+add('V93 supervision ordering',supervisionSources.includes('runBaselineConsistencyGovernor'),'lifecycle reconciliation runs during SLO supervision');
 add('V93 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineConsistencyPanel'),'lifecycle consistency is visible');
 
 add('V94 governance cycle coordinator',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('runBaselineGovernanceCycle'),'baseline governance coordinator exists');
 add('V94 lease locking',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("interval '90 seconds'")&&read('db/v106.sql').includes('preventive_baseline_governance_lock'),'database-backed governance lease exists');
 add('V94 cycle idempotency',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('SKIPPED_IDEMPOTENT')&&read('db/v106.sql').includes('cycle_key text not null unique'),'completed minute-bucket cycles are duplicate-safe');
 add('V94 transition journal',read('db/v106.sql').includes('preventive_baseline_governance_cycles')&&read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("'COMPLETED'"),'governance cycle journal is durable');
-add('V94 SLO coordination',read('src/lib/sloGovernor.ts').includes('runBaselineGovernanceCycle')&&!read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'SLO supervision uses the coordinated baseline-governance cycle');
+add('V94 SLO coordination',supervisionSources.includes('runBaselineGovernanceCycle')&&!supervisionSources.includes('runBaselineHandoffGovernor'),'SLO supervision uses the coordinated baseline-governance cycle');
 add('V94 regression',read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_LOCKED')&&read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_IDEMPOTENT'),'regression covers locking and idempotency');
 add('V94 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineGovernanceCyclePanel'),'governance cycle status is visible');
 
@@ -821,6 +826,16 @@ add('V95 stale recovery',read('src/lib/preventiveBaselineGovernanceWatchdog.ts')
 add('V95 durable watchdog state',read('db/v107.sql').includes('preventive_baseline_governance_watchdog_state')&&read('db/v107.sql').includes('heartbeat_at'),'watchdog state and heartbeats are durable');
 add('V95 watchdog regression',read('src/app/api/testing/preventive-baseline-governance-watchdog/route.ts').includes("RECOVERY_REQUIRED"),'watchdog regression covers healthy and recovery-required states');
 add('V95 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineGovernanceWatchdogPanel'),'governance watchdog is visible');
+
+add('V96 unified supervision cycle',read('src/lib/preventiveSupervisionCycle.ts').includes('runPreventiveSupervisionCycle'),'unified supervision coordinator exists');
+add('V96 shared predictive context',read('src/lib/predictiveIncidentRisk.ts').includes('context?.patterns')&&read('src/lib/predictiveIncidentRisk.ts').includes('context?.observability'),'predictive risk reuses pattern and observability evidence');
+add('V96 shared ranking context',read('src/lib/preventiveActionRanking.ts').includes('context?.risk')&&read('src/lib/preventiveActionRanking.ts').includes('context?.learning'),'ranking reuses risk and learning evidence');
+add('V96 shared threshold context',read('src/lib/preventiveDecisionThresholds.ts').includes('context?.calibration'),'threshold governor reuses calibration evidence');
+add('V96 shared decision context',read('src/lib/preventiveActionDecisionGate.ts').includes('context?.ranking')&&read('src/lib/preventiveActionDecisionGate.ts').includes('context?.observability')&&read('src/lib/preventiveActionDecisionGate.ts').includes('context?.thresholds'),'decision gate reuses ranking, observability, and threshold evidence');
+add('V96 SLO consolidation',read('src/lib/sloGovernor.ts').includes('runPreventiveSupervisionCycle')&&!read('src/lib/sloGovernor.ts').includes('runPreventiveActionRanking')&&!read('src/lib/sloGovernor.ts').includes('runPreventiveActionDecisionGate'),'SLO supervision calls one unified preventive cycle');
+add('V96 durable cycle snapshots',read('db/v108.sql').includes('preventive_supervision_cycle_snapshots')&&read('db/v108.sql').includes('evidence_digest'),'shared evidence and outputs are durably snapshotted');
+add('V96 reuse regression',read('src/app/api/testing/preventive-supervision-cycle/route.ts').includes('reusedContextCount===8'),'regression verifies eight avoided evidence rebuilds');
+add('V96 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSupervisionCyclePanel'),'unified supervision cycle is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
