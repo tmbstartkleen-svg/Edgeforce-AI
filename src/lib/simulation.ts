@@ -38,13 +38,20 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
  const home=String(m.home||'').toLowerCase(),away=String(m.away||'').toLowerCase(),selection=String(m.selection||'').toLowerCase();
  const scheduleSide=playerTeam?(playerTeam===home?1:playerTeam===away?-1:0):(selection.includes(home)&&home?1:selection.includes(away)&&away?-1:0);
  const scheduleAdjustment=scheduleConfidence>0?feat(m,'scheduleCompositeEdge')*.012*scheduleConfidence*scheduleSide:0;
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const marketText=(String(m.market||'')+' '+String(m.selection||'')).toLowerCase();
+ const venueAdjustment=venueConfidence>0
+  ? (marketText.includes('over')?feat(m,'venueTotalEffect')*.012*venueConfidence
+    :marketText.includes('under')?-feat(m,'venueTotalEffect')*.012*venueConfidence
+    :feat(m,'venueHomeEdge')*.012*venueConfidence*scheduleSide)
+  : 0;
  const lineupProbabilityRaw=Number(m.sportFeatures?.lineupStarterProbability);
  const lineupUncertainty=Number.isFinite(lineupProbabilityRaw)?Math.abs(.5-Math.max(0,Math.min(1,lineupProbabilityRaw))):0;
- const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment+scheduleAdjustment);
+ const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment+scheduleAdjustment+venueAdjustment);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
   Math.abs(feat(m,'injury'))*.025+
-  Math.abs(feat(m,'weather'))*.018+
+  (venueConfidence>0?Math.abs(feat(m,'venueVolatilityEffect'))*.018*venueConfidence:Math.abs(feat(m,'weather'))*.018)+
   (scheduleConfidence>0?Math.abs(feat(m,'scheduleUncertainty'))*.010:Math.abs(feat(m,'travel'))*.012)+
   Math.abs(feat(m,'starter'))*.018+
   Math.abs(feat(m,'goalie'))*.018+
