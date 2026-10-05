@@ -52,6 +52,7 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('model-validation','Model validation',certification.modelValidation.latestRun?.status==='failed'?'FAIL':certification.modelValidation.latestRun?'PASS':'WARN',true,certification.modelValidation.latestRun?`Latest validation run ${certification.modelValidation.latestRun.status}; evidence failures ${certification.modelValidation.report.evidence.failed}.`:'No durable validation run yet.');
  add('model-governance','Model governance',certification.modelGovernance.latestRun?.status==='failed'?'FAIL':certification.modelGovernance.latestRun?'PASS':'WARN',true,certification.modelGovernance.latestRun?`Latest governance run ${certification.modelGovernance.latestRun.status}; critical ${certification.modelGovernance.summary.critical}, drifting ${certification.modelGovernance.summary.drifting}.`:'No completed governance run yet.');
  add('unified-intelligence','Unified intelligence stack',certification.unifiedIntelligence.state==='BLOCKED'?'FAIL':certification.unifiedIntelligence.state==='HEALTHY'?'PASS':'WARN',true,`State ${certification.unifiedIntelligence.state}; score ${(certification.unifiedIntelligence.score*100).toFixed(1)}%; critical coverage ${(certification.unifiedIntelligence.criticalCoverage*100).toFixed(1)}%.`);
+ add('reliability-supervisor','Reliability supervisor',certification.reliability.mode==='PROTECTIVE'?'FAIL':certification.reliability.mode==='NORMAL'?'PASS':'WARN',true,`Mode ${certification.reliability.mode}; score ${(certification.reliability.score*100).toFixed(1)}%; open ${certification.reliability.openComponents.length}; half-open ${certification.reliability.halfOpenComponents.length}.`);
 
  const replayState=String(replay?.ordering_status||'INSUFFICIENT');
  add('decision-replay','Decision ordering replay',replayState==='MISORDERED'?'FAIL':replayState==='ORDERED'?'PASS':'WARN',false,replay?`Historical ordering ${replayState}; separation score ${(Number(replay.ordering_score||0)*100).toFixed(1)}%.`:'No durable replay snapshot yet; historical validation is still accumulating.');
@@ -79,7 +80,9 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    securityOk:certification.security.ok,
    liveData:certification.ingestion.source==='live',
    unifiedIntelligenceState:certification.unifiedIntelligence.state,
-   unifiedIntelligenceScore:certification.unifiedIntelligence.score
+   unifiedIntelligenceScore:certification.unifiedIntelligence.score,
+   reliabilityMode:certification.reliability.mode,
+   reliabilityScore:certification.reliability.score
   },
   certification,
   notes:[
