@@ -67,6 +67,8 @@ assert(health.body?.crossSportFinalBlendOptimizer===true,'cross-sport final blen
 assert(health.body?.intelligenceCircuitBreakers===true,'intelligence circuit-breaker flag missing');
 assert(health.body?.automaticReliabilityRecovery===true,'automatic reliability recovery flag missing');
 assert(health.body?.protectiveRecommendationMode===true,'protective recommendation mode flag missing');
+assert(health.body?.comparativeCanaryDeploymentGuard===true,'comparative canary deployment guard flag missing');
+assert(health.body?.automaticHostedRollback===true,'automatic hosted rollback flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
@@ -489,6 +491,12 @@ assert(['NOT_STARTED','IN_PROGRESS','READY','FAILED','ROLLED_BACK','STALE'].incl
 
 const modelDiagnostics=await get('/api/intelligence/model-diagnostics');
 assert(modelDiagnostics.res.ok&&modelDiagnostics.body?.ok===true,'model diagnostics endpoint failed');
+
+const deploymentGuardTest=await get('/api/testing/deployment-guard');
+assert(deploymentGuardTest.res.ok&&deploymentGuardTest.body?.ok===true,'deployment guard regression failed');
+assert(deploymentGuardTest.body?.healthy?.decision==='PASS','healthy deployment guard should pass');
+assert(deploymentGuardTest.body?.softBlock?.decision==='BLOCK'&&deploymentGuardTest.body?.softBlock?.hardBlock===false,'soft deployment regression should block without hard flag');
+assert(deploymentGuardTest.body?.hardBlock?.decision==='BLOCK'&&deploymentGuardTest.body?.hardBlock?.hardBlock===true,'hard deployment regression should hard block');
 
 const recalibration=await get('/api/testing/recalibration');
 assert(recalibration.res.ok&&recalibration.body?.ok===true,'recalibration guardrail simulation failed');
