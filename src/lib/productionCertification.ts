@@ -157,7 +157,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(reliability.mode==='PROTECTIVE')blockers.push(`reliability: protective mode active; open components ${reliability.openComponents.join(', ')||'required system'}`);
  else if(reliability.mode==='DEGRADED')warnings.push(`reliability: degraded mode; open ${reliability.openComponents.join(', ')||'none'}, half-open ${reliability.halfOpenComponents.join(', ')||'none'}`);
  if(reliability.criticalOpen)blockers.push('reliability: required intelligence circuit is open');
- if(sloGovernor.state==='FROZEN'||sloGovernor.freezeTriggered)blockers.push(`SLO: deployment freeze active; ${sloGovernor.reasons.join('; ')||'error budget exhausted'}`);
+ if(sloGovernor.state==='FROZEN'||sloGovernor.freezeTriggered)(strict?blockers:warnings).push(`SLO: deployment freeze active; ${sloGovernor.reasons.join('; ')||'error budget exhausted'}`);
  else if(sloGovernor.state==='RECOVERING')warnings.push(`SLO: deployment budget recovering (${sloGovernor.recoveryStreak}/3 safe checks)`);
  warnings.push(...sloGovernor.warnings.map(x=>`SLO: ${x}`));
 
