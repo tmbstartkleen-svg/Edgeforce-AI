@@ -20,6 +20,7 @@ import ShadowRecoveryPanel from './ShadowRecoveryPanel';
 import PlayerFeatureFramesPanel from './PlayerFeatureFramesPanel';
 import PlayerCalibrationPanel from './PlayerCalibrationPanel';
 import OpponentMatchupPanel from './OpponentMatchupPanel';
+import LineupRedistributionPanel from './LineupRedistributionPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -1065,6 +1066,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <LineupRedistributionPanel/>
 
     <OpponentMatchupPanel/>
 
