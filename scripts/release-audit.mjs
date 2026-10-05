@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V78',
- appVersion:'78.0.0',
- packageVersion:'0.78.0',
- modelVersion:'edgeforce-v78',
- migrationVersion:90
+ build:'V79',
+ appVersion:'79.0.0',
+ packageVersion:'0.79.0',
+ modelVersion:'edgeforce-v79',
+ migrationVersion:91
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -225,6 +225,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-actions/route.ts',
  'src/components/PreventiveActionLearningPanel.tsx',
  'EDGEFORCE_V78_RELEASE.md',
+ 'src/lib/preventiveActionRanking.ts',
+ 'src/app/api/operations/preventive-action-ranking/route.ts',
+ 'src/app/api/testing/preventive-action-ranking/route.ts',
+ 'src/components/PreventiveActionRankingPanel.tsx',
+ 'EDGEFORCE_V79_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -604,6 +609,13 @@ add('V78 durable schema',read('db/v90.sql').includes('preventive_action_effectiv
 add('V78 API surface',read('src/app/api/operations/preventive-actions/route.ts').includes('v78-preventive-action-learning-1'),'learning API exists');
 add('V78 regression surface',read('src/app/api/testing/preventive-actions/route.ts').includes('v78-preventive-action-learning-test-1'),'learning regression exists');
 add('V78 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionLearningPanel'),'learning panel is visible');
+
+add('V79 ranking module',read('src/lib/preventiveActionRanking.ts').includes('rankPreventiveActions'),'risk-aware safeguard ranking exists');
+add('V79 durable ranking',read('db/v91.sql').includes('preventive_action_ranking_snapshots'),'ranking snapshots are durable');
+add('V79 ranking API',read('src/app/api/operations/preventive-action-ranking/route.ts').includes('v79-preventive-action-ranking-1'),'ranking API exists');
+add('V79 ranking regression',read('src/app/api/testing/preventive-action-ranking/route.ts').includes('STRONG'),'ranking regression covers learned evidence quality');
+add('V79 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveActionRanking'),'SLO supervision refreshes ranking automatically');
+add('V79 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionRankingPanel'),'ranking panel is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
