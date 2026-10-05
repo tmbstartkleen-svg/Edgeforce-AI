@@ -147,9 +147,14 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  const rng=seeded(`team|${m.id}|${m.startTime}`);
  const p=clamp(m.modelProb);
  const strength=(p-.5)*2;
- const homeContext=.10*feature(m,'home')+.12*feature(m,'form')+.10*feature(m,'efficiency')-.08*feature(m,'injury')+.08*feature(m,'rest')-.06*feature(m,'travel');
+ const scheduleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.scheduleContextConfidence||0)));
+ const scheduleContext=scheduleConfidence>0
+  ? .14*feature(m,'scheduleCompositeEdge')*scheduleConfidence
+  : .08*feature(m,'rest')-.06*feature(m,'travel');
+ const homeContext=.10*feature(m,'home')+.12*feature(m,'form')+.10*feature(m,'efficiency')-.08*feature(m,'injury')+scheduleContext;
  const weather=.08*feature(m,'weather');
- const totalMean=Math.max(.2,base.total*(1+weather*.12));
+ const fatigueLevel=scheduleConfidence>0?Math.max(0,(Number(m.sportFeatures?.scheduleHomeFatigue||0)+Number(m.sportFeatures?.scheduleAwayFatigue||0))/2):0;
+ const totalMean=Math.max(.2,base.total*(1+weather*.12-fatigueLevel*.025*scheduleConfidence));
  const marginScale=Math.max(1,totalMean*.22);
  const selectionHome=isHomeSelection(m);
  const selectionAway=isAwaySelection(m);
@@ -252,7 +257,12 @@ function simulateProp(m:Market,runs:SimulationTier){
  const starterScale=player?.starter===false?.72:1;
  const roleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.roleRedistributionConfidence||0)));
  const roleProjectionScale=1+feature(m,'roleStatLift')*.12*roleConfidence+feature(m,'roleUsageLift')*.05*roleConfidence+feature(m,'roleMinutesLift')*.04*roleConfidence;
- const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale));
+ const scheduleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.scheduleContextConfidence||0)));
+ const playerTeam=String(player?.team||'').toLowerCase(),home=String(m.home||'').toLowerCase(),away=String(m.away||'').toLowerCase();
+ const playerSide=playerTeam===home?1:playerTeam===away?-1:0;
+ const teamFatigue=playerSide===1?Number(m.sportFeatures?.scheduleHomeFatigue||0):playerSide===-1?Number(m.sportFeatures?.scheduleAwayFatigue||0):0;
+ const schedulePlayerScale=scheduleConfidence>0?1-teamFatigue*.045*scheduleConfidence+playerSide*feature(m,'scheduleCompositeEdge')*.025*scheduleConfidence:1;
+ const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale))*Math.max(.88,Math.min(1.08,schedulePlayerScale));
  const sd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
