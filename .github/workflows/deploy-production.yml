@@ -67,12 +67,15 @@ jobs:
       - name: Capture previous production deployment
         shell: bash
         run: |
-          PREVIOUS_DEPLOYMENT_URL=$(curl --fail --silent --show-error \
+          PREVIOUS_DEPLOYMENT_JSON=$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID" \
-            | jq -r '.deployments[0].url // empty')
+            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID")
+          PREVIOUS_DEPLOYMENT_ID=$(printf '%s' "$PREVIOUS_DEPLOYMENT_JSON" | jq -r '.deployments[0].uid // .deployments[0].id // empty')
+          PREVIOUS_DEPLOYMENT_URL=$(printf '%s' "$PREVIOUS_DEPLOYMENT_JSON" | jq -r '.deployments[0].url // empty')
+          test -n "$PREVIOUS_DEPLOYMENT_ID"
           test -n "$PREVIOUS_DEPLOYMENT_URL"
           PREVIOUS_DEPLOYMENT_URL="https://$PREVIOUS_DEPLOYMENT_URL"
+          echo "PREVIOUS_DEPLOYMENT_ID=$PREVIOUS_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "PREVIOUS_DEPLOYMENT_URL=$PREVIOUS_DEPLOYMENT_URL" >> "$GITHUB_ENV"
 
       - name: Build exact production artifact
@@ -286,7 +289,12 @@ jobs:
 
       - name: Roll back production on hosted failure
         if: failure() && steps.deploy.outcome == 'success'
-        run: vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" rollback "$PREVIOUS_DEPLOYMENT_URL" --yes 
+        run: |
+          test -n "$PREVIOUS_DEPLOYMENT_ID"
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20hosted%20launch%20gate%20failure"
 
       - name: Record rollback completion
         if: failure() && steps.deploy.outcome == 'success'
