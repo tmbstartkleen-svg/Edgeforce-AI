@@ -27,6 +27,7 @@ import CashoutReconciliationPanel from './CashoutReconciliationPanel';
 import CashoutPolicyPanel from './CashoutPolicyPanel';
 import CashoutPolicyGovernancePanel from './CashoutPolicyGovernancePanel';
 import DecisionReplayPanel from './DecisionReplayPanel';
+import StressScenarioLabPanel from './StressScenarioLabPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1097,6 +1098,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <StressScenarioLabPanel/>
     <DecisionReplayPanel/>
     <CashoutPolicyGovernancePanel/>
     <CashoutPolicyPanel/>
