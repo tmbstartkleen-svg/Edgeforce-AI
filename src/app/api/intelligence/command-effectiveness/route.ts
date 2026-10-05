@@ -1,12 +1,14 @@
-import {buildCommandEffectiveness} from '@/lib/commandLearning';
+import {buildCommandEffectiveness,persistCommandEffectiveness} from '@/lib/commandLearning';
 
 export const dynamic='force-dynamic';
 
 export async function GET(){
  const report=await buildCommandEffectiveness();
+ const persistence=await persistCommandEffectiveness(report.rows);
  return Response.json({
   ok:true,
   configured:report.configured,
+  persisted:persistence.persisted,
   generatedAt:new Date().toISOString(),
   rows:report.rows,
   ungradedCashout:report.ungradedCashout,
