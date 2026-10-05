@@ -1,5 +1,6 @@
 import type {Market,ContextProvenance} from '../types';
 import {combineScheduleSignals,deriveScheduleLoad,deriveTravelBurden} from '../scheduleFatigueIntelligence';
+import {deriveVenueConditionSignals,normalizeSurface} from '../venueWeatherIntelligence';
 
 export type PublicContextRow={
  event?:string;
@@ -46,6 +47,7 @@ export type EspnEvent={
   state?:string;
   country?:string;
   indoor?:boolean;
+  surface?:string;
  };
  raw:Record<string,unknown>;
 };
@@ -130,6 +132,11 @@ function dateKey(iso:string){
  if(!Number.isFinite(d.getTime()))return '';
  return d.toISOString().slice(0,10).replaceAll('-','');
 }
+function surfaceName(v:unknown){
+ const node=obj(v);
+ const direct=str(v)||str(node.name)||str(node.type)||str(node.description)||str(node.displayName);
+ return normalizeSurface(direct);
+}
 function teamName(v:unknown){
  const t=obj(v);
  return str(t.displayName)||str(t.shortDisplayName)||str(t.name)||str(t.location)||str(t.abbreviation);
@@ -175,7 +182,8 @@ export function parseEspnScoreboard(payload:unknown):EspnEvent[]{
     city:str(address.city)||undefined,
     state:str(address.state)||undefined,
     country:str(address.country)||undefined,
-    indoor:typeof venue.indoor==='boolean'?venue.indoor:undefined
+    indoor:typeof venue.indoor==='boolean'?venue.indoor:undefined,
+    surface:surfaceName(venue.surface||competition.surface||e.surface)
    },
    raw:e
   };
@@ -335,14 +343,15 @@ async function geocode(city:string,state?:string,country?:string){
  const best=results[0];
  const latitude=Number(best?.latitude),longitude=Number(best?.longitude);
  if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return null;
- return {latitude,longitude,name:str(best.name),admin1:str(best.admin1),country:str(best.country),timezone:str(best.timezone)||undefined};
+ const elevation=Number(best?.elevation);
+ return {latitude,longitude,name:str(best.name),admin1:str(best.admin1),country:str(best.country),timezone:str(best.timezone)||undefined,elevation:Number.isFinite(elevation)?elevation:undefined};
 }
 
 async function weatherAt(latitude:number,longitude:number,startTime:string){
  const url=new URL('https://api.open-meteo.com/v1/forecast');
  url.searchParams.set('latitude',String(latitude));
  url.searchParams.set('longitude',String(longitude));
- url.searchParams.set('hourly','temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m');
+ url.searchParams.set('hourly','temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,snowfall,cloud_cover,wind_speed_10m,wind_gusts_10m');
  url.searchParams.set('temperature_unit','fahrenheit');
  url.searchParams.set('wind_speed_unit','mph');
  url.searchParams.set('precipitation_unit','inch');
@@ -364,8 +373,12 @@ async function weatherAt(latitude:number,longitude:number,startTime:string){
   return Number.isFinite(value)?value:undefined;
  };
  const temperature=at('temperature_2m');
+ const apparentTemperature=at('apparent_temperature');
+ const humidity=at('relative_humidity_2m');
  const precipProbability=at('precipitation_probability');
  const precipitation=at('precipitation');
+ const snowfall=at('snowfall');
+ const cloudCover=at('cloud_cover');
  const windSpeed=at('wind_speed_10m');
  const windGust=at('wind_gusts_10m');
  const cold=temperature===undefined?0:Math.max(0,35-temperature)/35;
@@ -373,7 +386,7 @@ async function weatherAt(latitude:number,longitude:number,startTime:string){
  const wind=Math.max(0,(windGust??windSpeed??0)-15)/30;
  const precip=(precipProbability??0)/100*.55+Math.min(1,(precipitation??0)/.25)*.35;
  const impact=clamp(cold*.20+heat*.15+wind*.45+precip*.45,0,1);
- return {temperature,precipProbability,precipitation,windSpeed,windGust,impact,forecastTime:times[index]};
+ return {temperature,apparentTemperature,humidity,precipProbability,precipitation,snowfall,cloudCover,windSpeed,windGust,impact,forecastTime:times[index]};
 }
 
 function publicMaxEvents(){
@@ -519,21 +532,37 @@ export async function fetchPublicSportsContext(markets:Market[]){
    }
   }
 
-  if(spec.outdoor&&event.venue?.indoor===true){
-   features.weather=0;
-   provenance.push({source:'espn-public',providerId:'espn-site-api',field:'weather',observedAt:now,confidence:.92,status:'INDOOR'});
-  }else if(spec.outdoor&&event.venue?.city){
-   const geo=await geocode(event.venue.city,event.venue.state,event.venue.country);requests++;
-   if(geo){
-    const wx=await weatherAt(geo.latitude,geo.longitude,market.startTime);requests++;
-    if(wx){
-     features.weather=wx.impact;
-     weatherRows++;
-     provenance.push({
-      source:'open-meteo',providerId:'open-meteo-forecast',field:'weather',observedAt:now,confidence:.88,status:'FORECAST',
-      detail:{venue:event.venue.name,city:event.venue.city,state:event.venue.state,forecastTime:wx.forecastTime,temperatureF:wx.temperature,precipProbability:wx.precipProbability,windMph:wx.windSpeed,gustMph:wx.windGust}
-     });
-    }
+  if(event.venue){
+   const indoor=event.venue.indoor===true||(event.venue.indoor===undefined&&!spec.outdoor);
+   const geo=event.venue.city?await geocode(event.venue.city,event.venue.state,event.venue.country):null;
+   if(event.venue.city)requests++;
+   let wx:null|Awaited<ReturnType<typeof weatherAt>>=null;
+   if(geo&&!indoor){
+    wx=await weatherAt(geo.latitude,geo.longitude,market.startTime);requests++;
+   }
+   if(indoor||(geo&&wx)){
+    const condition=deriveVenueConditionSignals({
+     sportKey:spec.key,indoor,surface:event.venue.surface,elevationFt:geo?.elevation===undefined?undefined:geo.elevation*3.28084,
+     weather:wx?{
+      temperatureF:wx.temperature,apparentTemperatureF:wx.apparentTemperature,humidityPct:wx.humidity,
+      precipitationProbability:wx.precipProbability,precipitationIn:wx.precipitation,snowfallIn:wx.snowfall,
+      windMph:wx.windSpeed,windGustMph:wx.windGust,cloudCoverPct:wx.cloudCover,forecastTime:wx.forecastTime
+     }:null,
+     parkSignal:features.park
+    });
+    Object.assign(features,condition);
+    weatherRows++;
+    provenance.push({
+     source:'venue-conditions',providerId:'edgeforce-v68-venue-conditions',field:'venueWeatherComposite',observedAt:now,
+     confidence:condition.venueWeatherConfidence,status:indoor?'INDOOR':'FORECAST',
+     detail:{
+      venue:event.venue.name,city:event.venue.city,state:event.venue.state,country:event.venue.country,
+      indoor,surface:event.venue.surface||null,elevationFt:geo?.elevation===undefined?null:geo.elevation*3.28084,
+      forecastTime:wx?.forecastTime||null,temperatureF:wx?.temperature??null,apparentTemperatureF:wx?.apparentTemperature??null,
+      humidityPct:wx?.humidity??null,precipProbability:wx?.precipProbability??null,precipitationIn:wx?.precipitation??null,
+      snowfallIn:wx?.snowfall??null,windMph:wx?.windSpeed??null,gustMph:wx?.windGust??null,cloudCoverPct:wx?.cloudCover??null
+     }
+    });
    }
   }
 
@@ -559,7 +588,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
 
  return {
   rows,
-  sourceQuality:{'espn-public':.70,'open-meteo':.88},
+  sourceQuality:{'espn-public':.70,'open-meteo':.88,'venue-conditions':.90},
   diagnostics:{
    enabled:true,
    totalEvents:eventMarkets.length,

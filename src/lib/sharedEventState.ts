@@ -65,17 +65,27 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
  const scheduleEdge=scheduleEdges.length?clamp(scheduleEdges.reduce((s,x)=>s+x,0)/scheduleEdges.length,-1,1)*scheduleConfidence:0;
  const fatigueValues=legs.flatMap(x=>[Number(x.sportFeatures?.scheduleHomeFatigue),Number(x.sportFeatures?.scheduleAwayFatigue)]).filter(Number.isFinite);
  const scheduleFatigue=fatigueValues.length?clamp(fatigueValues.reduce((s,x)=>s+x,0)/fatigueValues.length,0,1):0;
+ const venueConfidences=legs.map(x=>Number(x.sportFeatures?.venueWeatherConfidence)).filter(Number.isFinite);
+ const venueConfidence=venueConfidences.length?clamp(venueConfidences.reduce((s,x)=>s+x,0)/venueConfidences.length,0,1):0;
+ const venueTotals=legs.map(x=>Number(x.sportFeatures?.venueTotalEffect)).filter(Number.isFinite);
+ const venueHomes=legs.map(x=>Number(x.sportFeatures?.venueHomeEdge)).filter(Number.isFinite);
+ const venueVols=legs.map(x=>Number(x.sportFeatures?.venueVolatilityEffect)).filter(Number.isFinite);
+ const venueTotal=venueTotals.length?clamp(venueTotals.reduce((s,x)=>s+x,0)/venueTotals.length,-1,1)*venueConfidence:0;
+ const venueHome=venueHomes.length?clamp(venueHomes.reduce((s,x)=>s+x,0)/venueHomes.length,-1,1)*venueConfidence:0;
+ const venueVolatility=venueVols.length?clamp(venueVols.reduce((s,x)=>s+x,0)/venueVols.length,0,1)*venueConfidence:0;
  const injuryTotalScale=1-.035*injuryShock;
  const fatigueTotalScale=1-.025*scheduleFatigue*scheduleConfidence;
+ const venueTotalScale=1+venueTotal*.08;
  const scheduleMargin=base.total*.055*scheduleEdge;
- const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28+scheduleMargin)*injuryTotalScale*fatigueTotalScale);
- const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28)-scheduleMargin)*injuryTotalScale*fatigueTotalScale);
+ const venueMargin=base.total*.045*venueHome;
+ const homeMean0=Math.max(.05,(base.total/2+homeStrength*base.total*.28+scheduleMargin+venueMargin)*injuryTotalScale*fatigueTotalScale*venueTotalScale);
+ const awayMean0=Math.max(.05,(base.total-(base.total/2+homeStrength*base.total*.28)-scheduleMargin-venueMargin)*injuryTotalScale*fatigueTotalScale*venueTotalScale);
 
  for(let r=0;r<runs;r++){
   const paceZ=random.normal();
   const homeFormZ=random.normal();
   const awayFormZ=random.normal();
-  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock+.015*scheduleFatigue*scheduleConfidence));
+  const paceScale=Math.exp(paceZ*(.07+.025*injuryShock+.015*scheduleFatigue*scheduleConfidence+.020*venueVolatility));
   const homeMean=Math.max(.01,homeMean0*paceScale*Math.exp(homeFormZ*.05));
   const awayMean=Math.max(.01,awayMean0*paceScale*Math.exp(awayFormZ*.05));
   const homeScore=base.discrete?poisson(random,homeMean):Math.max(0,homeMean+base.sd*(.26*paceZ+.42*homeFormZ+.36*random.normal()));
@@ -93,8 +103,10 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
     const legScheduleConfidence=Math.max(0,Math.min(1,Number(leg.sportFeatures?.scheduleContextConfidence||0)));
     const teamFatigue=teamHome?Number(leg.sportFeatures?.scheduleHomeFatigue||0):teamAway?Number(leg.sportFeatures?.scheduleAwayFatigue||0):0;
     const playerScheduleScale=1-teamFatigue*.045*legScheduleConfidence+(teamHome?1:teamAway?-1:0)*Number(leg.sportFeatures?.scheduleCompositeEdge||0)*.025*legScheduleConfidence;
-    const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1)*Math.max(.88,Math.min(1.08,playerScheduleScale));
-    const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)));
+    const legVenueConfidence=Math.max(0,Math.min(1,Number(leg.sportFeatures?.venueWeatherConfidence||0)));
+    const playerVenueScale=1+Number(leg.sportFeatures?.venueTotalEffect||0)*.035*legVenueConfidence+(teamHome?1:teamAway?-1:0)*Number(leg.sportFeatures?.venueHomeEdge||0)*.02*legVenueConfidence;
+    const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1)*Math.max(.88,Math.min(1.08,playerScheduleScale))*Math.max(.90,Math.min(1.10,playerVenueScale));
+    const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)))*(1+Math.max(0,Number(leg.sportFeatures?.venueVolatilityEffect||0))*.12*legVenueConfidence);
     const teamZ=teamHome?homeFormZ:teamAway?awayFormZ:(homeFormZ+awayFormZ)/2;
     const eventScale=Math.exp(.08*paceZ+.07*teamZ);
     const value=Math.max(0,mean*eventScale+sd*.72*random.normal());

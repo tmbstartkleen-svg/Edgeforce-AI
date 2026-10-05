@@ -151,10 +151,13 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  const scheduleContext=scheduleConfidence>0
   ? .14*feature(m,'scheduleCompositeEdge')*scheduleConfidence
   : .08*feature(m,'rest')-.06*feature(m,'travel');
- const homeContext=.10*feature(m,'home')+.12*feature(m,'form')+.10*feature(m,'efficiency')-.08*feature(m,'injury')+scheduleContext;
- const weather=.08*feature(m,'weather');
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venueHome=venueConfidence>0?feature(m,'venueHomeEdge')*.12*venueConfidence:0;
+ const homeContext=.10*feature(m,'home')+.12*feature(m,'form')+.10*feature(m,'efficiency')-.08*feature(m,'injury')+scheduleContext+venueHome;
+ const legacyWeather=.08*feature(m,'weather');
+ const venueTotal=venueConfidence>0?feature(m,'venueTotalEffect')*.10*venueConfidence:legacyWeather*.12;
  const fatigueLevel=scheduleConfidence>0?Math.max(0,(Number(m.sportFeatures?.scheduleHomeFatigue||0)+Number(m.sportFeatures?.scheduleAwayFatigue||0))/2):0;
- const totalMean=Math.max(.2,base.total*(1+weather*.12-fatigueLevel*.025*scheduleConfidence));
+ const totalMean=Math.max(.2,base.total*(1+venueTotal-fatigueLevel*.025*scheduleConfidence));
  const marginScale=Math.max(1,totalMean*.22);
  const selectionHome=isHomeSelection(m);
  const selectionAway=isAwaySelection(m);
@@ -166,6 +169,7 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
  const line=parseLine(m);
  const s=sport(m);
  const discreteLowScore=s.includes('MLB')||s.includes('NHL')||s.includes('SOCCER');
+ const venueVarianceScale=1+(venueConfidence>0?Math.max(0,feature(m,'venueVolatilityEffect'))*.18*venueConfidence:0);
  let hits=0;
  const totals:number[]=[];
  for(let i=0;i<runs;i++){
@@ -174,9 +178,9 @@ function simulateTeamScoreMarket(m:Market,runs:SimulationTier){
    home=poisson(rng,homeMean);
    away=poisson(rng,awayMean);
   }else{
-   const common=rng.normal()*base.sd*.24;
-   home=Math.max(0,homeMean+common+rng.normal()*base.sd*.48);
-   away=Math.max(0,awayMean+common+rng.normal()*base.sd*.48);
+   const common=rng.normal()*base.sd*.24*venueVarianceScale;
+   home=Math.max(0,homeMean+common+rng.normal()*base.sd*.48*venueVarianceScale);
+   away=Math.max(0,awayMean+common+rng.normal()*base.sd*.48*venueVarianceScale);
   }
   const total=home+away;
   totals.push(total);
@@ -230,7 +234,9 @@ function simulateCombat(m:Market,runs:SimulationTier){
  if(!(s.includes('UFC')||s.includes('MMA')||s.includes('BOXING')))return null;
  const rng=seeded(`combat|${m.id}|${m.startTime}`);
  const winP=clamp(m.modelProb);
- const finishBias=.5+.18*feature(m,'finishRisk')+.10*feature(m,'striking')+.10*feature(m,'grappling')-.08*feature(m,'cardio');
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venueFinish=venueConfidence>0?(Math.max(0,feature(m,'venueVolatilityEffect'))*.04+feature(m,'venuePaceEffect')*.025)*venueConfidence:0;
+ const finishBias=.5+.18*feature(m,'finishRisk')+.10*feature(m,'striking')+.10*feature(m,'grappling')-.08*feature(m,'cardio')+venueFinish;
  const finishP=clamp(finishBias,.15,.85);
  let hits=0,roundSum=0;
  const kind=marketKind(m);
@@ -262,8 +268,11 @@ function simulateProp(m:Market,runs:SimulationTier){
  const playerSide=playerTeam===home?1:playerTeam===away?-1:0;
  const teamFatigue=playerSide===1?Number(m.sportFeatures?.scheduleHomeFatigue||0):playerSide===-1?Number(m.sportFeatures?.scheduleAwayFatigue||0):0;
  const schedulePlayerScale=scheduleConfidence>0?1-teamFatigue*.045*scheduleConfidence+playerSide*feature(m,'scheduleCompositeEdge')*.025*scheduleConfidence:1;
- const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale))*Math.max(.88,Math.min(1.08,schedulePlayerScale));
- const sd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venuePlayerScale=venueConfidence>0?1+feature(m,'venueTotalEffect')*.035*venueConfidence+playerSide*feature(m,'venueHomeEdge')*.02*venueConfidence:1;
+ const mean=baseMean===undefined?undefined:baseMean*availability*starterScale*Math.max(.75,Math.min(1.30,roleProjectionScale))*Math.max(.88,Math.min(1.08,schedulePlayerScale))*Math.max(.90,Math.min(1.10,venuePlayerScale));
+ const baseSd=player?.stdDev??rawFeature(m,'propStd')??rawFeature(m,'projectionStd');
+ const sd=baseSd===undefined?undefined:baseSd*(1+(venueConfidence>0?Math.max(0,feature(m,'venueVolatilityEffect'))*.12*venueConfidence:0));
  const line=parseLine(m);
  if(mean===undefined||line===undefined)return null;
  const spec=distributionForMarket(m,mean,sd);
