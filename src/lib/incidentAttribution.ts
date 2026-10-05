@@ -24,49 +24,49 @@ export function attributeOperationalIncident(obs:Awaited<ReturnType<typeof build
  };
 
  const dbCheck=obs.checks.find(x=>x.id==='database');
- push('DATABASE',dbCheck?.state==='CRITICAL'?1:dbCheck?.state==='DEGRADED'?.65:0,'database',dbCheck?.reason||'database healthy',[
+ push('DATABASE',dbCheck?.state==='CRITICAL'?1:dbCheck?.state==='DEGRADED'? .65:0,'database',dbCheck?.reason||'database healthy',[
   'Verify database reachability and connection limits.',
   'Check recent migrations and provider/runtime connection strings.',
   'Keep release frozen until database health returns to non-critical.'
  ]);
 
  const market=obs.checks.find(x=>x.id==='market-freshness');
- push('MARKET_FRESHNESS',market?.state==='CRITICAL'?.95:market?.state==='DEGRADED'?.60:0,'market-feed',market?.reason||'market freshness healthy',[
+ push('MARKET_FRESHNESS',market?.state==='CRITICAL'? .95:market?.state==='DEGRADED'? .60:0,'market-feed',market?.reason||'market freshness healthy',[
   'Trigger live odds refresh and inspect provider circuit-breaker state.',
   'Verify THE_ODDS_API or configured primary provider credentials and quota.',
   'Do not promote stale market recommendations.'
  ]);
 
  const consensus=obs.checks.find(x=>x.id==='consensus-freshness');
- push('CONSENSUS_FRESHNESS',consensus?.state==='CRITICAL'?.90:consensus?.state==='DEGRADED'?.55:0,'consensus',consensus?.reason||'consensus freshness healthy',[
+ push('CONSENSUS_FRESHNESS',consensus?.state==='CRITICAL'? .90:consensus?.state==='DEGRADED'? .55:0,'consensus',consensus?.reason||'consensus freshness healthy',[
   'Refresh multi-provider consensus snapshots.',
   'Inspect provider disagreement and payload-freshness gates.',
   'Fall back to single-provider read-only mode if consensus is unavailable.'
  ]);
 
  const model=obs.checks.find(x=>x.id==='model-freshness');
- push('MODEL_FRESHNESS',model?.state==='CRITICAL'?.88:model?.state==='DEGRADED'?.52:0,'model-run',model?.reason||'model freshness healthy',[
+ push('MODEL_FRESHNESS',model?.state==='CRITICAL'? .88:model?.state==='DEGRADED'? .52:0,'model-run',model?.reason||'model freshness healthy',[
   'Run recalibration/model refresh automation.',
   'Inspect failed model jobs and champion-drift controls.',
   'Retain current champion until fresh validation evidence exists.'
  ]);
 
  const automation=obs.checks.find(x=>x.id==='automation-health');
- push('AUTOMATION',automation?.state==='CRITICAL'?.92:automation?.state==='DEGRADED'?.58:0,'automation',automation?.reason||'automation healthy',[
+ push('AUTOMATION',automation?.state==='CRITICAL'? .92:automation?.state==='DEGRADED'? .58:0,'automation',automation?.reason||'automation healthy',[
   'Inspect failed or stale cron/automation jobs.',
   'Re-run the failed job only after fixing its dependency.',
   'Confirm injury, settlement, scan, decision, and recalibration schedules are current.'
  ]);
 
  const reliability=obs.checks.find(x=>x.id==='reliability-mode');
- push('RELIABILITY',reliability?.state==='CRITICAL'?.98:reliability?.state==='DEGRADED'?.68:0,'intelligence-stack',reliability?.reason||'reliability normal',[
+ push('RELIABILITY',reliability?.state==='CRITICAL'? .98:reliability?.state==='DEGRADED'? .68:0,'intelligence-stack',reliability?.reason||'reliability normal',[
   'Inspect open intelligence circuit breakers and their source components.',
   'Keep protective recommendation mode active until circuits recover.',
   'Require fresh successful probes before restoring normal weighting.'
  ]);
 
  const incidents=obs.checks.find(x=>x.id==='incidents');
- push('RUNTIME_INCIDENTS',incidents?.state==='CRITICAL'?.97:incidents?.state==='DEGRADED'?.62:0,'runtime-incidents',incidents?.reason||'no unresolved incidents',[
+ push('RUNTIME_INCIDENTS',incidents?.state==='CRITICAL'? .97:incidents?.state==='DEGRADED'? .62:0,'runtime-incidents',incidents?.reason||'no unresolved incidents',[
   'Resolve ACTION incidents before deployment promotion.',
   'Review incident metadata for the first failing subsystem.',
   'Confirm the incident is cleared in observability before reopening release flow.'
@@ -76,7 +76,7 @@ export function attributeOperationalIncident(obs:Awaited<ReturnType<typeof build
  const top=candidates[0];
  const secondary=candidates.filter(x=>top&&x.score>=top.score-.15);
  const primaryCause=top?.cause||'UNKNOWN';
- const confidence=top?clamp(top.score-(secondary.length>1?.08:0)):0.25;
+ const confidence=top?clamp(top.score-(secondary.length>1? .08:0)):0.25;
  const severity=obs.overall==='CRITICAL'?'ACTION':obs.overall==='DEGRADED'?'WATCH':'INFO';
  const impactedComponents=[...new Set((secondary.length?secondary:candidates.slice(0,1)).map(x=>x.component))];
  const evidence=[...new Set((secondary.length?secondary:candidates.slice(0,2)).map(x=>x.evidence))];
