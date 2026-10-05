@@ -1,12 +1,14 @@
-import {cashoutLearningSummary,recordCashoutObservation,type CashoutObservationInput} from '@/lib/cashoutLearning';
+import {cashoutLearningSummary,persistCashoutLearning,recordCashoutObservation,type CashoutObservationInput} from '@/lib/cashoutLearning';
 
 export const dynamic='force-dynamic';
 
 export async function GET(){
  const report=await cashoutLearningSummary();
+ const persistence=await persistCashoutLearning(report.rows);
  return Response.json({
   ok:true,
   generatedAt:new Date().toISOString(),
+  persisted:persistence.persisted,
   ...report,
   notes:[
    'Cash-out learning only grades alerts when a real offer, user action, and eventual outcome are recorded.',
