@@ -43,7 +43,7 @@ jobs:
       - run: npm run release-audit
 
       - name: Install pinned Vercel CLI
-        run: npm install --global vercel@62.1.0
+        run: npm install --global vercel@62.2.0
 
       - name: Generate deployment-only secrets
         shell: bash
@@ -62,6 +62,13 @@ jobs:
 
       - name: Pull production project settings
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Capture previous production deployment
+        shell: bash
+        run: |
+          PREVIOUS_DEPLOYMENT_ID=$(curl --fail --silent --show-error             -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID"             | jq -r '.deployments[0].uid // empty')
+          test -n "$PREVIOUS_DEPLOYMENT_ID"
+          echo "PREVIOUS_DEPLOYMENT_ID=$PREVIOUS_DEPLOYMENT_ID" >> "$GITHUB_ENV"
 
       - name: Build exact production artifact
         run: vercel build --prod --token="$VERCEL_TOKEN"
@@ -114,39 +121,46 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
           for i in {1..20}; do
-            if curl --fail --silent --show-error "$PRODUCTION_URL/api/health/live" >/dev/null; then
+            if vercel curl "$PRODUCTION_URL/api/health/live" --token="$VERCEL_TOKEN" >/dev/null; then
               exit 0
             fi
             sleep 3
           done
           exit 1
 
+      - name: Record deployed launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN"             -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             -d "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"DEPLOYED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
       - name: Apply database migrations inside Vercel runtime
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/bootstrap" \
+          vercel curl "$PRODUCTION_URL/api/release/bootstrap" --token="$VERCEL_TOKEN" \
+            -X POST \
             -H "Authorization: Bearer $DEPLOY_BOOTSTRAP_SECRET" \
             -H "Content-Type: application/json"
           echo
 
-      - name: Record deployed and migrated launch stages
+      - name: Record migrated launch stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          for STAGE in DEPLOYED MIGRATED; do
-            curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
-              -H "Authorization: Bearer $INGEST_SECRET" \
-              -H "Content-Type: application/json" \
-              --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
-            echo
-          done
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" \
+            -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"MIGRATED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
 
       - name: Certify live production providers
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/providers/certify" \
+          vercel curl "$PRODUCTION_URL/api/providers/certify" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json"
           echo
@@ -155,7 +169,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"PROVIDERS_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -164,13 +178,13 @@ jobs:
       - name: Require strict launch doctor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
-        run: curl --fail --silent --show-error "$PRODUCTION_URL/api/launch-doctor?strict=1"
+        run: vercel curl "$PRODUCTION_URL/api/launch-doctor?strict=1" --token="$VERCEL_TOKEN"
 
       - name: Record launch-doctor stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"LAUNCH_DOCTOR_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -181,12 +195,14 @@ jobs:
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
           EXPECTED_APP_VERSION: "61.0.0"
+          SMOKE_VERCEL_AUTH: "1"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Record production smoke launch stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -196,7 +212,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/attest" \
+          vercel curl "$PRODUCTION_URL/api/release/attest" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data '{"source":"production-prebuilt","buildPassed":true,"smokePassed":true,"loadPassed":true}'
@@ -206,7 +222,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ATTESTED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -216,7 +232,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/certify?strict=1" \
+          vercel curl "$PRODUCTION_URL/api/release/certify?strict=1" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json"
           echo
@@ -225,7 +241,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"STRICT_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -235,7 +251,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/v1-readiness?strict=1" \
+          vercel curl "$PRODUCTION_URL/api/release/v1-readiness?strict=1" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json"
           echo
@@ -245,7 +261,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
           for STAGE in V1_READY COMPLETE; do
-            curl --fail --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+            vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
               -H "Authorization: Bearer $INGEST_SECRET" \
               -H "Content-Type: application/json" \
               --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -257,7 +273,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"FAILED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}" || true
@@ -265,14 +281,14 @@ jobs:
 
       - name: Roll back production on hosted failure
         if: failure() && steps.deploy.outcome == 'success'
-        run: vercel rollback --yes --token="$VERCEL_TOKEN"
+        run: vercel rollback "$PREVIOUS_DEPLOYMENT_ID" --yes --token="$VERCEL_TOKEN"
 
       - name: Record rollback completion
         if: failure() && steps.deploy.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          curl --silent --show-error -X POST "$PRODUCTION_URL/api/release/launch-status" \
+          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ROLLED_BACK\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}" || true

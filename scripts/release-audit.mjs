@@ -337,6 +337,8 @@ add('direct preview promotion disabled',!candidateWorkflow.includes('vercel prom
 add('production final certification',productionWorkflow.includes('/api/release/certify?strict=1'),'strict final certification required');
 add('V124 production strict v1 readiness',productionWorkflow.includes('/api/release/v1-readiness?strict=1')&&productionWorkflow.includes('V1_READY')&&productionWorkflow.includes('COMPLETE'),'production cannot complete before V123 strict readiness passes');
 add('V124 launch rollback evidence',productionWorkflow.includes('FAILED')&&productionWorkflow.includes('ROLLED_BACK')&&productionWorkflow.includes('vercel rollback'),'failed production launches are recorded and rolled back');
+add('V124.1 protected deployment auth',productionWorkflow.includes('vercel curl')&&productionWorkflow.includes('SMOKE_VERCEL_AUTH')&&read('scripts/remote-smoke.mjs').includes("execFileSync('vercel'"),'hosted checks can traverse Vercel Deployment Protection without disabling it');
+add('V124.1 explicit rollback target',productionWorkflow.includes('PREVIOUS_DEPLOYMENT_ID')&&productionWorkflow.includes('vercel rollback "$PREVIOUS_DEPLOYMENT_ID"'),'rollback targets the captured previous production deployment explicitly');
 const cloudflareWorkflow=read('.github/workflows/deploy-cloudflare.yml');
 add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflight:cloudflare'),'preflight required');
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');

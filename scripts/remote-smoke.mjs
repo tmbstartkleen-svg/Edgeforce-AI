@@ -1,3 +1,4 @@
+import {execFileSync} from 'node:child_process';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'61.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
@@ -5,9 +6,19 @@ if(!base)throw new Error('SMOKE_BASE_URL is required');
 const paths=['/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
 
+function protectedFetch(path){
+ const url=base+path;
+ if(process.env.SMOKE_VERCEL_AUTH==='1'){
+  const args=['curl',url,'--token',process.env.VERCEL_TOKEN||''];
+  const body=execFileSync('vercel',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+  return {ok:true,status:200,text:async()=>body};
+ }
+ return fetch(url,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/60'}});
+}
+
 for(const path of paths){
  const started=Date.now();
- const res=await fetch(base+path,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/60'}});
+ const res=await protectedFetch(path);
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
