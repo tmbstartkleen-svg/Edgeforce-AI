@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V81',
- appVersion:'81.0.0',
- packageVersion:'0.81.0',
- modelVersion:'edgeforce-v81',
- migrationVersion:93
+ build:'V82',
+ appVersion:'82.0.0',
+ packageVersion:'0.82.0',
+ modelVersion:'edgeforce-v82',
+ migrationVersion:94
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -240,6 +240,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-decision-calibration/route.ts',
  'src/components/PreventiveDecisionCalibrationPanel.tsx',
  'EDGEFORCE_V81_RELEASE.md',
+ 'src/lib/preventiveDecisionThresholds.ts',
+ 'src/app/api/operations/preventive-decision-thresholds/route.ts',
+ 'src/app/api/testing/preventive-decision-thresholds/route.ts',
+ 'src/components/PreventiveDecisionThresholdPanel.tsx',
+ 'EDGEFORCE_V82_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -640,6 +645,14 @@ add('V81 calibration API',read('src/app/api/operations/preventive-decision-calib
 add('V81 calibration regression',read('src/app/api/testing/preventive-decision-calibration/route.ts').includes('brierScore'),'calibration regression covers Brier and error metrics');
 add('V81 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveDecisionCalibration'),'SLO supervision refreshes calibration');
 add('V81 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveDecisionCalibrationPanel'),'calibration panel is visible');
+
+add('V82 threshold governor',read('src/lib/preventiveDecisionThresholds.ts').includes('derivePreventiveDecisionThresholds'),'adaptive threshold governor exists');
+add('V82 hard threshold bounds',read('src/lib/preventiveDecisionThresholds.ts').includes("clamp(recommend,.70,.82)")&&read('src/lib/preventiveDecisionThresholds.ts').includes("clamp(confidence,.42,.60)"),'recommend and confidence thresholds remain bounded');
+add('V82 durable thresholds',read('db/v94.sql').includes('preventive_decision_threshold_state')&&read('db/v94.sql').includes('preventive_decision_threshold_snapshots'),'threshold state and history are durable');
+add('V82 gate integration',read('src/lib/preventiveActionDecisionGate.ts').includes('loadPreventiveDecisionThresholds')&&read('src/lib/preventiveActionDecisionGate.ts').includes('thresholds.recommendThreshold'),'decision gate consumes adaptive thresholds');
+add('V82 threshold regression',read('src/app/api/testing/preventive-decision-thresholds/route.ts').includes('CONSERVATIVE')&&read('src/app/api/testing/preventive-decision-thresholds/route.ts').includes('TUNED'),'regression covers tightening and bounded tuning');
+add('V82 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveDecisionThresholdGovernor'),'SLO supervision refreshes adaptive thresholds');
+add('V82 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveDecisionThresholdPanel'),'threshold governor is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

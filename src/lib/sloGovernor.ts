@@ -7,6 +7,7 @@ import {runPreventiveActionLearning} from './preventiveActionLearning';
 import {runPreventiveActionRanking} from './preventiveActionRanking';
 import {runPreventiveActionDecisionGate} from './preventiveActionDecisionGate';
 import {runPreventiveDecisionCalibration} from './preventiveDecisionCalibration';
+import {runPreventiveDecisionThresholdGovernor} from './preventiveDecisionThresholds';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -285,8 +286,9 @@ export async function runSloGovernor(){
  await runPredictiveIncidentRisk().catch(()=>({persisted:false}));
  await runPreventiveActionLearning().catch(()=>({persisted:false}));
  await runPreventiveActionRanking().catch(()=>({persisted:false}));
- await runPreventiveActionDecisionGate().catch(()=>({persisted:false}));
  await runPreventiveDecisionCalibration().catch(()=>({configured:false}));
+ await runPreventiveDecisionThresholdGovernor().catch(()=>({persisted:false}));
+ await runPreventiveActionDecisionGate().catch(()=>({persisted:false}));
  if(!sql){
   const report=await buildSloGovernorReport();
   return {configured:false,...report,transition:false};
