@@ -13,7 +13,7 @@ export type MarketMovementProfile={
  closingSkill:number;marketEfficiency:number;confidence:number;
 };
 export type MarketMovementSignals={
- marketOpenerProbability:number;marketCurrentProbability:number;marketProbabilityMove:number;
+ marketOpenerOdds:number;marketCurrentOdds:number;marketOpenerProbability:number;marketCurrentProbability:number;marketProbabilityMove:number;
  marketRecentMove:number;marketPointMove:number;marketMoveVelocity:number;marketSteamSignal:number;
  marketReversalSignal:number;marketMovementVolatility:number;marketMovementConfidence:number;
  marketSnapshotCount:number;marketClosingLineSignal:number;marketClosingSkill:number;
@@ -106,6 +106,8 @@ export function buildMovementSignals(points:MovementPoint[],profile?:MarketMovem
  const sharpSignal=clamp(sharpPublicGap/.04);
 
  return {
+  marketOpenerOdds:opener.odds,
+  marketCurrentOdds:current.odds,
   marketOpenerProbability:opener.probability,
   marketCurrentProbability:current.probability,
   marketProbabilityMove:probabilityMove,
@@ -215,7 +217,7 @@ export async function enrichMarketsWithMarketMovement(markets:Market[]){
    source:'market-movement',providerId:'edgeforce-v69-market-learning',field:'marketClosingLineSignal',
    observedAt:now,confidence:signals.marketMovementConfidence,status:'LIVE',
    detail:{
-    openerProbability:signals.marketOpenerProbability,currentProbability:signals.marketCurrentProbability,
+    openerOdds:signals.marketOpenerOdds,currentOdds:signals.marketCurrentOdds,openerProbability:signals.marketOpenerProbability,currentProbability:signals.marketCurrentProbability,
     probabilityMove:signals.marketProbabilityMove,recentMove:signals.marketRecentMove,pointMove:signals.marketPointMove,
     snapshots:signals.marketSnapshotCount,steam:signals.marketSteamSignal,reversal:signals.marketReversalSignal,
     closingSkill:signals.marketClosingSkill
@@ -244,7 +246,7 @@ export async function recordMarketMovementSnapshots(markets:Market[]){
     sharp_public_gap,snapshot_count,observed_hour,metadata
    ) values(
     ${m.sport},${m.id},${identity},${m.market},${m.selection},${canonicalMarket},${canonicalSelection},${m.startTime},
-    ${null},${m.odds},${finite(f.marketOpenerProbability)??null},${finite(f.marketCurrentProbability)??null},
+    ${Math.round(finite(f.marketOpenerOdds)??m.odds)},${Math.round(finite(f.marketCurrentOdds)??m.odds)},${finite(f.marketOpenerProbability)??null},${finite(f.marketCurrentProbability)??null},
     ${finite(f.marketProbabilityMove)??0},${finite(f.marketRecentMove)??0},${finite(f.marketPointMove)??null},
     ${finite(f.marketMoveVelocity)??0},${finite(f.marketSteamSignal)??0},${finite(f.marketReversalSignal)??0},
     ${finite(f.marketClosingLineSignal)??0},${confidence},${finite(f.marketSharpPublicGap)??null},
