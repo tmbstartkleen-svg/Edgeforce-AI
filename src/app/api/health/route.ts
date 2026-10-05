@@ -206,6 +206,8 @@ export async function GET(){
   staleLeaseRecovery:true,
   unifiedSupervisionCycle:true,
   sharedEvidenceContext:true,
+  releaseExecutionCertification:true,
+  verifiedPromotionEvidence:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
