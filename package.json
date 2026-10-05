@@ -1,6 +1,6 @@
 {
   "name": "edgeforce-ai",
-  "version": "0.96.0",
+  "version": "0.97.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -26,7 +26,9 @@
     "configure:cloudflare-live": "node scripts/configure-cloudflare-live.mjs",
     "doctor:ml-service": "node scripts/ml-service-doctor.mjs",
     "doctor:ml-activation": "node scripts/ml-activation-doctor.mjs",
-    "doctor:ml-first-tournament": "node scripts/ml-first-tournament-doctor.mjs"
+    "doctor:ml-first-tournament": "node scripts/ml-first-tournament-doctor.mjs",
+    "typecheck": "tsc --noEmit",
+    "write-execution-evidence": "node scripts/write-execution-evidence.mjs"
   },
   "dependencies": {
     "next": "16.3.6",
