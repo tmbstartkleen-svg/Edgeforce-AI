@@ -10,7 +10,7 @@ type HistoryRow={
 type InjuryRow={name:string;team?:string;availability:number;status?:string};
 
 export type DepthChartProfile={
- athleteId:string;sport:string;teamKey:string;positionKey:string;games:number;starts:number;
+ athleteId:string;sport:string;teamKey:string;positionKey:string;games:number;starts:number;starterEvidenceGames:number;
  starterRate:number;averageMinutes:number;averageUsage:number;roleScore:number;depthRank:number;confidence:number;
 };
 
@@ -63,7 +63,7 @@ export function deriveDepthChartProfiles(rows:HistoryRow[]):DepthChartProfile[]{
   const averageUsage=mean(games.map(x=>num(x.usage)).filter((x):x is number=>x!==undefined));
   const starterRate=explicitStarterGames?starts/explicitStarterGames:0;
   raw.push({
-   athleteId,sport,teamKey:team,positionKey:position,games:games.length,starts,
+   athleteId,sport,teamKey:team,positionKey:position,games:games.length,starts,starterEvidenceGames:explicitStarterGames,
    starterRate,averageMinutes,averageUsage,roleScore:0,depthRank:99,
    confidence:clamp(games.length/20)*(.65+.35*clamp(explicitStarterGames/Math.max(1,games.length)))
   });
@@ -104,15 +104,15 @@ export async function rebuildDepthChartProfiles(){
  for(const p of profiles){
   await sql`
    insert into depth_chart_profiles(
-    athlete_id,sport,team_key,position_key,games,starts,starter_rate,average_minutes,average_usage,role_score,depth_rank,confidence,updated_at,metadata
+    athlete_id,sport,team_key,position_key,games,starts,starter_evidence_games,starter_rate,average_minutes,average_usage,role_score,depth_rank,confidence,updated_at,metadata
    ) values(
-    ${p.athleteId},${p.sport},${p.teamKey},${p.positionKey},${p.games},${p.starts},${p.starterRate},
+    ${p.athleteId},${p.sport},${p.teamKey},${p.positionKey},${p.games},${p.starts},${p.starterEvidenceGames},${p.starterRate},
     ${p.averageMinutes},${p.averageUsage},${p.roleScore},${p.depthRank},${p.confidence},now(),
     ${sql.json({lookbackDays:730,explicitStarterSupport:p.starts>0})}
    )
    on conflict (athlete_id) do update set
     sport=excluded.sport,team_key=excluded.team_key,position_key=excluded.position_key,games=excluded.games,
-    starts=excluded.starts,starter_rate=excluded.starter_rate,average_minutes=excluded.average_minutes,
+    starts=excluded.starts,starter_evidence_games=excluded.starter_evidence_games,starter_rate=excluded.starter_rate,average_minutes=excluded.average_minutes,
     average_usage=excluded.average_usage,role_score=excluded.role_score,depth_rank=excluded.depth_rank,
     confidence=excluded.confidence,updated_at=now(),metadata=excluded.metadata
   `;
@@ -147,7 +147,7 @@ export async function enrichMarketsWithStartingLineups(markets:Market[]){
  const targetIds=(athletes as any[]).map(x=>String(x.id));
  const targetProfiles=await sql`
   select athlete_id as "athleteId",sport,team_key as "teamKey",position_key as "positionKey",
-         games,starts,starter_rate::float as "starterRate",average_minutes::float as "averageMinutes",
+         games,starts,starter_evidence_games as "starterEvidenceGames",starter_rate::float as "starterRate",average_minutes::float as "averageMinutes",
          average_usage::float as "averageUsage",role_score::float as "roleScore",depth_rank as "depthRank",
          confidence::float as confidence
   from depth_chart_profiles where athlete_id in ${sql(targetIds)}
@@ -164,7 +164,7 @@ export async function enrichMarketsWithStartingLineups(markets:Market[]){
  const injuredIds=[...injuryById.keys()];
  const injuredProfiles=injuredIds.length?await sql`
   select athlete_id as "athleteId",sport,team_key as "teamKey",position_key as "positionKey",
-         starter_rate::float as "starterRate",role_score::float as "roleScore",depth_rank as "depthRank",confidence::float as confidence
+         starter_evidence_games as "starterEvidenceGames",starter_rate::float as "starterRate",role_score::float as "roleScore",depth_rank as "depthRank",confidence::float as confidence
   from depth_chart_profiles where athlete_id in ${sql(injuredIds)}
  `:[];
  const injuredProfileById=new Map((injuredProfiles as any[]).map(x=>[String(x.athleteId),x]));
@@ -176,7 +176,8 @@ export async function enrichMarketsWithStartingLineups(markets:Market[]){
   const profile=profileById.get(String(athlete.id));
   if(!profile&&player.starter===undefined)return m;
   const liveStarter=player.starter;
-  let starterProbability=liveStarter===true?1:liveStarter===false?0:clamp(Number(profile?.starterRate||profile?.roleScore||.5));
+  const learnedStarter=Number(profile?.starterEvidenceGames||0)>0?Number(profile?.starterRate||0):Number(profile?.roleScore??.5);
+  let starterProbability=liveStarter===true?1:liveStarter===false?0:clamp(learnedStarter);
   let promotionScore=0;
   let displacedBy:string|undefined;
   if(liveStarter===undefined){
@@ -184,17 +185,18 @@ export async function enrichMarketsWithStartingLineups(markets:Market[]){
     const injured=injuredProfileById.get(injuredId); if(!injured)continue;
     const sameTeam=String(injured.teamKey)===teamKey(String(athlete.team||player.team||''));
     const samePosition=String(injured.positionKey)===key(String(athlete.position||'*'));
-    if(!sameTeam||!samePosition||Number(injured.starterRate||0)<.35)continue;
+    const injuredStarter=Number(injured.starterEvidenceGames||0)>0?Number(injured.starterRate||0):Number(injured.roleScore||0);
+    if(!sameTeam||!samePosition||injuredStarter<.35)continue;
     const candidateRank=Math.max(1,Number(profile?.depthRank||99));
     const rankScore=clamp(1-(candidateRank-1)*.18);
     const severity=1-injury.availability;
-    const score=severity*rankScore*clamp(Number(injured.starterRate||0))*.85;
+    const score=severity*rankScore*clamp(injuredStarter)*.85;
     if(score>promotionScore){promotionScore=score;displacedBy=injuredId;}
    }
    if(promotionScore>0){starterProbability=clamp(starterProbability+(1-starterProbability)*promotionScore);promotions++;}
   }
   const roleConfidence=clamp(Number(profile?.confidence||.45));
-  const baselineStarterProbability=clamp(Number(profile?.starterRate??profile?.roleScore??.5));
+  const baselineStarterProbability=clamp(learnedStarter);
   const roleDelta=starterProbability-baselineStarterProbability;
   const sportFeatures={
    ...(m.sportFeatures||{}),
@@ -256,7 +258,7 @@ export async function loadStartingLineupSummary(){
     (select count(*)::int from live_lineup_snapshots where observed_at>now()-interval '24 hours') as "liveSnapshots"
   `,
   sql`
-   select a.name as "playerName",d.sport,d.team_key as "teamKey",d.position_key as "positionKey",d.games,d.starts,
+   select a.name as "playerName",d.sport,d.team_key as "teamKey",d.position_key as "positionKey",d.games,d.starts,d.starter_evidence_games as "starterEvidenceGames",
           d.starter_rate::float as "starterRate",d.average_minutes::float as "averageMinutes",
           d.average_usage::float as "averageUsage",d.role_score::float as "roleScore",d.depth_rank as "depthRank",
           d.confidence::float as confidence
