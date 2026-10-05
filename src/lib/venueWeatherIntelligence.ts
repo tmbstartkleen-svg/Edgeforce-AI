@@ -134,8 +134,8 @@ export function deriveVenueConditionSignals(input:VenueConditionInput):VenueCond
  const homeEdge=clamp(altitudeHome,-.25,.25);
  const composite=clamp(totalEffect*.62+homeEdge*.23+paceEffect*.15,-1,1);
  const weatherFields=[temperature,humidity,finite(wx.windMph),finite(wx.precipitationProbability)].filter(x=>x!==undefined).length;
- const weatherConfidence=indoor?.96:clamp01(.48+weatherFields*.105+(finite(wx.windGustMph)!==undefined?.05:0)+(finite(wx.apparentTemperatureF)!==undefined?.03:0));
- const venueConfidence=elevation>0?.06:0;
+ const weatherConfidence=indoor ? .96 : clamp01(.48+weatherFields*.105+(finite(wx.windGustMph)!==undefined ? .05 : 0)+(finite(wx.apparentTemperatureF)!==undefined ? .03 : 0));
+ const venueConfidence=elevation>0 ? .06 : 0;
  const confidence=clamp01(weatherConfidence+venueConfidence);
 
  return {
