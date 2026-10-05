@@ -132,7 +132,7 @@ function modeFromRows(rows:ReliabilityStateRow[],certification?:UnifiedIntellige
 function snapshotScore(rows:ReliabilityStateRow[]){
  if(!rows.length)return .65;
  return clamp(rows.reduce((sum,row)=>{
-  const circuit=row.circuitState==='CLOSED'?1:row.circuitState==='HALF_OPEN'?.65:.20;
+  const circuit=row.circuitState==='CLOSED' ? 1 : row.circuitState==='HALF_OPEN' ? .65 : .20;
   return sum+row.reliabilityScore*circuit;
  },0)/rows.length);
 }
@@ -302,7 +302,7 @@ export function applyReliabilityGuards(markets:Market[],snapshot:ReliabilitySnap
    sportFeatures:{
     ...neutralize(m.sportFeatures||{}),
     reliabilityScore,
-    reliabilityMode:snapshot.mode==='NORMAL'?0:snapshot.mode==='DEGRADED'?.5:1,
+    reliabilityMode:snapshot.mode==='NORMAL' ? 0 : snapshot.mode==='DEGRADED' ? .5 : 1,
     reliabilityCriticalOpen:snapshot.criticalOpen?1:0,
     reliabilityOpenCount:snapshot.openComponents.length,
     reliabilityHalfOpenCount:snapshot.halfOpenComponents.length
