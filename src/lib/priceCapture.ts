@@ -54,3 +54,24 @@ export async function buildPriceCaptureReport(currentRows:BestPriceRow[]){
  }).sort((a,b)=>b.rankScore-a.rankScore||b.samples-a.samples);
  return {configured:true,generatedAt:new Date().toISOString(),rows:rows.sort((a,b)=>(b.capturedValuePoints??-999)-(a.capturedValuePoints??-999)),venueBenchmarks,summary:{elite:rows.filter(x=>x.grade==='ELITE').length,positive:rows.filter(x=>x.grade==='POSITIVE').length,flat:rows.filter(x=>x.grade==='FLAT').length,negative:rows.filter(x=>x.grade==='NEGATIVE').length,insufficient:rows.filter(x=>x.grade==='INSUFFICIENT').length}};
 }
+
+export async function persistPriceCapture(rows:PriceCaptureRow[]){
+ const sql=db();
+ if(!sql||!rows.length)return {persisted:false};
+ const latest=await sql`select max(observed_at) as latest from price_capture_benchmarks`;
+ const latestMs=latest[0]?.latest?new Date(latest[0].latest as string).getTime():0;
+ if(latestMs&&Date.now()-latestMs<15*60000)return {persisted:false};
+ for(const x of rows){
+  await sql`
+   insert into price_capture_benchmarks(
+    observed_at,opportunity_id,domain,category,venue,first_best_probability,latest_best_probability,
+    captured_value_points,captured_value_pct,observations,grade,benchmark_confidence,metadata
+   ) values(
+    now(),${x.id},${x.domain},${x.category},${x.venue},${x.firstBestProbability},${x.latestBestProbability},
+    ${x.capturedValuePoints},${x.capturedValuePct},${x.observations},${x.grade},${x.benchmarkConfidence},
+    ${sql.json({reason:x.reason} as any)}
+   )
+  `;
+ }
+ return {persisted:true};
+}
