@@ -154,43 +154,43 @@ export async function buildUnifiedIntelligenceCertification():Promise<UnifiedInt
  }
  const components=await Promise.all([
   queryComponent('injuries','Intraday injury snapshots',true,async()=>{
-   const [r]=await sql§\`select count(*) filter(where observed_at>now()-interval '24 hours')::int as rows,extract(epoch from (now()-max(observed_at)))/60::float as age from injury_context_snapshots\`;
+   const [r]=await sql`select count(*) filter(where observed_at>now()-interval '24 hours')::int as rows,extract(epoch from (now()-max(observed_at)))/60::float as age from injury_context_snapshots\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },35,75),
   queryComponent('player-frames','Player feature frames',false,async()=>{
-   const [r]=await sql§\`select count(*) filter(where observed_hour>now()-interval '72 hours')::int as rows,extract(epoch from (now()-max(observed_hour)))/60::float as age from player_feature_frames\`;
+   const [r]=await sql`select count(*) filter(where observed_hour>now()-interval '72 hours')::int as rows,extract(epoch from (now()-max(observed_hour)))/60::float as age from player_feature_frames\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },1440,4320),
   queryComponent('player-calibration','Player calibration',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from player_calibration_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from player_calibration_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('matchups','Opponent matchup learning',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from opponent_matchup_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from opponent_matchup_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('redistribution','Lineup role redistribution',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from lineup_redistribution_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from lineup_redistribution_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('depth-charts','Starting lineups / depth charts',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from depth_chart_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from depth_chart_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('schedule','Schedule / fatigue profiles',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from schedule_fatigue_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from schedule_fatigue_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('venue','Venue / condition profiles',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from venue_condition_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from venue_condition_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('movement','Market movement profiles',false,async()=>{
-   const [r]=await sql§\`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from market_movement_profiles\`;
+   const [r]=await sql`select count(*)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from market_movement_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080),
   queryComponent('optimizer','Cross-sport optimizer',false,async()=>{
-   const [r]=await sql§\`select count(*) filter(where promoted)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from cross_sport_optimizer_profiles\`;
+   const [r]=await sql`select count(*) filter(where promoted)::int as rows,extract(epoch from (now()-max(updated_at)))/60::float as age from cross_sport_optimizer_profiles\`;
    return {rows:Number(r?.rows||0),ageMinutes:r?.age===null?null:Number(r.age)};
   },2880,10080,{emptyState:'WARMING'})
  ]);
@@ -209,11 +209,11 @@ export async function buildUnifiedIntelligenceCertification():Promise<UnifiedInt
   id:'validation',label:'Out-of-sample validation',required:true,
   state:validation.latestRun?.status==='failed'?'FAILED':validation.latestRun?'HEALTHY':'WARMING',
   rows:Number(validation.report?.sampleSize||0),ageMinutes:null,
-  detail:validation.latestRun?§\`latest ${validation.latestRun.status}; ${validation.report.evidence.promotionEligible} group(s) promotion-eligible\`:'No durable validation run yet'
+  detail:validation.latestRun?`latest ${validation.latestRun.status}; ${validation.report.evidence.promotionEligible} group(s) promotion-eligible\`:'No durable validation run yet'
  };
  const all=[...components,automationComponent,validationComponent];
- const blockers=all.filter(x=>x.required&&(x.state==='FAILED'||x.state==='STALE')).map(x=>§\`${x.label}: ${x.state.toLowerCase()}\`);
- const warnings=all.filter(x=>x.state==='DEGRADED'||x.state==='WARMING'||x.state==='UNAVAILABLE').map(x=>§\`${x.label}: ${x.state.toLowerCase()} (${x.detail})\`);
+ const blockers=all.filter(x=>x.required&&(x.state==='FAILED'||x.state==='STALE')).map(x=>`${x.label}: ${x.state.toLowerCase()}\`);
+ const warnings=all.filter(x=>x.state==='DEGRADED'||x.state==='WARMING'||x.state==='UNAVAILABLE').map(x=>`${x.label}: ${x.state.toLowerCase()} (${x.detail})\`);
  const score=all.reduce((s,x)=>s+stateScore(x.state),0)/Math.max(1,all.length);
  const required=all.filter(x=>x.required);
  const criticalCoverage=required.reduce((s,x)=>s+stateScore(x.state),0)/Math.max(1,required.length);
@@ -227,7 +227,7 @@ export async function buildUnifiedIntelligenceCertification():Promise<UnifiedInt
 
 export async function persistUnifiedIntelligenceCertification(report:UnifiedIntelligenceCertification){
  const sql=db();if(!sql)return {persisted:false,id:null};
- const [row]=await sql§\`
+ const [row]=await sql`
   insert into intelligence_stack_certifications(
    release_version,model_version,migration_version,environment,state,score,critical_coverage,blockers,warnings,components,metadata
   ) values(
@@ -242,7 +242,7 @@ export async function persistUnifiedIntelligenceCertification(report:UnifiedInte
 export async function latestUnifiedIntelligenceCertification(){
  const sql=db();if(!sql)return null;
  try{
-  const [row]=await sql§\`
+  const [row]=await sql`
    select id,release_version as "releaseVersion",model_version as "modelVersion",migration_version as "migrationVersion",
     environment,state,score::float,critical_coverage::float as "criticalCoverage",blockers,warnings,components,observed_at as "observedAt"
    from intelligence_stack_certifications order by observed_at desc limit 1
