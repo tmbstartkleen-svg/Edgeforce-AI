@@ -24,6 +24,7 @@ import OpportunityCommandQueuePanel from './OpportunityCommandQueuePanel';
 import CommandLearningPanel from './CommandLearningPanel';
 import CashoutLearningPanel from './CashoutLearningPanel';
 import CashoutReconciliationPanel from './CashoutReconciliationPanel';
+import CashoutPolicyPanel from './CashoutPolicyPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1094,6 +1095,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <CashoutPolicyPanel/>
     <CashoutReconciliationPanel/>
     <CashoutLearningPanel/>
     <CommandLearningPanel/>
