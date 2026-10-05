@@ -194,6 +194,8 @@ export async function GET(){
   replacementBaselineReadiness:true,
   baselineHandoff:true,
   successorChampionPromotion:true,
+  successorValidation:true,
+  postHandoffReversion:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
