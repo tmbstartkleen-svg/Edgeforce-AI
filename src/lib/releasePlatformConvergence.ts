@@ -14,6 +14,7 @@ export type PlatformEvidence={
 
 export async function recordPlatformEvidence(input:PlatformEvidence){
  const blockers:string[]=[];
+ if(!['vercel','cloudflare'].includes(String(input.platform)))blockers.push('deployment platform is unsupported');
  if(input.version!==RELEASE.appVersion)blockers.push('release version mismatch');
  if(input.modelVersion!==RELEASE.modelVersion)blockers.push('model version mismatch');
  if(Number(input.migrationVersion)!==RELEASE.migrationVersion)blockers.push('migration version mismatch');
