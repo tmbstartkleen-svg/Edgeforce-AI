@@ -34,13 +34,14 @@ export function buildFinalDecisionGate(input:{
 }){
  const timingMap=new Map(input.timing.map(x=>[x.id,x]));
  const priceMap=new Map(input.prices.map(x=>[x.id,x]));
- const bestMap=new Map(input.best.map(x=>[x.id,x]));
+ const bestKey=(domain:string,category:string,title:string)=>[domain,category.trim().toLowerCase(),title.trim().toLowerCase()].join('|');
+ const bestMap=new Map(input.best.map(x=>[bestKey(x.domain,x.category,x.title),x]));
  const execCategory=new Map(input.execution.filter(x=>x.dimension==='CATEGORY').map(x=>[x.domain+'|'+x.key.toLowerCase(),x]));
 
  const rows:FinalDecisionRow[]=input.master.map(m=>{
   const t=timingMap.get(m.id);
   const p=priceMap.get(m.id);
-  const b=bestMap.get(m.id.replace(/^sports:/,'sports-best:'))||bestMap.get(m.id.replace(/^prediction:/,'market-best:'));
+  const b=bestMap.get(bestKey(m.domain,m.category,m.title));
   const e=execCategory.get(m.domain+'|'+m.category.toLowerCase());
 
   const modelScore=clamp(m.masterScore);
