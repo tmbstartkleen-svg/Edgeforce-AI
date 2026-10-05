@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V91',
- appVersion:'91.0.0',
- packageVersion:'0.91.0',
- modelVersion:'edgeforce-v91',
- migrationVersion:103
+ build:'V92',
+ appVersion:'92.0.0',
+ packageVersion:'0.92.0',
+ modelVersion:'edgeforce-v92',
+ migrationVersion:104
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -290,6 +290,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-successor-validation/route.ts',
  'src/components/PreventiveSuccessorValidationPanel.tsx',
  'EDGEFORCE_V91_RELEASE.md',
+ 'src/lib/preventiveSuccessorGraduation.ts',
+ 'src/app/api/operations/preventive-successor-graduation/route.ts',
+ 'src/app/api/testing/preventive-successor-graduation/route.ts',
+ 'src/components/PreventiveSuccessorGraduationPanel.tsx',
+ 'EDGEFORCE_V92_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -769,6 +774,14 @@ add('V91 durable validation',read('db/v103.sql').includes('preventive_successor_
 add('V91 regression',read('src/app/api/testing/preventive-successor-validation/route.ts').includes("healthy.status==='CONFIRMED'")&&read('src/app/api/testing/preventive-successor-validation/route.ts').includes("revert.status==='REVERT'"),'regression covers confirmation and reversion');
 add('V91 supervision ordering',read('src/lib/sloGovernor.ts').includes('runSuccessorValidationGovernor'),'post-handoff validation runs immediately after handoff');
 add('V91 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSuccessorValidationPanel'),'successor validation is visible');
+
+add('V92 successor graduation',read('src/lib/preventiveSuccessorGraduation.ts').includes('evaluateSuccessorGraduation'),'successor graduation governor exists');
+add('V92 confirmed-only graduation',read('src/lib/preventiveSuccessorGraduation.ts').includes("validationStatus==='CONFIRMED'")&&read('src/lib/preventiveSuccessorGraduation.ts').includes('validationStreak>=3'),'graduation requires V91 confirmation');
+add('V92 champion source transition',read('src/lib/preventiveSuccessorGraduation.ts').includes("'CONFIRMED_SUCCESSION_CHAMPION'"),'confirmed successor moves into normal champion lifecycle');
+add('V92 durable graduation',read('db/v104.sql').includes('preventive_successor_graduation_state')&&read('db/v104.sql').includes('preventive_successor_graduation_snapshots'),'graduation state and history are durable');
+add('V92 regression',read('src/app/api/testing/preventive-successor-graduation/route.ts').includes("yes.status==='GRADUATE'")&&read('src/app/api/testing/preventive-successor-graduation/route.ts').includes('!no.eligible'),'regression covers eligible and ineligible graduation');
+add('V92 supervision ordering',read('src/lib/sloGovernor.ts').includes('runSuccessorGraduationGovernor'),'graduation runs immediately after successor validation');
+add('V92 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSuccessorGraduationPanel'),'successor graduation is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

@@ -1,0 +1,5 @@
+import {loadSuccessorGraduationSummary,runSuccessorGraduationGovernor} from '@/lib/preventiveSuccessorGraduation';
+export const dynamic='force-dynamic';
+function authorized(req:Request){const auth=req.headers.get('authorization');const secrets=[process.env.INGEST_SECRET,process.env.CRON_SECRET].filter(Boolean);return !secrets.length||secrets.some(secret=>auth===`Bearer ${secret}`)}
+export async function GET(){try{return Response.json({ok:true,build:'V92',schemaVersion:'v92-successor-graduation-1',...(await loadSuccessorGraduationSummary())},{headers:{'Cache-Control':'no-store'}})}catch(error){return Response.json({ok:false,error:error instanceof Error?error.message:'successor graduation load failed'},{status:500})}}
+export async function POST(req:Request){if(!authorized(req))return Response.json({ok:false,error:'unauthorized'},{status:401});try{return Response.json({ok:true,build:'V92',schemaVersion:'v92-successor-graduation-1',...(await runSuccessorGraduationGovernor())},{headers:{'Cache-Control':'no-store'}})}catch(error){return Response.json({ok:false,error:error instanceof Error?error.message:'successor graduation update failed'},{status:500})}}

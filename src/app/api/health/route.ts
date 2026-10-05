@@ -196,6 +196,8 @@ export async function GET(){
   successorChampionPromotion:true,
   successorValidation:true,
   postHandoffReversion:true,
+  successorGraduation:true,
+  championLifecycleClosure:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,

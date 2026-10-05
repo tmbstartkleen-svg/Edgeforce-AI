@@ -17,6 +17,7 @@ import {runChampionBaselineHealthGovernor} from './preventiveChampionBaselineHea
 import {runBaselineSuccessionGovernor} from './preventiveBaselineSuccession';
 import {runBaselineHandoffGovernor} from './preventiveBaselineHandoff';
 import {runSuccessorValidationGovernor} from './preventiveSuccessorValidation';
+import {runSuccessorGraduationGovernor} from './preventiveSuccessorGraduation';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -302,6 +303,7 @@ export async function runSloGovernor(){
  await runBaselineSuccessionGovernor().catch(()=>({configured:false}));
  await runBaselineHandoffGovernor().catch(()=>({configured:false}));
  await runSuccessorValidationGovernor().catch(()=>({configured:false}));
+ await runSuccessorGraduationGovernor().catch(()=>({configured:false}));
  await runProbationPerformanceGovernor().catch(()=>({configured:false}));
  await runChampionBaselineGovernor().catch(()=>({configured:false}));
  await runPreventiveDecisionThresholdGovernor().catch(()=>({persisted:false}));
