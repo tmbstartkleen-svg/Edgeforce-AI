@@ -21,6 +21,7 @@ import {currentReleaseExecutionCertification} from './releaseExecutionCertificat
 import {currentReleasePromotionProvenance} from './releasePromotionProvenance';
 import {latestPostPromotionVerification} from './postPromotionVerification';
 import {latestReleaseRollbackReconciliation} from './releaseRollbackReconciliation';
+import {latestPlatformConvergence} from './releasePlatformConvergence';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -49,6 +50,7 @@ sloGovernor:Awaited<ReturnType<typeof buildSloGovernorReport>>;
  promotionProvenance:Awaited<ReturnType<typeof currentReleasePromotionProvenance>>;
  postPromotionVerification:Awaited<ReturnType<typeof latestPostPromotionVerification>>;
  rollbackReconciliation:Awaited<ReturnType<typeof latestReleaseRollbackReconciliation>>;
+ platformConvergence:Awaited<ReturnType<typeof latestPlatformConvergence>>;
  observability:Awaited<ReturnType<typeof buildProductionObservability>>;
  security:{
   ok:boolean;
@@ -99,7 +101,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
@@ -116,7 +118,8 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   currentReleaseExecutionCertification(),
   currentReleasePromotionProvenance(),
   latestPostPromotionVerification(),
-  latestReleaseRollbackReconciliation()
+  latestReleaseRollbackReconciliation(),
+  latestPlatformConvergence()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -249,6 +252,12 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   }
  }
 
+ if(!platformConvergence){
+  warnings.push('platform convergence: current release has not converged across Vercel and Cloudflare yet');
+ }else if(strict&&!platformConvergence.certified){
+  blockers.push('platform convergence: Vercel and Cloudflare are not certified on the same release commit');
+ }
+
  const certified=readiness.ready&&blockers.length===0;
  return {
   certified,blockers:[...new Set(blockers)],warnings:[...new Set(warnings)],
@@ -258,7 +267,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    environment
   },
   readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,security,
-  executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,
+  executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
