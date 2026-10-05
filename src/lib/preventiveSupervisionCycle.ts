@@ -11,7 +11,7 @@ import {runBaselineGovernanceCycle} from './preventiveBaselineGovernanceCycle';
 import {runPreventiveDecisionThresholdGovernor,loadPreventiveDecisionThresholds} from './preventiveDecisionThresholds';
 import {runThresholdStabilityGovernor} from './preventiveThresholdStability';
 import {runPreventiveActionDecisionGate} from './preventiveActionDecisionGate';
-import type {buildProductionObservability} from './productionObservability';
+import {buildProductionObservability} from './productionObservability';
 
 export type SupervisionCycleStatus='COMPLETED'|'FAILED'|'SKIPPED_IDEMPOTENT';
 
@@ -88,7 +88,7 @@ export async function runPreventiveSupervisionCycle(input:{
  await recordStart(key);
  const outputs:Record<string,unknown>={};
  let stepCount=0;
- const reusedContextCount=4;
+ const reusedContextCount=8;
 
  try{
   const patterns=await runIncidentPatternLearning(); stepCount++; outputs.patterns={dominantCause:patterns.dominantCause,recurrenceScore:patterns.recurrenceScore,systemRisk:patterns.systemRisk};
