@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V71',
- appVersion:'71.0.0',
- packageVersion:'0.71.0',
- modelVersion:'edgeforce-v71',
- migrationVersion:83
+ build:'V72',
+ appVersion:'72.0.0',
+ packageVersion:'0.72.0',
+ modelVersion:'edgeforce-v72',
+ migrationVersion:84
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -29,6 +29,7 @@ const vercel=JSON.parse(read('vercel.json'));
 const wrangler=read('wrangler.jsonc');
 
 add('package version',pkg.version===expected.packageVersion,`${pkg.version} expected ${expected.packageVersion}`);
+add('typescript-eslint deterministic pin',pkg.overrides?.['@typescript-eslint/project-service']==='8.71.0'&&pkg.overrides?.['@typescript-eslint/typescript-estree']==='8.71.0','stable 8.71.0 family pin prevents partial-publish CI drift');
 add('release build',manifest.includes(`build:'${expected.build}'`),expected.build);
 add('release app version',manifest.includes(`appVersion:'${expected.appVersion}'`),expected.appVersion);
 add('release package version',manifest.includes(`packageVersion:'${expected.packageVersion}'`),expected.packageVersion);
@@ -188,6 +189,11 @@ const requiredFiles=[
  'src/app/api/intelligence/unified-stack/route.ts',
  'src/app/api/testing/unified-intelligence/route.ts',
  'src/components/UnifiedIntelligencePanel.tsx',
+ 'src/lib/intelligenceReliability.ts',
+ 'src/app/api/intelligence/reliability/route.ts',
+ 'src/app/api/testing/intelligence-reliability/route.ts',
+ 'src/components/ReliabilitySupervisorPanel.tsx',
+ 'EDGEFORCE_V72_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -304,10 +310,20 @@ add('V71 context integration',read('src/lib/providers/contextFusion.ts').include
 add('V71 system certification',read('src/lib/unifiedIntelligence.ts').includes('buildUnifiedIntelligenceCertification')&&read('src/lib/productionCertification.ts').includes('unifiedIntelligence.state'),'production certification consumes unified intelligence health');
 add('V71 injury automation monitoring',read('src/lib/automationHealth.ts').includes("jobName:'injuries'")&&read('src/lib/automationHealth.ts').includes('maxGapHours:1'),'15-minute injury refresh is monitored as a required automation');
 add('V71 daily certification',read('src/app/api/cron/recalibrate/route.ts').includes('persistUnifiedIntelligenceCertification'),'daily recalibration persists unified intelligence certification');
-add('V71 release identity',read('src/lib/releaseManifest.ts').includes("build:'V71'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v71'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:83'),'final release identity is synchronized');
+add('V71 release milestone',read('db/v83.sql').includes('intelligence_stack_certifications')&&read('EDGEFORCE_V71_RELEASE.md').includes('V71'),'V71 unified intelligence milestone remains preserved');
 add('V71 regression and dashboard',read('src/app/api/testing/unified-intelligence/route.ts').includes('healthy.ready')&&read('src/components/Dashboard.tsx').includes('UnifiedIntelligencePanel'),'unified intelligence regression and dashboard visibility are present');
-add('V71 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v71')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v71')&&read('.github/workflows/deploy-cloudflare.yml').includes('71.0.0'),'verification and production deployment workflows target V71');
+add('V71 deployment handoff',read('EDGEFORCE_V71_RELEASE.md').includes('final bundle')&&read('src/lib/unifiedIntelligence.ts').includes('edgeforce-v71-unified'),'V71 unified runtime handoff remains documented');
 add('V71 final release note',read('EDGEFORCE_V71_RELEASE.md').includes('final bundle')&&read('EDGEFORCE_V71_RELEASE.md').includes('fail-soft'),'final intelligence program handoff is documented');
+add('V72 reliability schema',read('db/v84.sql').includes('intelligence_reliability_state')&&read('db/v84.sql').includes('intelligence_reliability_events')&&read('db/v84.sql').includes('intelligence_reliability_runs'),'v84 stores circuit state, transitions and supervisor runs');
+add('V72 circuit transition logic',read('src/lib/intelligenceReliability.ts').includes('nextCircuitTransition')&&read('src/lib/intelligenceReliability.ts').includes("circuitState:'HALF_OPEN'")&&read('src/lib/intelligenceReliability.ts').includes('two consecutive recovery checks'),'reliability circuits confirm failures and recoveries');
+add('V72 optional isolation',read('src/lib/providers/contextFusion.ts').includes("reliabilityOpen(reliability,'player-calibration')")&&read('src/lib/intelligenceReliability.ts').includes("open.has('schedule')")&&read('src/lib/regimeConfidence.ts').includes('optimizerAvailable'),'open optional layers are removed from context and optimizer runtime influence');
+add('V72 protective recommendation brake',read('src/lib/scanner.ts').includes("reliabilityMode==='PROTECTIVE'")&&read('src/lib/scanner.ts').includes("grade='PASS'")&&read('src/lib/scanner.ts').includes('reliabilityStakeScale'),'protective mode makes recommendations non-actionable');
+add('V72 incident auto-recovery',read('src/lib/intelligenceReliability.ts').includes('INTELLIGENCE_CIRCUIT_OPEN')&&read('src/lib/intelligenceReliability.ts').includes('autoRecovered'),'circuit incidents are created and automatically resolved after recovery');
+add('V72 automation supervisor',read('src/app/api/cron/scan/route.ts').includes('runIntelligenceReliabilitySupervisor')&&read('src/app/api/cron/recalibrate/route.ts').includes('runIntelligenceReliabilitySupervisor'),'scan and recalibration loops refresh reliability state');
+add('V72 production certification',read('src/lib/productionCertification.ts').includes("reliability.mode==='PROTECTIVE'")&&read('src/lib/productionObservability.ts').includes('reliability-mode'),'certification and observability consume reliability state');
+add('V72 release identity',read('src/lib/releaseManifest.ts').includes("build:'V72'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v72'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:84'),'V72 release identity is synchronized');
+add('V72 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v72')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v72')&&read('.github/workflows/deploy-cloudflare.yml').includes('72.0.0'),'verification and production workflows target V72');
+add('V72 regression and dashboard',read('src/app/api/testing/intelligence-reliability/route.ts').includes("second.circuitState==='OPEN'")&&read('src/components/Dashboard.tsx').includes('ReliabilitySupervisorPanel'),'deterministic circuit regression and dashboard visibility are present');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');

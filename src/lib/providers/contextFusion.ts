@@ -14,6 +14,7 @@ import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
 import {enrichMarketsWithUnifiedIntelligence} from '../unifiedIntelligence';
+import {applyReliabilityGuards,loadIntelligenceReliabilityState,reliabilityOpen} from '../intelligenceReliability';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -153,6 +154,7 @@ function sourceNames(row:PublicContextRow){
 }
 
 export async function enrichMarketsWithContext(markets:Market[]){
+ const reliability=await loadIntelligenceReliabilityState();
  const [weather,injuries,stats,publicNetwork]=await Promise.all([
   fetchWeatherContext(),
   fetchTrackedInjuryContext(),
@@ -222,13 +224,26 @@ export async function enrichMarketsWithContext(markets:Market[]){
  });
  const premium=await enrichMarketsWithPremiumData(enriched);
  const historical=await enrichMarketsWithPlayerWarehouse(premium.markets).catch(()=>({markets:premium.markets,matched:0,players:0}));
- const playerFrames=await enrichMarketsWithPlayerFeatureFrames(historical.markets).catch(()=>({markets:historical.markets,matched:0,players:0,frames:[]}));
- const playerCalibration=await enrichMarketsWithPlayerCalibration(playerFrames.markets).catch(()=>({markets:playerFrames.markets,matched:0,profiles:0}));
- const opponentMatchups=await enrichMarketsWithOpponentMatchups(playerCalibration.markets).catch(()=>({markets:playerCalibration.markets,matched:0,profiles:0,playerProfiles:0}));
- const lineupRedistribution=await enrichMarketsWithLineupRedistribution(opponentMatchups.markets).catch(()=>({markets:opponentMatchups.markets,matched:0,profiles:0,activeAbsences:0}));
- const startingLineups=await enrichMarketsWithStartingLineups(lineupRedistribution.markets).catch(()=>({markets:lineupRedistribution.markets,matched:0,profiles:0,promotions:0}));
- const marketMovement=await enrichMarketsWithMarketMovement(startingLineups.markets).catch(()=>({markets:startingLineups.markets,matched:0,profiles:0,steam:0,reversals:0}));
- const trainedSportMl=await enrichMarketsWithTrainedSportModels(marketMovement.markets);
+ const playerFrames=reliabilityOpen(reliability,'player-frames')
+  ?{markets:historical.markets,matched:0,players:0,frames:[]}
+  :await enrichMarketsWithPlayerFeatureFrames(historical.markets).catch(()=>({markets:historical.markets,matched:0,players:0,frames:[]}));
+ const playerCalibration=reliabilityOpen(reliability,'player-calibration')
+  ?{markets:playerFrames.markets,matched:0,profiles:0}
+  :await enrichMarketsWithPlayerCalibration(playerFrames.markets).catch(()=>({markets:playerFrames.markets,matched:0,profiles:0}));
+ const opponentMatchups=reliabilityOpen(reliability,'matchups')
+  ?{markets:playerCalibration.markets,matched:0,profiles:0,playerProfiles:0}
+  :await enrichMarketsWithOpponentMatchups(playerCalibration.markets).catch(()=>({markets:playerCalibration.markets,matched:0,profiles:0,playerProfiles:0}));
+ const lineupRedistribution=reliabilityOpen(reliability,'redistribution')
+  ?{markets:opponentMatchups.markets,matched:0,profiles:0,activeAbsences:0}
+  :await enrichMarketsWithLineupRedistribution(opponentMatchups.markets).catch(()=>({markets:opponentMatchups.markets,matched:0,profiles:0,activeAbsences:0}));
+ const startingLineups=reliabilityOpen(reliability,'depth-charts')
+  ?{markets:lineupRedistribution.markets,matched:0,profiles:0,promotions:0}
+  :await enrichMarketsWithStartingLineups(lineupRedistribution.markets).catch(()=>({markets:lineupRedistribution.markets,matched:0,profiles:0,promotions:0}));
+ const marketMovement=reliabilityOpen(reliability,'movement')
+  ?{markets:startingLineups.markets,matched:0,profiles:0,steam:0,reversals:0}
+  :await enrichMarketsWithMarketMovement(startingLineups.markets).catch(()=>({markets:startingLineups.markets,matched:0,profiles:0,steam:0,reversals:0}));
+ const reliabilityGuarded=applyReliabilityGuards(marketMovement.markets,reliability);
+ const trainedSportMl=await enrichMarketsWithTrainedSportModels(reliabilityGuarded);
  const externalExpert=await enrichMarketsWithExternalExpertModels(trainedSportMl.markets);
  const finalSourceQuality={
   ...sourceQuality,...premium.sourceQuality,
@@ -259,6 +274,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    startingLineups:{matchedRows:startingLineups.matched,profiles:startingLineups.profiles,promotions:startingLineups.promotions},
    marketMovement:{matchedRows:marketMovement.matched,profiles:marketMovement.profiles,steam:marketMovement.steam,reversals:marketMovement.reversals},
    unifiedIntelligence:unified.diagnostics,
+   reliability:{mode:reliability.mode,score:reliability.score,openComponents:reliability.openComponents,halfOpenComponents:reliability.halfOpenComponents},
    trainedSportMl:trainedSportMl.diagnostics,
    expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,

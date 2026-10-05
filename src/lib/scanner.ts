@@ -20,6 +20,9 @@ export type Scanned=Ranked & {
  intelligenceStackScore?:number;
  intelligenceCriticalCoverage?:number;
  intelligenceStackReady?:boolean;
+ reliabilityMode?:'NORMAL'|'DEGRADED'|'PROTECTIVE';
+ reliabilityScore?:number;
+ reliabilityCriticalOpen?:boolean;
  dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'] & {contextQuality?:number};
  daysOut:number;
  bucket:'TODAY'|'WEEK';
@@ -50,16 +53,24 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
   const intelligenceCriticalCoverage=Math.max(0,Math.min(1,Number(r.sportFeatures?.intelligenceCriticalCoverage??r.contextQuality?.criticalCoverage??contextScore)));
   const intelligenceStackReady=Number(r.sportFeatures?.intelligenceStackReady??1)>=.5;
   const intelligenceConfidenceScale=.90+.10*intelligenceStackScore;
-  const dynamicConfidence=Math.max(.18,Math.min(.98,calibrated.dynamicConfidence*contextMultiplier*intelligenceConfidenceScale));
+  const reliabilityModeValue=Math.max(0,Math.min(1,Number(r.sportFeatures?.reliabilityMode??0)));
+  const reliabilityMode:Scanned['reliabilityMode']=reliabilityModeValue>=.75?'PROTECTIVE':reliabilityModeValue>=.25?'DEGRADED':'NORMAL';
+  const reliabilityScore=Math.max(0,Math.min(1,Number(r.sportFeatures?.reliabilityScore??1)));
+  const reliabilityCriticalOpen=Number(r.sportFeatures?.reliabilityCriticalOpen??0)>=.5;
+  const reliabilityConfidenceScale=reliabilityMode==='NORMAL'?1:reliabilityMode==='DEGRADED'?(.80+.15*reliabilityScore):.55;
+  const dynamicConfidence=Math.max(.18,Math.min(.98,calibrated.dynamicConfidence*contextMultiplier*intelligenceConfidenceScale*reliabilityConfidenceScale));
   const confidenceDowngrade=calibrated.confidenceLabel==='LOW'||calibrated.regime==='DISLOCATED';
   const contextDowngrade=Boolean(r.contextQuality&&!r.contextQuality.recommendationReady);
   const intelligenceDowngrade=!intelligenceStackReady||intelligenceStackScore<.45||intelligenceCriticalCoverage<.42;
+  const reliabilityDowngrade=reliabilityMode!=='NORMAL';
   let grade=r.grade;
-  if(confidenceDowngrade||contextDowngrade||intelligenceDowngrade)grade=grade==='ELITE'?'STRONG':grade==='STRONG'?'WATCH':grade;
+  if(confidenceDowngrade||contextDowngrade||intelligenceDowngrade||reliabilityDowngrade)grade=grade==='ELITE'?'STRONG':grade==='STRONG'?'WATCH':grade;
   if((r.contextQuality?.criticalCoverage??1)<.34&&grade==='STRONG')grade='WATCH';
   if(intelligenceStackScore<.32&&grade!=='PASS')grade='WATCH';
+  if(reliabilityMode==='PROTECTIVE'||reliabilityCriticalOpen)grade='PASS';
   const intelligenceStakeScale=intelligenceStackReady?(.85+.15*intelligenceStackScore):(.55+.25*intelligenceStackScore);
-  const stakeScale=Math.max(.25,(.50+.50*dynamicConfidence)*intelligenceStakeScale);
+  const reliabilityStakeScale=reliabilityMode==='NORMAL'?1:reliabilityMode==='DEGRADED'?(.65+.20*reliabilityScore):0;
+  const stakeScale=grade==='PASS'?0:Math.max(.15,(.50+.50*dynamicConfidence)*intelligenceStakeScale*reliabilityStakeScale);
   return {
    ...r,
    grade,
@@ -78,6 +89,9 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
    intelligenceStackScore,
    intelligenceCriticalCoverage,
    intelligenceStackReady,
+   reliabilityMode,
+   reliabilityScore,
+   reliabilityCriticalOpen,
    dynamicConfidenceComponents:{...calibrated.components,contextQuality:contextScore},
    daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection
   };
