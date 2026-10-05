@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V92',
- appVersion:'92.0.0',
- packageVersion:'0.92.0',
- modelVersion:'edgeforce-v92',
- migrationVersion:104
+ build:'V93',
+ appVersion:'93.0.0',
+ packageVersion:'0.93.0',
+ modelVersion:'edgeforce-v93',
+ migrationVersion:105
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -295,6 +295,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-successor-graduation/route.ts',
  'src/components/PreventiveSuccessorGraduationPanel.tsx',
  'EDGEFORCE_V92_RELEASE.md',
+ 'src/lib/preventiveBaselineConsistency.ts',
+ 'src/app/api/operations/preventive-baseline-consistency/route.ts',
+ 'src/app/api/testing/preventive-baseline-consistency/route.ts',
+ 'src/components/PreventiveBaselineConsistencyPanel.tsx',
+ 'EDGEFORCE_V93_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -782,6 +787,14 @@ add('V92 durable graduation',read('db/v104.sql').includes('preventive_successor_
 add('V92 regression',read('src/app/api/testing/preventive-successor-graduation/route.ts').includes("yes.status==='GRADUATE'")&&read('src/app/api/testing/preventive-successor-graduation/route.ts').includes('!no.eligible'),'regression covers eligible and ineligible graduation');
 add('V92 supervision ordering',read('src/lib/sloGovernor.ts').includes('runSuccessorGraduationGovernor'),'graduation runs immediately after successor validation');
 add('V92 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSuccessorGraduationPanel'),'successor graduation is visible');
+
+add('V93 lifecycle consistency',read('src/lib/preventiveBaselineConsistency.ts').includes('evaluateBaselineLifecycleConsistency'),'baseline lifecycle consistency evaluator exists');
+add('V93 conservative repair set',read('src/lib/preventiveBaselineConsistency.ts').includes('applySafeRepairs')&&read('src/lib/preventiveBaselineConsistency.ts').includes('REPAIR_REQUIRED'),'bounded reconciliation repairs inconsistent lifecycle metadata');
+add('V93 no promotion path',!read('src/lib/preventiveBaselineConsistency.ts').includes("source='SUCCESSION_CHAMPION'")&&!read('src/lib/preventiveBaselineConsistency.ts').includes("source='CONFIRMED_SUCCESSION_CHAMPION'"),'reconciler cannot promote champion source');
+add('V93 durable consistency',read('db/v105.sql').includes('preventive_baseline_consistency_state')&&read('db/v105.sql').includes('preventive_baseline_consistency_snapshots'),'consistency state and history are durable');
+add('V93 regression',read('src/app/api/testing/preventive-baseline-consistency/route.ts').includes("healthy.status==='HEALTHY'")&&read('src/app/api/testing/preventive-baseline-consistency/route.ts').includes("broken.status==='REPAIR_REQUIRED'"),'regression covers healthy and broken lifecycle states');
+add('V93 supervision ordering',read('src/lib/sloGovernor.ts').includes('runBaselineConsistencyGovernor'),'lifecycle reconciliation runs during SLO supervision');
+add('V93 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineConsistencyPanel'),'lifecycle consistency is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
