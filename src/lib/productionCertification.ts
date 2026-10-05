@@ -15,6 +15,7 @@ import {championDriftStatus} from './mlChampionDrift';
 import {shadowRecoveryStatus} from './mlShadowRecovery';
 import {buildProductionObservability} from './productionObservability';
 import {buildUnifiedIntelligenceCertification} from './unifiedIntelligence';
+import {loadIntelligenceReliabilityState} from './intelligenceReliability';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -37,6 +38,7 @@ export type ProductionCertificationReport={
  championDrift:Awaited<ReturnType<typeof championDriftStatus>>;
  shadowRecovery:Awaited<ReturnType<typeof shadowRecoveryStatus>>;
  unifiedIntelligence:Awaited<ReturnType<typeof buildUnifiedIntelligenceCertification>>;
+ reliability:Awaited<ReturnType<typeof loadIntelligenceReliabilityState>>;
  observability:Awaited<ReturnType<typeof buildProductionObservability>>;
  security:{
   ok:boolean;
@@ -87,7 +89,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,observability]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,observability]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
@@ -98,6 +100,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   championDriftStatus(),
   shadowRecoveryStatus(),
   buildUnifiedIntelligenceCertification(),
+  loadIntelligenceReliabilityState(),
   buildProductionObservability()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
@@ -148,6 +151,9 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(unifiedIntelligence.state==='BLOCKED')blockers.push(...unifiedIntelligence.blockers.map(x=>`unified intelligence: ${x}`));
  if(unifiedIntelligence.state==='DEGRADED')warnings.push(`unified intelligence: stack score ${(unifiedIntelligence.score*100).toFixed(1)}%, critical coverage ${(unifiedIntelligence.criticalCoverage*100).toFixed(1)}%`);
  warnings.push(...unifiedIntelligence.warnings.map(x=>`unified intelligence: ${x}`));
+ if(reliability.mode==='PROTECTIVE')blockers.push(`reliability: protective mode active; open components ${reliability.openComponents.join(', ')||'required system'}`);
+ else if(reliability.mode==='DEGRADED')warnings.push(`reliability: degraded mode; open ${reliability.openComponents.join(', ')||'none'}, half-open ${reliability.halfOpenComponents.join(', ')||'none'}`);
+ if(reliability.criticalOpen)blockers.push('reliability: required intelligence circuit is open');
 
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
  if(strict&&ingestion.source!=='live')blockers.push(`data: strict production certification requires live odds, current source is ${ingestion.source}`);
@@ -189,7 +195,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    migrationVersion:RELEASE.migrationVersion,commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null,
    environment
   },
-  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,observability,security,
+  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,observability,security,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
