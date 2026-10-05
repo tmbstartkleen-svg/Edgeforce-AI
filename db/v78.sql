@@ -10,6 +10,7 @@ create table if not exists depth_chart_profiles (
   position_key text not null default '*',
   games int not null default 0,
   starts int not null default 0,
+  starter_evidence_games int not null default 0,
   starter_rate numeric not null default 0,
   average_minutes numeric not null default 0,
   average_usage numeric not null default 0,
