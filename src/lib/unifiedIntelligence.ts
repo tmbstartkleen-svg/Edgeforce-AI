@@ -107,7 +107,7 @@ export function enrichMarketsWithUnifiedIntelligence(markets:Market[]){
    contextSources:[...new Set([...(m.contextSources||[]),'unified-intelligence'])],
    contextProvenance:[...(m.contextProvenance||[]),{
     source:'unified-intelligence',providerId:'edgeforce-v71-unified',field:'intelligenceStackScore',
-    observedAt,confidence:assessment.score,status:assessment.ready?'LIVE':'PARTIAL',
+    observedAt,confidence:assessment.score,status:assessment.ready?'LIVE':'DEGRADED',
     detail:{criticalCoverage:assessment.criticalCoverage,playerMarket:assessment.playerMarket,playerStack:assessment.playerStack,reasons:assessment.reasons}
    } as ContextProvenance]
   };
