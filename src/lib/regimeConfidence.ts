@@ -179,7 +179,7 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
    limit 2000
   `,
    loadCrossSportOptimizerProfiles().catch(()=>({} as OptimizerProfileMap)),
-   loadIntelligenceReliabilityState().catch(()=>({openComponents:[]} as Awaited<ReturnType<typeof loadIntelligenceReliabilityState>>))
+   loadIntelligenceReliabilityState().catch(()=>({mode:'DEGRADED',score:.55,criticalOpen:false,openComponents:[],halfOpenComponents:[],rows:[],generatedAt:new Date().toISOString()} as Awaited<ReturnType<typeof loadIntelligenceReliabilityState>>))
   ]);
   const optimizerAvailable=!reliability.openComponents.includes('optimizer');
   const grouped=new Map<string,DynamicCalibrationProfile[]>();
