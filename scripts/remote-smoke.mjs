@@ -3,7 +3,7 @@ const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'73.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
-const paths=['/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
+const paths=['/api/release/deployment-guard','/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
 
 function protectedFetch(path){
@@ -22,6 +22,10 @@ for(const path of paths){
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
  if(!res.ok)throw new Error(path+' failed with '+res.status);
+ if(path==='/api/release/deployment-guard'){
+  const json=JSON.parse(body);
+  if(json.ok!==true||json.build!=='V73'||json.schemaVersion!=='v73-deployment-guard-1'||!json.snapshot)throw new Error('deployment guard endpoint mismatch');
+ }
  if(path==='/api/testing/ml-shadow-recovery'){
   const json=JSON.parse(body);
   if(json.ok!==true||json.assertions?.repeatedFreshPassPromotes!==true||json.assertions?.badShadowRejected!==true||json.assertions?.cooldownBlocks!==true||json.assertions?.clearLeagueWinnerPromotes!==true||json.assertions?.closeLeagueRaceHolds!==true||json.assertions?.minimumCompetitorsRequired!==true||json.assertions?.leagueLeaderMustConfirm!==true)throw new Error('shadow league regression mismatch');
