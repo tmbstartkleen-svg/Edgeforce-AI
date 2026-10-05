@@ -135,7 +135,7 @@ jobs:
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Build: V61" >> "$GITHUB_STEP_SUMMARY"
           echo "- Model: edgeforce-v76" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v86" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v88" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"
