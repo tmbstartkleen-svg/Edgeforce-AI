@@ -93,9 +93,10 @@ async function applySafeRepairs(state:BaselineLifecycleState,codes:string[]){
 
  if(has('ACTIVE_RETIRED_SOURCE')){
   await sql`update preventive_champion_baseline_state set promoted_at=null,updated_at=now() where singleton_key=1`;
-  repaired++;
+  await sql`update preventive_champion_baseline_health_state set status='RETIRE',retired=true,last_reason='V93 reconciled retired champion source.',updated_at=now() where singleton_key=1`;
+  repaired+=2;
  }
- if(has('ACTIVE_HEALTH_RETIRED')){
+ if(has('ACTIVE_HEALTH_RETIRED')&&!has('ACTIVE_RETIRED_SOURCE')){
   await sql`update preventive_champion_baseline_health_state set status='ACTIVE',retired=false,last_reason='V93 reconciled active champion health.',updated_at=now() where singleton_key=1`;
   repaired++;
  }
