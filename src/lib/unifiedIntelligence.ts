@@ -38,7 +38,7 @@ export function assessMarketIntelligence(m:Market):MarketIntelligenceAssessment{
  const names=provenanceNames(m);
  const contextScore=clamp(Number(m.contextQuality?.score??Math.min(1,Object.keys(m.sportFeatures||{}).length/10)));
  const criticalBase=clamp(Number(m.contextQuality?.criticalCoverage??contextScore));
- const playerMarket=Boolean(m.playerContext?.name)||anySource(names,['player-history','player-feature','player-calibration','opponent-matchup','lineup-redistribution','starting-lineup']);
+ const playerMarket=Boolean(m.playerContext?.name)||/player|prop/.test(String(m.market||'').toLowerCase())||anySource(names,['player-history','player-feature','player-calibration','opponent-matchup','lineup-redistribution','starting-lineup']);
 
  const injurySource=anySource(names,['injur','live-injury'])||Object.prototype.hasOwnProperty.call(m.sportFeatures||{},'injury')||m.playerContext?.availability!==undefined;
  const injury=injurySource ? .90 : .58;
