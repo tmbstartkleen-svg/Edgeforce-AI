@@ -17,6 +17,7 @@ import EdgeLifecyclePanel from './EdgeLifecyclePanel';
 import EntryWindowPanel from './EntryWindowPanel';
 import PriceTargetPanel from './PriceTargetPanel';
 import BestPricePanel from './BestPricePanel';
+import PriceCapturePanel from './PriceCapturePanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1087,6 +1088,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <PriceCapturePanel/>
     <BestPricePanel/>
     <PriceTargetPanel/>
     <EntryWindowPanel/>
