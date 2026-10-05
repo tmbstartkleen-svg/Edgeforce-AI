@@ -20,6 +20,7 @@ export async function GET(){
   runtimeModelVersion,
   releaseIdentityMatch,
   migrationVersion:RELEASE.migrationVersion,
+  deploymentCommit,
   releaseCandidate:true,
   productionHardened:true,
   readinessEndpoint:true,
