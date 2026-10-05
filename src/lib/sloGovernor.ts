@@ -12,6 +12,7 @@ import {runThresholdStabilityGovernor} from './preventiveThresholdStability';
 import {runThresholdRecoveryGovernor} from './preventiveThresholdRecovery';
 import {runThresholdProbationGovernor} from './preventiveThresholdProbation';
 import {runProbationPerformanceGovernor} from './preventiveProbationPerformance';
+import {runChampionBaselineGovernor} from './preventiveChampionBaseline';
 import {buildProductionObservability,persistProductionObservability,type OpsHealthState} from './productionObservability';
 
 export type DeploymentBudgetState='OPEN'|'FROZEN'|'RECOVERING';
@@ -294,6 +295,7 @@ export async function runSloGovernor(){
  await runThresholdRecoveryGovernor().catch(()=>({configured:false}));
  await runThresholdProbationGovernor().catch(()=>({configured:false}));
  await runProbationPerformanceGovernor().catch(()=>({configured:false}));
+ await runChampionBaselineGovernor().catch(()=>({configured:false}));
  await runPreventiveDecisionThresholdGovernor().catch(()=>({persisted:false}));
  await runThresholdStabilityGovernor().catch(()=>({configured:false}));
  await runPreventiveActionDecisionGate().catch(()=>({persisted:false}));
