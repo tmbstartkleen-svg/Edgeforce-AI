@@ -26,5 +26,6 @@ export async function POST(req:Request){
   workflowRunId:body.workflowRunId?String(body.workflowRunId):null,
   source:body.source?String(body.source):null
  });
- return Response.json({ok:true,report},{headers:{'Cache-Control':'no-store'}});
+ const invalid=Array.isArray((report as any)?.blockers)&&(report as any).blockers.length>0;
+ return Response.json({ok:!invalid,report},{status:invalid?422:200,headers:{'Cache-Control':'no-store'}});
 }
