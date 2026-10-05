@@ -6,7 +6,7 @@ const raw=fs.readFileSync(file,'utf8').trim();
 let data=null;
 try{data=JSON.parse(raw)}catch{}
 
-const candidates=[
+const structured=[
  data?.url,
  data?.preview_url,
  data?.previewUrl,
@@ -15,12 +15,18 @@ const candidates=[
  data?.result?.url,
  data?.result?.preview_url,
  data?.result?.previewUrl
-].filter(Boolean);
+].filter(Boolean).map(String);
 
-if(!candidates.length){
- const match=raw.match(/https:\/\/[^\s"'<>]+/);
- if(match)candidates.push(match[0]);
-}
-const url=String(candidates[0]||'').replace(/[),.;]+$/,'');
-if(!/^https:\/\//.test(url))process.exit(1);
-process.stdout.write(url);
+const rawUrls=[...(raw.match(/https:\/\/[^\s"'<>]+/g)||[])].map(x=>x.replace(/[),.;]+$/,''));
+const safe=[...structured,...rawUrls].filter(url=>
+ /^https:\/\//.test(url)
+ && !url.includes('claim-preview')
+ && !url.includes('cloudflare.com/terms')
+ && !url.includes('cloudflare.com/privacypolicy')
+);
+const preferred=safe.find(url=>/\.workers\.dev(?:\/|$)/.test(url))
+ || safe.find(url=>/\.pages\.dev(?:\/|$)/.test(url))
+ || safe[0]
+ || '';
+if(!preferred)process.exit(1);
+process.stdout.write(preferred);
