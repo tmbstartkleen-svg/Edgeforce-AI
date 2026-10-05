@@ -103,7 +103,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure,finalClosure]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
