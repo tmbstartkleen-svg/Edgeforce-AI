@@ -9,6 +9,7 @@ import {enrichMarketsWithPlayerCalibration} from '../playerCalibration';
 import {enrichMarketsWithOpponentMatchups} from '../opponentMatchupLearning';
 import {enrichMarketsWithLineupRedistribution} from '../lineupRoleRedistribution';
 import {enrichMarketsWithStartingLineups} from '../startingLineupIntelligence';
+import {enrichMarketsWithMarketMovement} from '../marketMovementLearning';
 import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
@@ -225,7 +226,8 @@ export async function enrichMarketsWithContext(markets:Market[]){
  const opponentMatchups=await enrichMarketsWithOpponentMatchups(playerCalibration.markets).catch(()=>({markets:playerCalibration.markets,matched:0,profiles:0,playerProfiles:0}));
  const lineupRedistribution=await enrichMarketsWithLineupRedistribution(opponentMatchups.markets).catch(()=>({markets:opponentMatchups.markets,matched:0,profiles:0,activeAbsences:0}));
  const startingLineups=await enrichMarketsWithStartingLineups(lineupRedistribution.markets).catch(()=>({markets:lineupRedistribution.markets,matched:0,profiles:0,promotions:0}));
- const trainedSportMl=await enrichMarketsWithTrainedSportModels(startingLineups.markets);
+ const marketMovement=await enrichMarketsWithMarketMovement(startingLineups.markets).catch(()=>({markets:startingLineups.markets,matched:0,profiles:0,steam:0,reversals:0}));
+ const trainedSportMl=await enrichMarketsWithTrainedSportModels(marketMovement.markets);
  const externalExpert=await enrichMarketsWithExternalExpertModels(trainedSportMl.markets);
  const finalSourceQuality={
   ...sourceQuality,...premium.sourceQuality,
@@ -234,7 +236,8 @@ export async function enrichMarketsWithContext(markets:Market[]){
   'player-calibration':playerCalibration.matched?.96:0,
   'opponent-matchup':opponentMatchups.matched?.94:0,
   'lineup-redistribution':lineupRedistribution.matched?.95:0,
-  'starting-lineup':startingLineups.matched?.96:0
+  'starting-lineup':startingLineups.matched?.96:0,
+  'market-movement':marketMovement.matched?.94:0
  };
  const finalMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
  const qualitySummary=summarizeContextQuality(finalMarkets);
@@ -251,6 +254,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    opponentMatchups:{matchedRows:opponentMatchups.matched,profiles:opponentMatchups.profiles,playerProfiles:opponentMatchups.playerProfiles},
    lineupRedistribution:{matchedRows:lineupRedistribution.matched,profiles:lineupRedistribution.profiles,activeAbsences:lineupRedistribution.activeAbsences},
    startingLineups:{matchedRows:startingLineups.matched,profiles:startingLineups.profiles,promotions:startingLineups.promotions},
+   marketMovement:{matchedRows:marketMovement.matched,profiles:marketMovement.profiles,steam:marketMovement.steam,reversals:marketMovement.reversals},
    trainedSportMl:trainedSportMl.diagnostics,
    expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,
