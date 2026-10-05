@@ -257,7 +257,7 @@ async function syncFreezeIncident(next:SloStateTransition){
   if(!(existing as any[]).length){
    await sql`
     insert into runtime_incidents(severity,event_type,message,metadata)
-    values('WATCH','SLO_ERROR_BUDGET_FROZEN',${next.reason},${sql.json({state:next.state,recoveryStreak:next.recoveryStreak})})
+    values('INFO','SLO_ERROR_BUDGET_FROZEN',${next.reason},${sql.json({state:next.state,recoveryStreak:next.recoveryStreak})})
    `;
   }
  }else if(next.state==='OPEN'){
