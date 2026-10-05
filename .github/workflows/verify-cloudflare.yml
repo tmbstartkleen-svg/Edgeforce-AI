@@ -13,6 +13,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Cloudflare preflight
+        run: npm run preflight:cloudflare
       - name: TypeScript gate
         run: npm run typecheck
       - name: Check vinext compatibility
@@ -26,7 +28,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v98-vinext-build-${{ github.sha }}
+          name: edgeforce-v102-vinext-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - name: Validate generated Worker config
