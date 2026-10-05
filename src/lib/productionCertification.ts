@@ -265,8 +265,10 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
 
  if(!finalClosure){
   warnings.push('final production closure: current release has not written its final closure certificate yet');
+ }else if(!finalClosure.closed&&!finalClosure.platformConverged){
+  warnings.push('final production closure: pending while the second production platform converges');
  }else if(strict&&!finalClosure.closed){
-  blockers.push('final production closure: durable closure evidence exists but the release is not closed');
+  blockers.push('final production closure: converged durable evidence exists but the release is not closed');
  }
 
  const certified=readiness.ready&&blockers.length===0;
