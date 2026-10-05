@@ -37,6 +37,11 @@ export function evaluateProbationPerformance(input:{
 async function loadBaseline(){
  const sql=db();if(!sql)return null;
  try{
+  const [champion]=await sql`
+   select calibration_error::float as "calibrationError",brier_score::float as "brierScore"
+   from preventive_champion_baseline_state where singleton_key=1 and promoted_at is not null
+  `;
+  if(champion)return champion;
   const [row]=await sql`
    select calibration_error::float as "calibrationError",brier_score::float as "brierScore"
    from preventive_threshold_recovery_snapshots

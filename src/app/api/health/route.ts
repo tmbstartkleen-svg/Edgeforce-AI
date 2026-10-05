@@ -186,6 +186,8 @@ export async function GET(){
   stagedAdaptiveInfluence:true,
   probationPerformanceRollback:true,
   baselineStageProtection:true,
+  championBaselineGovernor:true,
+  validatedBaselinePromotion:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,

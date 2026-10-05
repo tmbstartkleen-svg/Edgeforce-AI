@@ -125,7 +125,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "86.0.0"
+          EXPECTED_APP_VERSION: "87.0.0"
 
       - name: Publish deployment URL
         env:
@@ -134,8 +134,8 @@ jobs:
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Build: V61" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v86" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v98" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v87" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v99" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"
