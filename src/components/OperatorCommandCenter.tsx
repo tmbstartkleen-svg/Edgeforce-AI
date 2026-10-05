@@ -45,6 +45,7 @@ import PreventiveBaselineGovernanceCyclePanel from './PreventiveBaselineGovernan
 import PreventiveBaselineGovernanceWatchdogPanel from './PreventiveBaselineGovernanceWatchdogPanel';
 import PreventiveSupervisionCyclePanel from './PreventiveSupervisionCyclePanel';
 import ReleaseExecutionCertificationPanel from './ReleaseExecutionCertificationPanel';
+import ReleasePromotionProvenancePanel from './ReleasePromotionProvenancePanel';
 import V1ReleaseReadinessPanel from './V1ReleaseReadinessPanel';
 import ProductionLaunchPanel from './ProductionLaunchPanel';
 
@@ -122,6 +123,7 @@ export default function OperatorCommandCenter(){
   <PreventiveBaselineGovernanceWatchdogPanel/>
   <PreventiveSupervisionCyclePanel/>
   <ReleaseExecutionCertificationPanel/>
+  <ReleasePromotionProvenancePanel/>
  </>;
 
  return <section className="operatorCenter">
@@ -131,7 +133,7 @@ export default function OperatorCommandCenter(){
     <h2>EdgeForce Intelligence Console</h2>
     <p>{active.description}</p>
    </div>
-   <div className="operatorCenterBadge">46 MODULES · CONSOLIDATED</div>
+   <div className="operatorCenterBadge">47 MODULES · CONSOLIDATED</div>
   </div>
 
   <div className="operatorNav" role="tablist" aria-label="EdgeForce operator views">
@@ -150,7 +152,7 @@ export default function OperatorCommandCenter(){
    <div><small>EXECUTION</small><strong>6</strong><span>price + timing</span></div>
    <div><small>LEARNING</small><strong>5</strong><span>validation + stress</span></div>
    <div><small>CASH-OUT</small><strong>5</strong><span>offer + policy</span></div>
-   <div><small>SYSTEM</small><strong>26</strong><span>launch + release + health + execution certification</span></div>
+   <div><small>SYSTEM</small><strong>27</strong><span>launch + release + health + promotion provenance</span></div>
   </div>
 
   <div className="operatorModules">
