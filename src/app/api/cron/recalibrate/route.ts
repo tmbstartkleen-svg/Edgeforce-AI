@@ -40,7 +40,7 @@ export async function GET(req:Request){
    rebuildMarketMovementProfiles(),
    rebuildCrossSportOptimizerProfiles()
   ]);
-  const unifiedIntelligence=await buildUnifiedIntelligenceCertification().catch(error=>({state:'DEGRADED',score:0,criticalCoverage:0,blockers:[],warnings:[error instanceof Error?error.message:'unified intelligence certification failed'],components:[],release:{build:'V71',version:'71.0.0',modelVersion:'edgeforce-v71',migrationVersion:83},environment:process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local',generatedAt:new Date().toISOString()} as any));
+  const unifiedIntelligence=await buildUnifiedIntelligenceCertification().catch(error=>({state:'DEGRADED',score:0,criticalCoverage:0,blockers:[],warnings:[error instanceof Error?error.message:'unified intelligence certification failed'],components:[],release:{build:'V72',version:'72.0.0',modelVersion:'edgeforce-v72',migrationVersion:84},environment:process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local',generatedAt:new Date().toISOString()} as any));
   const unifiedPersistence=await persistUnifiedIntelligenceCertification(unifiedIntelligence as any).catch(()=>({persisted:false,id:null}));
   const reliability=await runIntelligenceReliabilitySupervisor(unifiedIntelligence as any).catch(error=>({configured:false,mode:'DEGRADED' as const,score:.55,opened:0,recovered:0,rows:[],error:error instanceof Error?error.message:'reliability supervisor failed'}));
   const championDrift=await runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}));
