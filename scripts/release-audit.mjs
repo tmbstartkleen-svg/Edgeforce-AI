@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V80',
- appVersion:'80.0.0',
- packageVersion:'0.80.0',
- modelVersion:'edgeforce-v80',
- migrationVersion:92
+ build:'V81',
+ appVersion:'81.0.0',
+ packageVersion:'0.81.0',
+ modelVersion:'edgeforce-v81',
+ migrationVersion:93
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -235,6 +235,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-action-decision/route.ts',
  'src/components/PreventiveActionDecisionPanel.tsx',
  'EDGEFORCE_V80_RELEASE.md',
+ 'src/lib/preventiveDecisionCalibration.ts',
+ 'src/app/api/operations/preventive-decision-calibration/route.ts',
+ 'src/app/api/testing/preventive-decision-calibration/route.ts',
+ 'src/components/PreventiveDecisionCalibrationPanel.tsx',
+ 'EDGEFORCE_V81_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -628,6 +633,13 @@ add('V80 decision API',read('src/app/api/operations/preventive-action-decision/r
 add('V80 decision regression',read('src/app/api/testing/preventive-action-decision/route.ts').includes('DO_NOT_USE'),'regression covers recommendation and rejection');
 add('V80 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveActionDecisionGate'),'SLO supervision refreshes the decision gate');
 add('V80 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionDecisionPanel'),'decision panel is visible');
+
+add('V81 calibration module',read('src/lib/preventiveDecisionCalibration.ts').includes('buildPreventiveDecisionCalibration'),'decision calibration engine exists');
+add('V81 durable calibration',read('db/v93.sql').includes('preventive_decision_calibration_snapshots'),'calibration snapshots are durable');
+add('V81 calibration API',read('src/app/api/operations/preventive-decision-calibration/route.ts').includes('v81-preventive-decision-calibration-1'),'calibration API exists');
+add('V81 calibration regression',read('src/app/api/testing/preventive-decision-calibration/route.ts').includes('brierScore'),'calibration regression covers Brier and error metrics');
+add('V81 supervision integration',read('src/lib/sloGovernor.ts').includes('runPreventiveDecisionCalibration'),'SLO supervision refreshes calibration');
+add('V81 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveDecisionCalibrationPanel'),'calibration panel is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
