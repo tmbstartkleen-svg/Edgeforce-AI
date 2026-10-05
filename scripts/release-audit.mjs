@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V74',
- appVersion:'74.0.0',
- packageVersion:'0.74.0',
- modelVersion:'edgeforce-v74',
- migrationVersion:86
+ build:'V75',
+ appVersion:'75.0.0',
+ packageVersion:'0.75.0',
+ modelVersion:'edgeforce-v75',
+ migrationVersion:87
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -205,6 +205,11 @@ const requiredFiles=[
  'src/app/api/testing/slo-governor/route.ts',
  'src/components/SloGovernorPanel.tsx',
  'EDGEFORCE_V74_RELEASE.md',
+ 'src/lib/incidentAttribution.ts',
+ 'src/app/api/operations/incident-attribution/route.ts',
+ 'src/app/api/testing/incident-attribution/route.ts',
+ 'src/components/IncidentAttributionPanel.tsx',
+ 'EDGEFORCE_V75_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -558,6 +563,12 @@ add('no tracked secret env files',forbiddenTracked.length===0,forbiddenTracked.j
 
 const releaseAuditScript=String(pkg.scripts?.['release-audit']||'');
 add('release-audit package script',releaseAuditScript.includes('scripts/release-audit.mjs'),releaseAuditScript);
+
+add('V75 incident attribution engine',read('src/lib/incidentAttribution.ts').includes('attributeOperationalIncident')&&read('src/lib/incidentAttribution.ts').includes("'MARKET_FRESHNESS'")&&read('src/lib/incidentAttribution.ts').includes("'RELIABILITY'"),'root-cause classifier spans production health domains');
+add('V75 attribution persistence',read('db/v87.sql').includes('incident_attribution_snapshots')&&read('src/lib/incidentAttribution.ts').includes('persistIncidentAttribution'),'incident evidence is durable');
+add('V75 remediation API',read('src/app/api/operations/incident-attribution/route.ts').includes('v75-incident-attribution-1'),'operator API exposes bounded remediation guidance');
+add('V75 attribution regression',read('src/app/api/testing/incident-attribution/route.ts').includes('MARKET_FRESHNESS'),'deterministic root-cause regression exists');
+add('V75 attribution dashboard',read('src/components/OperatorCommandCenter.tsx').includes('IncidentAttributionPanel')&&read('src/components/IncidentAttributionPanel.tsx').includes('V75 INCIDENT ATTRIBUTION'),'system dashboard exposes incident attribution');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
