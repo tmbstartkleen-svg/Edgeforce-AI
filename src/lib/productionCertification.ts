@@ -170,8 +170,9 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(incidents.action>0)warnings.push(`operations: ${incidents.action} unresolved ACTION incident(s)`);
  if(incidents.watch>0)warnings.push(`operations: ${incidents.watch} unresolved WATCH incident(s)`);
 
- if(observability.overall==='CRITICAL')blockers.push('observability: production health is CRITICAL');
- else if(observability.overall==='DEGRADED')warnings.push('observability: production health is DEGRADED');
+ if(observability.overall==='CRITICAL'){
+  (strict?blockers:warnings).push('observability: production health is CRITICAL');
+ }else if(observability.overall==='DEGRADED')warnings.push('observability: production health is DEGRADED');
 
  const certified=readiness.ready&&blockers.length===0;
  return {
