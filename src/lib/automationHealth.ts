@@ -1,7 +1,7 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
 
-export type AutomationJobName='heartbeat'|'settle'|'scan'|'decision'|'recalibrate'|'prediction-intelligence';
+export type AutomationJobName='heartbeat'|'settle'|'scan'|'decision'|'recalibrate'|'prediction-intelligence'|'injuries';
 export type AutomationRunStatus='success'|'failed';
 export type AutomationHealthState='HEALTHY'|'STALE'|'FAILED'|'PENDING';
 
