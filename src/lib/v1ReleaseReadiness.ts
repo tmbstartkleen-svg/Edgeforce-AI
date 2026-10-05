@@ -52,6 +52,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('release-attestation','Release attestation',certification.releaseAttestation.found&&certification.releaseAttestation.buildPassed&&certification.releaseAttestation.smokePassed&&certification.releaseAttestation.loadPassed&&certification.releaseAttestation.readinessPassed?'PASS':strict?'FAIL':'WARN',true,certification.releaseAttestation.found?`Attestation ${certification.releaseAttestation.version}: build=${certification.releaseAttestation.buildPassed}, smoke=${certification.releaseAttestation.smokePassed}, load=${certification.releaseAttestation.loadPassed}, readiness=${certification.releaseAttestation.readinessPassed}.`:'No current release attestation found.');
  const execCert=certification.executionCertification;
  add('release-execution','Release execution evidence',execCert?.certified?'PASS':strict?'FAIL':'WARN',true,execCert?`Execution certificate ${execCert.releaseVersion} @ ${execCert.commitSha.slice(0,8)}; source ${execCert.source}.`:'No current-release execution certificate found.');
+ const promotion=certification.promotionProvenance;
+ add('promotion-provenance','Production promotion provenance',promotion?.promoted&&!promotion?.rolledBack&&!promotion?.blockers?.length?'PASS':'WARN',true,promotion?`Promotion ${promotion.releaseVersion} @ ${promotion.commitSha.slice(0,8)} on ${promotion.platform}; workflow ${promotion.workflowRunId||'unknown'}.`:'First promotion of the current release has not written provenance yet.');
  add('provider-certification','Provider certification',certification.providerCertification?.launchReady?'PASS':strict?'FAIL':'WARN',true,certification.providerCertification?`Provider launchReady=${Boolean(certification.providerCertification.launchReady)}.`:'No persisted provider certification yet.');
  add('model-validation','Model validation',certification.modelValidation.latestRun?.status==='failed'?'FAIL':certification.modelValidation.latestRun?'PASS':'WARN',true,certification.modelValidation.latestRun?`Latest validation run ${certification.modelValidation.latestRun.status}; evidence failures ${certification.modelValidation.report.evidence.failed}.`:'No durable validation run yet.');
  add('model-governance','Model governance',certification.modelGovernance.latestRun?.status==='failed'?'FAIL':certification.modelGovernance.latestRun?'PASS':'WARN',true,certification.modelGovernance.latestRun?`Latest governance run ${certification.modelGovernance.latestRun.status}; critical ${certification.modelGovernance.summary.critical}, drifting ${certification.modelGovernance.summary.drifting}.`:'No completed governance run yet.');
@@ -88,6 +90,9 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    releaseAttestation:certification.releaseAttestation,
    releaseExecutionCertified:Boolean(certification.executionCertification?.certified),
    releaseExecutionCommit:certification.executionCertification?.commitSha||null,
+   promotionProvenanceRecorded:Boolean(certification.promotionProvenance),
+   promotionProvenanceCommit:certification.promotionProvenance?.commitSha||null,
+   promotionProvenancePlatform:certification.promotionProvenance?.platform||null,
    securityOk:certification.security.ok,
    liveData:certification.ingestion.source==='live',
    unifiedIntelligenceState:certification.unifiedIntelligence.state,
