@@ -1,6 +1,6 @@
 import {execFileSync} from 'node:child_process';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'90.0.0';
+const expected=process.env.EXPECTED_APP_VERSION||'91.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
 
 const paths=['/api/release/error-budget','/api/release/deployment-guard','/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
