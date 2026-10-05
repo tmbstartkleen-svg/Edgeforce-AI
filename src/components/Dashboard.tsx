@@ -21,6 +21,7 @@ import PriceCapturePanel from './PriceCapturePanel';
 import ExecutionFeedbackPanel from './ExecutionFeedbackPanel';
 import FinalDecisionGatePanel from './FinalDecisionGatePanel';
 import OpportunityCommandQueuePanel from './OpportunityCommandQueuePanel';
+import CommandLearningPanel from './CommandLearningPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1091,6 +1092,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <CommandLearningPanel/>
     <OpportunityCommandQueuePanel/>
     <FinalDecisionGatePanel/>
     <ExecutionFeedbackPanel/>
