@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V87',
- appVersion:'87.0.0',
- packageVersion:'0.87.0',
- modelVersion:'edgeforce-v87',
- migrationVersion:99
+ build:'V88',
+ appVersion:'88.0.0',
+ packageVersion:'0.88.0',
+ modelVersion:'edgeforce-v88',
+ migrationVersion:100
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -270,6 +270,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-champion-baseline/route.ts',
  'src/components/PreventiveChampionBaselinePanel.tsx',
  'EDGEFORCE_V87_RELEASE.md',
+ 'src/lib/preventiveChampionBaselineHealth.ts',
+ 'src/app/api/operations/preventive-champion-baseline-health/route.ts',
+ 'src/app/api/testing/preventive-champion-baseline-health/route.ts',
+ 'src/components/PreventiveChampionBaselineHealthPanel.tsx',
+ 'EDGEFORCE_V88_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -717,6 +722,14 @@ add('V87 V86 baseline handoff',read('src/lib/preventiveProbationPerformance.ts')
 add('V87 baseline regression',read('src/app/api/testing/preventive-champion-baseline/route.ts').includes('yes.eligible')&&read('src/app/api/testing/preventive-champion-baseline/route.ts').includes('!no.eligible'),'promotion regression covers eligible and ineligible cases');
 add('V87 supervision integration',read('src/lib/sloGovernor.ts').includes('runChampionBaselineGovernor'),'SLO supervision refreshes champion baseline governance');
 add('V87 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveChampionBaselinePanel'),'champion baseline is visible');
+
+add('V88 champion baseline health',read('src/lib/preventiveChampionBaselineHealth.ts').includes('evaluateChampionBaselineHealth'),'champion baseline health governor exists');
+add('V88 champion retirement',read('src/lib/preventiveChampionBaselineHealth.ts').includes("status:'RETIRE'")&&read('src/lib/preventiveChampionBaselineHealth.ts').includes("source='RETIRED_CHAMPION'"),'stale champions can be retired');
+add('V88 fallback behavior',read('src/lib/preventiveProbationPerformance.ts').includes('where singleton_key=1 and promoted_at is not null'),'V86 ignores retired champions and falls back to recovery baseline');
+add('V88 durable health state',read('db/v100.sql').includes('preventive_champion_baseline_health_state')&&read('db/v100.sql').includes('preventive_champion_baseline_health_snapshots'),'champion health and retirement history are durable');
+add('V88 health regression',read('src/app/api/testing/preventive-champion-baseline-health/route.ts').includes("retire.status==='RETIRE'"),'regression covers active and retirement states');
+add('V88 supervision ordering',read('src/lib/sloGovernor.ts').includes('runChampionBaselineHealthGovernor'),'champion health is evaluated before V86 baseline comparison');
+add('V88 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveChampionBaselineHealthPanel'),'champion baseline health is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
