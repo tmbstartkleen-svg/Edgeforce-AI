@@ -26,7 +26,9 @@ export function buildOpportunityCommandQueue(input:{
  decisions:FinalDecisionRow[];
  lifecycle:EdgeLifecycleRow[];
  cashout:EarlyCashoutLadder;
+ learning?:Array<{commandType:string;multiplier:number}>;
 }){
+ const learningMap=new Map((input.learning||[]).map(x=>[x.commandType,x.multiplier]));
  const commands:OpportunityCommand[]=[];
 
  for(const row of input.decisions){
@@ -89,7 +91,10 @@ export function buildOpportunityCommandQueue(input:{
   const prior=deduped.get(c.dedupeKey);
   if(!prior||severityRank[c.severity]>severityRank[prior.severity]||c.score>prior.score)deduped.set(c.dedupeKey,c);
  }
- const rows=[...deduped.values()].sort((a,b)=>severityRank[b.severity]-severityRank[a.severity]||b.score-a.score);
+ const rows=[...deduped.values()].map(c=>({
+  ...c,
+  score:Math.max(0,Math.min(1,c.score*(learningMap.get(c.type)??1)))
+ })).sort((a,b)=>severityRank[b.severity]-severityRank[a.severity]||b.score-a.score);
 
  return {
   generatedAt:new Date().toISOString(),
@@ -103,7 +108,8 @@ export function buildOpportunityCommandQueue(input:{
   notes:[
    'The command queue prioritizes analytics follow-up only; it does not execute wagers, trades, cash-outs, or closes.',
    'Commands are deduplicated by opportunity and carry cooldown guidance to reduce repeated alerts.',
-   'Early Cash-Out checkpoints remain review prompts; actual sportsbook cash-out availability and offers must be checked live.'
+   'Early Cash-Out checkpoints remain review prompts; actual sportsbook cash-out availability and offers must be checked live.',
+   'V114 command-learning multipliers are sample-shrunk and bounded; they only fine-tune queue ordering.'
   ]
  };
 }
