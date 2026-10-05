@@ -44,7 +44,7 @@ export async function recordResolution(input:{
   ) values(
    ${input.eventKey},${input.domain},${input.category},${input.status},${input.outcome??null},
    ${input.resolutionSource},${input.resolutionRule??null},${input.resolvedAt??null},
-   ${sql.json(input.metadata||{})},now()
+   ${sql.json((input.metadata||{}) as any)},now()
   )
   on conflict(event_key) do update set
    domain=excluded.domain,
