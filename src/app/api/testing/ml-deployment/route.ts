@@ -15,7 +15,7 @@ export async function GET(){
   provider:'render'
  };
  const assertions={
-  releaseIdentity:sample.modelVersion==='edgeforce-v61',
+  releaseIdentity:sample.modelVersion===RELEASE.modelVersion,
   serviceIdentity:sample.serviceVersion==='edgeforce-ml-service-v61',
   activeRequiresHealth:sample.activationState!=='ACTIVE'||sample.healthOk,
   activeRequiresHandshake:sample.activationState!=='ACTIVE'||sample.predictionHandshakeOk,
