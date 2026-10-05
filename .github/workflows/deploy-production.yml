@@ -61,17 +61,21 @@ jobs:
           echo "LAUNCH_ID=$LAUNCH_ID" >> "$GITHUB_ENV"
 
       - name: Pull production project settings
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        run: vercel --token="$VERCEL_TOKEN" pull --yes --environment=production 
 
       - name: Capture previous production deployment
         shell: bash
         run: |
-          PREVIOUS_DEPLOYMENT_ID=$(curl --fail --silent --show-error             -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID"             | jq -r '.deployments[0].uid // empty')
-          test -n "$PREVIOUS_DEPLOYMENT_ID"
-          echo "PREVIOUS_DEPLOYMENT_ID=$PREVIOUS_DEPLOYMENT_ID" >> "$GITHUB_ENV"
+          PREVIOUS_DEPLOYMENT_URL=$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID" \
+            | jq -r '.deployments[0].url // empty')
+          test -n "$PREVIOUS_DEPLOYMENT_URL"
+          PREVIOUS_DEPLOYMENT_URL="https://$PREVIOUS_DEPLOYMENT_URL"
+          echo "PREVIOUS_DEPLOYMENT_URL=$PREVIOUS_DEPLOYMENT_URL" >> "$GITHUB_ENV"
 
       - name: Build exact production artifact
-        run: vercel build --prod --token="$VERCEL_TOKEN"
+        run: vercel --token="$VERCEL_TOKEN" build --prod 
 
       - name: Deploy prebuilt artifact to production
         id: deploy
@@ -81,7 +85,7 @@ jobs:
             --prebuilt
             --prod
             --yes
-            --token="$VERCEL_TOKEN"
+            
             --env MODEL_VERSION=edgeforce-v61
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
@@ -113,7 +117,7 @@ jobs:
           if [ -n "$ML_ACTIVATION_SECRET" ]; then
             args+=(--env ML_ACTIVATION_SECRET="$ML_ACTIVATION_SECRET")
           fi
-          URL=$(vercel deploy "${args[@]}")
+          URL=$(vercel --token="$VERCEL_TOKEN" deploy "${args[@]}")
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Wait for deployed runtime
@@ -121,7 +125,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
           for i in {1..20}; do
-            if vercel curl "$PRODUCTION_URL/api/health/live" --token="$VERCEL_TOKEN" >/dev/null; then
+            if vercel  curl "$PRODUCTION_URL/api/health/live" >/dev/null; then
               exit 0
             fi
             sleep 3
@@ -132,14 +136,14 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN"             -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             -d "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"DEPLOYED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status"              -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             -d "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"DEPLOYED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
       - name: Apply database migrations inside Vercel runtime
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/bootstrap" --token="$VERCEL_TOKEN" \
+          vercel  curl "$PRODUCTION_URL/api/release/bootstrap" \
             -X POST \
             -H "Authorization: Bearer $DEPLOY_BOOTSTRAP_SECRET" \
             -H "Content-Type: application/json"
@@ -149,7 +153,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" \
             -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
@@ -160,7 +164,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/providers/certify" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/providers/certify" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json"
           echo
@@ -169,7 +173,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"PROVIDERS_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -178,13 +182,13 @@ jobs:
       - name: Require strict launch doctor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
-        run: vercel curl "$PRODUCTION_URL/api/launch-doctor?strict=1" --token="$VERCEL_TOKEN"
+        run: vercel  curl "$PRODUCTION_URL/api/launch-doctor?strict=1" 
 
       - name: Record launch-doctor stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"LAUNCH_DOCTOR_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -202,7 +206,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -212,7 +216,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/attest" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/attest" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data '{"source":"production-prebuilt","buildPassed":true,"smokePassed":true,"loadPassed":true}'
@@ -222,7 +226,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ATTESTED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -232,7 +236,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/certify?strict=1" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/certify?strict=1" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json"
           echo
@@ -241,7 +245,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"STRICT_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -251,7 +255,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/v1-readiness?strict=1" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/v1-readiness?strict=1" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json"
           echo
@@ -261,7 +265,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
           for STAGE in V1_READY COMPLETE; do
-            vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+            vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
               -H "Authorization: Bearer $INGEST_SECRET" \
               -H "Content-Type: application/json" \
               --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
@@ -273,7 +277,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"FAILED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}" || true
@@ -281,14 +285,14 @@ jobs:
 
       - name: Roll back production on hosted failure
         if: failure() && steps.deploy.outcome == 'success'
-        run: vercel rollback "$PREVIOUS_DEPLOYMENT_ID" --yes --token="$VERCEL_TOKEN"
+        run: vercel --token="$VERCEL_TOKEN" rollback "$PREVIOUS_DEPLOYMENT_URL" --yes 
 
       - name: Record rollback completion
         if: failure() && steps.deploy.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "$PRODUCTION_URL/api/release/launch-status" --token="$VERCEL_TOKEN" -X POST \
+          vercel  curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ROLLED_BACK\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}" || true
