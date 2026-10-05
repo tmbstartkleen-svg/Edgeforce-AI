@@ -22,10 +22,15 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify Cloudflare preview credentials
+      - name: Select Cloudflare preview auth mode
+        id: auth
+        shell: bash
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "mode=permanent" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=temporary" >> "$GITHUB_OUTPUT"
+          fi
 
       - run: npm install
       - run: npm run preflight:cloudflare
@@ -43,12 +48,24 @@ jobs:
       - name: Create Cloudflare Preview from certified artifact
         id: preview
         shell: bash
+        env:
+          PREVIEW_AUTH_MODE: ${{ steps.auth.outputs.mode }}
         run: |
-          npx wrangler preview             --config dist/server/wrangler.json             --worker-name "$WORKER_NAME"             --name "$PREVIEW_NAME"             --tag "${GITHUB_SHA:0:12}"             --message "Edgeforce PR #${{ github.event.number }} ${GITHUB_SHA}"             --ignore-base-config             --json > /tmp/cloudflare-preview.json
-          cat /tmp/cloudflare-preview.json
-          URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-preview.json)
+          if [ "$PREVIEW_AUTH_MODE" = "permanent" ]; then
+            npm run preview:cloudflare -- \
+              --name "$PREVIEW_NAME" \
+              --tag "${GITHUB_SHA:0:12}" \
+              --message "Edgeforce PR #${{ github.event.number }} ${GITHUB_SHA}" \
+              --json > /tmp/cloudflare-preview.json
+            URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-preview.json)
+          else
+            unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
+            npx wrangler deploy --temporary --config dist/server/wrangler.json > /tmp/cloudflare-temporary-preview.txt 2>&1
+            URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-temporary-preview.txt)
+          fi
           test -n "$URL"
           echo "preview_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "preview_auth_mode=$PREVIEW_AUTH_MODE" >> "$GITHUB_OUTPUT"
 
       - name: Smoke hosted Cloudflare Preview
         env:
@@ -73,10 +90,11 @@ jobs:
           echo "## Cloudflare Hosted Preview" >> "$GITHUB_STEP_SUMMARY"
           echo "- Preview: $PREVIEW_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Artifact: dist/server/wrangler.json -> index.js" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Isolation: Wrangler Preview pr-${{ github.event.number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Auth mode: ${{ steps.preview.outputs.preview_auth_mode }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Isolation: named Wrangler Preview when authenticated; auto-expiring temporary Worker otherwise" >> "$GITHUB_STEP_SUMMARY"
 
   cleanup:
-    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository && secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != ''
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
