@@ -200,6 +200,8 @@ export async function GET(){
   championLifecycleClosure:true,
   baselineLifecycleConsistency:true,
   boundedLifecycleReconciliation:true,
+  baselineGovernanceCycle:true,
+  governanceCycleIdempotency:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
