@@ -11,6 +11,7 @@ import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import LiveComebackPanel from './LiveComebackPanel';
 import EarlyCashoutPanel from './EarlyCashoutPanel';
 import ForecastSkillPanel from './ForecastSkillPanel';
+import DailyEdgeRouterPanel from './DailyEdgeRouterPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1081,6 +1082,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <DailyEdgeRouterPanel/>
     <ForecastSkillPanel/>
     <EarlyCashoutPanel/>
     <LiveComebackPanel/>
