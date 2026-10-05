@@ -143,7 +143,7 @@ jobs:
           set -euo pipefail
           for i in {1..90}; do
             if curl --fail --silent --show-error "$EDGEFORCE_BASE_URL/api/diagnostics" > /tmp/edgeforce-diagnostics.json 2>/dev/null; then
-              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v95'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
+              if node -e "const d=require('/tmp/edgeforce-diagnostics.json'); process.exit(d.modelVersion==='edgeforce-v96'&&d.externalMlPredictionConfigured===true&&d.mlServiceHealthConfigured===true?0:1)"; then
                 cat /tmp/edgeforce-diagnostics.json
                 exit 0
               fi
