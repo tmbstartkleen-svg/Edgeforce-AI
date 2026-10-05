@@ -10,7 +10,7 @@ export type V1Gate={id:string;label:string;state:V1GateState;required:boolean;de
 export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const certification=await runProductionCertification({strict});
+ const [certification,deploymentGuard,launchStatus]=await Promise.all([runProductionCertification({strict}),loadDeploymentGuardSummary(),getProductionLaunchStatus()]);
  const sql=db();
  let replay:any=null;
  let stress:any=null;
