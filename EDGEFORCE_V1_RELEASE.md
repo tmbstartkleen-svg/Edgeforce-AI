@@ -47,3 +47,23 @@ A known **MISORDERED** decision replay is treated as a release blocker. Insuffic
 EdgeForce v1 is an analytics and decision-support platform. Release readiness certifies software controls, data/automation state, and validation evidence. It does not guarantee prediction accuracy, profit, market outcomes, or sportsbook cash-out value.
 
 Automatic wagering, trading, cash-out acceptance, and position closing remain disabled.
+
+## V124 production launch controller
+
+The production workflow now writes a durable launch ledger after runtime migrations create the V72 schema.
+
+Required production sequence:
+
+1. DEPLOYED
+2. MIGRATED
+3. PROVIDERS_CERTIFIED
+4. LAUNCH_DOCTOR_PASSED
+5. SMOKE_PASSED
+6. ATTESTED
+7. STRICT_CERTIFIED
+8. V1_READY
+9. COMPLETE
+
+The workflow calls **POST /api/release/v1-readiness?strict=1** before V1_READY or COMPLETE can be recorded.
+
+If any hosted production check fails after deployment, the workflow records FAILED, executes the existing Vercel rollback path, and attempts to record ROLLED_BACK. The System tab exposes the latest launch timeline and missing required stages.
