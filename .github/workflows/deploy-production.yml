@@ -94,11 +94,18 @@ jobs:
               exit 1
             fi
           else
-            echo "SLO governor endpoint not present on prior production; using one-time V74 bootstrap safety check."
-            OBS=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/operations/observability")
-            OVERALL=$(printf '%s' "$OBS" | jq -r '.overall // "CRITICAL"')
-            if [ "$OVERALL" = "CRITICAL" ]; then
-              echo "Bootstrap blocked because current production observability is CRITICAL."
+            HEALTH=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/health")
+            CURRENT_VERSION=$(printf '%s' "$HEALTH" | jq -r '.version // "unknown"')
+            if [[ "$CURRENT_VERSION" == 73.* ]]; then
+              echo "SLO governor endpoint not present on V73 production; using one-time V74 bootstrap safety check."
+              OBS=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/operations/observability")
+              OVERALL=$(printf '%s' "$OBS" | jq -r '.overall // "CRITICAL"')
+              if [ "$OVERALL" = "CRITICAL" ]; then
+                echo "Bootstrap blocked because current production observability is CRITICAL."
+                exit 1
+              fi
+            else
+              echo "SLO governor is unavailable on production version $CURRENT_VERSION; fail closed."
               exit 1
             fi
           fi
