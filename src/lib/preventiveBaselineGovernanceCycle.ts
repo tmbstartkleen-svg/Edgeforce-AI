@@ -8,6 +8,7 @@ import {runSuccessorGraduationGovernor} from './preventiveSuccessorGraduation';
 import {runBaselineConsistencyGovernor} from './preventiveBaselineConsistency';
 import {runProbationPerformanceGovernor} from './preventiveProbationPerformance';
 import {runChampionBaselineGovernor} from './preventiveChampionBaseline';
+import {runBaselineGovernanceWatchdog,noteGovernanceLeaseLoss} from './preventiveBaselineGovernanceWatchdog';
 
 export type GovernanceCycleStatus='ACQUIRED'|'SKIPPED_LOCKED'|'SKIPPED_IDEMPOTENT'|'COMPLETED'|'FAILED';
 
@@ -45,6 +46,23 @@ async function acquireLease(key:string){
  return {acquired:(rows as any[]).length===1,token:(rows as any[])?.[0]?.lock_token?String((rows as any[])[0].lock_token):null};
 }
 
+async function heartbeatLease(token:string|null,key:string){
+ const sql=db();if(!sql||!token)return false;
+ const rows=await sql`
+  update preventive_baseline_governance_lock
+  set locked_until=now()+interval '90 seconds',updated_at=now()
+  where singleton_key=1 and lock_token=${token} and cycle_key=${key} and locked_until>now()
+  returning lock_token
+ `;
+ if(!(rows as any[]).length)return false;
+ await sql`
+  update preventive_baseline_governance_cycles
+  set heartbeat_at=now()
+  where cycle_key=${key} and status='STARTED' and lock_token=${token}
+ `;
+ return true;
+}
+
 async function releaseLease(token:string|null){
  const sql=db();if(!sql||!token)return;
  await sql`
@@ -57,10 +75,10 @@ async function releaseLease(token:string|null){
 async function recordStart(key:string,token:string|null){
  const sql=db();if(!sql)return;
  await sql`
-  insert into preventive_baseline_governance_cycles(cycle_key,model_version,status,lock_token)
-  values(${key},${RELEASE.modelVersion},'STARTED',${token})
+  insert into preventive_baseline_governance_cycles(cycle_key,model_version,status,lock_token,heartbeat_at)
+  values(${key},${RELEASE.modelVersion},'STARTED',${token},now())
   on conflict(cycle_key) do update set
-   status='STARTED',lock_token=excluded.lock_token,started_at=now(),completed_at=null,error_text=null
+   status='STARTED',lock_token=excluded.lock_token,started_at=now(),heartbeat_at=now(),completed_at=null,error_text=null
  `;
 }
 
@@ -79,6 +97,7 @@ export async function runBaselineGovernanceCycle(){
  if(!sql){
   return {configured:false,cycleKey:key,status:'FAILED' as GovernanceCycleStatus,reason:'Database is not configured.',steps:{}};
  }
+ await runBaselineGovernanceWatchdog().catch(()=>({configured:false,status:'FAILED'}));
  const completed=await alreadyCompleted(key);
  if(completed)return {configured:true,cycleKey:key,status:'SKIPPED_IDEMPOTENT' as GovernanceCycleStatus,reason:'This governance cycle already completed.',steps:{}};
  const lease=await acquireLease(key);
@@ -87,15 +106,31 @@ export async function runBaselineGovernanceCycle(){
 
  const steps:Record<string,unknown>={};
  await recordStart(key,lease.token);
+ const runStep=async(name:string,fn:()=>Promise<unknown>)=>{
+  const heartbeat=await heartbeatLease(lease.token,key);
+  if(!heartbeat){
+   const reason='V95 governance lease lost before '+name+'.';
+   await noteGovernanceLeaseLoss(reason).catch(()=>({recorded:false}));
+   throw new Error(reason);
+  }
+  const result=await fn();
+  steps[name]=result;
+  return result;
+ };
  try{
-  steps.championHealth=await runChampionBaselineHealthGovernor();
-  steps.succession=await runBaselineSuccessionGovernor();
-  steps.handoff=await runBaselineHandoffGovernor();
-  steps.successorValidation=await runSuccessorValidationGovernor();
-  steps.successorGraduation=await runSuccessorGraduationGovernor();
-  steps.consistency=await runBaselineConsistencyGovernor();
-  steps.probationPerformance=await runProbationPerformanceGovernor();
-  steps.championPromotion=await runChampionBaselineGovernor();
+  await runStep('championHealth',runChampionBaselineHealthGovernor);
+  await runStep('succession',runBaselineSuccessionGovernor);
+  await runStep('handoff',runBaselineHandoffGovernor);
+  await runStep('successorValidation',runSuccessorValidationGovernor);
+  await runStep('successorGraduation',runSuccessorGraduationGovernor);
+  await runStep('consistency',runBaselineConsistencyGovernor);
+  await runStep('probationPerformance',runProbationPerformanceGovernor);
+  await runStep('championPromotion',runChampionBaselineGovernor);
+  if(!await heartbeatLease(lease.token,key)){
+   const reason='V95 governance lease lost before cycle completion.';
+   await noteGovernanceLeaseLoss(reason).catch(()=>({recorded:false}));
+   throw new Error(reason);
+  }
   await recordFinish(key,'COMPLETED',steps);
   return {configured:true,cycleKey:key,status:'COMPLETED' as GovernanceCycleStatus,reason:'Governance cycle completed under a single lease.',steps};
  }catch(error){
