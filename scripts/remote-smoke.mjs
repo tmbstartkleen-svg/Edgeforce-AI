@@ -9,7 +9,7 @@ const results=[];
 function protectedFetch(path){
  const url=base+path;
  if(process.env.SMOKE_VERCEL_AUTH==='1'){
-  const args=['curl',url,'--token',process.env.VERCEL_TOKEN||''];
+  const args=['--token',process.env.VERCEL_TOKEN||'','curl',url];
   const body=execFileSync('vercel',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
   return {ok:true,status:200,text:async()=>body};
  }
