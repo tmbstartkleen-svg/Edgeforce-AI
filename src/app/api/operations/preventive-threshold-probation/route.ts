@@ -1,0 +1,5 @@
+import {loadThresholdProbationSummary,runThresholdProbationGovernor} from '@/lib/preventiveThresholdProbation';
+export const dynamic='force-dynamic';
+function authorized(req:Request){const auth=req.headers.get('authorization');const secrets=[process.env.INGEST_SECRET,process.env.CRON_SECRET].filter(Boolean);return !secrets.length||secrets.some(secret=>auth===`Bearer ${secret}`)}
+export async function GET(){try{return Response.json({ok:true,build:'V85',schemaVersion:'v85-threshold-probation-1',...(await loadThresholdProbationSummary())},{headers:{'Cache-Control':'no-store'}})}catch(error){return Response.json({ok:false,error:error instanceof Error?error.message:'threshold probation load failed'},{status:500})}}
+export async function POST(req:Request){if(!authorized(req))return Response.json({ok:false,error:'unauthorized'},{status:401});try{return Response.json({ok:true,build:'V85',schemaVersion:'v85-threshold-probation-1',...(await runThresholdProbationGovernor())},{headers:{'Cache-Control':'no-store'}})}catch(error){return Response.json({ok:false,error:error instanceof Error?error.message:'threshold probation update failed'},{status:500})}}
