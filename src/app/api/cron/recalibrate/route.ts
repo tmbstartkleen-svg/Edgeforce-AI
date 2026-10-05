@@ -13,6 +13,7 @@ import {rebuildLineupRedistributionProfiles} from '@/lib/lineupRoleRedistributio
 import {rebuildDepthChartProfiles} from '@/lib/startingLineupIntelligence';
 import {rebuildScheduleFatigueProfiles} from '@/lib/scheduleFatigueIntelligence';
 import {rebuildVenueConditionProfiles} from '@/lib/venueWeatherIntelligence';
+import {rebuildMarketMovementProfiles} from '@/lib/marketMovementLearning';
 
 export const dynamic='force-dynamic';
 
@@ -21,7 +22,7 @@ export async function GET(req:Request){
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
  const started=Date.now();
  try{
-  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,depthCharts,scheduleFatigue,venueConditions]=await Promise.all([
+  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,depthCharts,scheduleFatigue,venueConditions,marketMovement]=await Promise.all([
    runRecalibration(),
    rebuildLearnedSgpCorrelations(),
    runModelGovernance(),
@@ -32,7 +33,8 @@ export async function GET(req:Request){
    rebuildLineupRedistributionProfiles(),
    rebuildDepthChartProfiles(),
    rebuildScheduleFatigueProfiles(),
-   rebuildVenueConditionProfiles()
+   rebuildVenueConditionProfiles(),
+   rebuildMarketMovementProfiles()
   ]);
   const championDrift=await runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}));
   const shadowRecovery=await runShadowRecovery().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'shadow recovery failed'}));
@@ -65,6 +67,8 @@ export async function GET(req:Request){
    scheduleFatigueProfiles:(scheduleFatigue as any).profilesWritten??null,
    venueConditionSnapshots:(venueConditions as any).snapshotsRead??null,
    venueConditionProfiles:(venueConditions as any).profilesWritten??null,
+   marketMovementRows:(marketMovement as any).settledRowsRead??null,
+   marketMovementProfiles:(marketMovement as any).profilesWritten??null,
    externalMlMode:(externalMlTournament as any).mode??null,
    externalMlCandidates:(externalMlTournament as any).candidates??null,
    externalMlPromoted:(externalMlTournament as any).promoted??null,
@@ -78,7 +82,7 @@ export async function GET(req:Request){
    shadowRecoveryRecovered:(shadowRecovery as any).recovered??null,
    shadowRecoveryRejected:(shadowRecovery as any).rejected??null
   });
-  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,depthCharts,scheduleFatigue,venueConditions,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,depthCharts,scheduleFatigue,venueConditions,marketMovement,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'recalibration failed';
   await recordAutomationRun('recalibrate','failed',started,{},message);
