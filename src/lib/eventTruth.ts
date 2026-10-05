@@ -10,6 +10,7 @@ export type ForecastGradeInput={
  category:string;
  venue?:string;
  modelVersion:string;
+ strategyKey?:string;
  predictedProbability:number;
  marketProbability?:number;
  outcome:boolean;
@@ -69,11 +70,11 @@ export async function gradeForecast(input:ForecastGradeInput){
   await sql`
    insert into universal_forecast_grades(
     forecast_id,event_key,domain,category,venue,model_version,predicted_probability,market_probability,
-    outcome,brier,log_loss,calibration_error,market_skill,settled_at
+    outcome,brier,log_loss,calibration_error,market_skill,strategy_key,settled_at
    ) values(
     ${input.forecastId},${input.eventKey},${input.domain},${input.category},${input.venue??null},
     ${input.modelVersion},${input.predictedProbability},${input.marketProbability??null},
-    ${input.outcome},${metrics.brier},${metrics.logLoss},${metrics.calibrationError},${marketSkill},
+    ${input.outcome},${metrics.brier},${metrics.logLoss},${metrics.calibrationError},${marketSkill},${input.strategyKey||'GENERAL'},
     ${input.settledAt||new Date().toISOString()}
    )
    on conflict(forecast_id) do update set
@@ -82,6 +83,7 @@ export async function gradeForecast(input:ForecastGradeInput){
     log_loss=excluded.log_loss,
     calibration_error=excluded.calibration_error,
     market_skill=excluded.market_skill,
+    strategy_key=excluded.strategy_key,
     settled_at=excluded.settled_at
   `;
  }
