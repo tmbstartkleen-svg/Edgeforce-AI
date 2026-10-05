@@ -25,6 +25,13 @@ export type ReleaseExecutionCertification={
  evidence:ReleaseExecutionEvidence;
 };
 
+export type PersistedReleaseExecutionCertification=ReleaseExecutionEvidence&{
+ id:number;
+ certified:boolean;
+ blockers:string[];
+ createdAt:string;
+};
+
 export function evaluateReleaseExecutionCertification(input:ReleaseExecutionEvidence):ReleaseExecutionCertification{
  const blockers:string[]=[];
  if(input.releaseVersion!==RELEASE.appVersion)blockers.push(`release version mismatch: ${input.releaseVersion} != ${RELEASE.appVersion}`);
@@ -67,7 +74,7 @@ export async function saveReleaseExecutionCertification(report:ReleaseExecutionC
  return {persisted:true,id:Number(row?.id||0)||null};
 }
 
-export async function latestReleaseExecutionCertification(){
+export async function latestReleaseExecutionCertification():Promise<PersistedReleaseExecutionCertification|null>{
  const sql=db();if(!sql)return null;
  try{
   const [row]=await sql`
@@ -82,11 +89,31 @@ export async function latestReleaseExecutionCertification(){
    from release_execution_certifications
    order by created_at desc limit 1
   `;
-  return row||null;
+  return row?{
+   id:Number(row.id),
+   releaseVersion:String(row.releaseVersion),
+   modelVersion:String(row.modelVersion),
+   migrationVersion:Number(row.migrationVersion),
+   commitSha:String(row.commitSha),
+   source:String(row.source),
+   lintPassed:Boolean(row.lintPassed),
+   typecheckPassed:Boolean(row.typecheckPassed),
+   buildPassed:Boolean(row.buildPassed),
+   migrationPassed:Boolean(row.migrationPassed),
+   auditPassed:Boolean(row.auditPassed),
+   smokePassed:Boolean(row.smokePassed),
+   loadPassed:Boolean(row.loadPassed),
+   mlCompilePassed:Boolean(row.mlCompilePassed),
+   remoteSmokePassed:Boolean(row.remoteSmokePassed),
+   certified:Boolean(row.certified),
+   blockers:Array.isArray(row.blockers)?row.blockers.map(String):[],
+   evidence:row.evidence&&typeof row.evidence==='object'?row.evidence:{},
+   createdAt:new Date(row.createdAt).toISOString()
+  }:null;
  }catch{return null}
 }
 
-export async function currentReleaseExecutionCertification(){
+export async function currentReleaseExecutionCertification():Promise<PersistedReleaseExecutionCertification|null>{
  const sql=db();if(!sql)return null;
  try{
   const [row]=await sql`
@@ -103,6 +130,26 @@ export async function currentReleaseExecutionCertification(){
     and migration_version=${RELEASE.migrationVersion}
    order by created_at desc limit 1
   `;
-  return row||null;
+  return row?{
+   id:Number(row.id),
+   releaseVersion:String(row.releaseVersion),
+   modelVersion:String(row.modelVersion),
+   migrationVersion:Number(row.migrationVersion),
+   commitSha:String(row.commitSha),
+   source:String(row.source),
+   lintPassed:Boolean(row.lintPassed),
+   typecheckPassed:Boolean(row.typecheckPassed),
+   buildPassed:Boolean(row.buildPassed),
+   migrationPassed:Boolean(row.migrationPassed),
+   auditPassed:Boolean(row.auditPassed),
+   smokePassed:Boolean(row.smokePassed),
+   loadPassed:Boolean(row.loadPassed),
+   mlCompilePassed:Boolean(row.mlCompilePassed),
+   remoteSmokePassed:Boolean(row.remoteSmokePassed),
+   certified:Boolean(row.certified),
+   blockers:Array.isArray(row.blockers)?row.blockers.map(String):[],
+   evidence:row.evidence&&typeof row.evidence==='object'?row.evidence:{},
+   createdAt:new Date(row.createdAt).toISOString()
+  }:null;
  }catch{return null}
 }
