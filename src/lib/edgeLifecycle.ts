@@ -96,6 +96,15 @@ export async function analyzeOpportunityLifecycle(board:MasterEdgeOpportunity[])
     )
    `;
   }
+  for(const x of [...rows,...exits].filter(y=>y.lifecycleState!=='STABLE')){
+   await sql`
+    insert into edge_lifecycle_events(
+     observed_at,opportunity_id,domain,category,venue,lifecycle_state,action_label,master_score,prior_master_score,edge,prior_edge,score_delta,edge_delta,reason,metadata
+    ) values(
+     now(),${x.id},${x.domain},${x.category},${x.venue},${x.lifecycleState},${x.actionLabel},${x.masterScore},${x.priorMasterScore},${x.edge},${x.priorEdge},${x.scoreDelta},${x.edgeDelta},${x.reason},${sql.json(x.metadata as any)}
+    )
+   `;
+  }
  }
  return {generatedAt:new Date().toISOString(),configured:true,rows,exits,persisted:shouldWrite&&board.length>0};
 }
