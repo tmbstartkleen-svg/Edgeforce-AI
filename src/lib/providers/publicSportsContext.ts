@@ -535,7 +535,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
   if(event.venue?.city){
    const geo=await geocode(event.venue.city,event.venue.state,event.venue.country);requests++;
    let wx:null|Awaited<ReturnType<typeof weatherAt>>=null;
-   const indoor=event.venue.indoor===true||!spec.outdoor;
+   const indoor=event.venue.indoor===true||(event.venue.indoor===undefined&&!spec.outdoor);
    if(geo&&!indoor){
     wx=await weatherAt(geo.latitude,geo.longitude,market.startTime);requests++;
    }
