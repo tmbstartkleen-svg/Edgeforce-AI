@@ -9,6 +9,7 @@ import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
 import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import LiveComebackPanel from './LiveComebackPanel';
+import EarlyCashoutPanel from './EarlyCashoutPanel';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
 import TrainedSportModelsPanel from './TrainedSportModelsPanel';
 import ExternalMlTournamentPanel from './ExternalMlTournamentPanel';
@@ -1079,6 +1080,7 @@ export default function Dashboard(){
 
     <ExpertModelSuitePanel/>
 
+    <EarlyCashoutPanel/>
     <LiveComebackPanel/>
 
     <section className="v21Grid two">
