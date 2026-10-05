@@ -151,7 +151,11 @@ const requiredFiles=[
  'src/lib/playerFeatureFrames.ts',
  'src/app/api/intelligence/player-frames/route.ts',
  'src/app/api/testing/player-frames/route.ts',
- 'src/components/PlayerFeatureFramesPanel.tsx'
+ 'src/components/PlayerFeatureFramesPanel.tsx',
+ 'src/lib/playerCalibration.ts',
+ 'src/app/api/intelligence/player-calibration/route.ts',
+ 'src/app/api/testing/player-calibration/route.ts',
+ 'src/components/PlayerCalibrationPanel.tsx'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -198,6 +202,12 @@ add('V62 simulation integration',read('src/lib/simulation.ts').includes("feat(m,
 add('V62 persistent learning loop',read('src/app/api/cron/scan/route.ts').includes('recordPlayerFeatureFrames')&&read('src/lib/playerWarehouse.ts').includes('player_roster_snapshots'),'cron scan persists player frames and roster snapshots');
 add('V62 player intelligence API',read('src/app/api/intelligence/player-frames/route.ts').includes('v62-player-feature-frames-1')&&read('src/app/api/testing/player-frames/route.ts').includes('derivePlayerFeatureSignals'),'player-frame observability and regression endpoints exist');
 add('V62 player dataframe dashboard',read('src/components/Dashboard.tsx').includes('PlayerFeatureFramesPanel')&&read('src/components/PlayerFeatureFramesPanel.tsx').includes('V62 PLAYER INTELLIGENCE'),'sim-ready player frames are visible on dashboard');
+add('V63 player calibration migration schema',read('db/v74.sql').includes('player_calibration_profiles')&&read('db/v74.sql').includes('player_calibration_runs'),'v74 settled player calibration warehouse');
+add('V63 player calibration shrinkage',read('src/lib/playerCalibration.ts').includes('priorWeight=12')&&read('src/lib/playerCalibration.ts').includes('calibrationBias=clamp(rawBias*confidence,-.06,.06)'),'small samples shrink toward the model prior and corrections are bounded');
+add('V63 player calibration runtime',read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithPlayerCalibration')&&read('src/lib/simulation.ts').includes('playerCalibrationBias'),'qualified player calibration feeds simulation');
+add('V63 player calibration automation',read('src/app/api/cron/recalibrate/route.ts').includes('rebuildPlayerCalibrationProfiles'),'daily recalibration rebuilds player profiles');
+add('V63 player calibration API',read('src/app/api/intelligence/player-calibration/route.ts').includes('v63-player-calibration-1')&&read('src/app/api/testing/player-calibration/route.ts').includes('buildPlayerCalibrationProfile'),'player calibration observability and regression endpoints exist');
+add('V63 player calibration dashboard',read('src/components/Dashboard.tsx').includes('PlayerCalibrationPanel')&&read('src/components/PlayerCalibrationPanel.tsx').includes('V63 PLAYER LEARNING'),'settled player learning is visible on dashboard');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');

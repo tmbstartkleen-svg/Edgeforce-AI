@@ -18,6 +18,7 @@ import FirstChampionTournamentPanel from './FirstChampionTournamentPanel';
 import ChampionDriftPanel from './ChampionDriftPanel';
 import ShadowRecoveryPanel from './ShadowRecoveryPanel';
 import PlayerFeatureFramesPanel from './PlayerFeatureFramesPanel';
+import PlayerCalibrationPanel from './PlayerCalibrationPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -1063,6 +1064,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <PlayerCalibrationPanel/>
 
     <PlayerFeatureFramesPanel/>
 

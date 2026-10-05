@@ -4,6 +4,7 @@ import {assessContextQuality,summarizeContextQuality} from '../contextQuality';
 import {fetchPublicSportsContext,type PublicContextRow} from './publicSportsContext';
 import {enrichMarketsWithPlayerWarehouse} from '../playerWarehouse';
 import {enrichMarketsWithPlayerFeatureFrames} from '../playerFeatureFrames';
+import {enrichMarketsWithPlayerCalibration} from '../playerCalibration';
 import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
@@ -205,12 +206,14 @@ export async function enrichMarketsWithContext(markets:Market[]){
  const premium=await enrichMarketsWithPremiumData(enriched);
  const historical=await enrichMarketsWithPlayerWarehouse(premium.markets).catch(()=>({markets:premium.markets,matched:0,players:0}));
  const playerFrames=await enrichMarketsWithPlayerFeatureFrames(historical.markets).catch(()=>({markets:historical.markets,matched:0,players:0,frames:[]}));
- const trainedSportMl=await enrichMarketsWithTrainedSportModels(playerFrames.markets);
+ const playerCalibration=await enrichMarketsWithPlayerCalibration(playerFrames.markets).catch(()=>({markets:playerFrames.markets,matched:0,profiles:0}));
+ const trainedSportMl=await enrichMarketsWithTrainedSportModels(playerCalibration.markets);
  const externalExpert=await enrichMarketsWithExternalExpertModels(trainedSportMl.markets);
  const finalSourceQuality={
   ...sourceQuality,...premium.sourceQuality,
   'player-history-db':historical.matched?.92:0,
-  'player-feature-frame':playerFrames.matched?.95:0
+  'player-feature-frame':playerFrames.matched?.95:0,
+  'player-calibration':playerCalibration.matched?.96:0
  };
  const finalMarkets=externalExpert.markets.map(row=>({...row,contextQuality:assessContextQuality(row,finalSourceQuality)}));
  const qualitySummary=summarizeContextQuality(finalMarkets);
@@ -223,6 +226,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    premiumData:premium.diagnostics,
    playerWarehouse:{matchedRows:historical.matched,players:historical.players},
    playerFeatureFrames:{matchedRows:playerFrames.matched,players:playerFrames.players,frames:playerFrames.frames.length},
+   playerCalibration:{matchedRows:playerCalibration.matched,profiles:playerCalibration.profiles},
    trainedSportMl:trainedSportMl.diagnostics,
    expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,
