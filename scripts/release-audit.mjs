@@ -159,7 +159,9 @@ const requiredFiles=[
  'src/lib/opponentMatchupLearning.ts',
  'src/app/api/intelligence/opponent-matchups/route.ts',
  'src/app/api/testing/opponent-matchups/route.ts',
- 'src/components/OpponentMatchupPanel.tsx'
+ 'src/components/OpponentMatchupPanel.tsx',
+ 'src/lib/liveInjuryTracking.ts',
+ 'src/app/api/cron/injuries/route.ts'
 ];
 for(const file of requiredFiles)add(`required file ${file}`,exists(file),file);
 add('native real odds adapter',read('src/lib/providers/config.ts').includes('THE_ODDS_API_KEY')&&read('src/lib/providers/http.ts').includes('the-odds-api://live-board'),'The Odds API wired into provider system');
@@ -171,6 +173,9 @@ add('recommendation quality tiers',read('src/lib/parlays.ts').includes("'RECOMME
 add('recommendation risk gates',read('src/lib/parlays.ts').includes('recommendedMinContextCoverage')&&read('src/lib/parlays.ts').includes('MODEL_SIM_DIVERGENCE')&&read('src/lib/parlays.ts').includes('NEGATIVE_EXPECTED_VALUE'),'context, divergence and EV gates protect recommendations');
 add('sport-aware context quality',read('src/lib/contextQuality.ts').includes('contextRequirements')&&read('src/lib/contextQuality.ts').includes('recommendationReady'),'sport-specific context completeness is scored');
 add('context provider caching',read('src/lib/providers/context.ts').includes('WEATHER_CONTEXT_CACHE_MS')&&read('src/lib/providers/context.ts').includes('INJURY_CONTEXT_CACHE_MS'),'context feeds are cached by capability');
+add('V64.1 intraday injury tracking',read('src/lib/liveInjuryTracking.ts').includes('refreshLiveInjuryTracking')&&read('src/lib/providers/contextFusion.ts').includes('fetchTrackedInjuryContext')&&read('db/v76.sql').includes('injury_context_snapshots'),'injuries are refreshed and persisted throughout the day');
+add('V64.1 injury status normalization',read('src/lib/providers/contextFusion.ts').includes('statusAvailability')&&read('src/lib/providers/contextFusion.ts').includes('questionable'),'text injury statuses become bounded player availability');
+add('V64.1 injury simulation coverage',read('src/lib/simulation.ts').includes("feat(m,'injury')")&&read('src/lib/sportOutcomeSimulation.ts').includes("feature(m,'injury')")&&read('src/lib/sportMicroSimulation.ts').includes("feat(m,'injury')")&&read('src/lib/sharedEventState.ts').includes('injuryShock'),'fallback, team, micro, prop and shared-event simulations consume injury context');
 add('context-gated decision paths',read('src/app/api/parlays/route.ts').includes('enrichMarketsWithContext')&&read('src/app/api/cron/decision/route.ts').includes('enrichMarketsWithContext')&&read('src/app/api/cron/scan/route.ts').includes('enrichMarketsWithContext'),'recommendation and automation paths consume context quality');
 add('context model audit trail',read('src/lib/persistence.ts').includes('contextQuality:x.contextQuality')&&read('src/lib/persistence.ts').includes('contextProvenance:x.contextProvenance'),'context quality and provenance are persisted with model runs');
 add('real public context adapter',read('src/lib/providers/publicSportsContext.ts').includes('site.api.espn.com')&&read('src/lib/providers/publicSportsContext.ts').includes('api.open-meteo.com'),'ESPN event context and Open-Meteo weather are integrated');
@@ -328,6 +333,7 @@ add('Cloudflare model identity',wrangler.includes(`"MODEL_VERSION": "${expected.
 add('Cloudflare account target',wrangler.includes('"account_id": "de9b84b39940a0b5b622ae5d27b415dc"'),'selected Cloudflare account is pinned');
 add('Cloudflare custom Worker entry',wrangler.includes('"main": "./worker/index.ts"'),'custom fetch + scheduled entrypoint');
 add('Cloudflare hourly autopilot cron',wrangler.includes('"0 * * * *"'),'hourly live-data automation');
+add('Cloudflare 15-minute injury cron',wrangler.includes('"*/15 * * * *"')&&read('worker/index.ts').includes("/api/cron/injuries"),'intraday injury refresh every 15 minutes');
 add('Cloudflare prediction intelligence cron',read('worker/index.ts').includes("/api/cron/predictions"),'hourly prediction-market history collection runs on Workers');
 add('Cloudflare daily certification cron',wrangler.includes('"15 6 * * *"'),'daily recalibration and provider certification');
 add('Cloudflare production demo disabled',wrangler.includes('"ALLOW_DEMO_DATA": "false"'),'production never substitutes demo odds');
@@ -345,7 +351,7 @@ add('vinext clean build',String(pkg.scripts?.['build:vinext']||'').includes('cle
 add('parlay route artifact identity',read('src/app/api/parlays/route.ts').includes('v51-prediction-validation-1')&&read('scripts/validate-cloudflare-build.mjs').includes('v51-prediction-validation-1'),'built Worker must contain V51 parlay schema marker');
 
 const requiredCrons=[
- '/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'
+ '/api/cron/injuries','/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'
 ];
 const cronPaths=new Set((vercel.crons||[]).map(x=>x.path));
 for(const cron of requiredCrons)add(`cron ${cron}`,cronPaths.has(cron),cron);
