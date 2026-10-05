@@ -45,13 +45,18 @@ export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationR
     :marketText.includes('under')?-feat(m,'venueTotalEffect')*.012*venueConfidence
     :feat(m,'venueHomeEdge')*.012*venueConfidence*scheduleSide)
   : 0;
+ const movementConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.marketMovementConfidence||0)));
+ const movementAdjustment=movementConfidence>0
+  ? (feat(m,'marketClosingLineSignal')*.010+feat(m,'marketSharpSignal')*.003)*movementConfidence
+  : 0;
  const lineupProbabilityRaw=Number(m.sportFeatures?.lineupStarterProbability);
  const lineupUncertainty=Number.isFinite(lineupProbabilityRaw)?Math.abs(.5-Math.max(0,Math.min(1,lineupProbabilityRaw))):0;
- const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment+scheduleAdjustment+venueAdjustment);
+ const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment+roleAdjustment+lineupAdjustment+scheduleAdjustment+venueAdjustment+movementAdjustment);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
   Math.abs(feat(m,'injury'))*.025+
   (venueConfidence>0?Math.abs(feat(m,'venueVolatilityEffect'))*.018*venueConfidence:Math.abs(feat(m,'weather'))*.018)+
+  (movementConfidence>0?(Math.abs(feat(m,'marketMovementVolatility'))*.008+Math.abs(feat(m,'marketReversalSignal'))*.004)*movementConfidence:0)+
   (scheduleConfidence>0?Math.abs(feat(m,'scheduleUncertainty'))*.010:Math.abs(feat(m,'travel'))*.012)+
   Math.abs(feat(m,'starter'))*.018+
   Math.abs(feat(m,'goalie'))*.018+
