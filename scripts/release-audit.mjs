@@ -160,6 +160,9 @@ const requiredFiles=[
  'src/app/api/intelligence/opponent-matchups/route.ts',
  'src/app/api/testing/opponent-matchups/route.ts',
  'src/components/OpponentMatchupPanel.tsx',
+ 'src/lib/lineupRoleRedistribution.ts',
+ 'src/app/api/intelligence/lineup-redistribution/route.ts',
+ 'src/components/LineupRedistributionPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -223,6 +226,11 @@ add('V64 matchup runtime',read('src/lib/providers/contextFusion.ts').includes('e
 add('V64 matchup automation',read('src/app/api/cron/recalibrate/route.ts').includes('rebuildOpponentMatchupProfiles'),'daily recalibration rebuilds matchup profiles');
 add('V64 matchup API',read('src/app/api/intelligence/opponent-matchups/route.ts').includes('v64-opponent-matchup-2')&&read('src/app/api/testing/opponent-matchups/route.ts').includes('buildPlayerOpponentProfiles'),'opponent and exact player matchup observability/regression endpoints exist');
 add('V64 matchup dashboard',read('src/components/Dashboard.tsx').includes('OpponentMatchupPanel')&&read('src/components/OpponentMatchupPanel.tsx').includes('V64 MATCHUP LEARNING'),'opponent matchup learning is visible on dashboard');
+add('V65 redistribution schema',read('db/v77.sql').includes('lineup_redistribution_profiles')&&read('db/v77.sql').includes('lineup_redistribution_runs'),'v77 lineup redistribution warehouse');
+add('V65 redistribution learner',read('src/lib/lineupRoleRedistribution.ts').includes('deriveRedistributionProfiles')&&read('src/lib/lineupRoleRedistribution.ts').includes('withoutRows'),'learns teammate opportunity changes when a role player is absent');
+add('V65 live injury activation',read('src/lib/lineupRoleRedistribution.ts').includes('injury_context_snapshots')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithLineupRedistribution'),'fresh injury snapshots activate learned teammate lifts');
+add('V65 simulation integration',read('src/lib/simulation.ts').includes('roleRedistributionConfidence')&&read('src/lib/sportOutcomeSimulation.ts').includes('roleProjectionScale'),'redistribution changes probability and player-prop simulation means');
+add('V65 dashboard',read('src/components/Dashboard.tsx').includes('LineupRedistributionPanel')&&read('src/components/LineupRedistributionPanel.tsx').includes('V65 ROLE REDISTRIBUTION'),'injury-driven role shifts are visible');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
