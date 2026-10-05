@@ -25,6 +25,7 @@ import StartingLineupPanel from './StartingLineupPanel';
 import ScheduleFatiguePanel from './ScheduleFatiguePanel';
 import VenueConditionsPanel from './VenueConditionsPanel';
 import MarketMovementLearningPanel from './MarketMovementLearningPanel';
+import CrossSportOptimizerPanel from './CrossSportOptimizerPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -1070,6 +1071,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <CrossSportOptimizerPanel/>
 
     <MarketMovementLearningPanel/>
 
