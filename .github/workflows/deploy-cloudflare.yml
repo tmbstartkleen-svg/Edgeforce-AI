@@ -136,6 +136,25 @@ jobs:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
           EXPECTED_APP_VERSION: "103.0.0"
 
+      - name: Record Cloudflare platform convergence evidence
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          HEALTH=$(curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health")
+          BODY=$(jq -cn \
+            --arg deploymentUrl "$DEPLOYMENT_URL" \
+            --arg workflowRunId "$GITHUB_RUN_ID" \
+            --argjson runtime "$HEALTH" \
+            '{platform:"cloudflare",deploymentUrl:$deploymentUrl,version:$runtime.version,
+              modelVersion:$runtime.modelVersion,migrationVersion:$runtime.migrationVersion,
+              commitSha:$runtime.deploymentCommit,workflowRunId:$workflowRunId,source:"production-cloudflare"}')
+          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/release/platform-convergence" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "$BODY"
+          echo
+
       - name: Publish deployment URL
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
