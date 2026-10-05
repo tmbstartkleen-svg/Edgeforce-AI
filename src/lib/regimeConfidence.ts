@@ -1,5 +1,6 @@
 import {db} from './db';
 import type {Market} from './types';
+import {applyOptimizerBlend,loadCrossSportOptimizerProfiles,selectOptimizerProfile,type OptimizerProfile,type OptimizerProfileMap} from './crossSportOptimizer';
 
 export type MarketRegime='STABLE'|'VOLATILE'|'DISLOCATED'|'THIN'|'UNKNOWN';
 export type DynamicConfidenceLabel='HIGH'|'MEDIUM'|'LOW';
@@ -12,6 +13,8 @@ export type DynamicCalibrationProfile={
  brierScore:number;
  decayedScore:number;
  confidenceLabel?:string;
+ optimizer?:OptimizerProfile;
+ optimizerOnly?:boolean;
 };
 
 export type DynamicCalibrationMap=Record<string,DynamicCalibrationProfile>;
@@ -34,7 +37,9 @@ export type DynamicConfidenceResult={
   distributionConfidence:number;
   historicalReliability:number;
   regimeMultiplier:number;
+  optimizerConfidence?:number;
  };
+ optimizerBlend:{applied:boolean;scope:string;confidence:number;councilWeight:number;simulationWeight:number;marketWeight:number};
  profile?:DynamicCalibrationProfile;
 };
 
@@ -49,7 +54,7 @@ function freshnessScore(sourceAgeMin:number){
 }
 
 function historicalReliability(profile?:DynamicCalibrationProfile){
- if(!profile||profile.sampleSize<20)return .55;
+ if(!profile||profile.optimizerOnly||profile.sampleSize<20)return .55;
  const sample=Math.min(1,Math.log10(Math.max(10,profile.sampleSize))/3);
  const calibration=1-clamp(profile.calibrationError/.16);
  const brier=1-clamp(Math.max(0,profile.brierScore-.16)/.20);
@@ -83,7 +88,10 @@ export function calibrateDynamicConfidence(args:{
  profile?:DynamicCalibrationProfile;
 }):DynamicConfidenceResult{
  const {market,profile}=args;
- const raw=clamp(args.rawProbability,.001,.999);
+ const rawSimulation=clamp(args.rawProbability,.001,.999);
+ const marketProbability=market.consensus?.consensusProbability??market.marketProb;
+ const optimized=applyOptimizerBlend(profile?.optimizer,market.modelProb,rawSimulation,marketProbability);
+ const raw=clamp(optimized.probability,.001,.999);
  const ciLow=clamp(args.ci[0]),ciHigh=clamp(args.ci[1]);
  const ciWidth=Math.max(0,ciHigh-ciLow);
  const regime=regimeFor(market,ciWidth);
@@ -106,17 +114,19 @@ export function calibrateDynamicConfidence(args:{
  const dynamicConfidence=clamp(base*rMultiplier,.18,.98);
  const uncertainty=1-dynamicConfidence;
 
- const profileError=profile?.sampleSize&&profile.sampleSize>=20?profile.calibrationError:0;
- const profileBrier=profile?.sampleSize&&profile.sampleSize>=20?profile.brierScore:.25;
+ const profileError=!profile?.optimizerOnly&&profile?.sampleSize&&profile.sampleSize>=20?profile.calibrationError:0;
+ const profileBrier=!profile?.optimizerOnly&&profile?.sampleSize&&profile.sampleSize>=20?profile.brierScore:.25;
  const historicalShrinkage=clamp(profileError*1.55+Math.max(0,profileBrier-.25)*.65,0,.28);
  const historyAdjusted=.5+(raw-.5)*(1-historicalShrinkage);
 
- const consensusProbability=market.consensus?.consensusProbability??market.marketProb;
- const consensusBlend=clamp((1-dynamicConfidence)*.38+(regime==='DISLOCATED'?.12:regime==='THIN'?.08:0),.04,.42);
+ const consensusProbability=marketProbability;
+ const optimizerMarketWeight=optimized.applied?optimized.weights.marketWeight:0;
+ const consensusBlendBase=clamp((1-dynamicConfidence)*.38+(regime==='DISLOCATED'?.12:regime==='THIN'?.08:0),.04,.42);
+ const consensusBlend=clamp(consensusBlendBase*(1-optimizerMarketWeight*.70),.02,.42);
  const calibratedProbability=clamp(historyAdjusted*(1-consensusBlend)+consensusProbability*consensusBlend,.001,.999);
 
  const extraWidth=uncertainty*.045+(regime==='DISLOCATED'?.025:regime==='VOLATILE'?.012:0);
- const centerShift=calibratedProbability-raw;
+ const centerShift=calibratedProbability-rawSimulation;
  const calibratedCi:[number,number]=[
   clamp(ciLow+centerShift-extraWidth),
   clamp(ciHigh+centerShift+extraWidth)
@@ -140,7 +150,12 @@ export function calibrateDynamicConfidence(args:{
    consensusAgreement,
    distributionConfidence,
    historicalReliability:historical,
-   regimeMultiplier:rMultiplier
+   regimeMultiplier:rMultiplier,
+   optimizerConfidence:optimized.confidence
+  },
+  optimizerBlend:{
+   applied:optimized.applied,scope:optimized.scope,confidence:optimized.confidence,
+   councilWeight:optimized.weights.councilWeight,simulationWeight:optimized.weights.simulationWeight,marketWeight:optimized.weights.marketWeight
   },
   profile
  };
@@ -150,7 +165,8 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
  const sql=db();
  if(!sql)return {};
  try{
-  const rows=await sql`
+  const [rows,optimizerMap]=await Promise.all([
+   sql`
    select sport,market_key as "marketKey",sample_size as "sampleSize",
     calibration_error::float as "calibrationError",
     brier_score::float as "brierScore",
@@ -160,7 +176,9 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
    where as_of >= now()-interval '120 days'
    order by as_of desc
    limit 2000
-  `;
+  `,
+   loadCrossSportOptimizerProfiles().catch(()=>({} as OptimizerProfileMap))
+  ]);
   const grouped=new Map<string,DynamicCalibrationProfile[]>();
   for(const raw of rows as any[]){
    const p:DynamicCalibrationProfile={
@@ -180,14 +198,24 @@ export async function loadDynamicCalibrationProfiles():Promise<DynamicCalibratio
   const out:DynamicCalibrationMap={};
   for(const [key,list] of grouped){
    const weight=list.reduce((s,x)=>s+Math.max(1,x.sampleSize),0);
+   const sport=list[0]?.sport||'',marketKey=list[0]?.marketKey||'';
    out[key]={
-    sport:list[0]?.sport||'',
-    marketKey:list[0]?.marketKey||'',
+    sport,
+    marketKey,
     sampleSize:list.reduce((s,x)=>s+x.sampleSize,0),
     calibrationError:list.reduce((s,x)=>s+x.calibrationError*Math.max(1,x.sampleSize),0)/Math.max(1,weight),
     brierScore:list.reduce((s,x)=>s+x.brierScore*Math.max(1,x.sampleSize),0)/Math.max(1,weight),
     decayedScore:list.reduce((s,x)=>s+x.decayedScore*Math.max(1,x.sampleSize),0)/Math.max(1,weight),
-    confidenceLabel:list.some(x=>x.confidenceLabel==='HIGH')?'HIGH':list.some(x=>x.confidenceLabel==='MEDIUM')?'MEDIUM':'LOW'
+    confidenceLabel:list.some(x=>x.confidenceLabel==='HIGH')?'HIGH':list.some(x=>x.confidenceLabel==='MEDIUM')?'MEDIUM':'LOW',
+    optimizer:selectOptimizerProfile(optimizerMap,sport,marketKey)
+   };
+  }
+  for(const optimizer of Object.values(optimizerMap)){
+   const k=calibrationProfileKey(optimizer.sport,optimizer.marketKey);
+   if(out[k]){if(!out[k].optimizer)out[k].optimizer=optimizer;continue}
+   out[k]={
+    sport:optimizer.sport,marketKey:optimizer.marketKey,sampleSize:0,calibrationError:0,brierScore:.25,decayedScore:.5,
+    confidenceLabel:'MEDIUM',optimizer,optimizerOnly:true
    };
   }
   return out;

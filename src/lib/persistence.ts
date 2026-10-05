@@ -146,6 +146,7 @@ export async function recordModelRuns(rows:any[]){
           regime:x.regime??null,
           historicalShrinkage:x.historicalShrinkage??null,
           consensusBlend:x.consensusBlend??null,
+          optimizerBlend:x.optimizerBlend??null,
           dynamicConfidenceComponents:x.dynamicConfidenceComponents??null,
           simProjection:x.simProjection||{},
           distributionFamily:x.simProjection?.distributionFamily||null,

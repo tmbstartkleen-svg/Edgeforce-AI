@@ -180,6 +180,10 @@ const requiredFiles=[
  'src/app/api/intelligence/market-movement-learning/route.ts',
  'src/app/api/testing/market-movement-learning/route.ts',
  'src/components/MarketMovementLearningPanel.tsx',
+ 'src/lib/crossSportOptimizer.ts',
+ 'src/app/api/intelligence/cross-sport-optimizer/route.ts',
+ 'src/app/api/testing/cross-sport-optimizer/route.ts',
+ 'src/components/CrossSportOptimizerPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -279,6 +283,16 @@ add('V69 persistence and rebuild',read('src/app/api/cron/scan/route.ts').include
 add('V69 dashboard',read('src/components/Dashboard.tsx').includes('MarketMovementLearningPanel')&&read('src/components/MarketMovementLearningPanel.tsx').includes('V69 MARKET LEARNING'),'movement and closing-line learning are visible');
 add('V69 recommendation-time price audit',read('src/lib/persistence.ts').includes('offeredOdds:x.odds')&&read('src/lib/predictionFeedback.ts').includes('featureSnapshot?.offeredOdds'),'CLV uses the actual recommendation-time price');
 add('V69 continuous drilldown history',read('src/app/api/market/[id]/lines/route.ts').includes('canonicalMovementSelection')&&read('src/components/MarketDrilldown.tsx').includes("'/lines'+(qs.toString()"),'market drilldown follows the same side across point changes');
+add('V70 optimizer schema',read('db/v82.sql').includes('cross_sport_optimizer_profiles')&&read('db/v82.sql').includes('cross_sport_optimizer_runs'),'v82 stores hierarchical optimizer profiles and training runs');
+add('V70 chronological optimizer',read('src/lib/crossSportOptimizer.ts').includes('splitRows')&&read('src/lib/crossSportOptimizer.ts').includes('holdoutBrierGain')&&read('src/lib/crossSportOptimizer.ts').includes('stableLog'),'optimizer uses chronological holdout promotion gates');
+add('V70 hierarchy and shrinkage',read('src/lib/crossSportOptimizer.ts').includes("scope:'GLOBAL'")&&read('src/lib/crossSportOptimizer.ts').includes("scope:'SPORT'")&&read('src/lib/crossSportOptimizer.ts').includes("scope:'SPORT_MARKET'")&&read('src/lib/crossSportOptimizer.ts').includes('shrink(best,prior'),'global, sport and exact-market profiles shrink toward parent priors');
+add('V70 bounded blend',read('src/lib/crossSportOptimizer.ts').includes('for(let sim=40;sim<=100;sim+=5)')&&read('src/lib/crossSportOptimizer.ts').includes('for(let market=0;market<=25;market+=5)'),'simulation stays >=40% and direct market weight <=25% in candidate search');
+add('V70 safe fallback',read('src/lib/crossSportOptimizer.ts').includes('SAFE_BASELINE')&&read('src/lib/crossSportOptimizer.ts').includes('if(!profile||!profile.promoted)'),'unpromoted groups preserve simulation-first behavior');
+add('V70 runtime calibration',read('src/lib/regimeConfidence.ts').includes('applyOptimizerBlend')&&read('src/lib/scanner.ts').includes("calibrationProfileKey(r.sport,'*')")&&read('src/lib/scanner.ts').includes("calibrationProfileKey('*','*')"),'promoted exact, sport and global optimizer profiles feed final probability calibration');
+add('V70 consensus de-duplication',read('src/lib/regimeConfidence.ts').includes('optimizerMarketWeight')&&read('src/lib/regimeConfidence.ts').includes('consensusBlendBase*(1-optimizerMarketWeight*.70)'),'existing consensus blend is attenuated when optimizer already uses market weight');
+add('V70 optimizer audit trail',read('src/lib/scanner.ts').includes('optimizerBlend:calibrated.optimizerBlend')&&read('src/lib/persistence.ts').includes('optimizerBlend:x.optimizerBlend'),'each recommendation persists the applied optimizer blend');
+add('V70 daily retraining',read('src/app/api/cron/recalibrate/route.ts').includes('rebuildCrossSportOptimizerProfiles'),'daily recalibration rebuilds cross-sport optimizer profiles');
+add('V70 regression and dashboard',read('src/app/api/testing/cross-sport-optimizer/route.ts').includes('buildCrossSportOptimizerProfiles')&&read('src/components/Dashboard.tsx').includes('CrossSportOptimizerPanel'),'deterministic optimizer regression and dashboard visibility are present');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
