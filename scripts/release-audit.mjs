@@ -88,6 +88,9 @@ const requiredFiles=[
  'src/app/api/live-comeback/route.ts',
  'src/app/api/testing/live-comeback/route.ts',
  'src/components/LiveComebackPanel.tsx',
+ 'src/lib/productionObservability.ts',
+ 'src/app/api/operations/observability/route.ts',
+ 'src/components/ProductionObservabilityPanel.tsx',
  'src/lib/expertModelSuite.ts',
  'src/lib/expertModelBridge.ts',
  'src/lib/expertDataBridge.ts',
@@ -268,6 +271,7 @@ add('V53 expert API',read('src/app/api/intelligence/expert-models/route.ts').inc
 add('V53 expert dashboard',read('src/components/Dashboard.tsx').includes('ExpertModelSuitePanel')&&read('src/components/ExpertModelSuitePanel.tsx').includes('V61 EXPERT MODELING SUITE'),'expert suite remains visible on dashboard');
 add('V52 live comeback engine',read('src/lib/liveComeback.ts').includes('BUY_LOW_REVIEW')&&read('src/lib/liveComeback.ts').includes('requiresGameStateConfirmation'),'buy-low scoring requires explicit live game-state confirmation');
 add('V52 live comeback API',read('src/app/api/live-comeback/route.ts').includes('v52-live-comeback-1')&&read('src/app/api/testing/live-comeback/route.ts').includes('gameStateGuardrail'),'production endpoint and regression guardrail are present');
+add('V122 production observability',read('src/components/OperatorCommandCenter.tsx').includes('ProductionObservabilityPanel')&&read('src/lib/productionCertification.ts').includes('observability: production health is CRITICAL'),'production observability is visible and certification-gated');
 add('V52 dashboard live comeback',read('src/components/Dashboard.tsx').includes('OperatorCommandCenter')&&read('src/components/OperatorCommandCenter.tsx').includes('LiveComebackPanel')&&read('src/components/LiveComebackPanel.tsx').includes('LIVE COMEBACK / HALFTIME BUY-LOW WATCH'),'live comeback watch is reachable through the main dashboard command center');
 add('V51 dashboard validation',read('src/components/Dashboard.tsx').includes('V51 PREDICTION VALIDATION LAB')&&read('src/components/Dashboard.tsx').includes('Brier skill'),'validation evidence is visible in the dashboard');
 add('V51 dashboard context',read('src/components/Dashboard.tsx').includes('V51 EVIDENCE-GATED RECOMMENDATIONS')&&read('src/components/Dashboard.tsx').includes('Live context'),'real context coverage remains visible alongside validation evidence');
