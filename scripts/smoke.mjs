@@ -122,6 +122,7 @@ assert(health.body?.sharedEvidenceContext===true,'shared evidence context flag m
 assert(health.body?.releaseExecutionCertification===true,'release execution certification flag missing');
 assert(health.body?.verifiedPromotionEvidence===true,'verified promotion evidence flag missing');
 assert(health.body?.rollbackEvidenceReconciliation===true,'rollback evidence reconciliation flag missing');
+assert(health.body?.cloudflareHostedPreviewParity===true,'Cloudflare hosted preview parity flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
