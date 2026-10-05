@@ -164,6 +164,10 @@ const requiredFiles=[
  'src/app/api/intelligence/lineup-redistribution/route.ts',
  'src/app/api/testing/lineup-redistribution/route.ts',
  'src/components/LineupRedistributionPanel.tsx',
+ 'src/lib/startingLineupIntelligence.ts',
+ 'src/app/api/intelligence/starting-lineups/route.ts',
+ 'src/app/api/testing/starting-lineups/route.ts',
+ 'src/components/StartingLineupPanel.tsx',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
 ];
@@ -232,6 +236,12 @@ add('V65 redistribution learner',read('src/lib/lineupRoleRedistribution.ts').inc
 add('V65 live injury activation',read('src/lib/lineupRoleRedistribution.ts').includes('injury_context_snapshots')&&read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithLineupRedistribution'),'fresh injury snapshots activate learned teammate lifts');
 add('V65 simulation integration',read('src/lib/simulation.ts').includes('roleRedistributionConfidence')&&read('src/lib/sportOutcomeSimulation.ts').includes('roleProjectionScale'),'redistribution changes probability and player-prop simulation means');
 add('V65 dashboard',read('src/components/Dashboard.tsx').includes('LineupRedistributionPanel')&&read('src/components/LineupRedistributionPanel.tsx').includes('V65 ROLE REDISTRIBUTION'),'injury-driven role shifts are visible');
+add('V66 depth chart schema',read('db/v78.sql').includes('depth_chart_profiles')&&read('db/v78.sql').includes('live_lineup_snapshots'),'v78 stores learned depth charts and live lineup observations');
+add('V66 starter history ingestion',read('src/lib/playerWarehouse.ts').includes('starter=excluded.starter')&&read('src/lib/playerWarehouse.ts').includes('booleanish'),'historical starter flags are preserved when providers expose them');
+add('V66 depth chart learner',read('src/lib/startingLineupIntelligence.ts').includes('deriveDepthChartProfiles')&&read('src/app/api/testing/starting-lineups/route.ts').includes('starter.depthRank===1'),'starter rate, role score and depth order are learned and regression tested');
+add('V66 live lineup runtime',read('src/lib/providers/contextFusion.ts').includes('enrichMarketsWithStartingLineups')&&read('src/app/api/cron/scan/route.ts').includes('recordLiveLineupSnapshots'),'live starter context and snapshots feed runtime');
+add('V66 lineup simulation integration',read('src/lib/simulation.ts').includes('lineupStarterDelta')&&read('src/lib/startingLineupIntelligence.ts').includes('lineupPromotionScore'),'starter uncertainty and injury-driven promotions affect simulation probability');
+add('V66 dashboard',read('src/components/Dashboard.tsx').includes('StartingLineupPanel')&&read('src/components/StartingLineupPanel.tsx').includes('V66 LINEUP INTELLIGENCE'),'lineup and depth-chart intelligence is visible');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
 add('V61 league scoring',read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueScore')&&read('src/lib/mlShadowRecovery.ts').includes('shadowLeagueWinnerDecision'),'live challenger ranking and winner decision are explicit');
