@@ -9,9 +9,12 @@ async function get(path){
 }
 
 async function post(path,payload){
+ const secret=process.env.INGEST_SECRET||process.env.CRON_SECRET||'';
+ const headers={'content-type':'application/json'};
+ if(secret)headers.authorization=`Bearer ${secret}`;
  const res=await fetch(base+path,{
   method:'POST',
-  headers:{'content-type':'application/json'},
+  headers,
   body:JSON.stringify(payload),
   redirect:'manual'
  });

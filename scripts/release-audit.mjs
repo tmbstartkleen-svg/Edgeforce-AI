@@ -854,6 +854,8 @@ add('V97 CI evidence artifact',read('.github/workflows/verify.yml').includes('ac
 add('V97 compile regression repair',read('src/lib/preventiveThresholdRecovery.ts').includes('export type ThresholdRecoverySummary')&&read('src/lib/preventiveThresholdStability.ts').includes('export type ThresholdStabilitySummary')&&read('src/lib/preventiveChampionBaseline.ts').includes('export type ChampionBaselineSummary'),'V96 TypeScript inference regressions are repaired with explicit summary contracts');
 add('V97 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleaseExecutionCertificationPanel'),'execution certification is visible');
 
+add('V97 smoke authenticated mutations',read('scripts/smoke.mjs').includes("headers.authorization=\`Bearer \${secret}\`"),'local smoke mutations authenticate when deployment secrets are configured');
+
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
