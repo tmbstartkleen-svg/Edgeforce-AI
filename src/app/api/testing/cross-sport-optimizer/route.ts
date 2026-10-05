@@ -7,8 +7,8 @@ export async function GET(){
  const rows=[] as any[];
  for(let i=0;i<240;i++){
   const outcome=i%10<6?1:0;
-  const council=outcome?.66:.44;
-  const simulation=outcome?.58:.48;
+  const council=outcome===1?.66:.44;
+  const simulation=outcome===1?.58:.48;
   rows.push({
    occurredAt:new Date(Date.UTC(2026,0,1)+i*86400000).toISOString(),
    sport:i%2===0?'NFL':'NBA',marketKey:i%3===0?'spread':'moneyline',
