@@ -90,4 +90,4 @@ jobs:
           node-version: 22
       - run: npm install
       - name: Delete Cloudflare Preview
-        run: npx wrangler preview delete --worker-name "$WORKER_NAME" --name "$PREVIEW_NAME" --skip-confirmation
+        run: npm run preview:cloudflare:delete -- --name "$PREVIEW_NAME"
