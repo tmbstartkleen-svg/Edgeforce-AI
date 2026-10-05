@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V96',
- appVersion:'96.0.0',
- packageVersion:'0.96.0',
- modelVersion:'edgeforce-v96',
- migrationVersion:108
+ build:'V97',
+ appVersion:'97.0.0',
+ packageVersion:'0.97.0',
+ modelVersion:'edgeforce-v97',
+ migrationVersion:109
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -464,8 +464,8 @@ add('V74 hourly governor automation',read('src/lib/automationHealth.ts').include
 add('V74 predeploy freeze',read('.github/workflows/deploy-production.yml').includes('Enforce current production SLO budget')&&read('.github/workflows/deploy-production.yml').includes('deploymentAllowed // false'),'existing production can freeze the next deploy before build');
 add('V74 candidate SLO gate',read('.github/workflows/deploy-production.yml').includes('Refresh candidate SLO governor')&&read('.github/workflows/deploy-production.yml').includes('SLO_BUDGET_PASSED'),'candidate must pass the error-budget gate before comparative canary');
 add('V74 production certification',read('src/lib/productionCertification.ts').includes("sloGovernor.state==='FROZEN'")&&read('src/lib/v1ReleaseReadiness.ts').includes("'slo-error-budget'"),'production certification and final readiness consume SLO state');
-add('V74 release identity',read('src/lib/releaseManifest.ts').includes("build:'V74'")&&read('src/lib/releaseManifest.ts').includes("modelVersion:'edgeforce-v74'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:86'),'V74 release identity is synchronized');
-add('V74 deployment identity',read('.github/workflows/verify.yml').includes('MODEL_VERSION=edgeforce-v74')&&read('.github/workflows/deploy-production.yml').includes('MODEL_VERSION=edgeforce-v74')&&read('.github/workflows/deploy-cloudflare.yml').includes('74.0.0'),'verification and production workflows target V74');
+add('V74 release milestone',exists('EDGEFORCE_V74_RELEASE.md')&&exists('db/v86.sql')&&read('src/lib/sloGovernor.ts').includes('SLO'),'V74 SLO governor milestone remains preserved');
+add('V74 deployment controls',read('.github/workflows/deploy-production.yml').includes('Enforce current production SLO budget')&&read('.github/workflows/deploy-production.yml').includes('SLO_BUDGET_PASSED')&&read('.github/workflows/deploy-production.yml').includes(expected.modelVersion),'V74 SLO deployment controls remain active under the current release identity');
 add('V74 regression and dashboard',read('src/app/api/testing/slo-governor/route.ts').includes('bad.freezeTriggered')&&read('src/components/Dashboard.tsx').includes('SloGovernorPanel'),'SLO freeze/recovery regression and dashboard visibility are present');
 add('V61 multi-challenger seeding',read('src/lib/externalMlTournament.ts').includes('startShadowLeague')&&read('src/lib/externalMlTournament.ts').includes('ML_SHADOW_LEAGUE_SIZE'),'post-quarantine tournaments seed multiple live challengers');
 add('V61 concurrent shadow scoring',read('src/lib/mlShadowRecovery.ts').includes('const competitors=exact.get')&&read('src/lib/mlShadowRecovery.ts').includes('for(const shadow of competitors)'),'every active challenger receives the same live market slate');
@@ -740,7 +740,7 @@ add('V84 supervision integration',supervisionSources.includes('runThresholdRecov
 add('V84 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdRecoveryPanel'),'threshold recovery is visible');
 
 add('V85 probation governor',read('src/lib/preventiveThresholdProbation.ts').includes('nextThresholdProbationState'),'probation state machine exists');
-add('V85 staged influence',read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.25")&&read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.50")&&read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.75"),'adaptive influence stages at 25, 50, and 75 percent');
+add('V85 staged influence',read('src/lib/preventiveThresholdProbation.ts').includes("adaptiveWeight:.25")&&read('src/lib/preventiveThresholdProbation.ts').includes("currentStage===2?.50:.75")&&read('src/lib/preventiveThresholdProbation.ts').includes("nextStage===2?.50:.75"),'adaptive influence stages at 25, 50, and 75 percent');
 add('V85 threshold weighting',read('src/lib/preventiveDecisionThresholds.ts').includes('applyAdaptiveThresholdWeight')&&read('src/lib/preventiveDecisionThresholds.ts').includes('getAdaptiveThresholdWeight'),'threshold governor consumes probation weight');
 add('V85 rollback-only activation',read('src/lib/preventiveThresholdProbation.ts').includes('rollbackReferenceId'),'probation activates only after rollback recovery');
 add('V85 durable probation state',read('db/v97.sql').includes('preventive_threshold_probation_state')&&read('db/v97.sql').includes('preventive_threshold_probation_snapshots'),'probation state and history are durable');
@@ -815,7 +815,7 @@ add('V94 governance cycle coordinator',read('src/lib/preventiveBaselineGovernanc
 add('V94 lease locking',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("interval '90 seconds'")&&read('db/v106.sql').includes('preventive_baseline_governance_lock'),'database-backed governance lease exists');
 add('V94 cycle idempotency',read('src/lib/preventiveBaselineGovernanceCycle.ts').includes('SKIPPED_IDEMPOTENT')&&read('db/v106.sql').includes('cycle_key text not null unique'),'completed minute-bucket cycles are duplicate-safe');
 add('V94 transition journal',read('db/v106.sql').includes('preventive_baseline_governance_cycles')&&read('src/lib/preventiveBaselineGovernanceCycle.ts').includes("'COMPLETED'"),'governance cycle journal is durable');
-add('V94 SLO coordination',supervisionSources.includes('runBaselineGovernanceCycle')&&!supervisionSources.includes('runBaselineHandoffGovernor'),'SLO supervision uses the coordinated baseline-governance cycle');
+add('V94 SLO coordination',read('src/lib/sloGovernor.ts').includes('runPreventiveSupervisionCycle')&&read('src/lib/preventiveSupervisionCycle.ts').includes('runBaselineGovernanceCycle')&&!read('src/lib/sloGovernor.ts').includes('runBaselineHandoffGovernor'),'SLO supervision reaches baseline governance only through the unified coordinated cycle');
 add('V94 regression',read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_LOCKED')&&read('src/app/api/testing/preventive-baseline-governance-cycle/route.ts').includes('SKIPPED_IDEMPOTENT'),'regression covers locking and idempotency');
 add('V94 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveBaselineGovernanceCyclePanel'),'governance cycle status is visible');
 
@@ -839,7 +839,24 @@ add('V96 supervision lease',read('src/lib/preventiveSupervisionCycle.ts').includ
 add('V96 lease regression',read('src/app/api/testing/preventive-supervision-cycle/route.ts').includes("SKIPPED_LOCKED"),'supervision regression covers concurrent lock suppression');
 add('V96 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveSupervisionCyclePanel'),'unified supervision cycle is visible');
 
+add('V97 explicit typecheck script',pkg.scripts?.typecheck==='tsc --noEmit','TypeScript-only gate is explicit');
+add('V97 verify workflow typecheck',read('.github/workflows/verify.yml').includes('npm run typecheck'),'primary verification includes explicit typecheck');
+add('V97 production workflow typecheck',read('.github/workflows/deploy-production.yml').includes('npm run typecheck'),'production deploy includes explicit typecheck');
+add('V97 production predeploy smoke',read('.github/workflows/deploy-production.yml').includes('Predeploy local smoke')&&read('.github/workflows/deploy-production.yml').includes('Predeploy local load check'),'manual/automatic production deploys run local smoke and load gates');
+add('V97 ML compile gate',read('.github/workflows/deploy-production.yml').includes('python3 -m py_compile ml-service/app.py'),'production deploy compiles ML service before promotion');
+add('V97 execution certification',read('src/lib/releaseExecutionCertification.ts').includes('evaluateReleaseExecutionCertification'),'commit-specific execution certification exists');
+add('V97 strict certification integration',read('src/lib/productionCertification.ts').includes('currentReleaseExecutionCertification')&&read('src/lib/productionCertification.ts').includes('current-release execution certificate'),'strict runtime certification consumes execution evidence');
+add('V97 production evidence post',read('.github/workflows/deploy-production.yml').includes('/api/release/execution-certification')&&read('.github/workflows/deploy-production.yml').includes('remoteSmokePassed:true'),'production workflow records full execution evidence before strict certification');
+add('V97 durable execution history',read('db/v109.sql').includes('release_execution_certifications'),'execution certifications are durable');
+add('V97 regression endpoint',read('src/app/api/testing/release-execution-certification/route.ts').includes('fail.blockers.length===2'),'execution certification regression covers passing and failed evidence');
+add('V97 V1 readiness gate',read('src/lib/v1ReleaseReadiness.ts').includes("'release-execution'"),'V1 readiness exposes execution evidence as a required gate');
+add('V97 CI evidence artifact',read('.github/workflows/verify.yml').includes('actions/upload-artifact@v4')&&read('scripts/write-execution-evidence.mjs').includes('sha256'),'verification produces inspectable hashed execution evidence');
+add('V97 compile regression repair',read('src/lib/preventiveThresholdRecovery.ts').includes('export type ThresholdRecoverySummary')&&read('src/lib/preventiveThresholdStability.ts').includes('export type ThresholdStabilitySummary')&&read('src/lib/preventiveChampionBaseline.ts').includes('export type ChampionBaselineSummary'),'V96 TypeScript inference regressions are repaired with explicit summary contracts');
+add('V97 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleaseExecutionCertificationPanel'),'execution certification is visible');
+
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
-console.log(JSON.stringify(report,null,2));
+const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
+console.log(JSON.stringify(summary,null,2));
+if(process.env.RELEASE_AUDIT_VERBOSE==='true')console.log(JSON.stringify(report,null,2));
 if(failed.length)process.exit(1);

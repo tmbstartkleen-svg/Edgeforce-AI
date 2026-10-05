@@ -38,7 +38,10 @@ jobs:
           node-version: 22
 
       - run: npm install
+      - name: Compile ML service
+        run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-audit
@@ -60,6 +63,34 @@ jobs:
           echo "DEPLOY_BOOTSTRAP_SECRET=$DEPLOY_BOOTSTRAP_SECRET" >> "$GITHUB_ENV"
           LAUNCH_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${DEPLOY_COMMIT:0:12}"
           echo "LAUNCH_ID=$LAUNCH_ID" >> "$GITHUB_ENV"
+
+      - name: Start predeploy verification server
+        run: |
+          MODEL_VERSION=edgeforce-v97 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
+          echo $! > /tmp/edgeforce-predeploy.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/edgeforce-predeploy.log
+          exit 1
+
+      - name: Predeploy local smoke
+        run: npm run smoke
+        env:
+          ENABLE_TEST_ENDPOINTS: "true"
+
+      - name: Predeploy local load check
+        run: npm run load-check
+        env:
+          LOAD_REQUESTS: "60"
+          LOAD_MAX_P95_MS: "3000"
+
+      - name: Stop predeploy verification server
+        if: always()
+        run: kill $(cat /tmp/edgeforce-predeploy.pid) 2>/dev/null || true
 
       - name: Pull production project settings
         run: vercel --token="$VERCEL_TOKEN" pull --yes --environment=production 
@@ -154,7 +185,7 @@ jobs:
             --prod
             --yes
             
-            --env MODEL_VERSION=edgeforce-v96
+            --env MODEL_VERSION=edgeforce-v97
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -266,7 +297,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "96.0.0"
+          EXPECTED_APP_VERSION: "97.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -278,6 +309,18 @@ jobs:
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
+      - name: Record V97 execution certification
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          BODY=$(jq -cn             --arg releaseVersion "97.0.0"             --arg modelVersion "edgeforce-v97"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:109,commitSha:$commitSha,source:$source,
+              lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
+              smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
+              evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/execution-certification" -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY"
           echo
 
       - name: Record production release attestation

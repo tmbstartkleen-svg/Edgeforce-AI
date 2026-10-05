@@ -4,6 +4,17 @@ import {loadProbationPerformanceSummary} from './preventiveProbationPerformance'
 import {loadPreventiveDecisionCalibrationSummary} from './preventiveDecisionCalibration';
 import {RELEASE} from './releaseManifest';
 
+export type ChampionBaselineSummary={
+ source:string;
+ calibrationError:number;
+ brierScore:number;
+ sampleSize:number;
+ promotedFromStage:number|null;
+ promotedAt:string|null;
+ rationale:string[];
+ recent:any[];
+};
+
 export function shouldPromoteChampionBaseline(input:{
  probationState:string;
  probationStage:number;
@@ -77,8 +88,8 @@ export async function runChampionBaselineGovernor(){
  return {configured:true,promoted,...report};
 }
 
-export async function loadChampionBaselineSummary(){
- const sql=db();if(!sql)return {source:'RECOVERY_BASELINE',calibrationError:0,brierScore:0,sampleSize:0,promotedAt:null,rationale:[],recent:[]};
+export async function loadChampionBaselineSummary():Promise<ChampionBaselineSummary>{
+ const sql=db();if(!sql)return {source:'RECOVERY_BASELINE',calibrationError:0,brierScore:0,sampleSize:0,promotedFromStage:null,promotedAt:null,rationale:[],recent:[]};
  try{
   const [state]=await sql`
    select calibration_error::float as "calibrationError",brier_score::float as "brierScore",sample_size as "sampleSize",
@@ -90,6 +101,15 @@ export async function loadChampionBaselineSummary(){
     sample_size as "sampleSize",source,generated_at as "generatedAt"
    from preventive_champion_baseline_snapshots order by generated_at desc limit 20
   `;
-  return state?{...state,recent}:{source:'RECOVERY_BASELINE',calibrationError:0,brierScore:0,sampleSize:0,promotedAt:null,rationale:[],recent};
- }catch{return {source:'RECOVERY_BASELINE',calibrationError:0,brierScore:0,sampleSize:0,promotedAt:null,rationale:[],recent:[]}}
+  return state?{
+   source:String(state.source||'RECOVERY_BASELINE'),
+   calibrationError:Number(state.calibrationError||0),
+   brierScore:Number(state.brierScore||0),
+   sampleSize:Number(state.sampleSize||0),
+   promotedFromStage:state.promotedFromStage==null?null:Number(state.promotedFromStage),
+   promotedAt:state.promotedAt?new Date(state.promotedAt).toISOString():null,
+   rationale:Array.isArray(state.rationale)?state.rationale.map(String):[],
+   recent:recent as any[]
+  }:{source:'RECOVERY_BASELINE',calibrationError:0,brierScore:0,sampleSize:0,promotedFromStage:null,promotedAt:null,rationale:[],recent:recent as any[]};
+ }catch{return {source:'RECOVERY_BASELINE',calibrationError:0,brierScore:0,sampleSize:0,promotedFromStage:null,promotedAt:null,rationale:[],recent:[]}}
 }
