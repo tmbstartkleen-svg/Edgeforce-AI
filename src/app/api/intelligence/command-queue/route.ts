@@ -16,17 +16,19 @@ import {analyzeOpportunityLifecycle} from '@/lib/edgeLifecycle';
 import {buildEarlyCashoutLadder} from '@/lib/earlyCashout';
 import {buildOpportunityCommandQueue} from '@/lib/opportunityCommandQueue';
 import {db} from '@/lib/db';
+import {buildCommandEffectiveness} from '@/lib/commandLearning';
 
 export const dynamic='force-dynamic';
 
 export async function GET(){
- const [odds,learnedWeights,dynamicCalibrationProfiles,prediction,router,execution]=await Promise.all([
+ const [odds,learnedWeights,dynamicCalibrationProfiles,prediction,router,execution,commandLearning]=await Promise.all([
   ingestOdds(),
   loadLearnedWeightMultipliers(),
   loadDynamicCalibrationProfiles(),
   fetchPredictionMarkets(),
   buildDailyEdgePlan(),
-  loadExecutionFeedback()
+  loadExecutionFeedback(),
+  buildCommandEffectiveness()
  ]);
  const context=await enrichMarketsWithContext(odds.markets);
  const scanned=scanMarkets(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibrationProfiles);
@@ -50,7 +52,8 @@ export async function GET(){
  const report=buildOpportunityCommandQueue({
   decisions:decisions.rows,
   lifecycle:[...lifecycle.rows,...lifecycle.exits],
-  cashout
+  cashout,
+  learning:commandLearning.rows.map(x=>({commandType:x.commandType,multiplier:x.multiplier}))
  });
 
  const sql=db();
