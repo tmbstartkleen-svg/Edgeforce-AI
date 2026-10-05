@@ -78,6 +78,31 @@ jobs:
           echo "PREVIOUS_DEPLOYMENT_ID=$PREVIOUS_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "PREVIOUS_DEPLOYMENT_URL=$PREVIOUS_DEPLOYMENT_URL" >> "$GITHUB_ENV"
 
+      - name: Enforce current production SLO budget
+        shell: bash
+        run: |
+          set +e
+          GOVERNOR=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/release/error-budget" 2>/tmp/edgeforce-slo-governor.err)
+          GOV_CODE=$?
+          set -e
+          if [ "$GOV_CODE" -eq 0 ]; then
+            echo "$GOVERNOR"
+            ALLOWED=$(printf '%s' "$GOVERNOR" | jq -r '.deploymentAllowed // false')
+            STATE=$(printf '%s' "$GOVERNOR" | jq -r '.state // "UNKNOWN"')
+            if [ "$ALLOWED" != "true" ]; then
+              echo "Production deployment blocked by SLO governor state: $STATE"
+              exit 1
+            fi
+          else
+            echo "SLO governor endpoint not present on prior production; using one-time V74 bootstrap safety check."
+            OBS=$(vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PREVIOUS_DEPLOYMENT_URL/api/operations/observability")
+            OVERALL=$(printf '%s' "$OBS" | jq -r '.overall // "CRITICAL"')
+            if [ "$OVERALL" = "CRITICAL" ]; then
+              echo "Bootstrap blocked because current production observability is CRITICAL."
+              exit 1
+            fi
+          fi
+
       - name: Capture production baseline
         shell: bash
         run: |
@@ -287,6 +312,25 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"STRICT_CERTIFIED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
+      - name: Refresh candidate SLO governor
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/error-budget" -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json"
+          echo
+
+      - name: Record SLO-budget-passed launch stage
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl "$PRODUCTION_URL/api/release/launch-status" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SLO_BUDGET_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
       - name: Run comparative canary guard
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
@@ -324,7 +368,7 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"CANARY_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Require V73 strict v1 readiness
+      - name: Require V74 strict v1 readiness
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
