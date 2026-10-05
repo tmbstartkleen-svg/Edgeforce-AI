@@ -9,6 +9,7 @@ import {runChampionDriftMonitor} from '@/lib/mlChampionDrift';
 import {runShadowRecovery} from '@/lib/mlShadowRecovery';
 import {rebuildPlayerCalibrationProfiles} from '@/lib/playerCalibration';
 import {rebuildOpponentMatchupProfiles} from '@/lib/opponentMatchupLearning';
+import {rebuildLineupRedistributionProfiles} from '@/lib/lineupRoleRedistribution';
 
 export const dynamic='force-dynamic';
 
@@ -17,14 +18,15 @@ export async function GET(req:Request){
  if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`)return Response.json({ok:false,error:'unauthorized'},{status:401});
  const started=Date.now();
  try{
-  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups]=await Promise.all([
+  const [modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution]=await Promise.all([
    runRecalibration(),
    rebuildLearnedSgpCorrelations(),
    runModelGovernance(),
    runValidationLab(),
    trainAndPersistSportModels(),
    rebuildPlayerCalibrationProfiles(),
-   rebuildOpponentMatchupProfiles()
+   rebuildOpponentMatchupProfiles(),
+   rebuildLineupRedistributionProfiles()
   ]);
   const championDrift=await runChampionDriftMonitor().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'champion drift monitor failed'}));
   const shadowRecovery=await runShadowRecovery().catch(error=>({ok:false,mode:'failed',error:error instanceof Error?error.message:'shadow recovery failed'}));
@@ -49,6 +51,8 @@ export async function GET(req:Request){
    opponentMatchupQualified:(opponentMatchups as any).qualifiedProfiles??null,
    opponentPlayerProfiles:(opponentMatchups as any).playerProfilesWritten??null,
    opponentPlayerQualified:(opponentMatchups as any).qualifiedPlayerProfiles??null,
+   lineupRedistributionProfiles:(lineupRedistribution as any).profilesWritten??null,
+   lineupRedistributionQualified:(lineupRedistribution as any).qualifiedProfiles??null,
    externalMlMode:(externalMlTournament as any).mode??null,
    externalMlCandidates:(externalMlTournament as any).candidates??null,
    externalMlPromoted:(externalMlTournament as any).promoted??null,
@@ -62,7 +66,7 @@ export async function GET(req:Request){
    shadowRecoveryRecovered:(shadowRecovery as any).recovered??null,
    shadowRecoveryRejected:(shadowRecovery as any).rejected??null
   });
-  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+  return Response.json({ok:true,modelCalibration,sgpCorrelation,modelGovernance,predictionValidation,trainedSportModels,playerCalibration,opponentMatchups,lineupRedistribution,championDrift,shadowRecovery,externalMlTournament,ranAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'recalibration failed';
   await recordAutomationRun('recalibrate','failed',started,{},message);
