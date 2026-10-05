@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V85',
- appVersion:'85.0.0',
- packageVersion:'0.85.0',
- modelVersion:'edgeforce-v85',
- migrationVersion:97
+ build:'V86',
+ appVersion:'86.0.0',
+ packageVersion:'0.86.0',
+ modelVersion:'edgeforce-v86',
+ migrationVersion:98
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -260,6 +260,11 @@ const requiredFiles=[
  'src/app/api/testing/preventive-threshold-probation/route.ts',
  'src/components/PreventiveThresholdProbationPanel.tsx',
  'EDGEFORCE_V85_RELEASE.md',
+ 'src/lib/preventiveProbationPerformance.ts',
+ 'src/app/api/operations/preventive-probation-performance/route.ts',
+ 'src/app/api/testing/preventive-probation-performance/route.ts',
+ 'src/components/PreventiveProbationPerformancePanel.tsx',
+ 'EDGEFORCE_V86_RELEASE.md',
  'EDGEFORCE_V71_RELEASE.md',
  'src/lib/liveInjuryTracking.ts',
  'src/app/api/cron/injuries/route.ts'
@@ -691,6 +696,14 @@ add('V85 rollback-only activation',read('src/lib/preventiveThresholdProbation.ts
 add('V85 durable probation state',read('db/v97.sql').includes('preventive_threshold_probation_state')&&read('db/v97.sql').includes('preventive_threshold_probation_snapshots'),'probation state and history are durable');
 add('V85 supervision integration',read('src/lib/sloGovernor.ts').includes('runThresholdProbationGovernor'),'SLO supervision refreshes probation before adaptive threshold writes');
 add('V85 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveThresholdProbationPanel'),'probation rollout is visible');
+
+add('V86 probation performance governor',read('src/lib/preventiveProbationPerformance.ts').includes('evaluateProbationPerformance'),'probation performance monitor exists');
+add('V86 baseline comparison',read('src/lib/preventiveProbationPerformance.ts').includes('baselineCalibrationError')&&read('src/lib/preventiveProbationPerformance.ts').includes('baselineBrierScore'),'probation stages compare to recovery baseline');
+add('V86 stage rollback',read('src/lib/preventiveProbationPerformance.ts').includes('rollbackStage')&&read('src/lib/preventiveProbationPerformance.ts').includes("status:'ROLLBACK'"),'material degradation can roll back one probation stage');
+add('V86 durable performance state',read('db/v98.sql').includes('preventive_probation_performance_state')&&read('db/v98.sql').includes('preventive_probation_performance_snapshots'),'probation performance and rollback history are durable');
+add('V86 performance regression',read('src/app/api/testing/preventive-probation-performance/route.ts').includes("rollback.status==='ROLLBACK'"),'regression covers stable and rollback performance');
+add('V86 supervision ordering',read('src/lib/sloGovernor.ts').includes('runProbationPerformanceGovernor'),'probation performance runs before adaptive threshold writes');
+add('V86 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveProbationPerformancePanel'),'probation performance is visible');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
