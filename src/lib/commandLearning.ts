@@ -114,3 +114,20 @@ export async function buildCommandEffectiveness(){
  const multipliers=new Map(rows.map(x=>[x.commandType,x.multiplier]));
  return {configured:true,rows,multipliers,ungradedCashout};
 }
+export async function persistCommandEffectiveness(rows:CommandEffectivenessRow[]){
+ const sql=db();
+ if(!sql||!rows.length)return {persisted:false};
+ const latest=await sql`select max(observed_at) as latest from command_effectiveness_snapshots`;
+ const latestMs=latest[0]?.latest?new Date(latest[0].latest as string).getTime():0;
+ if(latestMs&&Date.now()-latestMs<15*60000)return {persisted:false};
+ for(const x of rows){
+  await sql`
+   insert into command_effectiveness_snapshots(
+    observed_at,command_type,samples,graded_samples,positive_samples,positive_rate,average_utility,confidence,multiplier,evidence,state,metadata
+   ) values(
+    now(),${x.commandType},${x.samples},${x.gradedSamples},${x.positiveSamples},${x.positiveRate},${x.averageUtility},${x.confidence},${x.multiplier},${x.evidence},${x.state},${sql.json({} as any)}
+   )
+  `;
+ }
+ return {persisted:true};
+}
