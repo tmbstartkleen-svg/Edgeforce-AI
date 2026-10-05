@@ -7,6 +7,7 @@ create table if not exists opponent_matchup_profiles (
   position_key text not null default '*',
   stat_key text not null,
   sample_size int not null default 0,
+  athlete_count int not null default 0,
   mean_allowed numeric not null default 0,
   league_mean numeric not null default 0,
   relative_signal numeric not null default 0,
@@ -20,12 +21,33 @@ create table if not exists opponent_matchup_profiles (
 create index if not exists opponent_matchup_profiles_lookup_idx
   on opponent_matchup_profiles(sport,opponent_key,position_key,stat_key,updated_at desc);
 
+create table if not exists player_opponent_matchup_profiles (
+  athlete_id text not null references athletes(id) on delete cascade,
+  sport text not null,
+  opponent_key text not null,
+  opponent_name text not null,
+  stat_key text not null,
+  sample_size int not null default 0,
+  baseline_mean numeric not null default 0,
+  opponent_mean numeric not null default 0,
+  relative_signal numeric not null default 0,
+  confidence numeric not null default 0,
+  updated_at timestamptz not null default now(),
+  metadata jsonb not null default '{}'::jsonb,
+  primary key(athlete_id,sport,opponent_key,stat_key)
+);
+
+create index if not exists player_opponent_matchup_profiles_lookup_idx
+  on player_opponent_matchup_profiles(athlete_id,sport,opponent_key,stat_key,updated_at desc);
+
 create table if not exists opponent_matchup_runs (
   id bigserial primary key,
   model_version text not null,
   rows_read int not null default 0,
   profiles_written int not null default 0,
   qualified_profiles int not null default 0,
+  player_profiles_written int not null default 0,
+  qualified_player_profiles int not null default 0,
   started_at timestamptz not null default now(),
   completed_at timestamptz,
   metadata jsonb not null default '{}'::jsonb
