@@ -12,6 +12,19 @@ export type ThresholdVector={
  snapshotId?:number|null;
 };
 
+export type ThresholdStabilitySummary={
+ status:string;
+ activeSnapshotId:number|null;
+ lastSafeSnapshotId:number|null;
+ rollbackCount:number;
+ driftScore:number;
+ instabilityScore:number;
+ rollbackApplied:boolean;
+ rationale:string[];
+ updatedAt:string|null;
+ recent:any[];
+};
+
 export type ThresholdStabilityResult={
  status:'STABLE'|'WATCH'|'ROLLBACK';
  driftScore:number;
@@ -150,9 +163,9 @@ export async function runThresholdStabilityGovernor(){
  return {configured:true,...result,rollbackApplied,rollbackCount,lastSafeSnapshotId:lastSafe?.id?Number(lastSafe.id):null};
 }
 
-export async function loadThresholdStabilitySummary(){
+export async function loadThresholdStabilitySummary():Promise<ThresholdStabilitySummary>{
  const sql=db();
- if(!sql)return {status:'STABLE',driftScore:0,instabilityScore:0,rollbackCount:0,rollbackApplied:false,rationale:['Database is not configured.'],recent:[]};
+ if(!sql)return {status:'STABLE',activeSnapshotId:null,lastSafeSnapshotId:null,driftScore:0,instabilityScore:0,rollbackCount:0,rollbackApplied:false,rationale:['Database is not configured.'],updatedAt:null,recent:[]};
  try{
   const [state]=await sql`
    select status,active_snapshot_id as "activeSnapshotId",last_safe_snapshot_id as "lastSafeSnapshotId",
@@ -165,6 +178,17 @@ export async function loadThresholdStabilitySummary(){
     rollback_applied as "rollbackApplied",generated_at as "generatedAt"
    from preventive_threshold_stability_snapshots order by generated_at desc limit 20
   `;
-  return {...state,rollbackApplied:Boolean((recent as any[])[0]?.rollbackApplied),recent};
- }catch{return {status:'STABLE',driftScore:0,instabilityScore:0,rollbackCount:0,rollbackApplied:false,rationale:[],recent:[]}}
+  return {
+   status:String(state?.status||'STABLE'),
+   activeSnapshotId:state?.activeSnapshotId==null?null:Number(state.activeSnapshotId),
+   lastSafeSnapshotId:state?.lastSafeSnapshotId==null?null:Number(state.lastSafeSnapshotId),
+   rollbackCount:Number(state?.rollbackCount||0),
+   driftScore:Number(state?.driftScore||0),
+   instabilityScore:Number(state?.instabilityScore||0),
+   rollbackApplied:Boolean((recent as any[])[0]?.rollbackApplied),
+   rationale:Array.isArray(state?.rationale)?state.rationale.map(String):[],
+   updatedAt:state?.updatedAt?new Date(state.updatedAt).toISOString():null,
+   recent:recent as any[]
+  };
+ }catch{return {status:'STABLE',activeSnapshotId:null,lastSafeSnapshotId:null,driftScore:0,instabilityScore:0,rollbackCount:0,rollbackApplied:false,rationale:[],updatedAt:null,recent:[]}}
 }
