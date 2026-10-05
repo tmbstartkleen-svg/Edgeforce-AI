@@ -153,7 +153,7 @@ export async function enrichMarketsWithOpponentMatchups(markets:Market[]){
   const a=byName.get(normalizePlayerName(m.playerContext!.name));
   return teamKey(opponentFor(m,m.playerContext?.team||a?.team));
  }).filter(Boolean))];
- const sports=[...new Set(candidates.map(x=>x.sport)];
+ const sports=[...new Set(candidates.map(x=>x.sport))];
  if(!opponentKeys.length||!sports.length)return {markets,matched:0,profiles:0};
 
  const profiles=await sql`
