@@ -23,6 +23,6 @@ export async function GET(){
  const blend=applyOptimizerBlend(selected,.66,.58,.52);
  const sums=profiles.every(x=>Math.abs(x.councilWeight+x.simulationWeight+x.marketWeight-1)<1e-9);
  const bounded=profiles.every(x=>x.marketWeight<=.250001&&x.simulationWeight>=.399999&&x.councilWeight<=.550001);
- const ok=sums&&bounded&&profiles.some(x=>x.scope==='GLOBAL')&&profiles.some(x=>x.scope==='SPORT')&&Boolean(exact)&&blend.probability>0&&blend.probability<1;
+ const ok=sums&&bounded&&promoted.length>0&&profiles.some(x=>x.scope==='GLOBAL')&&profiles.some(x=>x.scope==='SPORT')&&Boolean(exact)&&blend.applied&&blend.probability>0&&blend.probability<1;
  return Response.json({ok,build:'V70',schemaVersion:'v70-cross-sport-optimizer-1',profileCount:profiles.length,promoted:promoted.length,exact,blend},{headers:{'Cache-Control':'no-store'}});
 }
