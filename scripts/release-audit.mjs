@@ -29,6 +29,7 @@ const vercel=JSON.parse(read('vercel.json'));
 const wrangler=read('wrangler.jsonc');
 
 add('package version',pkg.version===expected.packageVersion,`${pkg.version} expected ${expected.packageVersion}`);
+add('typescript-eslint deterministic pin',pkg.overrides?.['@typescript-eslint/project-service']==='8.71.0'&&pkg.overrides?.['@typescript-eslint/typescript-estree']==='8.71.0','stable 8.71.0 family pin prevents partial-publish CI drift');
 add('release build',manifest.includes(`build:'${expected.build}'`),expected.build);
 add('release app version',manifest.includes(`appVersion:'${expected.appVersion}'`),expected.appVersion);
 add('release package version',manifest.includes(`packageVersion:'${expected.packageVersion}'`),expected.packageVersion);
