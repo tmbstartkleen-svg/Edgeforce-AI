@@ -79,6 +79,7 @@ jobs:
         env:
           PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
           EXPECTED_APP_VERSION: "103.0.0"
+          EXPECTED_MODEL_VERSION: "edgeforce-v103"
         run: node scripts/cloudflare-preview-smoke.mjs
 
       - name: Upload preview diagnostics
