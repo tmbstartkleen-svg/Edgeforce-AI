@@ -22,6 +22,7 @@ jobs:
 
       - run: npm install
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-audit
@@ -51,7 +52,7 @@ jobs:
           set -a
           test -f .vercel/.env.preview.local && . .vercel/.env.preview.local || true
           set +a
-          MODEL_VERSION=edgeforce-v96 DEFAULT_BANKROLL="${DEFAULT_BANKROLL:-1000}" npm run validate-env
+          MODEL_VERSION=edgeforce-v97 DEFAULT_BANKROLL="${DEFAULT_BANKROLL:-1000}" npm run validate-env
         env:
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -78,7 +79,27 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
-          EXPECTED_APP_VERSION: "96.0.0"
+          EXPECTED_APP_VERSION: "97.0.0"
+
+      - name: Load test hosted preview
+        run: npm run load-check
+        env:
+          SMOKE_BASE_URL: ${{ steps.deploy.outputs.preview_url }}
+          LOAD_REQUESTS: "60"
+          LOAD_MAX_P95_MS: "3000"
+
+      - name: Write preview execution evidence
+        run: npm run write-execution-evidence
+        env:
+          EXECUTION_EVIDENCE_SOURCE: release-candidate
+          REMOTE_SMOKE_PASSED: "true"
+
+      - name: Upload preview execution evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: edgeforce-preview-execution-evidence-${{ github.sha }}
+          path: artifacts/release-execution-evidence.json
+          if-no-files-found: error
 
       - name: Record release attestation
         run: |
