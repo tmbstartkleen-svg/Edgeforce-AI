@@ -61,7 +61,14 @@ jobs:
           else
             unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
             node scripts/prepare-cloudflare-temporary-preview.mjs
+            set +e
             npx wrangler deploy --temporary --config dist/server/wrangler.temporary.json > /tmp/cloudflare-temporary-preview.txt 2>&1
+            DEPLOY_CODE=$?
+            set -e
+            if [ "$DEPLOY_CODE" -ne 0 ]; then
+              sed -E 's#https://dash\.cloudflare\.com/claim-preview\?claimToken=[^[:space:]]+#<redacted-claim-url>#g' /tmp/cloudflare-temporary-preview.txt | tail -n 80
+              exit "$DEPLOY_CODE"
+            fi
             URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-temporary-preview.txt)
           fi
           test -n "$URL"
