@@ -1,4 +1,5 @@
 import {db} from './db';
+import {cashoutLearningSummary} from './cashoutLearning';
 
 export type CommandEffectivenessRow={
  commandType:string;
@@ -35,6 +36,8 @@ function bucketKey(x:CommandObs){
 }
 
 export async function buildCommandEffectiveness(){
+ const cashout=await cashoutLearningSummary();
+ const cashoutMap=new Map(cashout.rows.map(x=>[x.alertType,x]));
  const sql=db();
  if(!sql)return {configured:false,rows:[] as CommandEffectivenessRow[],multipliers:new Map<string,number>(),ungradedCashout:0};
  const commands=await sql`
@@ -103,7 +106,11 @@ export async function buildCommandEffectiveness(){
   const positiveRate=gradedSamples?positiveSamples/gradedSamples:0;
   const averageUtility=mean(values);
   const confidence=clamp(gradedSamples/80);
-  if(commandType==='CASHOUT_REVIEW'||commandType==='FINAL_LEG_REVIEW')return {commandType,samples,gradedSamples,positiveSamples,positiveRate,averageUtility,confidence:0,multiplier:1,evidence:'INSUFFICIENT',state:'UNSCORED'};
+  if(commandType==='CASHOUT_REVIEW'||commandType==='FINAL_LEG_REVIEW'){
+   const learned=cashoutMap.get(commandType as 'CASHOUT_REVIEW'|'FINAL_LEG_REVIEW');
+   if(!learned)return {commandType,samples,gradedSamples,positiveSamples,positiveRate,averageUtility,confidence:0,multiplier:1,evidence:'INSUFFICIENT',state:'UNSCORED'};
+   return {commandType,samples:learned.samples,gradedSamples:learned.gradedSamples,positiveSamples:learned.positiveSamples,positiveRate:learned.positiveRate,averageUtility:learned.averageDecisionUtility,confidence:learned.confidence,multiplier:learned.multiplier,evidence:evidence(learned.gradedSamples),state:learned.state};
+  }
   const shrink=gradedSamples/(gradedSamples+50);
   const centered=(averageUtility-.5)*2;
   const raw=.5+centered*shrink*.5;
@@ -112,7 +119,7 @@ export async function buildCommandEffectiveness(){
   return {commandType,samples,gradedSamples,positiveSamples,positiveRate,averageUtility,confidence,multiplier,evidence:evidence(gradedSamples),state};
  });
  const multipliers=new Map(rows.map(x=>[x.commandType,x.multiplier]));
- return {configured:true,rows,multipliers,ungradedCashout};
+ return {configured:true,rows,multipliers,ungradedCashout:cashout.pending};
 }
 export async function persistCommandEffectiveness(rows:CommandEffectivenessRow[]){
  const sql=db();
