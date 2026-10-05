@@ -15,17 +15,20 @@ const feat=(m:Market,k:string)=>Math.max(-1,Math.min(1,Number(m.sportFeatures?.[
 
 export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationResult{
  const playerConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerSampleConfidence||0)));
+ const v64PlayerOpponentConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerVsOpponentConfidence||0)));
+ const opponentHistoryAdjustment=v64PlayerOpponentConfidence>=.15
+  ? feat(m,'playerVsOpponentSignal')*.008*v64PlayerOpponentConfidence
+  : feat(m,'playerOpponent')*.008*playerConfidence;
  const playerAdjustment=(
   feat(m,'playerForm')*.012+
   feat(m,'playerHomeAway')*.008+
-  feat(m,'playerOpponent')*.008+
   feat(m,'playerUsage')*.006+
   (feat(m,'playerRosterContinuity')-.5)*.004
- )*playerConfidence;
+ )*playerConfidence+opponentHistoryAdjustment;
  const calibrationConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerCalibrationConfidence||0)));
  const calibrationBias=Math.max(-.06,Math.min(.06,Number(m.sportFeatures?.playerCalibrationBias||0)))*calibrationConfidence;
  const matchupConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.opponentMatchupConfidence||0)));
- const matchupAdjustment=feat(m,'opponentMatchupSignal')*.018*matchupConfidence;
+ const matchupAdjustment=feat(m,'opponentMatchupSignal')*.014*matchupConfidence;
  const base=clamp(m.modelProb+playerAdjustment+calibrationBias+matchupAdjustment);
  const uncertainty=(1-Math.max(.2,Math.min(1,m.confidence)))*.10;
  const context=Math.min(.08,
