@@ -13,6 +13,7 @@ import {getModelGovernanceStatus} from './modelGovernance';
 import {getValidationLabStatus} from './validationLab';
 import {championDriftStatus} from './mlChampionDrift';
 import {shadowRecoveryStatus} from './mlShadowRecovery';
+import {buildProductionObservability} from './productionObservability';
 
 export type ProductionCertificationReport={
  certified:boolean;
@@ -34,6 +35,7 @@ export type ProductionCertificationReport={
  modelValidation:Awaited<ReturnType<typeof getValidationLabStatus>>;
  championDrift:Awaited<ReturnType<typeof championDriftStatus>>;
  shadowRecovery:Awaited<ReturnType<typeof shadowRecoveryStatus>>;
+ observability:Awaited<ReturnType<typeof buildProductionObservability>>;
  security:{
   ok:boolean;
   missingHeaders:string[];
@@ -83,7 +85,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery]=await Promise.all([
+ const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,observability]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
   ingestOdds(),
@@ -92,7 +94,8 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   getModelGovernanceStatus(),
   getValidationLabStatus(),
   championDriftStatus(),
-  shadowRecoveryStatus()
+  shadowRecoveryStatus(),
+  buildProductionObservability()
  ]);
  const dataQuality=auditMarketBatch(ingestion.markets);
  const security=securityPosture();
@@ -167,6 +170,10 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(incidents.action>0)warnings.push(`operations: ${incidents.action} unresolved ACTION incident(s)`);
  if(incidents.watch>0)warnings.push(`operations: ${incidents.watch} unresolved WATCH incident(s)`);
 
+ if(observability.overall==='CRITICAL'){
+  (strict?blockers:warnings).push('observability: production health is CRITICAL');
+ }else if(observability.overall==='DEGRADED')warnings.push('observability: production health is DEGRADED');
+
  const certified=readiness.ready&&blockers.length===0;
  return {
   certified,blockers:[...new Set(blockers)],warnings:[...new Set(warnings)],
@@ -175,7 +182,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    migrationVersion:RELEASE.migrationVersion,commit:process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||null,
    environment
   },
-  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,security,
+  readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,observability,security,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
