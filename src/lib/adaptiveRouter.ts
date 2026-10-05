@@ -1,4 +1,5 @@
 import {buildSkillRatings,type SkillRatingRow} from './skillRatings';
+import {loadExecutionFeedback} from './executionFeedback';
 
 export type AllocationLane={
  id:string;
@@ -62,13 +63,17 @@ function laneState(weight:number,row:SkillRatingRow):AllocationLane['state']{
 }
 
 export async function buildDailyEdgePlan():Promise<DailyEdgePlan>{
- const skill=await buildSkillRatings();
+ const [skill,execution]=await Promise.all([buildSkillRatings(),loadExecutionFeedback()]);
  const candidates=skill.ratings
   .filter(x=>['STRATEGY','CATEGORY','MODEL'].includes(x.dimension))
   .filter(x=>x.sampleSize>0)
   .map(row=>{
    const quality=clamp((row.rating-42)/35);
-   const raw=quality*row.confidence*evidenceMultiplier(row.evidence)*dimensionMultiplier(row.dimension);
+   const categoryKey=row.domain+'|'+row.key.toLowerCase();
+   const executionMultiplier=row.dimension==='CATEGORY'
+    ?(execution.categoryMultipliers.get(categoryKey)??execution.domainMultipliers.get(row.domain)??1)
+    :(execution.domainMultipliers.get(row.domain)??1);
+   const raw=quality*row.confidence*evidenceMultiplier(row.evidence)*dimensionMultiplier(row.dimension)*executionMultiplier;
    return {row,raw};
   })
   .sort((a,b)=>b.raw-a.raw||b.row.sampleSize-a.row.sampleSize)
@@ -142,7 +147,8 @@ export async function buildDailyEdgePlan():Promise<DailyEdgePlan>{
    'Allocation is an analytical weighting plan, not an instruction to wager or invest.',
    'Unallocated weight is intentional when evidence is weak; EdgeForce can prefer HOLD over forcing activity.',
    'Early Cash-Out, Live Comeback, SGP and other strategies can earn more weight only after enough settled strategy-tagged outcomes accumulate.',
-   'V103 validation and champion/challenger rules remain authoritative; V104 cannot promote a model on its own.'
+   'V103 validation and champion/challenger rules remain authoritative; routing cannot promote a model on its own.',
+   'V111 applies only a bounded execution-quality multiplier from 30-day price-capture history; outcome skill remains primary.'
   ]
  };
 }
