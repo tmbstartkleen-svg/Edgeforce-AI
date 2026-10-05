@@ -599,6 +599,12 @@ add('V77 predictive regression',read('src/app/api/testing/predictive-incident-ri
 add('V77 automatic predictive cycle',read('src/lib/sloGovernor.ts').includes('runPredictiveIncidentRisk'),'SLO supervision refreshes predictive risk automatically');
 add('V77 predictive dashboard',read('src/components/OperatorCommandCenter.tsx').includes('PredictiveIncidentRiskPanel')&&read('src/components/PredictiveIncidentRiskPanel.tsx').includes('V77 PREDICTIVE INCIDENT RISK'),'system console exposes preventive forecast');
 
+add('V78 learning module',read('src/lib/preventiveActionLearning.ts').includes('buildActionEffectivenessProfiles'),'effectiveness learning module exists');
+add('V78 durable schema',read('db/v90.sql').includes('preventive_action_effectiveness'),'learning schema exists');
+add('V78 API surface',read('src/app/api/operations/preventive-actions/route.ts').includes('v78-preventive-action-learning-1'),'learning API exists');
+add('V78 regression surface',read('src/app/api/testing/preventive-actions/route.ts').includes('v78-preventive-action-learning-test-1'),'learning regression exists');
+add('V78 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PreventiveActionLearningPanel'),'learning panel is visible');
+
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 console.log(JSON.stringify(report,null,2));
