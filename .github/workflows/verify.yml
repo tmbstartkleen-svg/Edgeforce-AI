@@ -17,12 +17,13 @@ jobs:
       - name: Compile ML service
         run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
+      - run: npm run typecheck
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-audit
       - name: Start production server
         run: |
-          MODEL_VERSION=edgeforce-v96 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
+          MODEL_VERSION=edgeforce-v97 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce.log 2>&1 &
           echo $! > /tmp/edgeforce.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
@@ -39,6 +40,17 @@ jobs:
         env:
           LOAD_REQUESTS: "60"
           LOAD_MAX_P95_MS: "3000"
+      - name: Write verification evidence
+        run: npm run write-execution-evidence
+        env:
+          EXECUTION_EVIDENCE_SOURCE: github-verify
+          REMOTE_SMOKE_PASSED: "false"
+      - name: Upload verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: edgeforce-execution-evidence-${{ github.sha }}
+          path: artifacts/release-execution-evidence.json
+          if-no-files-found: error
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/edgeforce.log || true
