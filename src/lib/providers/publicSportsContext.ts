@@ -532,16 +532,17 @@ export async function fetchPublicSportsContext(markets:Market[]){
    }
   }
 
-  if(event.venue?.city){
-   const geo=await geocode(event.venue.city,event.venue.state,event.venue.country);requests++;
-   let wx:null|Awaited<ReturnType<typeof weatherAt>>=null;
+  if(event.venue){
    const indoor=event.venue.indoor===true||(event.venue.indoor===undefined&&!spec.outdoor);
+   const geo=event.venue.city?await geocode(event.venue.city,event.venue.state,event.venue.country):null;
+   if(event.venue.city)requests++;
+   let wx:null|Awaited<ReturnType<typeof weatherAt>>=null;
    if(geo&&!indoor){
     wx=await weatherAt(geo.latitude,geo.longitude,market.startTime);requests++;
    }
-   if(geo&&(indoor||wx)){
+   if(indoor||(geo&&wx)){
     const condition=deriveVenueConditionSignals({
-     sportKey:spec.key,indoor,surface:event.venue.surface,elevationFt:geo.elevation===undefined?undefined:geo.elevation*3.28084,
+     sportKey:spec.key,indoor,surface:event.venue.surface,elevationFt:geo?.elevation===undefined?undefined:geo.elevation*3.28084,
      weather:wx?{
       temperatureF:wx.temperature,apparentTemperatureF:wx.apparentTemperature,humidityPct:wx.humidity,
       precipitationProbability:wx.precipProbability,precipitationIn:wx.precipitation,snowfallIn:wx.snowfall,
@@ -556,7 +557,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
      confidence:condition.venueWeatherConfidence,status:indoor?'INDOOR':'FORECAST',
      detail:{
       venue:event.venue.name,city:event.venue.city,state:event.venue.state,country:event.venue.country,
-      indoor,surface:event.venue.surface||null,elevationFt:geo.elevation===undefined?null:geo.elevation*3.28084,
+      indoor,surface:event.venue.surface||null,elevationFt:geo?.elevation===undefined?null:geo.elevation*3.28084,
       forecastTime:wx?.forecastTime||null,temperatureF:wx?.temperature??null,apparentTemperatureF:wx?.apparentTemperature??null,
       humidityPct:wx?.humidity??null,precipProbability:wx?.precipProbability??null,precipitationIn:wx?.precipitation??null,
       snowfallIn:wx?.snowfall??null,windMph:wx?.windSpeed??null,gustMph:wx?.windGust??null,cloudCoverPct:wx?.cloudCover??null
