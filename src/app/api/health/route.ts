@@ -164,6 +164,8 @@ export async function GET(){
   sustainedDeploymentRecovery:true,
   incidentAttribution:true,
   remediationGuidance:true,
+  incidentPatternLearning:true,
+  adaptiveIncidentRunbooks:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
