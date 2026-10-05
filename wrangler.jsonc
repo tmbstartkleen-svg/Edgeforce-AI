@@ -54,6 +54,7 @@
     "PREDICTION_CRON_TRADE_LIMIT": "750",
     "WEATHER_CONTEXT_CACHE_MS": "600000",
     "INJURY_CONTEXT_CACHE_MS": "180000",
+    "INJURY_SNAPSHOT_TTL_MIN": "30",
     "STATS_CONTEXT_CACHE_MS": "900000",
     "VALIDATION_LOOKBACK_ROWS": "30000",
     "PUBLIC_CONTEXT_ENABLED": "true",
@@ -66,6 +67,7 @@
   "account_id": "de9b84b39940a0b5b622ae5d27b415dc",
   "triggers": {
     "crons": [
+      "*/15 * * * *",
       "0 * * * *",
       "15 6 * * *"
     ]
