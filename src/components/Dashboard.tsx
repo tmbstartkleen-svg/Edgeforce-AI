@@ -26,6 +26,7 @@ import ScheduleFatiguePanel from './ScheduleFatiguePanel';
 import VenueConditionsPanel from './VenueConditionsPanel';
 import MarketMovementLearningPanel from './MarketMovementLearningPanel';
 import CrossSportOptimizerPanel from './CrossSportOptimizerPanel';
+import UnifiedIntelligencePanel from './UnifiedIntelligencePanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
 type BoardRow=Scanned & {
@@ -736,9 +737,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V61</div>
-        <h1>Multi-Challenger League + Champion Governance</h1>
-        <p>Out-of-sample validation now measures calibration, Brier/log loss, market-relative skill, CLV, context lift and simulation lift before learned models retain full runtime influence.</p>
+        <div className="eyebrow">EDGEFORCE AI • V71</div>
+        <h1>Unified Intelligence + Production Certification</h1>
+        <p>Player learning, injuries, matchups, lineups, schedule, venue, market movement and optimized simulation weights now feed one fail-soft, self-auditing production stack.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -1071,6 +1072,8 @@ export default function Dashboard(){
         </table>
       </div>
     </section>
+
+    <UnifiedIntelligencePanel/>
 
     <CrossSportOptimizerPanel/>
 
