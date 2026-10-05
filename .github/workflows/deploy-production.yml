@@ -90,7 +90,7 @@ jobs:
             --prod
             --yes
             
-            --env MODEL_VERSION=edgeforce-v61
+            --env MODEL_VERSION=edgeforce-v71
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -202,7 +202,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "61.0.0"
+          EXPECTED_APP_VERSION: "71.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
