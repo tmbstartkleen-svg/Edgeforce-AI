@@ -65,7 +65,9 @@ function homeEdge(m:Market){
  const side=isAway(m)?-1:isHome(m)?1:0;
  const scheduleConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.scheduleContextConfidence||0)));
  const scheduleEdge=scheduleConfidence>0?feat(m,'scheduleCompositeEdge')*.10*scheduleConfidence:feat(m,'rest')*.05-feat(m,'travel')*.04;
- return unit(directional*side*.72+feat(m,'home')*.10+feat(m,'efficiency')*.12+feat(m,'form')*.08-feat(m,'injury')*.08+scheduleEdge);
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venueEdge=venueConfidence>0?feat(m,'venueHomeEdge')*.10*venueConfidence:0;
+ return unit(directional*side*.72+feat(m,'home')*.10+feat(m,'efficiency')*.12+feat(m,'form')*.08-feat(m,'injury')*.08+scheduleEdge+venueEdge);
 }
 function finalize(m:Market,runs:SimulationTier,samples:Sample[],engine:string,scoreUnit:string,family:DistributionFamily,microUnit:string,random:Rng):MicroSimulationResult{
  let hits=0,homeSum=0,awaySum=0,unitSum=0;
@@ -87,9 +89,12 @@ function basketball(m:Market,runs:SimulationTier){
  const s=sport(m);if(!(s.includes('NBA')||s.includes('WNBA')||s.includes('NCAAB')||s.includes('COLLEGE BASKETBALL')))return null;
  const n=actualRuns(runs),rng=seeded(`basketball|${m.id}|${m.startTime}`),edge=homeEdge(m),college=s.includes('NCAAB')||s.includes('COLLEGE BASKETBALL');
  const basePoss=college?70:s.includes('WNBA')?79:99,basePpp=college?1.04:s.includes('WNBA')?1.05:1.13;
- const pace=Math.max(55,Math.round(basePoss*(1+feat(m,'pace',feat(m,'tempo'))*.08))),samples:Sample[]=[];
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0;
+ const venueScoring=venueConfidence>0?feat(m,'venueTotalEffect')*.045*venueConfidence:0;
+ const pace=Math.max(55,Math.round(basePoss*(1+feat(m,'pace',feat(m,'tempo'))*.08+venuePace))),samples:Sample[]=[];
  const points=(ppp:number)=>{const score=clamp(ppp/2.15,.30,.68);if(rng.next()>score)return 0;const u=rng.next();return u<.09?1:u<.09+clamp(.25+(ppp-1)*.22,.18,.42)?3:2};
- for(let r=0;r<n;r++){let home=0,away=0;const poss=Math.max(50,Math.round(pace+rng.normal()*4));for(let i=0;i<poss;i++){home+=points(basePpp*(1+edge*.075+feat(m,'shooting')*.035));away+=points(basePpp*(1-edge*.075))}samples.push({home,away,units:poss*2})}
+ for(let r=0;r<n;r++){let home=0,away=0;const poss=Math.max(50,Math.round(pace+rng.normal()*4));for(let i=0;i<poss;i++){home+=points(basePpp*(1+venueScoring+edge*.075+feat(m,'shooting')*.035));away+=points(basePpp*(1+venueScoring-edge*.075))}samples.push({home,away,units:poss*2})}
  return finalize(m,n,samples,'BASKETBALL_POSSESSION_MONTE_CARLO','points','NORMAL','possessions',rng);
 }
 
@@ -97,9 +102,13 @@ function football(m:Market,runs:SimulationTier){
  if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('NFL')||s.includes('NCAAF')||s.includes('COLLEGE FOOTBALL')))return null;
  const n=actualRuns(runs),rng=seeded(`football|${m.id}|${m.startTime}`),college=s.includes('NCAAF')||s.includes('COLLEGE FOOTBALL'),edge=homeEdge(m)+feat(m,'quarterback')*.08+feat(m,'trenches')*.05;
- const baseDrives=college?12.5:10.8,weather=Math.max(0,-feat(m,'weather')),samples:Sample[]=[];
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const weather=venueConfidence>0?Math.max(0,-feat(m,'venueTotalEffect'))*venueConfidence:Math.max(0,-feat(m,'weather'));
+ const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0;
+ const venueVariance=venueConfidence>0?feat(m,'venueVolatilityEffect')*.55*venueConfidence:0;
+ const baseDrives=college?12.5:10.8,samples:Sample[]=[];
  const drive=(e:number)=>{const td=clamp(.215+e*.045-weather*.025,.10,.36),fg=clamp(.155+e*.018-weather*.012,.08,.24),u=rng.next();return u<td?(rng.next()<.94?7:6):u<td+fg?3:u<td+fg+.004?2:0};
- for(let r=0;r<n;r++){let home=0,away=0;const drives=Math.max(7,Math.round(baseDrives*(1+feat(m,'tempo')*.08)+rng.normal()*1.25));for(let d=0;d<drives;d++){home+=drive(edge);away+=drive(-edge)}samples.push({home,away,units:drives*2})}
+ for(let r=0;r<n;r++){let home=0,away=0;const drives=Math.max(7,Math.round(baseDrives*(1+feat(m,'tempo')*.08+venuePace)+rng.normal()*(1.25+venueVariance)));for(let d=0;d<drives;d++){home+=drive(edge);away+=drive(-edge)}samples.push({home,away,units:drives*2})}
  return finalize(m,n,samples,'FOOTBALL_DRIVE_MONTE_CARLO','points','NORMAL','drives',rng);
 }
 
@@ -124,7 +133,9 @@ function baseball(m:Market,runs:SimulationTier){
  if(!fullGameMarket(m))return null;
  if(!sport(m).includes('MLB'))return null;
  const n=actualRuns(runs),rng=seeded(`mlb|${m.id}|${m.startTime}`),edge=homeEdge(m),samples:Sample[]=[];
- const homeOff=edge*.55+feat(m,'lineup')*.22+feat(m,'park')*.06,awayOff=-edge*.55+feat(m,'lineup')*.10+feat(m,'park')*.06,starter=feat(m,'starter')*.35,bullpen=feat(m,'bullpen')*.22;
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const conditionOff=venueConfidence>0?feat(m,'venueTotalEffect')*.30*venueConfidence:0;
+ const homeOff=edge*.55+feat(m,'lineup')*.22+feat(m,'park')*.06+conditionOff,awayOff=-edge*.55+feat(m,'lineup')*.10+feat(m,'park')*.06+conditionOff,starter=feat(m,'starter')*.35,bullpen=feat(m,'bullpen')*.22;
  for(let r=0;r<n;r++){let home=0,away=0,pa=0;for(let inn=1;inn<=9;inn++){const a=halfInning(rng,awayOff,starter*(inn<=5?1:.2)+bullpen*(inn>5?1:.25)),h=halfInning(rng,homeOff,-starter*(inn<=5?1:.2)-bullpen*(inn>5?1:.25));away+=a.runs;home+=h.runs;pa+=a.pa+h.pa}if(home===away){if(rng.next()<clamp(.5+edge*.08,.36,.64))home++;else away++}samples.push({home,away,units:pa})}
  return finalize(m,n,samples,'MLB_PLATE_APPEARANCE_MONTE_CARLO','runs','POISSON','plate appearances',rng);
 }
@@ -133,7 +144,9 @@ function hockey(m:Market,runs:SimulationTier){
  if(!fullGameMarket(m))return null;
  if(!sport(m).includes('NHL'))return null;
  const n=actualRuns(runs),rng=seeded(`nhl|${m.id}|${m.startTime}`),edge=homeEdge(m)+feat(m,'goalie')*.08+feat(m,'shotQuality')*.08,samples:Sample[]=[];
- for(let r=0;r<n;r++){let home=0,away=0;const shifts=Math.max(38,Math.round(58*(1+feat(m,'pace')*.10)+rng.normal()*5)),hp=clamp(.051+edge*.010+feat(m,'specialTeams')*.004,.028,.085),ap=clamp(.051-edge*.010,.028,.085);for(let sh=0;sh<shifts;sh++){if(rng.next()<hp)home++;if(rng.next()<ap)away++}if(home===away&&kind(m)==='MONEYLINE'){if(rng.next()<clamp(.5+edge*.10,.35,.65))home++;else away++}samples.push({home,away,units:shifts})}
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.08*venueConfidence:0,venueScore=venueConfidence>0?feat(m,'venueTotalEffect')*.025*venueConfidence:0;
+ for(let r=0;r<n;r++){let home=0,away=0;const shifts=Math.max(38,Math.round(58*(1+feat(m,'pace')*.10+venuePace)+rng.normal()*5)),hp=clamp(.051+venueScore+edge*.010+feat(m,'specialTeams')*.004,.028,.085),ap=clamp(.051+venueScore-edge*.010,.028,.085);for(let sh=0;sh<shifts;sh++){if(rng.next()<hp)home++;if(rng.next()<ap)away++}if(home===away&&kind(m)==='MONEYLINE'){if(rng.next()<clamp(.5+edge*.10,.35,.65))home++;else away++}samples.push({home,away,units:shifts})}
  return finalize(m,n,samples,'NHL_SHIFT_MONTE_CARLO','goals','POISSON','shifts',rng);
 }
 
@@ -141,7 +154,9 @@ function soccer(m:Market,runs:SimulationTier){
  if(!fullGameMarket(m))return null;
  const s=sport(m);if(!(s.includes('SOCCER')||(!s.includes('NFL')&&!s.includes('NCAAF')&&s.includes('FOOTBALL'))))return null;
  const n=actualRuns(runs),rng=seeded(`soccer|${m.id}|${m.startTime}`),edge=homeEdge(m)+feat(m,'xg')*.10+feat(m,'keeper')*.04,samples:Sample[]=[];
- for(let r=0;r<n;r++){let home=0,away=0;const hc=Math.max(4,Math.round(12*(1+edge*.06)+rng.normal()*2)),ac=Math.max(4,Math.round(12*(1-edge*.06)+rng.normal()*2)),hp=clamp(.108+edge*.022+feat(m,'setPieces')*.006,.055,.18),ap=clamp(.108-edge*.022,.055,.18);for(let c=0;c<hc;c++)if(rng.next()<hp)home++;for(let c=0;c<ac;c++)if(rng.next()<ap)away++;samples.push({home,away,units:hc+ac})}
+ const venueConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.venueWeatherConfidence||0)));
+ const venuePace=venueConfidence>0?feat(m,'venuePaceEffect')*.10*venueConfidence:0,venueScore=venueConfidence>0?feat(m,'venueTotalEffect')*.018*venueConfidence:0;
+ for(let r=0;r<n;r++){let home=0,away=0;const hc=Math.max(4,Math.round(12*(1+edge*.06+venuePace)+rng.normal()*2)),ac=Math.max(4,Math.round(12*(1-edge*.06+venuePace)+rng.normal()*2)),hp=clamp(.108+venueScore+edge*.022+feat(m,'setPieces')*.006,.055,.18),ap=clamp(.108+venueScore-edge*.022,.055,.18);for(let c=0;c<hc;c++)if(rng.next()<hp)home++;for(let c=0;c<ac;c++)if(rng.next()<ap)away++;samples.push({home,away,units:hc+ac})}
  return finalize(m,n,samples,'SOCCER_CHANCE_MONTE_CARLO','goals','POISSON','chances',rng);
 }
 
