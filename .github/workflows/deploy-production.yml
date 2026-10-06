@@ -419,7 +419,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          BODY=$(jq -cn             --arg releaseVersion "116.0.0"             --arg modelVersion "edgeforce-v116"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
+          BODY=$(jq -cn             --arg releaseVersion "116.0.0"             --arg modelVersion "edgeforce-v116"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:115,commitSha:$commitSha,source:$source,
               lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
               smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
               evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
@@ -611,7 +611,7 @@ jobs:
             --arg workflowRunId "$GITHUB_RUN_ID" \
             --arg workflowRunAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg launchId "$LAUNCH_ID" \
-            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,
+            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:115,commitSha:$commitSha,
               platform:"vercel",deploymentUrl:$deploymentUrl,source:"production-deploy",
               workflowRunId:$workflowRunId,workflowRunAttempt:$workflowRunAttempt,
               executionCertified:true,strictCertified:true,canaryPassed:true,v1Ready:true,promoted:true,rolledBack:false,
