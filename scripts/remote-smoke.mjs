@@ -12,7 +12,13 @@ const degradedAllowedPaths=new Set([
  '/api/parlays?size=2&view=today'
 ]);
 
-const protectedFetch=createSmokeFetch({base,vercelAuth:process.env.SMOKE_VERCEL_AUTH==='1'});
+const protectedFetch=createSmokeFetch({
+ base,vercelAuth:process.env.SMOKE_VERCEL_AUTH==='1',
+ curlArgs:url=>{
+  const args=['curl',url];
+  return args;
+ }
+});
 
 for(const path of paths){
  const started=Date.now();

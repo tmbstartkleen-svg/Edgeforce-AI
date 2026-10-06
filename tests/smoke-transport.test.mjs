@@ -11,8 +11,8 @@ test('connection reset retries the same GET and retains its actual response',asy
  const retries=[];
  const read=createSmokeFetch({...options,onRetry:event=>retries.push(event),run:(command,args,settings)=>{
   assert.equal(command,'vercel');
-  assert.equal(args[1],'/api/intelligence/ml-tournament');
-  assert.equal(args[args.indexOf('--deployment')+1],options.base);
+  assert.equal(args[0],'curl');
+  assert.equal(args[1],options.base+'/api/intelligence/ml-tournament');
   assert.ok(args.includes('--max-time'));
   assert.equal(settings.timeout,45000);
   assert.deepEqual(settings.stdio,['ignore','pipe','pipe']);

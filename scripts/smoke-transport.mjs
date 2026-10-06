@@ -21,7 +21,7 @@ export function parseCurlResponse(stdout){
 // GET-only retries handle transport loss, not HTTP/auth/schema failures. Both
 // transports return the actual HTTP status; callers retain all contract checks.
 export function createSmokeFetch({
- base,vercelAuth=false,run=execFileSync,fetchImpl=globalThis.fetch,sleep=delay,
+ base,vercelAuth=false,run=execFileSync,curlArgs=url=>['curl',url],fetchImpl=globalThis.fetch,sleep=delay,
  onRetry=event=>console.error(`[remote-smoke] retry ${event.path}: ${event.code} (attempt ${event.attempt}/${MAX_ATTEMPTS})`)
 }){
  const origin=new URL(base);
@@ -35,7 +35,7 @@ export function createSmokeFetch({
    try{
     if(vercelAuth){
      const stdout=run('vercel',[
-      'curl',url.pathname+url.search,'--deployment',origin.origin,
+      ...curlArgs(url.href),
       '--silent','--show-error','--connect-timeout','10','--max-time','30',
       '--write-out',STATUS_MARKER+'%{http_code}'
      ],{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:45000,maxBuffer:8*1024*1024});
