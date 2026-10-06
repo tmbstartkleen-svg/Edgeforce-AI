@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V117',
- appVersion:'117.0.0',
- packageVersion:'0.117.0',
- modelVersion:'edgeforce-v117',
+ build:'V118',
+ appVersion:'118.0.0',
+ packageVersion:'0.118.0',
+ modelVersion:'edgeforce-v118',
  migrationVersion:114
 };
 const checks=[];
@@ -1008,6 +1008,11 @@ add('V117 degraded expert-model smoke',read('scripts/remote-smoke.mjs').includes
 add('V117 pulse-only downstream contracts',read('src/app/api/live-comeback/route.ts').includes('degraded:true')&&read('src/app/api/intelligence/context/route.ts').includes('v51-context-intelligence-1')&&read('src/app/api/parlays/route.ts').includes('degraded:true')&&read('scripts/remote-smoke.mjs').includes("'/api/live-comeback'")&&read('scripts/remote-smoke.mjs').includes("'/api/intelligence/context'")&&read('scripts/remote-smoke.mjs').includes("'/api/parlays?size=2&view=today'"),'pulse-only continuity returns explicit degraded contracts for downstream recommendation/context features rather than appearing broken');
 add('V117 health capability',read('src/app/api/health/route.ts').includes('degradedRuntimeCertification:true'),'health exposes degraded runtime certification');
 add('V117 release notes',exists('EDGEFORCE_V117_RELEASE.md'),'V117 release documentation exists');
+add('V118 bounded Cloudflare prediction automation',read('src/app/api/cron/predictions/route.ts').includes("cloudflareBounded=platform==='cloudflare'")&&read('src/app/api/cron/predictions/route.ts').includes('executionProfile')&&read('src/app/api/cron/predictions/route.ts').includes('fetchPredictionMarkets({maxContracts:contractLimit})'),'Cloudflare prediction automation uses an explicit bounded execution profile');
+add('V118 bounded prediction market collection',read('src/lib/predictionMarkets.ts').includes('options?:{maxContracts?:number}')&&read('src/lib/predictionMarkets.ts').includes('options?.maxContracts??configuredMaxContracts'),'prediction market collection supports a request-specific bounded contract ceiling');
+add('V118 Worker resource profile',read('wrangler.jsonc').includes('"PREDICTION_MARKET_MAX_CONTRACTS": "500"')&&read('wrangler.jsonc').includes('"PREDICTION_CRON_TRADE_LIMIT": "100"')&&read('wrangler.jsonc').includes('"PREDICTION_CRON_LEADERBOARD_LIMIT": "25"'),'Cloudflare runtime constrains contract, trade, and leaderboard batch sizes');
+add('V118 health capability',read('src/app/api/health/route.ts').includes('cloudflareBoundedPredictionPrime:true')&&read('src/app/api/health/route.ts').includes('workerSafePredictionAutomation:true'),'health exposes Worker-safe prediction automation');
+add('V118 release notes',exists('EDGEFORCE_V118_RELEASE.md'),'V118 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
