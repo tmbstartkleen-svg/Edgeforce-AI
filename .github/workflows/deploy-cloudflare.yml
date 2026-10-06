@@ -174,9 +174,24 @@ jobs:
       - name: Prime prediction intelligence warehouse
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
         run: |
-          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/cron/predictions"             -H "Authorization: Bearer $CRON_SECRET" > /tmp/prediction-warehouse.json
-          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({contracts:d.fetched?.contracts||0,trades:d.fetched?.kalshiTrades+d.fetched?.polymarketTrades,warehouse:d.warehouse}))"
+          set +e
+          HTTP_CODE=$(curl --silent --show-error -o /tmp/prediction-warehouse.json -w "%{http_code}" \
+            "$DEPLOYMENT_URL/api/cron/predictions" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          CURL_CODE=$?
+          set -e
+          cat /tmp/prediction-warehouse.json || true
+          echo
+          if [ "$CURL_CODE" -ne 0 ]; then
+            exit "$CURL_CODE"
+          fi
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Prediction warehouse prime returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
 
       - name: Strict launch doctor
         env:
