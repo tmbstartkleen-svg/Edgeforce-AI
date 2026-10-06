@@ -78,15 +78,15 @@ jobs:
       - name: Smoke hosted Cloudflare Preview
         env:
           PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
-          EXPECTED_APP_VERSION: "113.0.0"
-          EXPECTED_MODEL_VERSION: "edgeforce-v113"
+          EXPECTED_APP_VERSION: "114.0.0"
+          EXPECTED_MODEL_VERSION: "edgeforce-v114"
         run: node scripts/cloudflare-preview-smoke.mjs
 
       - name: Upload preview diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v113-cloudflare-preview-${{ github.sha }}
+          name: edgeforce-v114-cloudflare-preview-${{ github.sha }}
           path: |
             /tmp/edgeforce-preview-build.log
             /tmp/cloudflare-preview.json
