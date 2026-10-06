@@ -196,7 +196,13 @@ jobs:
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
+        shell: bash
+        run: |
+          HTTP_CODE=$(curl --silent --show-error -o /tmp/launch-doctor.json -w "%{http_code}" "$DEPLOYMENT_URL/api/launch-doctor?strict=1")
+          cat /tmp/launch-doctor.json
+          echo
+          test "$HTTP_CODE" = "200"
+          jq -e '.ok==true and .ready==true and (.blockers|length)==0' /tmp/launch-doctor.json >/dev/null
 
       - name: Hosted V116 smoke test
         run: npm run remote-smoke
