@@ -13,15 +13,15 @@ export function loadProvider(name,overrides={}){
   const source=readFileSync(file,'utf8');
   const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
   assert.equal(output.diagnostics.length,0,'real provider source must transpile');
-  const module={exports:{}};loaded.set(file,module);
+  const fixtureModule={exports:{}};loaded.set(file,fixtureModule);
   const localRequire=id=>{
    if(Object.hasOwn(overrides,id))return overrides[id];
    if(id.startsWith('node:'))return require(id);
    if(id.startsWith('.'))return load(path.resolve(path.dirname(file),id+'.ts'));
    return require(id);
   };
-  new Function('require','module','exports',output.outputText)(localRequire,module,module.exports);
-  return module.exports;
+  new Function('require','module','exports',output.outputText)(localRequire,fixtureModule,fixtureModule.exports);
+  return fixtureModule.exports;
  };
  return load(path.join(root,name+'.ts'));
 }
