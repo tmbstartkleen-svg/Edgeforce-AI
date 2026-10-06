@@ -220,6 +220,7 @@ export async function GET(){
   productionBootstrapRepair:true,
   productionLegacyBridgeRepair:true,
   legacySchemaReadinessBridge:true,
+  providerDeploymentRecovery:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
