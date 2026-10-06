@@ -1,4 +1,4 @@
-import {execFileSync} from 'node:child_process';
+import {createSmokeFetch} from './smoke-transport.mjs';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'119.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
@@ -12,22 +12,19 @@ const degradedAllowedPaths=new Set([
  '/api/parlays?size=2&view=today'
 ]);
 
-function protectedFetch(path){
- const url=base+path;
- if(process.env.SMOKE_VERCEL_AUTH==='1'){
-  const args=['curl',url];
-  const body=execFileSync('vercel',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
-  return {ok:true,status:200,text:async()=>body};
- }
- return fetch(url,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/60'}});
-}
+const protectedFetch=createSmokeFetch({
+ base,vercelAuth:process.env.SMOKE_VERCEL_AUTH==='1',
+ onRetry:({path,attempt,maxAttempts})=>console.error(JSON.stringify({
+  event:'smoke-transport-retry',path,attempt,maxAttempts
+ }))
+});
 
 for(const path of paths){
  const started=Date.now();
  const res=await protectedFetch(path);
  const body=await res.text();
- results.push({path,status:res.status,durationMs:Date.now()-started});
- if(!res.ok&&!degradedAllowedPaths.has(path))throw new Error(path+' failed with '+res.status);
+ results.push({path,status:res.status,attempts:res.attempts,durationMs:Date.now()-started});
+ if(!res.ok&&!(res.status===503&&degradedAllowedPaths.has(path)))throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
   const json=JSON.parse(body);
   if(json.ok!==true||json.schemaVersion!=='v74-slo-governor-1'||!json.windows)throw new Error('SLO governor endpoint mismatch');
@@ -98,8 +95,8 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/expert-models'){
   const json=JSON.parse(body);
-  const degradedValid=json.ok===false&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog)&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
-  const liveValid=json.ok===true&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog);
+  const degradedValid=res.status===503&&json.ok===false&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog)&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
+  const liveValid=res.ok&&json.ok===true&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog);
   if(!(liveValid||degradedValid))throw new Error('expert model API mismatch');
  }
  if(path==='/api/testing/live-comeback'){
@@ -108,8 +105,8 @@ for(const path of paths){
  }
  if(path==='/api/live-comeback'){
   const json=JSON.parse(body);
-  const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v52-live-comeback-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
-  const liveValid=json.ok===true&&json.schemaVersion==='v52-live-comeback-1'&&json.gameStateVerified===false;
+  const degradedValid=res.status===503&&json.ok===false&&json.degraded===true&&json.schemaVersion==='v52-live-comeback-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
+  const liveValid=res.ok&&json.ok===true&&json.schemaVersion==='v52-live-comeback-1'&&json.gameStateVerified===false;
   if(!(liveValid||degradedValid))throw new Error('live comeback API mismatch');
  }
  if(path==='/api/intelligence/validation-lab'){
@@ -118,14 +115,15 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/context'){
   const json=JSON.parse(body);
-  const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-context-intelligence-1'&&/No live or stored markets available/i.test(String(json.error||''));
-  const liveValid=json.ok===true&&Boolean(json.diagnostics?.qualitySummary)&&Boolean(json.diagnostics?.publicNetwork);
+  const degradedValid=res.status===503&&json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-context-intelligence-1'&&/No live or stored markets available/i.test(String(json.error||''));
+  const liveValid=res.ok&&json.ok===true&&Boolean(json.diagnostics?.qualitySummary)&&Boolean(json.diagnostics?.publicNetwork);
   if(!(liveValid||degradedValid))throw new Error('context intelligence mismatch');
  }
  if(path==='/api/parlays?size=2&view=today'){
   const json=JSON.parse(body);
-  const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-prediction-validation-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
+  const degradedValid=res.status===503&&json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-prediction-validation-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
   if(degradedValid)continue;
+  if(!res.ok)throw new Error('parlay HTTP status mismatch');
   if(json.schemaVersion!=='v51-prediction-validation-1')throw new Error('parlay route schema mismatch');
   if(Number(json.thresholds?.recommendedMinJoint)!==0.52)throw new Error('parlay recommendation threshold mismatch');
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
