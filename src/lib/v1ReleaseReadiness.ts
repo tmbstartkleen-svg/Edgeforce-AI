@@ -97,8 +97,20 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
   true,
   `State ${certification.sloGovernor.state}; 1h burn ${certification.sloGovernor.windows.oneHour.burnRate.toFixed(1)}x; 24h burn ${certification.sloGovernor.windows.twentyFourHour.burnRate.toFixed(1)}x; 7d budget ${(Math.max(0,certification.sloGovernor.windows.sevenDay.budgetRemaining)*100).toFixed(1)}% remaining.`
  );
- const sloLaunchPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_BUDGET_PASSED'));
- add('slo-launch-stage','SLO deployment launch stage',sloLaunchPass?'PASS':strict?'FAIL':'WARN',true,sloLaunchPass?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_BUDGET_PASSED.`:'Current launch has not recorded SLO_BUDGET_PASSED.');
+ const sloBudgetPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_BUDGET_PASSED'));
+ const sloRemediationAccepted=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_REMEDIATION_ACCEPTED'));
+ const sloLaunchPass=sloBudgetPass||sloRemediationAccepted;
+ add(
+  'slo-launch-stage',
+  'SLO deployment launch stage',
+  sloBudgetPass?'PASS':sloRemediationAccepted&&remediationMode?'WARN':strict?'FAIL':'WARN',
+  true,
+  sloBudgetPass
+   ?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_BUDGET_PASSED.`
+   :sloRemediationAccepted
+    ?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_REMEDIATION_ACCEPTED; historical freeze remains visible while the candidate proves hosted health.`
+    :'Current launch has not recorded an accepted SLO gate.'
+ );
  const canaryPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='CANARY_PASSED'));
  add('deployment-canary','Comparative deployment canary',canaryPass?'PASS':strict?'FAIL':'WARN',true,canaryPass?`Launch ${(launchStatus as any).launchId||'current'} passed the comparative canary.`:`No accepted comparative canary stage is recorded; latest probe ${deploymentGuard.latest?.decision||'none'}.`);
 
