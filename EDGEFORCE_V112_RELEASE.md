@@ -1,0 +1,45 @@
+# Edgeforce V112 — Quota-Resilient Provider Certification
+
+V112 addresses the production blocker exposed by V111 after both hosting platforms reached real provider certification.
+
+## Verified V111 production findings
+
+- main verification passed.
+- Vercel deployed the V111 artifact, completed runtime bootstrap and migrations, then reached provider certification.
+- Cloudflare deployed the V111 Worker and also reached provider certification.
+- both paths failed for the same external reason: The Odds API returned HTTP 401 because the account usage quota was exhausted.
+- the provider reported 499 requests used with only 1 remaining credit.
+- Vercel correctly recorded the failed launch and rolled back.
+
+## V112 repair contract
+
+### Quota-specific degraded certification
+
+When and only when the required ODDS provider fails with explicit quota/credit exhaustion evidence:
+
+- load persisted sportsbook market snapshots that were originally collected from real providers
+- require the stored rows to be within the configured freshness ceiling
+- run the normal market-batch quality audit
+- reject the fallback when the batch is REJECT, has blockers, or has no current markets
+- record a separate `persisted-live-odds` certification entry
+- mark the launch as explicitly degraded rather than pretending the stored data is live
+
+Ordinary provider failures, malformed feeds, stale snapshots, empty stored data, and demo data still fail the required ODDS capability.
+
+### Strict production certification
+
+Strict production certification now accepts stored sportsbook rows only when the current provider certification contains the explicit certified quota-fallback evidence. The resulting certification carries a warning that live provider quota is exhausted and production is operating from persisted real sportsbook data.
+
+### Deployment verification
+
+The production workflows now verify `requireUsable=1&maxStoredAgeMin=90` instead of incorrectly requiring a fresh paid API call during a known quota outage.
+
+The endpoint still fails when neither live nor recent stored real data is available. Demo data remains disabled in production.
+
+## Identity
+
+- build: V112
+- app: 112.0.0
+- package: 0.112.0
+- model: edgeforce-v112
+- migration: v114 (unchanged)
