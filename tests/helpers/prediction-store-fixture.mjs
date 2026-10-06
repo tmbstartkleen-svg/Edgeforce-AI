@@ -19,9 +19,9 @@ export async function predictionStore(sql){
    .replace(/import\s*\{\s*db\s*\}\s*from\s*['"]\.\/db['"];?/,db)
    .replace(/import\s*\{\s*classifyPredictionContract\s*\}\s*from\s*['"]\.\/predictionCategories['"];?/,category);
   assert.ok(code.includes(db)&&code.includes(category),'the fixture must load the real writer');
-  const module=await import(`data:text/javascript,${encodeURIComponent(code)}`);
+  const runtime=await import(`data:text/javascript,${encodeURIComponent(code)}`);
   return {
-   persist:module.persistPredictionContractBatch,
+   persist:runtime.persistPredictionContractBatch,
    dispose(){delete globalThis[Symbol.for(key)];},
   };
  }catch(error){delete globalThis[Symbol.for(key)];throw error;}
