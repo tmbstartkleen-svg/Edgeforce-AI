@@ -125,6 +125,7 @@ assert(health.body?.rollbackEvidenceReconciliation===true,'rollback evidence rec
 assert(health.body?.cloudflareHostedPreviewParity===true,'Cloudflare hosted preview parity flag missing');
 assert(health.body?.crossPlatformProductionConvergence===true,'cross-platform production convergence flag missing');
 assert(health.body?.finalProductionClosure===true,'final production closure flag missing');
+assert(health.body?.productionClosureOrchestration===true,'production closure orchestration flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
