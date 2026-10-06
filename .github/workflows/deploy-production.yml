@@ -95,7 +95,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          vercel project inspect "$VERCEL_PROJECT_NAME" >/tmp/edgeforce-vercel-project.txt 2>/tmp/edgeforce-vercel-project.err
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" project inspect "$VERCEL_PROJECT_NAME" >/tmp/edgeforce-vercel-project.txt 2>/tmp/edgeforce-vercel-project.err
           code=$?
           set -e
           if [ "$code" -ne 0 ]; then
@@ -108,7 +108,7 @@ jobs:
         shell: bash
         run: |
           rm -rf .vercel
-          vercel link --yes --project="$VERCEL_PROJECT_NAME"
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" link --yes --project="$VERCEL_PROJECT_NAME"
           test -f .vercel/project.json
           RESOLVED_PROJECT_ID=$(jq -r '.projectId // empty' .vercel/project.json)
           RESOLVED_ORG_ID=$(jq -r '.orgId // empty' .vercel/project.json)
@@ -118,7 +118,7 @@ jobs:
           echo "VERCEL_ORG_ID=$RESOLVED_ORG_ID" >> "$GITHUB_ENV"
 
       - name: Pull production project settings
-        run: vercel pull --yes --environment=production
+        run: vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" pull --yes --environment=production
 
       - name: Capture previous production deployment
         shell: bash
