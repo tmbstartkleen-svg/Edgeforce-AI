@@ -9,6 +9,11 @@ if(!url){
 }
 
 const sql=postgres(url,{max:1,prepare:false});
+
+const baseSchema=await fs.readFile(path.resolve(process.cwd(),'db','schema.sql'),'utf8');
+console.log('apply base schema');
+await sql.unsafe(baseSchema);
+
 await sql`
  create table if not exists schema_migrations(
   version text primary key,
