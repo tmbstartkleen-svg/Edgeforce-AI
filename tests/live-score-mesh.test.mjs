@@ -10,7 +10,10 @@ assert.equal(registryCompiled.diagnostics.length,0);
 const registry=await import('data:text/javascript,'+encodeURIComponent(registryCompiled.outputText));
 const sourceRaw=readFileSync(new URL('../src/lib/liveScoreMesh.ts',import.meta.url),'utf8');
 const registryInline=`const ESPN_SCOREBOARD_FEEDS=${JSON.stringify(registry.ESPN_SCOREBOARD_FEEDS)};const sportCoverageSummary=()=>(${JSON.stringify(registry.sportCoverageSummary())});`;
-const source=sourceRaw.replace(/import\s*\{ESPN_SCOREBOARD_FEEDS,sportCoverageSummary\}\s*from\s*['\"]\.\/sportRegistry['\"];?/,registryInline);
+const sportScoreStub=`const fetchSportScoreBackup=async()=>({enabled:false,games:[],warnings:[],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}});`;
+const source=sourceRaw
+ .replace(/import\s*\{ESPN_SCOREBOARD_FEEDS,sportCoverageSummary\}\s*from\s*['\"]\.\/sportRegistry['\"];?/,registryInline)
+ .replace(/import\s*\{fetchSportScoreBackup\}\s*from\s*['\"]\.\/providers\/sportScore['\"];?/,sportScoreStub);
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
 assert.equal(compiled.diagnostics.length,0);
 const runtime=await import('data:text/javascript,'+encodeURIComponent(compiled.outputText));
