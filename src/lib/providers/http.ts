@@ -5,6 +5,8 @@ import {fetchSharpApiBoard} from './sharpApi';
 import {fetchTheRundownBoard} from './theRundown';
 import {fetchTheRundownResults} from './theRundownResults';
 
+const untilNextMonthMs=()=>{const now=new Date();const next=Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1,0,5,0);return Math.max(3600000,next-Date.now());};
+
 export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
  if(config.url==='therundown://results'){
@@ -34,10 +36,10 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
    capability:config.capability,
    latencyMs:Date.now()-started,
    receivedAt:new Date().toISOString(),
-   status:result.ok?200:(result.attempts.some(x=>x.status===429)?429:502),
+   status:result.ok?200:(result.attempts.find(x=>!x.ok)?.status||502),
    data:result.data as T,
    error:[result.error,warning,quota?`quota ${quota}`:null].filter(Boolean).join(' | ')||undefined,
-   retryAfterMs:result.attempts.some(x=>x.status===429)?300000:undefined
+   retryAfterMs:result.attempts.some(x=>x.status===429)?300000:/quota has been reached|OUT_OF_USAGE_CREDITS/i.test(result.error||'')?untilNextMonthMs():undefined
   };
  }
  const controller=new AbortController();
