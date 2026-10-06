@@ -92,7 +92,10 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/expert-models'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-expert-models-1'||!Array.isArray(json.catalog))throw new Error('expert model API mismatch');
+  const schemaOk=json.build==='V61'&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog);
+  const activeOk=json.ok===true;
+  const protectedContinuity=json.ok===false&&/No live or fresh stored sportsbook markets are available/i.test(String(json.error||''));
+  if(!schemaOk||(!activeOk&&!protectedContinuity))throw new Error('expert model API mismatch');
  }
  if(path==='/api/testing/live-comeback'){
   const json=JSON.parse(body);
