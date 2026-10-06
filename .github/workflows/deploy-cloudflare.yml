@@ -109,7 +109,8 @@ jobs:
         shell: bash
         run: |
           test -n "$DEPLOYMENT_URL"
-          for i in {1..30}; do
+          STREAK=0
+          for i in {1..40}; do
             set +e
             HEALTH=$(curl --silent --show-error "$DEPLOYMENT_URL/api/health")
             CODE=$?
@@ -119,13 +120,19 @@ jobs:
               --arg model "edgeforce-v116" \
               --arg commit "$DEPLOY_COMMIT" \
               '.version==$version and .modelVersion==$model and .deploymentCommit==$commit and .releaseIdentityMatch==true' >/dev/null 2>&1; then
-              echo "$HEALTH"
-              exit 0
+              STREAK=$((STREAK+1))
+              echo "Exact V116 identity confirmation $STREAK/3"
+              if [ "$STREAK" -ge 3 ]; then
+                echo "$HEALTH"
+                exit 0
+              fi
+            else
+              STREAK=0
             fi
-            echo "Waiting for exact V116 Worker identity (attempt $i/30)"
-            sleep 3
+            echo "Waiting for stable exact V116 Worker identity (attempt $i/40)"
+            sleep 2
           done
-          echo "Cloudflare Worker never converged to the exact V116 release identity."
+          echo "Cloudflare Worker never achieved three consecutive exact V116 identity confirmations."
           exit 1
 
       - name: Certify real sportsbook provider
@@ -149,12 +156,17 @@ jobs:
             echo "Provider certification returned HTTP $HTTP_CODE"
             exit 1
           fi
-          jq -e '.launchReady==true' /tmp/provider-certification.json >/dev/null
+          jq -e '.launchReady==true and .version=="116.0.0" and .modelVersion=="edgeforce-v116"' /tmp/provider-certification.json >/dev/null
 
       - name: Verify live sportsbook data
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireUsable=1&maxStoredAgeMin=90"
+        shell: bash
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireUsable=1&maxStoredAgeMin=90" > /tmp/live-data-status.json
+          cat /tmp/live-data-status.json
+          echo
+          jq -e '.usable==true and .version=="116.0.0" and .modelVersion=="edgeforce-v116"' /tmp/live-data-status.json >/dev/null
 
       - name: Verify cross-venue prediction terminal
         env:
