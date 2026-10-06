@@ -18,12 +18,26 @@ export async function GET(req:Request){
  const started=Date.now();
  try{
   const tradeLimit=Math.max(100,Math.min(1000,Number(process.env.PREDICTION_CRON_TRADE_LIMIT||750)));
+  const warnings:string[]=[];
   const [predictions,kalshi,polymarket,leaderboard]=await Promise.all([
-   fetchPredictionMarkets(),
-   fetchKalshiTrades(tradeLimit),
-   fetchPolymarketTrades(tradeLimit),
-   fetchPolymarketLeaderboard('week',150)
+   fetchPredictionMarkets().catch(error=>({
+    mode:'failed' as const,source:null,contracts:[],attempts:[],sources:[],warnings:[],
+    error:error instanceof Error?error.message:'prediction markets unavailable'
+   })),
+   fetchKalshiTrades(tradeLimit).catch(error=>({
+    ok:false,trades:[],error:error instanceof Error?error.message:'Kalshi trades unavailable'
+   })),
+   fetchPolymarketTrades(tradeLimit).catch(error=>({
+    ok:false,trades:[],error:error instanceof Error?error.message:'Polymarket trades unavailable'
+   })),
+   fetchPolymarketLeaderboard('week',150).catch(error=>({
+    ok:false,rows:[],error:error instanceof Error?error.message:'Polymarket leaderboard unavailable',cached:false as const
+   }))
   ]);
+  if(predictions.error)warnings.push('Prediction contracts: '+predictions.error);
+  if(!kalshi.ok&&kalshi.error)warnings.push('Kalshi trade tape: '+kalshi.error);
+  if(!polymarket.ok&&polymarket.error)warnings.push('Polymarket trade tape: '+polymarket.error);
+  if(!leaderboard.ok&&leaderboard.error)warnings.push('Polymarket leaderboard: '+leaderboard.error);
 
   const trades=enrichKalshiTradeTitles(
    [...kalshi.trades,...polymarket.trades]
