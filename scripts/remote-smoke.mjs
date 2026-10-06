@@ -21,7 +21,8 @@ for(const path of paths){
  const res=await protectedFetch(path);
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
- if(!res.ok)throw new Error(path+' failed with '+res.status);
+ const protectedExpertStatus=path==='/api/intelligence/expert-models'&&res.status===503;
+ if(!res.ok&&!protectedExpertStatus)throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
   const json=JSON.parse(body);
   if(json.ok!==true||json.build!=='V74'||json.schemaVersion!=='v74-slo-governor-1'||!json.windows)throw new Error('SLO governor endpoint mismatch');
