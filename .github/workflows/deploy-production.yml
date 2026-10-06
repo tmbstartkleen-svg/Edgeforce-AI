@@ -20,6 +20,7 @@ jobs:
       VERCEL_PROJECT_NAME: edgeforce-ai
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+      SPORTS_GAME_ODDS_API_KEY: ${{ secrets.SPORTS_GAME_ODDS_API_KEY }}
       ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
@@ -146,8 +147,10 @@ jobs:
             ALLOWED=$(printf '%s' "$GOVERNOR" | jq -r '.deploymentAllowed // false')
             STATE=$(printf '%s' "$GOVERNOR" | jq -r '.state // "UNKNOWN"')
             if [ "$ALLOWED" != "true" ]; then
-              echo "Production deployment blocked by SLO governor state: $STATE"
-              exit 1
+              echo "Current production SLO governor is $STATE. Entering staged remediation mode; production will not be promoted until the candidate passes hosted gates."
+              echo "EDGEFORCE_REMEDIATION_DEPLOY=true" >> "$GITHUB_ENV"
+            else
+              echo "EDGEFORCE_REMEDIATION_DEPLOY=false" >> "$GITHUB_ENV"
             fi
           else
             HEALTH=$(vercel curl "/api/health" --deployment "$PREVIOUS_DEPLOYMENT_URL")
@@ -252,16 +255,18 @@ jobs:
             test "$(jq '.crons // [] | length' .vercel/output/config.json)" -eq 0
           fi
 
-      - name: Deploy prebuilt artifact to production
+      - name: Deploy prebuilt remediation candidate
         id: deploy
         shell: bash
         run: |
           args=(
             --prebuilt
-            --prod
             --yes
             
             --env MODEL_VERSION=edgeforce-v114
+            --env DEPLOYMENT_ENV=production
+            --env DEPLOYMENT_PLATFORM=vercel
+            --env EDGEFORCE_REMEDIATION_DEPLOY="${EDGEFORCE_REMEDIATION_DEPLOY:-false}"
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -275,6 +280,12 @@ jobs:
           )
           if [ -n "$THE_ODDS_API_KEY" ]; then
             args+=(--env THE_ODDS_API_KEY="$THE_ODDS_API_KEY")
+          fi
+          if [ -n "$SPORTS_GAME_ODDS_API_KEY" ]; then
+            args+=(
+              --env SPORTS_GAME_ODDS_API_KEY="$SPORTS_GAME_ODDS_API_KEY"
+              --env SPORTS_GAME_ODDS_CACHE_MS=300000
+            )
           fi
           if [ -n "$ML_SERVICE_BASE_URL" ] && [ -n "$ML_SERVICE_KEY" ]; then
             base="${ML_SERVICE_BASE_URL%/}"
