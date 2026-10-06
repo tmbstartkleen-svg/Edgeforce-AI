@@ -54,8 +54,31 @@ export const ESPN_SCOREBOARD_FEEDS:SportFeed[]=[
  {id:'afl',family:'australian-football',label:'AFL',scope:'PRO',scoreProvider:'ESPN',sportSlug:'australian-football',leagueSlug:'afl',livePriority:['espn-site']}
 ];
 
+export const NCAA_EXTERNAL_FEEDS:SportFeed[]=[
+ {id:'ncaa-m-tennis',family:'tennis',label:"NCAA Men's Tennis",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['espn-tennis-all','licensed-backup']},
+ {id:'ncaa-w-tennis',family:'tennis',label:"NCAA Women's Tennis",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['espn-tennis-all','licensed-backup']},
+ {id:'ncaa-m-golf',family:'golf',label:"NCAA Men's Golf",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['espn-site','licensed-backup']},
+ {id:'ncaa-w-golf',family:'golf',label:"NCAA Women's Golf",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['espn-site','licensed-backup']},
+ {id:'ncaa-wrestling',family:'wrestling',label:'NCAA Wrestling',scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-m-gymnastics',family:'gymnastics',label:"NCAA Men's Gymnastics",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-w-gymnastics',family:'gymnastics',label:"NCAA Women's Gymnastics",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-m-track-field',family:'track-field',label:"NCAA Men's Track & Field",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-w-track-field',family:'track-field',label:"NCAA Women's Track & Field",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-m-cross-country',family:'cross-country',label:"NCAA Men's Cross Country",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-w-cross-country',family:'cross-country',label:"NCAA Women's Cross Country",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-m-swimming-diving',family:'swimming-diving',label:"NCAA Men's Swimming & Diving",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-w-swimming-diving',family:'swimming-diving',label:"NCAA Women's Swimming & Diving",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-w-rowing',family:'rowing',label:"NCAA Women's Rowing",scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-bowling',family:'bowling',label:'NCAA Bowling',scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-fencing',family:'fencing',label:'NCAA Fencing',scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-rifle',family:'rifle',label:'NCAA Rifle',scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-skiing',family:'skiing',label:'NCAA Skiing',scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']},
+ {id:'ncaa-beach-volleyball',family:'beach-volleyball',label:'NCAA Beach Volleyball',scope:'COLLEGE',scoreProvider:'EXTERNAL',livePriority:['licensed-provider','score-fallback']}
+];
+
 export const GLOBAL_SPORT_REGISTRY:SportFeed[]=[
  ...ESPN_SCOREBOARD_FEEDS,
+ ...NCAA_EXTERNAL_FEEDS,
  {id:'tennis-atp',family:'tennis',label:'ATP Tennis',scope:'GLOBAL',scoreProvider:'EXTERNAL',livePriority:['sofascore-live','espn-tennis-all','therundown']},
  {id:'tennis-wta',family:'tennis',label:'WTA Tennis',scope:'GLOBAL',scoreProvider:'EXTERNAL',livePriority:['sofascore-live','espn-tennis-all','therundown']},
  {id:'table-tennis',family:'table-tennis',label:'Table Tennis',scope:'GLOBAL',scoreProvider:'EXTERNAL',livePriority:['sofascore-live','licensed-backup']},
