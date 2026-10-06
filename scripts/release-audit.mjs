@@ -1003,7 +1003,11 @@ add('V116 pulse-aware strict readiness',read('src/lib/readiness.ts').includes('p
 add('V116 legacy snapshot provider repair',read('scripts/migrate.mjs').includes("column_name='provider'")&&read('scripts/migrate.mjs').includes('alter column provider drop not null'),'legacy prediction snapshot provider constraint no longer blocks canonical venue-based inserts');
 add('V116 health capability',read('src/app/api/health/route.ts').includes('runtimeContractConvergence:true'),'health exposes runtime contract convergence');
 add('V116 release notes',exists('EDGEFORCE_V116_RELEASE.md'),'V116 release documentation exists');
-add('V117 procedural-SQL-free snapshot repair',read('scripts/migrate.mjs').includes('legacyProviderColumn')&&!read('scripts/migrate.mjs').includes('do const failed=checks.filter(x=>!x.ok);
+add('V117 procedural-SQL-free snapshot repair',read('scripts/migrate.mjs').includes('legacyProviderColumn')&&read('scripts/migrate.mjs').includes('alter column provider drop not null'),'legacy prediction snapshot provider repair uses application-side schema detection instead of fragile procedural SQL');
+add('V117 degraded expert-model smoke',read('scripts/remote-smoke.mjs').includes('degradedAllowedPaths')&&read('scripts/remote-smoke.mjs').includes('degradedValid')&&read('scripts/remote-smoke.mjs').includes('No live or fresh stored sportsbook markets'),'hosted smoke accepts the explicit degraded expert-model contract while still validating its schema and catalog');
+add('V117 health capability',read('src/app/api/health/route.ts').includes('degradedRuntimeCertification:true'),'health exposes degraded runtime certification');
+add('V117 release notes',exists('EDGEFORCE_V117_RELEASE.md'),'V117 release documentation exists');
+const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
 console.log(JSON.stringify(summary,null,2));
