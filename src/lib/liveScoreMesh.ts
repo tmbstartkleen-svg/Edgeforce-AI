@@ -1,4 +1,5 @@
 import {ESPN_SCOREBOARD_FEEDS,sportCoverageSummary} from './sportRegistry';
+import {fetchSportScoreBackup} from './providers/sportScore';
 export type LiveGameState={
  id:string;
  sport:string;
@@ -231,6 +232,7 @@ export async function fetchLiveScoreMesh(){
   nhl(),mlb(),
   ...ESPN_LEAGUES.map(([sport,league,label])=>espn(sport,league,label))
  ]);
+ const sportScore=await fetchSportScoreBackup().catch(()=>({enabled:false,games:[],warnings:['SportScore request failed'],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}}));
  const warnings:string[]=[];
  const batches:LiveGameState[][]=[];
  settled.forEach((r,i)=>{
@@ -241,7 +243,8 @@ export async function fetchLiveScoreMesh(){
  const mlbNative=batches.find(x=>x.some(g=>g.source==='mlb-statsapi'))||[];
  const espnGames=batches.flat().filter(g=>g.source==='espn-public');
  const specialized=[...nhlNative,...mlbNative];
- const games=merge(specialized,espnGames)
+ const sportScoreGames=Array.isArray(sportScore.games)?sportScore.games:[];
+ const games=merge(specialized,merge(espnGames,sportScoreGames as LiveGameState[]))
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
  return {
   ok:true,
@@ -251,14 +254,16 @@ export async function fetchLiveScoreMesh(){
   sourceMode:'adaptive-multi-source-no-key',
   coverage:sportCoverageSummary(),
   transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
+  attribution:sportScore.enabled?sportScore.attribution:null,
   sources:[
    {id:'nhl-web',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
    {id:'mlb-statsapi',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
    {id:'espn-cdn',auth:'none',priority:'live-game-fast-path',liveRefreshMs:espnCdnLiveTtlMs(),idleRefreshMs:null},
-   {id:'espn-public',auth:'none',priority:'broad-discovery-fallback',liveRefreshMs:espnLiveTtlMs(),idleRefreshMs:espnIdleTtlMs()}
+   {id:'espn-public',auth:'none',priority:'broad-discovery-fallback',liveRefreshMs:espnLiveTtlMs(),idleRefreshMs:espnIdleTtlMs()},
+   {id:'sportscore',auth:'none',priority:'attribution-required-backup',liveRefreshMs:60000,idleRefreshMs:60000,enabled:sportScore.enabled}
   ],
   liveGames:games.filter(x=>x.status==='LIVE').length,
   games,
-  warnings:[...new Set(warnings)].slice(0,20)
+  warnings:[...new Set([...warnings,...((sportScore as any).warnings||[])])].slice(0,20)
  };
 }
