@@ -26,6 +26,7 @@ test('normalizes three free books',()=>{
  assert.equal(rows[0].league,'NFL');
  assert.equal(rows[0].liveEligible,false);
  assert.equal(rows[0].sourceDelaySeconds,300);
+ assert.equal(rows[0].eventId,'evt1');
  assert.equal(rows[0].pulledAt,'2026-10-06T21:45:00Z');
  assert.equal(rows[0].sourceUpdatedAt,'2026-10-06T20:00:00Z');
  assert.ok(rows.some(x=>x.selection==='Away Team +3.5'));
