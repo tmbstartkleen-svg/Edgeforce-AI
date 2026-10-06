@@ -1,4 +1,4 @@
-import {execFileSync} from 'node:child_process';
+import {createSmokeFetch} from './smoke-transport.mjs';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'119.0.0';
 if(!base)throw new Error('SMOKE_BASE_URL is required');
@@ -12,21 +12,20 @@ const degradedAllowedPaths=new Set([
  '/api/parlays?size=2&view=today'
 ]);
 
-function protectedFetch(path){
- const url=base+path;
- if(process.env.SMOKE_VERCEL_AUTH==='1'){
+const protectedFetch=createSmokeFetch({
+ base,vercelAuth:process.env.SMOKE_VERCEL_AUTH==='1',
+ curlArgs:url=>{
   const args=['curl',url];
-  const body=execFileSync('vercel',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
-  return {ok:true,status:200,text:async()=>body};
+  return args;
  }
- return fetch(url,{redirect:'manual',headers:{'user-agent':'edgeforce-release-smoke/60'}});
-}
+});
 
 for(const path of paths){
  const started=Date.now();
  const res=await protectedFetch(path);
  const body=await res.text();
- results.push({path,status:res.status,durationMs:Date.now()-started});
+ results.push({path,status:res.status,attempts:res.attempts,durationMs:Date.now()-started});
+ console.error(`[remote-smoke] ${path}: HTTP ${res.status}, ${res.attempts} attempt(s)`);
  if(!res.ok&&!degradedAllowedPaths.has(path))throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
   const json=JSON.parse(body);
