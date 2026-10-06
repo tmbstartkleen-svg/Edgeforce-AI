@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V109',
- appVersion:'109.0.0',
- packageVersion:'0.109.0',
- modelVersion:'edgeforce-v109',
+ build:'V110',
+ appVersion:'110.0.0',
+ packageVersion:'0.110.0',
+ modelVersion:'edgeforce-v110',
  migrationVersion:114
 };
 const checks=[];
@@ -953,6 +953,11 @@ add('V109 legacy prediction snapshot bridge',read('scripts/migrate.mjs').include
 add('V109 pre-V74 SLO bootstrap bridge',read('.github/workflows/deploy-production.yml').includes('CURRENT_MAJOR="${CURRENT_VERSION%%.*}"')&&read('.github/workflows/deploy-production.yml').includes('[ "$CURRENT_MAJOR" -lt 74 ]')&&read('.github/workflows/deploy-production.yml').includes('legacy bootstrap safety check'),'verified legacy production releases can cross the SLO-governor boundary without disabling fail-closed health checks');
 add('V109 health capability',read('src/app/api/health/route.ts').includes('productionLegacyBridgeRepair:true'),'health exposes production legacy bridge repair');
 add('V109 release notes',exists('EDGEFORCE_V109_RELEASE.md'),'V109 release documentation exists');
+add('V110 legacy athlete schema bridge',read('scripts/migrate.mjs').includes('reconcile legacy athletes schema')&&read('scripts/migrate.mjs').includes('athletes_sport_normalized_name_key'),'legacy athlete records are upgraded to the V41 identity contract before migration replay');
+add('V110 legacy player stat bridge',read('scripts/migrate.mjs').includes('reconcile legacy player_game_stats schema')&&read('scripts/migrate.mjs').includes('player_game_stats_athlete_event_source_key'),'legacy player stat rows are upgraded to the V41 multi-source contract');
+add('V110 layered pre-V74 readiness',read('.github/workflows/deploy-production.yml').includes('layered legacy bootstrap safety checks')&&read('.github/workflows/deploy-production.yml').includes('legacyHealthFallback')&&read('.github/workflows/deploy-production.yml').includes('Legacy production health check is not valid healthy JSON'),'legacy production can bootstrap through health/readiness when newer observability endpoints do not exist');
+add('V110 health capability',read('src/app/api/health/route.ts').includes('legacySchemaReadinessBridge:true'),'health exposes legacy schema readiness bridge');
+add('V110 release notes',exists('EDGEFORCE_V110_RELEASE.md'),'V110 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
