@@ -105,6 +105,21 @@ type SummaryRow={
   roi?:number;
 };
 
+type LiveScoreGame={
+  id:string;
+  sport:string;
+  league:string;
+  source:string;
+  status:'SCHEDULED'|'LIVE'|'FINAL'|'DELAYED'|'UNKNOWN';
+  detail:string;
+  clock?:string;
+  period?:string;
+  startTime?:string;
+  home:{name:string;score:number|null};
+  away:{name:string;score:number|null};
+  observedAt:string;
+};
+
 type LiveBoardResponse={
   generatedAt:string;
   uiRefreshMs:number;
@@ -175,6 +190,26 @@ type LiveBoardResponse={
   };
   rows:BoardRow[];
   sports:string[];
+  liveScores?:{
+    ok:boolean;
+    generatedAt:string;
+    refreshMs:number;
+    sourceMode:string;
+    liveGames:number;
+    games:LiveScoreGame[];
+    warnings:string[];
+  };
+  fanduelPulse?:{
+    ok:boolean;
+    generatedAt:string|null;
+    sequence:number|null;
+    liveTotal:number;
+    prematchTotal:number;
+    latencyMs:number;
+    fresh:boolean;
+    ageMs:number|null;
+    warning?:string;
+  };
   learnedSgpCorrelations?:LearnedSgpMap;
   learnedSgpProfileCount?:number;
   predictions:{
@@ -758,6 +793,10 @@ export default function Dashboard(){
           <small>DATA PULL</small>
           <b>{Math.round(board.sourceRefreshMs/1000)} sec cache</b>
         </div>
+        <div>
+          <small>FANDUEL PULSE</small>
+          <b>{board.fanduelPulse?.ok?(board.fanduelPulse.fresh?'LIVE':'AGING'):'FALLBACK'}</b>
+        </div>
       </div>
     </header>
 
@@ -765,6 +804,19 @@ export default function Dashboard(){
     {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
+
+    {board.liveScores&&<section className="consoleCard">
+      <div className="consoleHead">
+        <div><div className="eyebrow">LIVE GAME CLOCK MESH</div><h3>{board.liveScores.liveGames} game{board.liveScores.liveGames===1?'':'s'} live now</h3></div>
+        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • 1s UI</div>
+      </div>
+      {(board.liveScores.games||[]).filter(g=>g.status==='LIVE').slice(0,12).map(g=><div className="consoleRow" key={g.source+'-'+g.id}>
+        <span className="action action-open">{g.league}</span>
+        <div className="grow"><b>{g.away.name} {g.away.score??'—'} • {g.home.name} {g.home.score??'—'}</b><small>{[g.detail,g.clock&&('Clock '+g.clock),g.source].filter(Boolean).join(' • ')}</small></div>
+        <span className="lime">LIVE</span>
+      </div>)}
+      {!board.liveScores.liveGames&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
+    </section>}
 
     <section className="v21Hero">
       <div>

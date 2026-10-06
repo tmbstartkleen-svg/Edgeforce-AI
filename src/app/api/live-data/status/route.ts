@@ -8,8 +8,11 @@ export const dynamic='force-dynamic';
 export async function GET(req:Request){
  const url=new URL(req.url);
  const requireLive=url.searchParams.get('requireLive')==='1'||url.searchParams.get('requireLive')==='true';
+ const requireUsable=url.searchParams.get('requireUsable')==='1'||url.searchParams.get('requireUsable')==='true';
+ const requestedStoredAge=Number(url.searchParams.get('maxStoredAgeMin'));
+ const storedReuseMaxAgeMin=Number.isFinite(requestedStoredAge)&&requestedStoredAge>0?requestedStoredAge:undefined;
  try{
-  const ingestion=await ingestOdds({forceLive:requireLive});
+  const ingestion=await ingestOdds({forceLive:requireLive,storedReuseMaxAgeMin});
   const oddsProviders=configuredProviders('ODDS');
   const audit=auditMarketBatch(ingestion.markets);
   const sports=[...new Set(ingestion.markets.map(x=>x.sport))].sort();
@@ -36,7 +39,7 @@ export async function GET(req:Request){
    warnings:ingestion.warnings,
    attempts:ingestion.attempts,
    generatedAt:new Date().toISOString(),
-  },{status:(requireLive&&ingestion.source!=='live')||ingestion.source==='unavailable'?503:200,headers:{'Cache-Control':'no-store'}});
+  },{status:(requireLive&&ingestion.source!=='live')||(requireUsable&&!(ingestion.source==='live'||ingestion.source==='stored'))||ingestion.source==='unavailable'?503:200,headers:{'Cache-Control':'no-store'}});
  }catch(error){
   console.error('live-data-status failed',error);
   return Response.json({

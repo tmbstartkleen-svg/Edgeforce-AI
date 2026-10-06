@@ -180,7 +180,18 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  warnings.push(...sloGovernor.warnings.map(x=>`SLO: ${x}`));
 
  if(!security.ok)blockers.push(...security.missingHeaders.map(x=>`security: missing ${x}`));
- if(strict&&ingestion.source!=='live')blockers.push(`data: strict production certification requires live odds, current source is ${ingestion.source}`);
+ const quotaFallbackCertified=Boolean(
+  providerCertification?.providers?.some(x=>
+   String((x as Record<string,unknown>).providerId||'')==='persisted-live-odds'&&
+   String((x as Record<string,unknown>).status||'')==='CERTIFIED'
+  )
+ );
+ if(strict&&ingestion.source!=='live'&&!(ingestion.source==='stored'&&quotaFallbackCertified)){
+  blockers.push(`data: strict production certification requires live odds or certified quota-degraded persisted real odds, current source is ${ingestion.source}`);
+ }
+ if(strict&&ingestion.source==='stored'&&quotaFallbackCertified){
+  warnings.push('data: launch is quota-degraded and using persisted real sportsbook odds until live provider quota recovers');
+ }
  if(strict&&ingestion.markets.length===0)blockers.push('data: no sportsbook markets available for strict production certification');
 
  const attestations=(ops as any).attestations||[];
