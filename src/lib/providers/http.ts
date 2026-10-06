@@ -3,9 +3,13 @@ import {fetchTheOddsApiBoard} from './theOddsApi';
 import {fetchSportsGameOddsBoard} from './sportsGameOdds';
 import {fetchSharpApiBoard} from './sharpApi';
 import {fetchTheRundownBoard} from './theRundown';
+import {fetchTheRundownResults} from './theRundownResults';
 
 export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
+ if(config.url==='therundown://results'){
+  return fetchTheRundownResults(config) as Promise<ProviderFetchResult<T>>;
+ }
  if(config.url==='therundown://pregame-main'){
   return fetchTheRundownBoard(config) as Promise<ProviderFetchResult<T>>;
  }
