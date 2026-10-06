@@ -235,8 +235,8 @@ jobs:
           BASELINE_B64=$(printf '%s' "$BASELINE_JSON" | base64 -w0)
           echo "DEPLOYMENT_BASELINE_B64=$BASELINE_B64" >> "$GITHUB_ENV"
 
-      - name: Build exact production artifact
-        run: vercel --token="$VERCEL_TOKEN" build --prod
+      - name: Build staged remediation preview artifact
+        run: vercel --token="$VERCEL_TOKEN" build
 
       - name: Prepare Vercel Hobby-compatible deployment artifact
         shell: bash
