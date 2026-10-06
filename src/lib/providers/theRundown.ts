@@ -1,7 +1,7 @@
 import type {ProviderConfig,ProviderFetchResult} from './types';
 
 type Row={
- id:string; sport:string; league:string; event:string; home:string; away:string;
+ id:string; eventId:string; sport:string; league:string; event:string; home:string; away:string;
  selection:string; market:string; startTime:string; odds:number; bookmaker:string; pulledAt:string;
  sourceUpdatedAt:string; sourceDelaySeconds:number; liveEligible:false;
 };
@@ -70,6 +70,7 @@ export function normalizeTheRundownPayload(payload:unknown,sportId:string,delayS
       if(!BOOKS[affiliate]||!Number.isFinite(odds)||Math.abs(odds)<100||!updated)continue;
       rows.push({
        id:`therundown:${eventId}:${marketObj.market_id||market}:${participant.id||selection}:${affiliate}:${String(line.value??'main')}`,
+       eventId,
        sport:SPORT_LABELS[sportId]||`SPORT-${sportId}`,league:SPORT_LABELS[sportId]||`SPORT-${sportId}`,
        event:`${away} @ ${home}`,home,away,selection,market,startTime:start,odds,bookmaker:BOOKS[affiliate],
        pulledAt:observedAt,sourceUpdatedAt:updated,sourceDelaySeconds:delaySeconds,liveEligible:false
@@ -101,8 +102,12 @@ async function load(apiKey:string){
    try{
     const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','X-TheRundown-Key':apiKey,'User-Agent':'Edgeforce-AI/121 provider-mesh'}});
     quotas.push(...quotaHeaders(res));
-    if(res.status===429)throw new Error('TheRundown HTTP 429');
-    if(res.status===401||res.status===403)throw new Error(`TheRundown HTTP ${res.status}`);
+    if(res.status===429){
+     const retry=Number(res.headers.get('retry-after'));
+     const error=Object.assign(new Error('TheRundown HTTP 429'),{status:429,retryAfterMs:Number.isFinite(retry)&&retry>0?retry*1000:300000});
+     throw error;
+    }
+    if(res.status===401||res.status===403)throw Object.assign(new Error(`TheRundown HTTP ${res.status}`),{status:res.status});
     if(!res.ok)continue;
     const delay=Number(res.headers.get('x-data-delay-seconds'));
     const delaySeconds=Number.isFinite(delay)&&delay>=0?delay:300;
@@ -125,7 +130,7 @@ export function theRundownProvider(env:Record<string,string|undefined>=process.e
  if(env.THERUNDOWN_ENABLED!=='true'||!key||key==='[SENSITIVE]'||/[\s\u0000-\u001f\u007f]/.test(key))return null;
  return {id:'therundown',name:'TheRundown (delayed pregame)',capability:'ODDS',url:'therundown://pregame-main',
   apiKey:key,authHeader:'X-TheRundown-Key',authScheme:'',priority:Math.max(1,Number(env.THERUNDOWN_PRIORITY||110)),timeoutMs:12000,enabled:true,
-  bookmaker:'TheRundown',maxAgeMin:15,failureThreshold:3,quarantineMin:5,marketRole:'REFERENCE',consensusWeight:1};
+  bookmaker:'TheRundown',maxAgeMin:15,failureThreshold:3,quarantineMin:Math.max(1,Number(env.THERUNDOWN_QUARANTINE_MIN||1)),marketRole:'REFERENCE',consensusWeight:1};
 }
 
 export async function fetchTheRundownBoard(config:ProviderConfig):Promise<ProviderFetchResult<unknown>>{
@@ -142,6 +147,7 @@ export async function fetchTheRundownBoard(config:ProviderConfig):Promise<Provid
  }catch(error){
   if(cache&&Date.now()-cache.at<cacheMs()*3)return {...base,ok:cache.rows.length>0,latencyMs:Date.now()-started,status:cache.status,data:cache.rows,
    error:'TheRundown refresh failed; using bounded cached real rows'};
-  return {...base,ok:false,latencyMs:Date.now()-started,error:error instanceof Error?error.message:'TheRundown request failed'};
+  const e=error as Error & {status?:number;retryAfterMs?:number};
+  return {...base,ok:false,latencyMs:Date.now()-started,status:e.status,error:e instanceof Error?e.message:'TheRundown request failed',retryAfterMs:e.retryAfterMs};
  }
 }

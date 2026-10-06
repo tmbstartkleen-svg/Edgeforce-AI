@@ -32,6 +32,7 @@ export type ProviderFetchResult<T>={
  status?:number;
  data?:T;
  error?:string;
+ retryAfterMs?:number;
 };
 
 export type NormalizedOddsResult={

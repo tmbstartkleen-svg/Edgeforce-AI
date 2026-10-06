@@ -46,7 +46,8 @@ export async function recordProviderResult(config:ProviderConfig,result:Provider
  const accepted=result.ok&&quality?.ok!==false;
  const errorRate=accepted?0:1;
  const failureReason=accepted?null:(result.error||quality?.reasons.join('; ')||'provider rejected');
- const quarantineUntil=new Date(Date.now()+config.quarantineMin*60000).toISOString();
+ const cooldownMs=Math.max(config.quarantineMin*60000,result.retryAfterMs||0);
+ const quarantineUntil=new Date(Date.now()+cooldownMs).toISOString();
  const payloadAt=quality?.newestTimestamp||result.receivedAt;
  await sql`
   insert into provider_health(
@@ -56,7 +57,7 @@ export async function recordProviderResult(config:ProviderConfig,result:Provider
   ) values(
    ${config.id},${config.name},${config.priority},${sql.json([config.capability])},${config.enabled},
    ${accepted?result.receivedAt:null},${accepted?null:result.receivedAt},${result.latencyMs},${errorRate},
-   ${sql.json({status:result.status,error:failureReason,quality:quality||null})},now(),
+   ${sql.json({status:result.status,error:failureReason,quality:quality||null,retryAfterMs:result.retryAfterMs??null})},now(),
    ${accepted?0:1},${accepted?1:0},
    ${!accepted&&config.failureThreshold<=1?'OPEN':'CLOSED'},
    ${!accepted&&config.failureThreshold<=1?quarantineUntil:null},
