@@ -18,6 +18,7 @@ import {steamAlert} from '@/lib/alerts';
 import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {fetchLiveScoreMesh} from '@/lib/liveScoreMesh';
+import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
 
 export const dynamic='force-dynamic';
 
@@ -70,14 +71,15 @@ export async function GET(req:Request){
     return Response.json({ok:false,error:'unauthorized forced refresh'},{status:401});
   }
 
-  const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores]=await Promise.all([
+  const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores,fanduelPulse]=await Promise.all([
     cachedOdds(forceRefresh),
     fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
     loadLearnedWeightMultipliers(),
     loadLedgerHistory(),
     loadLearnedSgpCorrelations(),
     loadDynamicCalibrationProfiles(),
-    fetchLiveScoreMesh().catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh unavailable']}))
+    fetchLiveScoreMesh().catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh unavailable']})),
+    fetchFanDuelOddsPulse().catch(()=>({ok:false,source:'fanlinewire',mode:'keyless-public-snapshot',generatedAt:null,sequence:null,liveTotal:0,prematchTotal:0,rows:[],drops:[],latencyMs:0,fresh:false,ageMs:null,warning:'FanDuel pulse unavailable'}))
   ]);
 
   const ingestion=cached.ingestion;
@@ -176,6 +178,7 @@ export async function GET(req:Request){
     resimulationResults,
     warnings:ingestion.warnings,
     liveScores,
+    fanduelPulse,
     topBoardQualification:{
       requested:limit,
       candidates:boardCandidates.length,
