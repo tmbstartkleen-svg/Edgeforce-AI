@@ -34,6 +34,7 @@ export type ProviderCertification={
 
 export type LatestProviderCertification={
  id:number;
+ deploymentCommit?:string;
  releaseVersion:string;
  modelVersion:string;
  status:string;
@@ -60,6 +61,27 @@ export type CapabilityCoverage={
  score:number;
  status:'READY'|'PARTIAL'|'MISSING'|'FAILED';
 };
+
+const CERT_COMMIT_PREFIX='__edgeforce_deployment_commit__:';
+
+export function providerCertificationRuntimeCommit(env:Record<string,string|undefined>=process.env){
+ return String(env.DEPLOYMENT_COMMIT||env.VERCEL_GIT_COMMIT_SHA||env.GITHUB_SHA||'').trim();
+}
+
+export function providerCertificationCommitMarker(commit:string){
+ const clean=String(commit||'').trim();
+ return clean?`${CERT_COMMIT_PREFIX}${clean}`:'';
+}
+
+export function extractProviderCertificationCommit(warnings:unknown){
+ if(!Array.isArray(warnings))return undefined;
+ const row=warnings.map(String).find(x=>x.startsWith(CERT_COMMIT_PREFIX));
+ return row?row.slice(CERT_COMMIT_PREFIX.length):undefined;
+}
+
+export function visibleProviderCertificationWarnings(warnings:unknown){
+ return Array.isArray(warnings)?warnings.map(String).filter(x=>!x.startsWith(CERT_COMMIT_PREFIX)):[];
+}
 
 const capabilities:ProviderCapability[]=['ODDS','WEATHER','INJURIES','STATS','RESULTS','PREDICTION_MARKETS'];
 const requiredCapability=(capability:ProviderCapability)=>capability==='ODDS';
@@ -153,6 +175,8 @@ export function evaluateCertificationResults(results:ProviderCertification[]){
 export async function certifyConfiguredProviders(){
  const providers=configuredProviders();
  const startedAt=new Date().toISOString();
+ const deploymentCommit=providerCertificationRuntimeCommit();
+ const commitMarker=providerCertificationCommitMarker(deploymentCommit);
  const results:ProviderCertification[]=[];
  for(const provider of providers){
   results.push(await certifyProvider(provider));
@@ -245,7 +269,7 @@ export async function certifyConfiguredProviders(){
   startedAt,
   completedAt:new Date().toISOString(),
   configuredCount,certifiedCount,cautionCount,failedCount,
-  coverageScore,launchReady,blockers,warnings,coverage,providers:results
+  coverageScore,launchReady,blockers,warnings,coverage,providers:results,deploymentCommit:deploymentCommit||undefined
  };
 
  const sql=db();
@@ -258,7 +282,7 @@ export async function certifyConfiguredProviders(){
     ) values(
      ${RELEASE.appVersion},${RELEASE.modelVersion},'completed',${configuredCount},${certifiedCount},
      ${cautionCount},${failedCount},${coverageScore},${launchReady},
-     ${sql.json(blockers)},${sql.json(warnings)},now()
+     ${sql.json(blockers)},${sql.json(commitMarker?[...warnings,commitMarker]:warnings)},now()
     ) returning id
    `;
    for(const row of results){
@@ -282,18 +306,31 @@ export async function certifyConfiguredProviders(){
  return report;
 }
 
-export async function latestProviderCertification():Promise<LatestProviderCertification|null>{
+export async function latestProviderCertification(expectedCommit?:string):Promise<LatestProviderCertification|null>{
  const sql=db();
  if(!sql)return null;
  try{
-  const [run]=await sql`
-   select id,release_version as "releaseVersion",model_version as "modelVersion",status,
-    configured_count as "configuredCount",certified_count as "certifiedCount",
-    caution_count as "cautionCount",failed_count as "failedCount",
-    coverage_score::float as "coverageScore",launch_ready as "launchReady",
-    blockers,warnings,started_at as "startedAt",completed_at as "completedAt"
-   from provider_certification_runs order by started_at desc limit 1
-  `;
+  const marker=providerCertificationCommitMarker(expectedCommit||'');
+  const rows=marker
+   ?await sql`
+     select id,release_version as "releaseVersion",model_version as "modelVersion",status,
+      configured_count as "configuredCount",certified_count as "certifiedCount",
+      caution_count as "cautionCount",failed_count as "failedCount",
+      coverage_score::float as "coverageScore",launch_ready as "launchReady",
+      blockers,warnings,started_at as "startedAt",completed_at as "completedAt"
+     from provider_certification_runs
+     where warnings @> ${sql.json([marker])}
+     order by started_at desc limit 1
+    `
+   :await sql`
+     select id,release_version as "releaseVersion",model_version as "modelVersion",status,
+      configured_count as "configuredCount",certified_count as "certifiedCount",
+      caution_count as "cautionCount",failed_count as "failedCount",
+      coverage_score::float as "coverageScore",launch_ready as "launchReady",
+      blockers,warnings,started_at as "startedAt",completed_at as "completedAt"
+     from provider_certification_runs order by started_at desc limit 1
+    `;
+  const [run]=rows;
   if(!run)return null;
   const providers=await sql`
    select provider_id as "providerId",provider_name as "providerName",capability,status,priority,

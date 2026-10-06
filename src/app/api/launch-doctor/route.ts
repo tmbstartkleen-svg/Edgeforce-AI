@@ -1,6 +1,6 @@
 import {evaluateReadiness} from '@/lib/readiness';
 import {configuredProviders} from '@/lib/providers/config';
-import {latestProviderCertification} from '@/lib/providerCertification';
+import {latestProviderCertification,providerCertificationRuntimeCommit} from '@/lib/providerCertification';
 import {RELEASE} from '@/lib/releaseManifest';
 
 export const dynamic='force-dynamic';
@@ -8,9 +8,10 @@ export const dynamic='force-dynamic';
 export async function GET(req:Request){
  const url=new URL(req.url);
  const strict=url.searchParams.get('strict')==='1'||url.searchParams.get('strict')==='true';
+ const deploymentCommit=providerCertificationRuntimeCommit();
  const [readiness,certification]=await Promise.all([
   evaluateReadiness({strict:strict||undefined}),
-  latestProviderCertification()
+  latestProviderCertification(deploymentCommit||undefined)
  ]);
  const configured=configuredProviders();
  const configuredCapabilities=[...new Set(configured.map(x=>x.capability))];
@@ -42,8 +43,13 @@ export async function GET(req:Request){
  ];
 
  if(!certification){
-  blockers.push('provider certification has not been run');
+  blockers.push(deploymentCommit
+   ?`provider certification has not been run for deployment ${deploymentCommit}`
+   :'provider certification has not been run');
  }else{
+  if(deploymentCommit&&certification.deploymentCommit!==deploymentCommit){
+   blockers.push('provider certification deployment identity mismatch');
+  }
   blockers.push(...((certification.blockers as string[]|undefined)||[]).map(x=>`provider: ${x}`));
   warnings.push(...((certification.warnings as string[]|undefined)||[]).map(x=>`provider: ${x}`));
   if(certification.releaseVersion!==RELEASE.appVersion){
@@ -61,6 +67,7 @@ export async function GET(req:Request){
   migrationVersion:RELEASE.migrationVersion,
   readiness,
   certification,
+  certificationIdentity:{expectedCommit:deploymentCommit||null,matched:Boolean(!deploymentCommit||(certification&&certification.deploymentCommit===deploymentCommit))},
   pulseCertificationContinuity:{active:onlyTransientPulseFailure,current:currentPulseCertification,ageMs:Number.isFinite(pulseCertificationAgeMs)?pulseCertificationAgeMs:null},
   configuredProviders:configured.length,
   configuredCapabilities,

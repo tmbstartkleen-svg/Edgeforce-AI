@@ -1,4 +1,4 @@
-import {certifyConfiguredProviders,latestProviderCertification} from '@/lib/providerCertification';
+import {certifyConfiguredProviders,latestProviderCertification,providerCertificationRuntimeCommit} from '@/lib/providerCertification';
 
 export const dynamic='force-dynamic';
 
@@ -8,8 +8,9 @@ function authorized(req:Request){
 }
 
 export async function GET(){
- const latest=await latestProviderCertification();
- return Response.json({ok:true,latest},{headers:{'Cache-Control':'no-store'}});
+ const deploymentCommit=providerCertificationRuntimeCommit();
+ const latest=await latestProviderCertification(deploymentCommit||undefined);
+ return Response.json({ok:true,deploymentCommit:deploymentCommit||null,latest},{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(req:Request){
