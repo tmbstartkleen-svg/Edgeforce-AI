@@ -59,7 +59,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v111-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v112-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -164,11 +164,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V111 smoke test
+      - name: Hosted V112 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "111.0.0"
+          EXPECTED_APP_VERSION: "112.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -205,9 +205,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V111 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V111" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v111" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V112 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V112" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v112" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
