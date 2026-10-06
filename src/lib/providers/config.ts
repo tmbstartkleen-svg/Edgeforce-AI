@@ -49,6 +49,29 @@ function provider(prefix:string,name:string,capability:ProviderCapability,priori
  };
 }
 
+function sportsGameOddsProvider():ProviderConfig|null{
+ const key=process.env.SPORTS_GAME_ODDS_API_KEY;
+ if(!key)return null;
+ return {
+  id:'sports-game-odds',
+  name:'SportsGameOdds',
+  capability:'ODDS',
+  url:'sports-game-odds://live-board',
+  apiKey:key,
+  authHeader:'x-api-key',
+  authScheme:'',
+  priority:int(process.env.SPORTS_GAME_ODDS_PRIORITY,115),
+  timeoutMs:Math.max(2500,int(process.env.SPORTS_GAME_ODDS_TIMEOUT_MS,7000)),
+  enabled:process.env.SPORTS_GAME_ODDS_ENABLED!=='false',
+  bookmaker:'SportsGameOdds',
+  maxAgeMin:Math.max(1,int(process.env.SPORTS_GAME_ODDS_MAX_AGE_MIN,20)),
+  failureThreshold:Math.max(1,int(process.env.PROVIDER_FAILURE_THRESHOLD,3)),
+  quarantineMin:Math.max(1,int(process.env.PROVIDER_QUARANTINE_MIN,5)),
+  marketRole:'REFERENCE',
+  consensusWeight:weight(process.env.SPORTS_GAME_ODDS_CONSENSUS_WEIGHT,1)
+ };
+}
+
 function theOddsApiProvider():ProviderConfig|null{
  const key=process.env.THE_ODDS_API_KEY;
  if(!key)return null;
@@ -74,6 +97,7 @@ function theOddsApiProvider():ProviderConfig|null{
 
 export function configuredProviders(capability?:ProviderCapability):ProviderConfig[]{
  const all=[
+  sportsGameOddsProvider(),
   theOddsApiProvider(),
   provider('ODDS_PROVIDER_PRIMARY','Odds Primary','ODDS',100),
   provider('ODDS_PROVIDER_SECONDARY','Odds Secondary','ODDS',80),
