@@ -245,6 +245,7 @@ export async function GET(){
   degradedRuntimeCertification:true,
   expertModelPulseContinuitySmoke:true,
   proceduralSqlFreeLegacyRepair:true,
+  pulseOnlyDownstreamContracts:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
