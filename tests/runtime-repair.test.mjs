@@ -53,9 +53,9 @@ async function databaseFixture() {
   const replacement = `const postgres = globalThis[Symbol.for(${JSON.stringify(key)})];`;
   const code = compiled.outputText.replace(/import postgres from ['"]postgres['"];?/, replacement);
   assert.ok(code.includes(replacement), 'fixture must replace the actual postgres import');
-  const module = await import(`data:text/javascript,${encodeURIComponent(code)}`);
+  const runtime = await import(`data:text/javascript,${encodeURIComponent(code)}`);
   delete globalThis[Symbol.for(key)];
-  return {...module, clients};
+  return {...runtime, clients};
 }
 const env = {DATABASE_URL: 'postgres://fixture-only', DEPLOYMENT_PLATFORM: 'cloudflare'};
 
