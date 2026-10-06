@@ -260,14 +260,14 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "/api/release/launch-status"              -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             -d "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"DEPLOYED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE"              -X POST             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             -d "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"DEPLOYED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
       - name: Apply database migrations inside Vercel runtime
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "/api/release/bootstrap" \
+          vercel curl "/api/release/bootstrap" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" \
             -X POST \
             -H "Authorization: Bearer $DEPLOY_BOOTSTRAP_SECRET" \
             -H "Content-Type: application/json"
@@ -277,7 +277,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          vercel curl "/api/release/launch-status" \
+          vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" \
             -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
@@ -306,7 +306,7 @@ jobs:
       - name: Require strict launch doctor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
-        run: vercel curl "/api/launch-doctor?strict=1" 
+        run: vercel curl "/api/launch-doctor?strict=1" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" 
 
       - name: Record launch-doctor stage
         env:
@@ -416,7 +416,7 @@ jobs:
           for ATTEMPT in 1 2 3; do
             BODY=$(jq -cn --argjson baseline "$BASELINE_JSON" --arg launchId "$LAUNCH_ID" '{baseline:$baseline,launchId:$launchId}')
             set +e
-            RESPONSE=$(vercel curl "/api/release/deployment-guard"               -X POST               -H "Authorization: Bearer $INGEST_SECRET"               -H "Content-Type: application/json"               --data "$BODY" 2>&1)
+            RESPONSE=$(vercel curl "/api/release/deployment-guard" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE"               -X POST               -H "Authorization: Bearer $INGEST_SECRET"               -H "Content-Type: application/json"               --data "$BODY" 2>&1)
             CODE=$?
             set -e
             echo "$RESPONSE"
@@ -493,7 +493,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          HEALTH=$(vercel curl "/api/health")
+          HEALTH=$(vercel curl "/api/health" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE")
           BODY=$(jq -cn \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
@@ -512,7 +512,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          HEALTH=$(vercel curl "/api/health")
+          HEALTH=$(vercel curl "/api/health" --deployment "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE")
           BODY=$(jq -cn \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
