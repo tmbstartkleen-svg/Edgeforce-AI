@@ -150,7 +150,7 @@ function aggregateQuality(rows:PanelResult[]){
  return {grade,qualityScore,rowCount,payloadAgeMin};
 }
 
-export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
+async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
  const configured=configuredProviders('ODDS');
  const targetBook=process.env.TARGET_BOOKMAKER||'DraftKings';
  if(!configured.length){
@@ -218,7 +218,28 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
   providerPanel:panel.map(x=>({
    providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
    marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-   acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore
+   acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
+   latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
   }))
  };
+}
+
+let oddsPanelCache:{at:number;value:OddsIngestionResult}|null=null;
+let oddsPanelInFlight:Promise<OddsIngestionResult>|null=null;
+const oddsPanelCacheMs=()=>Math.max(1000,Number(process.env.ODDS_PANEL_CACHE_MS||5000));
+
+export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
+ const now=Date.now();
+ if(oddsPanelCache&&now-oddsPanelCache.at<oddsPanelCacheMs())return oddsPanelCache.value;
+ if(oddsPanelInFlight)return oddsPanelInFlight;
+ const request=fetchNormalizedOddsUncached()
+  .then(value=>{
+   oddsPanelCache={at:Date.now(),value};
+   return value;
+  })
+  .finally(()=>{
+   if(oddsPanelInFlight===request)oddsPanelInFlight=null;
+  });
+ oddsPanelInFlight=request;
+ return request;
 }
