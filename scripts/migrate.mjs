@@ -65,6 +65,25 @@ if(legacyPredictionSnapshots[0]?.table_name){
     alter column raw set not null
   `);
   await tx.unsafe(`
+   do $
+   begin
+    if exists(
+     select 1
+     from information_schema.columns
+     where table_schema='public'
+       and table_name='prediction_market_snapshots'
+       and column_name='provider'
+    ) then
+     update prediction_market_snapshots
+     set provider=coalesce(nullif(provider,''),venue,'legacy')
+     where provider is null or provider='';
+     alter table prediction_market_snapshots
+      alter column provider drop not null;
+    end if;
+   end
+   $;
+  `);
+  await tx.unsafe(`
    create unique index if not exists prediction_market_snapshots_venue_contract_hour_key
     on prediction_market_snapshots(venue,contract_id,observed_hour)
   `);
