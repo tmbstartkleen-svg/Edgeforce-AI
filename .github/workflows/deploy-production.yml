@@ -65,7 +65,7 @@ jobs:
 
       - name: Start predeploy verification server
         run: |
-          MODEL_VERSION=edgeforce-v110 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
+          MODEL_VERSION=edgeforce-v111 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
           echo $! > /tmp/edgeforce-predeploy.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
@@ -233,7 +233,24 @@ jobs:
           echo "DEPLOYMENT_BASELINE_B64=$BASELINE_B64" >> "$GITHUB_ENV"
 
       - name: Build exact production artifact
-        run: vercel --token="$VERCEL_TOKEN" build --prod 
+        run: vercel --token="$VERCEL_TOKEN" build --prod
+
+      - name: Prepare Vercel Hobby-compatible deployment artifact
+        shell: bash
+        run: |
+          # Cloudflare is the canonical high-frequency scheduler. Keep the same
+          # routes on Vercel, but remove cron registration from this CI artifact
+          # because the connected Vercel project is on a cron-limited plan.
+          jq 'del(.crons)' vercel.json > /tmp/edgeforce-vercel.json
+          mv /tmp/edgeforce-vercel.json vercel.json
+          if [ -f .vercel/output/config.json ]; then
+            jq 'del(.crons)' .vercel/output/config.json > /tmp/edgeforce-output-config.json
+            mv /tmp/edgeforce-output-config.json .vercel/output/config.json
+          fi
+          test "$(jq '.crons // [] | length' vercel.json)" -eq 0
+          if [ -f .vercel/output/config.json ]; then
+            test "$(jq '.crons // [] | length' .vercel/output/config.json)" -eq 0
+          fi
 
       - name: Deploy prebuilt artifact to production
         id: deploy
@@ -244,7 +261,7 @@ jobs:
             --prod
             --yes
             
-            --env MODEL_VERSION=edgeforce-v110
+            --env MODEL_VERSION=edgeforce-v111
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -321,11 +338,22 @@ jobs:
       - name: Certify live production providers
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
         run: |
-          vercel curl "/api/providers/certify" --deployment "$PRODUCTION_URL" -X POST \
+          set +e
+          CERTIFICATION=$(vercel curl "/api/providers/certify" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
-            -H "Content-Type: application/json"
-          echo
+            -H "Content-Type: application/json" 2>/tmp/edgeforce-provider-cert.err)
+          CERT_CODE=$?
+          set -e
+          if [ -n "$CERTIFICATION" ]; then
+            echo "$CERTIFICATION"
+          fi
+          if [ "$CERT_CODE" -ne 0 ]; then
+            cat /tmp/edgeforce-provider-cert.err || true
+            exit "$CERT_CODE"
+          fi
+          printf '%s' "$CERTIFICATION" | jq -e '.launchReady==true' >/dev/null
 
       - name: Record provider certification launch stage
         env:
@@ -356,7 +384,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "110.0.0"
+          EXPECTED_APP_VERSION: "111.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -370,12 +398,12 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Record V110 execution certification
+      - name: Record V111 execution certification
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          BODY=$(jq -cn             --arg releaseVersion "110.0.0"             --arg modelVersion "edgeforce-v110"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
+          BODY=$(jq -cn             --arg releaseVersion "111.0.0"             --arg modelVersion "edgeforce-v111"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
               lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
               smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
               evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
@@ -498,14 +526,14 @@ jobs:
             echo
           done
 
-      - name: Record V110 production promotion provenance
+      - name: Record V111 production promotion provenance
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
           BODY=$(jq -cn \
-            --arg releaseVersion "110.0.0" \
-            --arg modelVersion "edgeforce-v110" \
+            --arg releaseVersion "111.0.0" \
+            --arg modelVersion "edgeforce-v111" \
             --arg commitSha "$DEPLOY_COMMIT" \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
@@ -587,9 +615,9 @@ jobs:
           curl --fail --silent --show-error \
             -X POST \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V110%20production%20certification%20or%20hosted%20launch%20gate%20failure"
+            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V111%20production%20certification%20or%20hosted%20launch%20gate%20failure"
 
-      - name: Reconcile V110 rollback evidence
+      - name: Reconcile V111 rollback evidence
         if: failure() && steps.deploy.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
