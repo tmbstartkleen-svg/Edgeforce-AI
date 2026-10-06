@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: edgeforce-vercel-production
+  cancel-in-progress: false
+
 jobs:
   deploy-production:
     if: >-
@@ -18,6 +22,7 @@ jobs:
     env:
       VERCEL_SCOPE: tmbstartkleen-4716s-projects
       VERCEL_PROJECT_NAME: edgeforce-ai
+      PRODUCTION_ALIAS: edgeforce-ai.vercel.app
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
       SPORTS_GAME_ODDS_API_KEY: ${{ secrets.SPORTS_GAME_ODDS_API_KEY }}
@@ -121,17 +126,33 @@ jobs:
       - name: Pull production project settings
         run: vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" pull --yes --environment=production
 
+      - name: Report production provider configuration presence
+        shell: bash
+        run: |
+          umask 077
+          trap 'rm -f /tmp/edgeforce-env-metadata.json' EXIT
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?decrypt=false&teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-env-metadata.json
+          node scripts/production-target.mjs environment /tmp/edgeforce-env-metadata.json
+
       - name: Capture previous production deployment
         shell: bash
         run: |
-          PREVIOUS_DEPLOYMENT_JSON=$(curl --fail --silent --show-error \
+          umask 077
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID")
-          PREVIOUS_DEPLOYMENT_ID=$(printf '%s' "$PREVIOUS_DEPLOYMENT_JSON" | jq -r '.deployments[0].uid // .deployments[0].id // empty')
-          PREVIOUS_DEPLOYMENT_URL=$(printf '%s' "$PREVIOUS_DEPLOYMENT_JSON" | jq -r '.deployments[0].url // empty')
-          test -n "$PREVIOUS_DEPLOYMENT_ID"
-          test -n "$PREVIOUS_DEPLOYMENT_URL"
-          PREVIOUS_DEPLOYMENT_URL="https://$PREVIOUS_DEPLOYMENT_URL"
+            "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-baseline-alias.json
+          BASELINE=$(node scripts/production-target.mjs alias /tmp/edgeforce-baseline-alias.json)
+          PREVIOUS_DEPLOYMENT_ID=$(printf '%s' "$BASELINE" | jq -er '.id')
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v13/deployments/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-baseline-deployment.json
+          DEPLOYMENT=$(EXPECTED_DEPLOYMENT_ID="$PREVIOUS_DEPLOYMENT_ID" node scripts/production-target.mjs deployment /tmp/edgeforce-baseline-deployment.json)
+          PREVIOUS_DEPLOYMENT_URL=$(printf '%s' "$DEPLOYMENT" | jq -er '.url')
           echo "PREVIOUS_DEPLOYMENT_ID=$PREVIOUS_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "PREVIOUS_DEPLOYMENT_URL=$PREVIOUS_DEPLOYMENT_URL" >> "$GITHUB_ENV"
 
@@ -235,8 +256,8 @@ jobs:
           BASELINE_B64=$(printf '%s' "$BASELINE_JSON" | base64 -w0)
           echo "DEPLOYMENT_BASELINE_B64=$BASELINE_B64" >> "$GITHUB_ENV"
 
-      - name: Build staged remediation preview artifact
-        run: vercel --token="$VERCEL_TOKEN" build
+      - name: Build staged production artifact
+        run: vercel --token="$VERCEL_TOKEN" build --prod
 
       - name: Prepare Vercel Hobby-compatible deployment artifact
         shell: bash
@@ -261,7 +282,10 @@ jobs:
         run: |
           args=(
             --prebuilt
+            --prod
+            --skip-domain
             --yes
+            --meta edgeforceCommit="$DEPLOY_COMMIT"
             --env MODEL_VERSION=edgeforce-v119
             --env DEPLOYMENT_ENV=production
             --env DEPLOYMENT_PLATFORM=vercel
@@ -304,6 +328,24 @@ jobs:
           fi
           URL=$(vercel --token="$VERCEL_TOKEN" deploy "${args[@]}")
           echo "production_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Verify candidate target and unchanged production alias
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          HOST=$(node --input-type=module -e 'import {deploymentHost} from "./scripts/production-target.mjs"; console.log(deploymentHost(process.env.PRODUCTION_URL));')
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v13/deployments/$HOST?teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-staged-deployment.json
+          CANDIDATE=$(EXPECTED_DEPLOYMENT_URL="$PRODUCTION_URL" EXPECTED_DEPLOYMENT_COMMIT="$DEPLOY_COMMIT" node scripts/production-target.mjs deployment /tmp/edgeforce-staged-deployment.json)
+          echo "CANDIDATE_DEPLOYMENT_ID=$(printf '%s' "$CANDIDATE" | jq -er '.id')" >> "$GITHUB_ENV"
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-staged-alias.json
+          EXPECTED_DEPLOYMENT_ID="$PREVIOUS_DEPLOYMENT_ID" node scripts/production-target.mjs alias /tmp/edgeforce-staged-alias.json
 
       - name: Wait for deployed runtime
         env:
@@ -553,6 +595,15 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"V1_READY\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
+      - name: Recheck production alias before promotion
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-prepromotion-alias.json
+          EXPECTED_DEPLOYMENT_ID="$PREVIOUS_DEPLOYMENT_ID" node scripts/production-target.mjs alias /tmp/edgeforce-prepromotion-alias.json
+
       - name: Promote certified candidate to production
         id: promote
         env:
@@ -565,19 +616,18 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          EXPECTED_URL="${PRODUCTION_URL#https://}"
           for i in {1..20}; do
-            PROD_JSON=$(curl --fail --silent --show-error \
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
-              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID")
-            LIVE_URL=$(printf '%s' "$PROD_JSON" | jq -r '.deployments[0].url // empty')
-            LIVE_SHA=$(printf '%s' "$PROD_JSON" | jq -r '.deployments[0].meta.githubCommitSha // .deployments[0].meta.githubCommitRef // empty')
-            if [ "$LIVE_URL" = "$EXPECTED_URL" ]; then
-              echo "Production alias converged to certified candidate: $LIVE_URL"
-              if [ -n "$LIVE_SHA" ]; then echo "Production metadata commit: $LIVE_SHA"; fi
+              "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
+              --output /tmp/edgeforce-promoted-alias.json
+            if EXPECTED_DEPLOYMENT_ID="$CANDIDATE_DEPLOYMENT_ID" node scripts/production-target.mjs alias /tmp/edgeforce-promoted-alias.json; then
+              vercel curl "/api/health" --deployment "https://$PRODUCTION_ALIAS" --fail-with-body --silent --show-error --max-time 30 \
+                --output /tmp/edgeforce-promoted-health.json
+              jq -e --arg commit "$DEPLOY_COMMIT" '.ok==true and .version=="119.0.0" and .modelVersion=="edgeforce-v119" and .deploymentCommit==$commit and .releaseIdentityMatch==true' /tmp/edgeforce-promoted-health.json >/dev/null
+              echo "Production alias converged to the certified candidate and exact runtime commit."
               exit 0
             fi
-            echo "Waiting for production alias convergence (attempt $i/20): current=$LIVE_URL expected=$EXPECTED_URL"
             sleep 3
           done
           echo "Production alias did not converge to the certified candidate."
@@ -641,7 +691,13 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          HEALTH=$(vercel curl "/api/health" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error)
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
+            --output /tmp/edgeforce-postpromotion-alias.json
+          EXPECTED_DEPLOYMENT_ID="$CANDIDATE_DEPLOYMENT_ID" node scripts/production-target.mjs alias /tmp/edgeforce-postpromotion-alias.json
+          HEALTH=$(vercel curl "/api/health" --deployment "https://$PRODUCTION_ALIAS" --fail-with-body --silent --show-error --max-time 30)
+          printf '%s' "$HEALTH" | jq -e --arg commit "$DEPLOY_COMMIT" '.ok==true and .version=="119.0.0" and .modelVersion=="edgeforce-v119" and .deploymentCommit==$commit and .releaseIdentityMatch==true' >/dev/null
           BODY=$(jq -cn \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
