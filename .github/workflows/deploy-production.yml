@@ -449,11 +449,13 @@ jobs:
       - name: Certify final production release
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
         run: |
-          vercel curl "/api/release/certify?strict=1" --deployment "$PRODUCTION_URL" -X POST \
+          REPORT=$(vercel curl "/api/release/certify?strict=1" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
-            -H "Content-Type: application/json"
-          echo
+            -H "Content-Type: application/json")
+          echo "$REPORT"
+          printf '%s' "$REPORT" | jq -e '.certified==true and (.blockers|length)==0' >/dev/null
 
       - name: Record strict certification launch stage
         env:
