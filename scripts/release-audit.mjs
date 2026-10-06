@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V117',
- appVersion:'117.0.0',
- packageVersion:'0.117.0',
- modelVersion:'edgeforce-v117',
+ build:'V118',
+ appVersion:'118.0.0',
+ packageVersion:'0.118.0',
+ modelVersion:'edgeforce-v118',
  migrationVersion:114
 };
 const checks=[];
@@ -1008,6 +1008,17 @@ add('V117 degraded expert-model smoke',read('scripts/remote-smoke.mjs').includes
 add('V117 pulse-only downstream contracts',read('src/app/api/live-comeback/route.ts').includes('degraded:true')&&read('src/app/api/intelligence/context/route.ts').includes('v51-context-intelligence-1')&&read('src/app/api/parlays/route.ts').includes('degraded:true')&&read('scripts/remote-smoke.mjs').includes("'/api/live-comeback'")&&read('scripts/remote-smoke.mjs').includes("'/api/intelligence/context'")&&read('scripts/remote-smoke.mjs').includes("'/api/parlays?size=2&view=today'"),'pulse-only continuity returns explicit degraded contracts for downstream recommendation/context features rather than appearing broken');
 add('V117 health capability',read('src/app/api/health/route.ts').includes('degradedRuntimeCertification:true'),'health exposes degraded runtime certification');
 add('V117 release notes',exists('EDGEFORCE_V117_RELEASE.md'),'V117 release documentation exists');
+add('V118 bounded Cloudflare prediction automation',read('src/app/api/cron/predictions/route.ts').includes("cloudflareBounded=platform==='cloudflare'")&&read('src/app/api/cron/predictions/route.ts').includes('executionProfile')&&read('src/app/api/cron/predictions/route.ts').includes('fetchPredictionMarkets({maxContracts:contractLimit})'),'Cloudflare prediction automation uses an explicit bounded execution profile');
+add('V118 bounded Kalshi fetch',read('src/lib/providers/kalshi.ts').includes('KALSHI_MARKET_PAGE_LIMIT'),'Kalshi public-market ingestion accepts a runtime page-size ceiling');
+add('V118 bounded prediction market collection',read('src/lib/predictionMarkets.ts').includes('options?:{maxContracts?:number}')&&read('src/lib/predictionMarkets.ts').includes('options?.maxContracts??configuredMaxContracts'),'prediction market collection supports a request-specific bounded contract ceiling');
+add('V118 Worker resource profile',read('wrangler.jsonc').includes('"PREDICTION_MARKET_MAX_CONTRACTS": "300"')&&read('wrangler.jsonc').includes('"PREDICTION_CRON_TRADE_LIMIT": "100"')&&read('wrangler.jsonc').includes('"PREDICTION_CRON_LEADERBOARD_LIMIT": "25"')&&read('wrangler.jsonc').includes('"KALSHI_MARKET_PAGE_LIMIT": "150"')&&read('wrangler.jsonc').includes('limit=150'),'Cloudflare runtime constrains contract, trade, and leaderboard batch sizes');
+add('V118 health capability',read('src/app/api/health/route.ts').includes('cloudflareBoundedPredictionPrime:true')&&read('src/app/api/health/route.ts').includes('workerSafePredictionAutomation:true'),'health exposes Worker-safe prediction automation');
+add('V118 observability timestamp compatibility',read('src/lib/productionObservability.ts').includes('information_schema.columns')&&read('src/lib/productionObservability.ts').includes("latestTimestamp('market_snapshots'")&&read('src/lib/productionObservability.ts').includes("latestTimestamp('market_consensus_snapshots'"),'production observability resolves legacy snapshot timestamp columns without collapsing database health');
+add('V118 quota remediation certification',read('src/lib/productionCertification.ts').includes('continuityAutomationFailures')&&read('src/lib/productionCertification.ts').includes('known quota-continuity remediation dependency'),'strict remediation certification tolerates only explicitly recognized quota-continuity automation dependencies');
+add('V118 inherited-state comparative canary',read('src/lib/deploymentGuard.ts').includes('inheritedCriticalContinuity')&&read('src/lib/deploymentGuard.ts').includes('inheritedProtectiveContinuity')&&read('src/lib/deploymentGuard.ts').includes('pulseUsable'),'comparative canary permits inherited non-regressing protective state only with fresh real pulse continuity');
+add('V118 strict certification payload gate',read('.github/workflows/deploy-production.yml').includes("jq -e '.certified==true and (.blockers|length)==0'"),'production workflow verifies certification payload before advancing');
+add('V118 remediation health capability',read('src/app/api/health/route.ts').includes('legacyObservabilityTimestampRepair:true')&&read('src/app/api/health/route.ts').includes('remediationCanaryContinuity:true')&&read('src/app/api/health/route.ts').includes('strictCertificationPayloadGate:true'),'health exposes Vercel remediation hardening');
+add('V118 release notes',exists('EDGEFORCE_V118_RELEASE.md'),'V118 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};

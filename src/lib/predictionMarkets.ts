@@ -91,7 +91,7 @@ function dedupeContracts(rows:PredictionContract[]){
  return [...map.values()];
 }
 
-export async function fetchPredictionMarkets(){
+export async function fetchPredictionMarkets(options?:{maxContracts?:number}){
   const [configured,kalshi,polymarket]=await Promise.all([
     fetchWithFailover('PREDICTION_MARKETS'),
     fetchPublicKalshi(),
@@ -109,7 +109,8 @@ export async function fetchPredictionMarkets(){
    ...(polymarket.ok?polymarket.contracts:[])
   ]);
 
-  const maxContracts=Math.max(100,Math.min(10000,Number(process.env.PREDICTION_MARKET_MAX_CONTRACTS||4000)));
+  const configuredMaxContracts=Number(process.env.PREDICTION_MARKET_MAX_CONTRACTS||4000);
+  const maxContracts=Math.max(100,Math.min(10000,Number(options?.maxContracts??configuredMaxContracts)));
   const ranked=[...contracts]
    .sort((a,b)=>((b.volume??0)+(b.liquidity??0))-((a.volume??0)+(a.liquidity??0)))
    .slice(0,maxContracts);

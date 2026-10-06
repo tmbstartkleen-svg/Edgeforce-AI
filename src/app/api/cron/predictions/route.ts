@@ -17,10 +17,17 @@ export async function GET(req:Request){
 
  const started=Date.now();
  try{
-  const tradeLimit=Math.max(100,Math.min(1000,Number(process.env.PREDICTION_CRON_TRADE_LIMIT||750)));
+  const platform=String(process.env.DEPLOYMENT_PLATFORM||'unknown').toLowerCase();
+  const cloudflareBounded=platform==='cloudflare';
+  const contractLimit=Math.max(100,Math.min(cloudflareBounded?500:10000,Number(process.env.PREDICTION_MARKET_MAX_CONTRACTS||(cloudflareBounded?500:4000))));
+  const tradeLimit=Math.max(100,Math.min(cloudflareBounded?100:1000,Number(process.env.PREDICTION_CRON_TRADE_LIMIT||(cloudflareBounded?100:750))));
+  const leaderboardLimit=Math.max(10,Math.min(cloudflareBounded?25:150,Number(process.env.PREDICTION_CRON_LEADERBOARD_LIMIT||(cloudflareBounded?25:150))));
+  const analysisLimit=Math.max(20,Math.min(cloudflareBounded?40:100,Number(process.env.PREDICTION_CRON_ANALYSIS_LIMIT||(cloudflareBounded?40:80))));
+  const signalLimit=Math.max(20,Math.min(cloudflareBounded?50:200,Number(process.env.PREDICTION_CRON_SIGNAL_LIMIT||(cloudflareBounded?50:100))));
+  const executionProfile={platform,cloudflareBounded,contractLimit,tradeLimit,leaderboardLimit,analysisLimit,signalLimit};
   const warnings:string[]=[];
   const [predictions,kalshi,polymarket,leaderboard]=await Promise.all([
-   fetchPredictionMarkets().catch(error=>({
+   fetchPredictionMarkets({maxContracts:contractLimit}).catch(error=>({
     mode:'failed' as const,source:null,contracts:[],attempts:[],sources:[],warnings:[],
     error:error instanceof Error?error.message:'prediction markets unavailable'
    })),
@@ -30,7 +37,7 @@ export async function GET(req:Request){
    fetchPolymarketTrades(tradeLimit).catch(error=>({
     ok:false,trades:[],error:error instanceof Error?error.message:'Polymarket trades unavailable'
    })),
-   fetchPolymarketLeaderboard('week',150).catch(error=>({
+   fetchPolymarketLeaderboard('week',leaderboardLimit).catch(error=>({
     ok:false,rows:[],error:error instanceof Error?error.message:'Polymarket leaderboard unavailable',cached:false as const
    }))
   ]);
@@ -46,10 +53,10 @@ export async function GET(req:Request){
   );
 
   const flow4h=summarizeFlow(trades,'4H');
-  const movers=marketMovers(trades,'4H',80);
-  const gaps=crossVenueGaps(predictions.contracts,80);
-  const traderSignals=buildTraderSignals(trades,leaderboard.rows,80);
-  const decisionSignals=buildPredictionDecisionSignals(predictions.contracts,gaps,flow4h,movers,traderSignals,100);
+  const movers=marketMovers(trades,'4H',analysisLimit);
+  const gaps=crossVenueGaps(predictions.contracts,analysisLimit);
+  const traderSignals=buildTraderSignals(trades,leaderboard.rows,analysisLimit);
+  const decisionSignals=buildPredictionDecisionSignals(predictions.contracts,gaps,flow4h,movers,traderSignals,signalLimit);
 
   const [marketWrite,tradeWrite,signalWrite,leaderWrite]=await Promise.all([
    persistPredictionContracts(predictions.contracts,true).catch(error=>{
@@ -97,7 +104,8 @@ export async function GET(req:Request){
    decisionSignals:decisionSignals.length,
    actionableSignals:decisionSignals.filter(x=>x.action==='BUY_YES'||x.action==='BUY_NO').length,
    signalsWritten:signalWrite.written,
-   warehouse
+   warehouse,
+   executionProfile
   });
 
   return Response.json({
@@ -105,6 +113,7 @@ export async function GET(req:Request){
    degraded,
    ranAt:new Date().toISOString(),
    scope:'ALL_PREDICTION_MARKETS',
+   executionProfile,
    sources:predictions.sources||[],
    fetched:{
     contracts:predictions.contracts.length,

@@ -50,7 +50,8 @@ function contractTitle(row:KalshiMarket,index:number){
 async function getPage(cursor?:string){
  const url=new URL(base()+'/markets');
  url.searchParams.set('status','open');
- url.searchParams.set('limit','1000');
+ const pageLimit=Math.max(50,Math.min(1000,Number(process.env.KALSHI_MARKET_PAGE_LIMIT||1000)));
+ url.searchParams.set('limit',String(pageLimit));
  url.searchParams.set('mve_filter','exclude');
  if(cursor)url.searchParams.set('cursor',cursor);
 

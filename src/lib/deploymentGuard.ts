@@ -25,6 +25,7 @@ export type DeploymentGuardSnapshot={
  watchIncidents:number;
  latestMarketAgeMin:number|null;
  latestModelRunAgeMin:number|null;
+ pulseUsable:boolean;
  capturedAt:string;
 };
 
@@ -62,6 +63,7 @@ export function normalizeDeploymentBaseline(raw:any):DeploymentGuardSnapshot{
   watchIncidents:Math.max(0,Math.round(num(raw?.watchIncidents,0))),
   latestMarketAgeMin:nullableNum(raw?.latestMarketAgeMin),
   latestModelRunAgeMin:nullableNum(raw?.latestModelRunAgeMin),
+  pulseUsable:Boolean(raw?.pulseUsable),
   capturedAt:String(raw?.capturedAt||new Date().toISOString())
  };
 }
@@ -95,6 +97,7 @@ export async function captureDeploymentGuardSnapshot():Promise<DeploymentGuardSn
   watchIncidents:num(observability.incidents?.watch),
   latestMarketAgeMin:nullableNum(observability.freshness?.latestMarketAgeMin),
   latestModelRunAgeMin:nullableNum(observability.freshness?.latestModelRunAgeMin),
+  pulseUsable:Boolean(observability.freshness?.pulseUsable),
   capturedAt:new Date().toISOString()
  };
 }
@@ -121,13 +124,36 @@ export function evaluateDeploymentGuard(baselineInput:DeploymentGuardSnapshot,ca
   blockers.push('candidate does not have a current successful production certification');
   hardBlock=true;
  }
+ const inheritedCriticalContinuity=
+  candidate.observabilityOverall==='CRITICAL'&&
+  candidate.pulseUsable&&
+  baseline.observabilityOverall==='CRITICAL'&&
+  candidate.criticalChecks<=baseline.criticalChecks&&
+  candidate.actionIncidents<=baseline.actionIncidents&&
+  candidate.automationFailed<=baseline.automationFailed&&
+  candidate.automationStale<=baseline.automationStale&&
+  scoreDelta>=-.05;
  if(candidate.observabilityOverall==='CRITICAL'){
-  blockers.push('candidate observability is CRITICAL');
-  hardBlock=true;
+  if(inheritedCriticalContinuity){
+   warnings.push('candidate remains CRITICAL only within non-regressing inherited remediation state under fresh real pulse continuity');
+  }else{
+   blockers.push('candidate observability is CRITICAL');
+   hardBlock=true;
+  }
  }
+ const inheritedProtectiveContinuity=
+  candidate.reliabilityMode==='PROTECTIVE'&&
+  candidate.pulseUsable&&
+  baseline.reliabilityMode==='PROTECTIVE'&&
+  candidate.openCircuits<=baseline.openCircuits&&
+  reliabilityDelta>=-.07;
  if(candidate.reliabilityMode==='PROTECTIVE'){
-  blockers.push('candidate reliability supervisor is in PROTECTIVE mode');
-  hardBlock=true;
+  if(inheritedProtectiveContinuity){
+   warnings.push('candidate remains in inherited PROTECTIVE mode under fresh real pulse continuity');
+  }else{
+   blockers.push('candidate reliability supervisor is in PROTECTIVE mode');
+   hardBlock=true;
+  }
  }
  if(candidate.actionIncidents>baseline.actionIncidents){
   blockers.push(`ACTION incidents increased from ${baseline.actionIncidents} to ${candidate.actionIncidents}`);

@@ -60,7 +60,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v117-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v118-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -115,17 +115,17 @@ jobs:
             CODE=$?
             set -e
             if [ "$CODE" -eq 0 ] && printf '%s' "$HEALTH" | jq -e \
-              --arg version "117.0.0" \
-              --arg model "edgeforce-v117" \
+              --arg version "118.0.0" \
+              --arg model "edgeforce-v118" \
               --arg commit "$DEPLOY_COMMIT" \
               '.version==$version and .modelVersion==$model and .deploymentCommit==$commit and .releaseIdentityMatch==true' >/dev/null 2>&1; then
               echo "$HEALTH"
               exit 0
             fi
-            echo "Waiting for exact V117 Worker identity (attempt $i/30)"
+            echo "Waiting for exact V118 Worker identity (attempt $i/30)"
             sleep 3
           done
-          echo "Cloudflare Worker never converged to the exact V117 release identity."
+          echo "Cloudflare Worker never converged to the exact V118 release identity."
           exit 1
 
       - name: Certify real sportsbook provider
@@ -191,18 +191,18 @@ jobs:
             echo "Prediction warehouse prime returned HTTP $HTTP_CODE"
             exit 1
           fi
-          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
+          node -e "const d=require('/tmp/prediction-warehouse.json'); const p=d.executionProfile||{}; if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS'||p.cloudflareBounded!==true||Number(p.contractLimit)>300||Number(p.tradeLimit)>100) process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),executionProfile:p,contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
 
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V117 smoke test
+      - name: Hosted V118 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "117.0.0"
+          EXPECTED_APP_VERSION: "118.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -239,9 +239,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V117 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V117" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v117" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V118 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V118" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v118" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"

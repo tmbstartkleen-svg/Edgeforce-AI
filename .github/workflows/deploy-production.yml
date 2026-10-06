@@ -66,7 +66,7 @@ jobs:
 
       - name: Start predeploy verification server
         run: |
-          MODEL_VERSION=edgeforce-v117 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
+          MODEL_VERSION=edgeforce-v118 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
           echo $! > /tmp/edgeforce-predeploy.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
@@ -263,7 +263,7 @@ jobs:
             --prebuilt
             --yes
             
-            --env MODEL_VERSION=edgeforce-v117
+            --env MODEL_VERSION=edgeforce-v118
             --env DEPLOYMENT_ENV=production
             --env DEPLOYMENT_PLATFORM=vercel
             --env EDGEFORCE_REMEDIATION_DEPLOY="${EDGEFORCE_REMEDIATION_DEPLOY:-false}"
@@ -400,7 +400,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "117.0.0"
+          EXPECTED_APP_VERSION: "118.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -414,12 +414,12 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Record V117 execution certification
+      - name: Record V118 execution certification
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          BODY=$(jq -cn             --arg releaseVersion "117.0.0"             --arg modelVersion "edgeforce-v117"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
+          BODY=$(jq -cn             --arg releaseVersion "118.0.0"             --arg modelVersion "edgeforce-v118"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
               lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
               smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
               evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
@@ -449,11 +449,13 @@ jobs:
       - name: Certify final production release
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
         run: |
-          vercel curl "/api/release/certify?strict=1" --deployment "$PRODUCTION_URL" -X POST \
+          REPORT=$(vercel curl "/api/release/certify?strict=1" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
-            -H "Content-Type: application/json"
-          echo
+            -H "Content-Type: application/json")
+          echo "$REPORT"
+          printf '%s' "$REPORT" | jq -e '.certified==true and (.blockers|length)==0' >/dev/null
 
       - name: Record strict certification launch stage
         env:
@@ -598,14 +600,14 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"COMPLETE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Record V117 production promotion provenance
+      - name: Record V118 production promotion provenance
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
           BODY=$(jq -cn \
-            --arg releaseVersion "117.0.0" \
-            --arg modelVersion "edgeforce-v117" \
+            --arg releaseVersion "118.0.0" \
+            --arg modelVersion "edgeforce-v118" \
             --arg commitSha "$DEPLOY_COMMIT" \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
@@ -687,9 +689,9 @@ jobs:
           curl --fail --silent --show-error \
             -X POST \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V117%20production%20certification%20or%20hosted%20launch%20gate%20failure"
+            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V118%20production%20certification%20or%20hosted%20launch%20gate%20failure"
 
-      - name: Reconcile V117 rollback evidence
+      - name: Reconcile V118 rollback evidence
         if: failure() && steps.promote.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
