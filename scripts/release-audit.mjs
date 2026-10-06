@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V106',
- appVersion:'106.0.0',
- packageVersion:'0.106.0',
- modelVersion:'edgeforce-v106',
+ build:'V107',
+ appVersion:'107.0.0',
+ packageVersion:'0.107.0',
+ modelVersion:'edgeforce-v107',
  migrationVersion:114
 };
 const checks=[];
@@ -939,6 +939,11 @@ add('V106 Cloudflare database fallback',read('.github/workflows/deploy-cloudflar
 add('V106 Cloudflare prerequisite diagnostics',read('.github/workflows/deploy-cloudflare.yml').includes('Missing Cloudflare production prerequisites')&&read('.github/workflows/deploy-cloudflare.yml').includes('CLOUDFLARE_API_TOKEN'),'missing production credentials are reported explicitly');
 add('V106 health capability',read('src/app/api/health/route.ts').includes('productionCredentialRecovery:true'),'health exposes production credential recovery');
 add('V106 release notes',exists('EDGEFORCE_V106_RELEASE.md'),'V106 release documentation exists');
+add('V107 documented Vercel curl syntax',read('.github/workflows/deploy-production.yml').includes('vercel curl \"/api/release/error-budget\" --deployment \"$PREVIOUS_DEPLOYMENT_URL\" --token=\"$VERCEL_TOKEN\" --scope=\"$VERCEL_SCOPE\"')&&!read('.github/workflows/deploy-production.yml').includes('vercel --token=\"$VERCEL_TOKEN\" --scope=\"$VERCEL_SCOPE\" curl'),'production protected requests use the documented vercel curl command form');
+add('V107 protected remote smoke syntax',read('scripts/remote-smoke.mjs').includes("['curl',url,'--token',process.env.VERCEL_TOKEN||'','--scope',process.env.VERCEL_SCOPE||'']"),'remote smoke uses curl subcommand before auth options');
+add('V107 Cloudflare migration database handoff',read('.github/workflows/deploy-cloudflare.yml').includes('DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}'),'Cloudflare migration receives either supported database secret');
+add('V107 health capability',read('src/app/api/health/route.ts').includes('productionTransportRepair:true'),'health exposes production transport repair');
+add('V107 release notes',exists('EDGEFORCE_V107_RELEASE.md'),'V107 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
