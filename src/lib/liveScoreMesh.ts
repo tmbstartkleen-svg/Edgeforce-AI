@@ -1,3 +1,4 @@
+import {ESPN_SCOREBOARD_FEEDS,sportCoverageSummary} from './sportRegistry';
 export type LiveGameState={
  id:string;
  sport:string;
@@ -24,33 +25,14 @@ const espnIdleTtlMs=()=>Math.max(espnLiveTtlMs(),Number(process.env.LIVE_SCORE_E
 const staleFallbackMs=()=>Math.max(30000,Number(process.env.LIVE_SCORE_STALE_FALLBACK_MS||120000));
 const timeoutMs=()=>Math.max(1500,Number(process.env.LIVE_SCORE_TIMEOUT_MS||5000));
 
-const ESPN_LEAGUES=[
- ['football','nfl','NFL'],
- ['football','college-football','NCAAF'],
- ['football','cfl','CFL'],
- ['football','ufl','UFL'],
- ['basketball','nba','NBA'],
- ['basketball','wnba','WNBA'],
- ['basketball','mens-college-basketball','NCAAB'],
- ['basketball','womens-college-basketball','NCAAW'],
- ['baseball','mlb','MLB'],
- ['baseball','college-baseball','NCAA Baseball'],
- ['hockey','nhl','NHL'],
- ['soccer','usa.1','MLS'],
- ['soccer','eng.1','EPL'],
- ['soccer','esp.1','LaLiga'],
- ['soccer','ger.1','Bundesliga'],
- ['soccer','ita.1','Serie A'],
- ['soccer','fra.1','Ligue 1'],
- ['soccer','uefa.champions','UCL'],
- ['rugby-league','3','NRL'],
- ['australian-football','afl','AFL'],
- ['mma','ufc','UFC']
-] as const;
+const ESPN_LEAGUES=ESPN_SCOREBOARD_FEEDS
+ .filter(x=>x.sportSlug&&x.leagueSlug)
+ .map(x=>[x.sportSlug!,x.leagueSlug!,x.label] as const);
+
 
 const ESPN_CDN_SLUG:Record<string,string>={
  NFL:'nfl',NCAAF:'college-football',NBA:'nba',WNBA:'wnba',NCAAB:'mens-college-basketball',
- MLB:'mlb',NHL:'nhl',MLS:'soccer',EPL:'soccer',LaLiga:'soccer',Bundesliga:'soccer','Serie A':'soccer','Ligue 1':'soccer',UCL:'soccer'
+ MLB:'mlb',NHL:'nhl',MLS:'soccer',NWSL:'soccer',EPL:'soccer',LaLiga:'soccer',Bundesliga:'soccer','Serie A':'soccer','Ligue 1':'soccer',UCL:'soccer','Europa League':'soccer','FIFA World Cup':'soccer',"NCAA Men's Soccer":'soccer',"NCAA Women's Soccer":'soccer'
 };
 
 function obj(v:unknown):Record<string,unknown>{return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{}}
@@ -267,6 +249,7 @@ export async function fetchLiveScoreMesh(){
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   uiRefreshMs:1000,
   sourceMode:'adaptive-multi-source-no-key',
+  coverage:sportCoverageSummary(),
   transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
   sources:[
    {id:'nhl-web',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
