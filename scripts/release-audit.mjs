@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V115',
- appVersion:'115.0.0',
- packageVersion:'0.115.0',
- modelVersion:'edgeforce-v115',
+ build:'V116',
+ appVersion:'116.0.0',
+ packageVersion:'0.116.0',
+ modelVersion:'edgeforce-v116',
  migrationVersion:115
 };
 const checks=[];
@@ -998,6 +998,13 @@ add('V115 prediction prime diagnostics',read('.github/workflows/deploy-cloudflar
 add('V115 fail-soft prediction warehouse',read('src/app/api/cron/predictions/route.ts').includes('const degraded=warnings.length>0')&&read('src/app/api/cron/predictions/route.ts').includes('Prediction market persistence:')&&read('src/app/api/cron/predictions/route.ts').includes('warnings:[...new Set'),'prediction-market auxiliary source and persistence failures are reported as degraded instead of converting all partial success to HTTP 500');
 add('V115 health capability',read('src/app/api/health/route.ts').includes('releasePathConvergence:true'),'health exposes release-path convergence');
 add('V115 release notes',exists('EDGEFORCE_V115_RELEASE.md'),'V115 release documentation exists');
+add('V116 certified continuity readiness',read('src/lib/readiness.ts').includes('certifiedOddsContinuity')&&read('src/lib/readiness.ts').includes("['fanlinewire-fanduel-pulse','persisted-live-odds']")&&read('src/lib/readiness.ts').includes('checkedAgeMin<=maxAgeMin'),'strict readiness recognizes only fresh current-release certified real-data continuity when the configured full provider is quarantined');
+add('V116 protected expert smoke continuity',read('scripts/remote-smoke.mjs').includes('protectedContinuity')&&read('scripts/remote-smoke.mjs').includes('No live or fresh stored sportsbook markets are available'),'hosted smoke accepts the intentional protected expert-model state during pulse-only continuity without pretending recommendations are available');
+add('V116 strict launch-doctor truth',read('.github/workflows/deploy-production.yml').includes("jq -e '.ok==true and .ready==true and (.blockers|length)==0'")&&read('.github/workflows/deploy-cloudflare.yml').includes("jq -e '.ok==true and .ready==true and (.blockers|length)==0'"),'both production platforms assert launch-doctor truth instead of relying on transport exit behavior');
+add('V116 stable Cloudflare identity',read('.github/workflows/deploy-cloudflare.yml').includes('Exact V116 identity confirmation $STREAK/3')&&read('.github/workflows/deploy-cloudflare.yml').includes('.version=="116.0.0" and .modelVersion=="edgeforce-v116"'),'Cloudflare requires stable release identity and critical endpoints to report the exact V116 release');
+add('V116 legacy prediction provider migration',exists('db/v115.sql')&&read('db/v115.sql').includes("alter column provider set default 'edgeforce-prediction'")&&read('src/lib/releaseManifest.ts').includes('migrationVersion:115'),'migration v115 preserves legacy required provider compatibility for canonical prediction snapshot inserts');
+add('V116 health capability',read('src/app/api/health/route.ts').includes('certifiedContinuityReadiness:true')&&read('src/app/api/health/route.ts').includes('strictLaunchDoctorTruth:true'),'health exposes V116 continuity/readiness closure');
+add('V116 release notes',exists('EDGEFORCE_V116_RELEASE.md'),'V116 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
