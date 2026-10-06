@@ -36,17 +36,31 @@ export async function buildProductionObservability(){
    const [probe]=await sql`select now() as now`;
    dbLatencyMs=Date.now()-started;
    checks.push({id:'database',label:'Database latency',state:dbLatencyMs<=250?'HEALTHY':dbLatencyMs<=750?'DEGRADED':'CRITICAL',value:ms(dbLatencyMs),unit:'ms',threshold:'healthy ≤250ms, critical >750ms',reason:'Round-trip database probe completed.'});
-   const [fresh]=await sql`
-    select
-     (select max(pulled_at) from market_snapshots) as market_at,
-     (select max(pulled_at) from market_consensus_snapshots) as consensus_at,
-     (select max(created_at) from model_runs) as model_at,
-     (select max(started_at) from automation_runs) as automation_at
-   `;
-   latestMarketAgeMin=ageMinutes(fresh?.market_at);
-   latestConsensusAgeMin=ageMinutes(fresh?.consensus_at);
-   latestModelRunAgeMin=ageMinutes(fresh?.model_at);
-   latestAutomationAgeMin=ageMinutes(fresh?.automation_at);
+   const latestTimestamp=async(table:string,candidates:string[])=>{
+    const columns=await sql`
+     select column_name
+     from information_schema.columns
+     where table_schema='public' and table_name=${table}
+    `;
+    const available=new Set((columns as Array<{column_name?:string}>).map(x=>String(x.column_name||'')));
+    const column=candidates.find(x=>available.has(x));
+    if(!column)return {value:null,column:null};
+    const safeTables=new Set(['market_snapshots','market_consensus_snapshots','model_runs','automation_runs']);
+    const safeColumns=new Set(['pulled_at','observed_at','created_at','updated_at','started_at','captured_at']);
+    if(!safeTables.has(table)||!safeColumns.has(column))return {value:null,column:null};
+    const rows=await sql.unsafe(`select max("${column}") as latest from "${table}"`);
+    return {value:rows[0]?.latest??null,column};
+   };
+   const [marketFresh,consensusFresh,modelFresh,automationFresh]=await Promise.all([
+    latestTimestamp('market_snapshots',['pulled_at','observed_at','created_at','updated_at']),
+    latestTimestamp('market_consensus_snapshots',['pulled_at','observed_at','created_at','updated_at','captured_at']),
+    latestTimestamp('model_runs',['created_at','started_at','updated_at']),
+    latestTimestamp('automation_runs',['started_at','created_at','updated_at'])
+   ]);
+   latestMarketAgeMin=ageMinutes(marketFresh.value);
+   latestConsensusAgeMin=ageMinutes(consensusFresh.value);
+   latestModelRunAgeMin=ageMinutes(modelFresh.value);
+   latestAutomationAgeMin=ageMinutes(automationFresh.value);
   }catch(error){
    queryError=error instanceof Error?error.message:'database probe failed';
    checks.push({id:'database',label:'Database connectivity',state:'CRITICAL',value:null,unit:'',threshold:'query succeeds',reason:queryError});
