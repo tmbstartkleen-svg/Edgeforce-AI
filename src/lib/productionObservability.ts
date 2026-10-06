@@ -2,6 +2,7 @@ import {db} from './db';
 import {getAutomationHealth} from './automationHealth';
 import {getOpsStatus} from './opsStatus';
 import {loadIntelligenceReliabilityState} from './intelligenceReliability';
+import {fetchFanDuelOddsPulse} from './providers/fanLineWire';
 
 export type OpsHealthState='HEALTHY'|'DEGRADED'|'CRITICAL'|'UNKNOWN';
 export type OpsCheck={
@@ -13,7 +14,12 @@ function ageMinutes(value:unknown){if(!value)return null;const t=new Date(String
 
 export async function buildProductionObservability(){
  const sql=db();
- const [automation,ops,reliability]=await Promise.all([getAutomationHealth(),getOpsStatus(),loadIntelligenceReliabilityState()]);
+ const [automation,ops,reliability,pulse]=await Promise.all([
+  getAutomationHealth(),
+  getOpsStatus(),
+  loadIntelligenceReliabilityState(),
+  fetchFanDuelOddsPulse().catch(()=>null)
+ ]);
  const checks:OpsCheck[]=[];
  let dbLatencyMs:number|null=null;
  let latestMarketAgeMin:number|null=null;
@@ -47,12 +53,20 @@ export async function buildProductionObservability(){
   }
  }
 
- const freshness=(id:string,label:string,value:number|null,healthy:number,critical:number)=>{
-  const state:OpsHealthState=value===null?'UNKNOWN':value<=healthy?'HEALTHY':value<=critical?'DEGRADED':'CRITICAL';
-  checks.push({id,label,state,value:value===null?null:Math.round(value),unit:'min',threshold:`healthy ≤${healthy}m, critical >${critical}m`,reason:value===null?'No durable timestamp is available yet.':`${label} is ${Math.round(value)} minute(s) old.`});
+ const pulseAgeMin=pulse?.ageMs==null?null:Number(pulse.ageMs)/60000;
+ const pulsePriceCount=pulse?.rows?.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0)||0;
+ const pulseUsable=Boolean(pulse?.ok&&pulse.fresh&&pulsePriceCount>0);
+ const freshness=(id:string,label:string,value:number|null,healthy:number,critical:number,allowPulseContinuity=false)=>{
+  let state:OpsHealthState=value===null?'UNKNOWN':value<=healthy?'HEALTHY':value<=critical?'DEGRADED':'CRITICAL';
+  let reason=value===null?'No durable timestamp is available yet.':`${label} is ${Math.round(value)} minute(s) old.`;
+  if(allowPulseContinuity&&pulseUsable&&(state==='CRITICAL'||state==='UNKNOWN')){
+   state='DEGRADED';
+   reason=`${reason} Fresh FanDuel pulse continuity is active (${pulsePriceCount} prices, ${(pulseAgeMin??0).toFixed(1)}m old).`;
+  }
+  checks.push({id,label,state,value:value===null?null:Math.round(value),unit:'min',threshold:`healthy ≤${healthy}m, critical >${critical}m`,reason});
  };
- freshness('market-freshness','Raw market snapshot freshness',latestMarketAgeMin,15,60);
- freshness('consensus-freshness','Consensus snapshot freshness',latestConsensusAgeMin,15,60);
+ freshness('market-freshness','Raw market snapshot freshness',latestMarketAgeMin,15,60,true);
+ freshness('consensus-freshness','Consensus snapshot freshness',latestConsensusAgeMin,15,60,true);
  freshness('model-freshness','Model-run freshness',latestModelRunAgeMin,60,360);
  freshness('automation-freshness','Automation-run freshness',latestAutomationAgeMin,180,1440);
 
@@ -88,9 +102,9 @@ export async function buildProductionObservability(){
   reliability,
   incidents:{action,watch,total:incidents.length},
   database:{configured:Boolean(sql),latencyMs:dbLatencyMs,error:queryError},
-  freshness:{latestMarketAgeMin,latestConsensusAgeMin,latestModelRunAgeMin,latestAutomationAgeMin},
+  freshness:{latestMarketAgeMin,latestConsensusAgeMin,latestModelRunAgeMin,latestAutomationAgeMin,pulseAgeMin,pulsePriceCount,pulseUsable},
   sla:{marketHealthyMin:15,marketCriticalMin:60,modelHealthyMin:60,modelCriticalMin:360,dbHealthyMs:250,dbCriticalMs:750},
-  notes:['Operational health is fail-closed: stale data, failed automation, unresolved ACTION incidents, or database failure can make the system CRITICAL.','UNKNOWN freshness is treated as degraded until durable history exists.']
+  notes:['Operational health is fail-closed for database, automation and incident failures. During an explicit provider quota outage, a fresh real FanDuel pulse can downgrade stale normalized-market freshness from CRITICAL to DEGRADED but never to HEALTHY.','UNKNOWN freshness is treated as degraded until durable history exists.']
  };
 }
 
