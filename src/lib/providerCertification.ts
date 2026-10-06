@@ -214,7 +214,7 @@ export async function certifyConfiguredProviders(){
     normalizedCount:pricedCount,
     payloadAgeMin:pulse?.ageMs==null?undefined:Number(pulse.ageMs)/60000,
     freshnessScore:pulseAcceptable?1:.25,
-    qualityScore:pulseAcceptable?.78:.30,
+    qualityScore:pulseAcceptable ? .78 : .30,
     qualityGrade:pulseAcceptable?'USABLE':'REJECT',
     authConfigured:false,
     maxAgeMin:2,
