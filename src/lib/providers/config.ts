@@ -1,6 +1,7 @@
 import type {ProviderConfig,MarketRole} from './types';
 import type {ProviderCapability} from '../providerRegistry';
 import {sharpApiProvider} from './sharpApi';
+import {theRundownProvider} from './theRundown';
 
 const int=(v:string|undefined,fallback:number)=>{
  const n=Number(v);
@@ -98,6 +99,7 @@ function theOddsApiProvider():ProviderConfig|null{
 
 export function configuredProviders(capability?:ProviderCapability):ProviderConfig[]{
  const all=[
+  theRundownProvider(),
   sharpApiProvider(),
   sportsGameOddsProvider(),
   theOddsApiProvider(),
