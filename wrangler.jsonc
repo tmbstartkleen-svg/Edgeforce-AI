@@ -19,7 +19,7 @@
     "binding": "ASSETS"
   },
   "vars": {
-    "MODEL_VERSION": "edgeforce-v112",
+    "MODEL_VERSION": "edgeforce-v113",
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
     "DEFAULT_BANKROLL": "1000",
