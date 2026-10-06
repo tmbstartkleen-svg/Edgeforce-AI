@@ -156,7 +156,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  warnings.push(...dataQuality.warnings.map(x=>`data: ${x}`));
  if(dataQuality.grade==='REJECT')blockers.push('data: batch quality grade is REJECT');
 
- const continuityAutomationFailures=new Set(
+ const continuityAutomationFailures=new Set<string>(
   automation.jobs
    .filter(job=>
     (job.jobName==='settle'&&/No RESULTS providers configured/i.test(String(job.error||'')))||
