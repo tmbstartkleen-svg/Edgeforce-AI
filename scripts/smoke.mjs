@@ -135,6 +135,8 @@ assert(health.body?.providerDeploymentRecovery===true,'provider deployment recov
 assert(health.body?.quotaDegradedProviderCertification===true,'quota-degraded provider certification flag missing');
 assert(health.body?.multiSourceLiveScoreMesh===true,'multi-source live score mesh flag missing');
 assert(health.body?.noKeyLeagueLiveFeeds===true,'no-key league live feed flag missing');
+assert(health.body?.fanduelKeylessOddsPulse===true,'FanDuel keyless odds pulse flag missing');
+assert(health.body?.separatedOddsAndGameStateRefresh===true,'separated odds/game-state refresh flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
