@@ -133,6 +133,8 @@ assert(health.body?.productionLegacyBridgeRepair===true,'production legacy bridg
 assert(health.body?.legacySchemaReadinessBridge===true,'legacy schema readiness bridge flag missing');
 assert(health.body?.providerDeploymentRecovery===true,'provider deployment recovery flag missing');
 assert(health.body?.quotaDegradedProviderCertification===true,'quota-degraded provider certification flag missing');
+assert(health.body?.multiSourceLiveScoreMesh===true,'multi-source live score mesh flag missing');
+assert(health.body?.noKeyLeagueLiveFeeds===true,'no-key league live feed flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
@@ -245,6 +247,11 @@ assert(health.body?.shadowLeagueLiveRanking===true,'shadow league live ranking f
 assert(health.body?.shadowLeagueWinnerMarginGate===true,'shadow league winner-margin flag missing');
 assert(health.body?.shadowLeagueMinimumCompetitors===true,'shadow league minimum competitors flag missing');
 assert(health.body?.shadowLeagueWinnerOnlyPromotion===true,'shadow league winner-only promotion flag missing');
+
+const liveScores=await get('/api/live-scores');
+assert(liveScores.res.ok&&liveScores.body?.ok===true,'live score mesh endpoint failed');
+assert(Array.isArray(liveScores.body?.games),'live score mesh games missing');
+assert(Number(liveScores.body?.refreshMs)>=1000,'live score mesh refresh contract invalid');
 
 const liveComebackTest=await get('/api/testing/live-comeback');
 assert(liveComebackTest.res.ok&&liveComebackTest.body?.ok===true,'live comeback regression failed');
