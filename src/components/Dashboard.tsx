@@ -137,7 +137,7 @@ type LiveBoardResponse={
   providerPanel?:Array<{
     providerId:string;providerName:string;bookmaker:string;marketRole:string;
     configuredWeight:number;effectiveWeight:number;acceptedMarkets:number;
-    qualityGrade?:string;qualityScore?:number;
+    qualityGrade?:string;qualityScore?:number;latencyMs?:number;freshnessFactor?:number;transportScore?:number;
   }>;
   consensusCoverage?:{
     targetBook:string;configuredFeeds:number;acceptedFeeds:number;rows:number;multiBookRows:number;
@@ -721,6 +721,10 @@ export default function Dashboard(){
   },[]);
 
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
+  const fastestProviderLatency=useMemo(()=>{
+    const values=(board.providerPanel||[]).map(x=>x.latencyMs).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0);
+    return values.length?Math.min(...values):null;
+  },[board.providerPanel]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -796,6 +800,10 @@ export default function Dashboard(){
         <div>
           <small>FANDUEL PULSE</small>
           <b>{board.fanduelPulse?.ok?(board.fanduelPulse.fresh?'LIVE':'AGING'):'FALLBACK'}</b>
+        </div>
+        <div>
+          <small>FASTEST FEED</small>
+          <b>{fastestProviderLatency===null?'—':Math.round(fastestProviderLatency)+' ms'}</b>
         </div>
       </div>
     </header>
