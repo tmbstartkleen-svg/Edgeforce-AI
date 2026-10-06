@@ -224,6 +224,8 @@ export async function GET(){
   quotaDegradedProviderCertification:true,
   multiSourceLiveScoreMesh:true,
   noKeyLeagueLiveFeeds:true,
+  fanduelKeylessOddsPulse:true,
+  separatedOddsAndGameStateRefresh:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
