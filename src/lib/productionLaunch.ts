@@ -1,7 +1,7 @@
 import {db} from './db';
 
 export const PRODUCTION_LAUNCH_STAGES=[
- 'DEPLOYED','MIGRATED','PROVIDERS_CERTIFIED','LAUNCH_DOCTOR_PASSED','SMOKE_PASSED','ATTESTED','STRICT_CERTIFIED','SLO_BUDGET_PASSED','CANARY_PASSED','V1_READY','COMPLETE','FAILED','ROLLED_BACK'
+ 'DEPLOYED','MIGRATED','PROVIDERS_CERTIFIED','LAUNCH_DOCTOR_PASSED','SMOKE_PASSED','ATTESTED','STRICT_CERTIFIED','SLO_BUDGET_PASSED','SLO_REMEDIATION_ACCEPTED','CANARY_PASSED','V1_READY','COMPLETE','FAILED','ROLLED_BACK'
 ] as const;
 export type ProductionLaunchStage=typeof PRODUCTION_LAUNCH_STAGES[number];
 export type ProductionLaunchState='NOT_STARTED'|'IN_PROGRESS'|'READY'|'FAILED'|'ROLLED_BACK'|'STALE';
@@ -36,9 +36,10 @@ export async function getProductionLaunchStatus(){
  `;
  const events=(rows as any[]).map(x=>({id:Number(x.id),launchId:String(x.launchId),stage:String(x.stage) as ProductionLaunchStage,deploymentUrl:x.deploymentUrl?String(x.deploymentUrl):null,commitSha:x.commitSha?String(x.commitSha):null,detail:x.detail||{},createdAt:String(x.createdAt)}));
  const stages=new Set(events.map(x=>x.stage));
- const completed=requiredStages.filter(x=>stages.has(x)).length;
+ const sloSatisfied=stages.has('SLO_BUDGET_PASSED')||stages.has('SLO_REMEDIATION_ACCEPTED');
+ const completed=requiredStages.filter(x=>x==='SLO_BUDGET_PASSED'?sloSatisfied:stages.has(x)).length;
  const progress=completed/requiredStages.length;
- const missingStages=requiredStages.filter(x=>!stages.has(x));
+ const missingStages=requiredStages.filter(x=>x==='SLO_BUDGET_PASSED'?!sloSatisfied:!stages.has(x));
  const latestEvent=events.at(-1)||null;
  const ageMin=latestEvent?Math.max(0,(Date.now()-new Date(latestEvent.createdAt).getTime())/60000):null;
  let state:ProductionLaunchState='IN_PROGRESS';
