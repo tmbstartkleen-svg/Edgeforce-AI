@@ -156,6 +156,7 @@ assert(health.body?.legacyPredictionProviderConstraintRepair===true,'legacy pred
 assert(health.body?.degradedRuntimeCertification===true,'degraded runtime certification flag missing');
 assert(health.body?.expertModelPulseContinuitySmoke===true,'expert model pulse continuity smoke flag missing');
 assert(health.body?.proceduralSqlFreeLegacyRepair===true,'procedural-SQL-free legacy repair flag missing');
+assert(health.body?.pulseOnlyDownstreamContracts===true,'pulse-only downstream contracts flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
