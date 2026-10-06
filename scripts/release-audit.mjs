@@ -922,9 +922,28 @@ add('V104 health capability',read('src/app/api/health/route.ts').includes('final
 add('V104 rollback description',!read('.github/workflows/deploy-production.yml').includes('V74%20SLO'),'rollback description no longer carries stale V74 identity');
 add('V104 release notes',exists('EDGEFORCE_V104_RELEASE.md'),'V104 release documentation exists');
 
-add('V105 Vercel verified-main trigger',read('.github/workflows/deploy-production.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-production.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-production.yml').includes('workflow_run.head_sha'),'Vercel production deploy is pinned to the successful verified main SHA');
+add('V105 Vercel verified-main trigger',(
+ read('.github/workflows/deploy-production.yml').includes('workflows: ["Verify Edgeforce"]')&&
+ read('.github/workflows/deploy-production.yml').includes("head_branch == 'main'")&&
+ read('.github/workflows/deploy-production.yml').includes('workflow_run.head_sha')
+)||(
+ read('.github/workflows/deploy-production.yml').includes('push:')&&
+ read('.github/workflows/deploy-production.yml').includes('branches: [main]')&&
+ read('.github/workflows/deploy-production.yml').includes('Wait for exact Verify Edgeforce success')&&
+ read('.github/workflows/deploy-production.yml').includes('--workflow verify.yml --commit "$DEPLOY_COMMIT" --event push')&&
+ read('.github/workflows/deploy-production.yml').includes('test "$CONCLUSION" = "success"')&&
+ read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.sha }}')
+),'Vercel production deploy is pinned to an exact successful verified main SHA');
 add('V105 Cloudflare verified-main trigger',read('.github/workflows/deploy-cloudflare.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha'),'Cloudflare production deploy is pinned to the successful verified main SHA');
-add('V105 cross-platform source parity',read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: \${{ github.event.workflow_run.head_sha || github.sha }}')&&read('.github/workflows/deploy-cloudflare.yml').includes('DEPLOY_COMMIT: \${{ github.event.workflow_run.head_sha || github.sha }}'),'both production paths derive deployment identity from the same verified source');
+add('V105 cross-platform source parity',(
+ read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}')||
+ (
+  read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.sha }}')&&
+  read('.github/workflows/deploy-production.yml').includes('Wait for exact Verify Edgeforce success')&&
+  read('.github/workflows/deploy-production.yml').includes('--workflow verify.yml --commit "$DEPLOY_COMMIT" --event push')&&
+  read('.github/workflows/deploy-production.yml').includes('test "$CONCLUSION" = "success"')
+ )
+)&&read('.github/workflows/deploy-cloudflare.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}'),'both production paths derive deployment identity from an exact successful verified source');
 add('V105 Cloudflare exact checkout',read('.github/workflows/deploy-cloudflare.yml').includes('ref: \${{ github.event.workflow_run.head_sha || github.sha }}'),'Cloudflare checks out the exact verified commit');
 add('V105 Cloudflare runtime commit stamp',read('scripts/stamp-cloudflare-deployment.mjs').includes('process.env.DEPLOYMENT_COMMIT||process.env.GITHUB_SHA'),'Cloudflare runtime stamp prefers the verified deployment commit');
 add('V105 manual fallback preserved',read('.github/workflows/deploy-production.yml').includes('workflow_dispatch:')&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_dispatch:'),'both production paths retain operator-triggered fallback');
