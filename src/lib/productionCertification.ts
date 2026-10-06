@@ -280,7 +280,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    environment
   },
   readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,security,
-  executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,
+  executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure,
   ingestion:{
    source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
