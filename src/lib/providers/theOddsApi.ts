@@ -43,7 +43,23 @@ async function jsonRequest<T>(url:string,timeoutMs=10000):Promise<{ok:boolean;st
  try{
   const res=await fetch(url,{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});
   const quota={remaining:headerNum(res,'x-requests-remaining'),used:headerNum(res,'x-requests-used'),last:headerNum(res,'x-requests-last')};
-  if(!res.ok)return {ok:false,status:res.status,error:`HTTP ${res.status}`,...quota};
+  if(!res.ok){
+   let detail='';
+   try{
+    const body=await res.text();
+    if(body){
+     try{
+      const parsed=JSON.parse(body) as Record<string,unknown>;
+      const candidate=parsed.message??parsed.error??parsed.error_code;
+      detail=typeof candidate==='string'?candidate:body;
+     }catch{
+      detail=body;
+     }
+    }
+   }catch{}
+   detail=detail.replace(/\s+/g,' ').trim().slice(0,400);
+   return {ok:false,status:res.status,error:detail?`HTTP ${res.status}: ${detail}`:`HTTP ${res.status}`,...quota};
+  }
   return {ok:true,status:res.status,data:await res.json() as T,...quota};
  }catch(error){
   return {ok:false,status:0,error:error instanceof Error?error.message:'request failed'};
@@ -108,19 +124,41 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const bootstrapUrl=withKey('/sports/upcoming/odds',key,{
   regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso'
  });
- const bootstrap=await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
- const bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
+ let bootstrap=await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
+ let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
+ let bootstrapError=bootstrap.error;
  attempts.push({
   sportKey:'upcoming',events:bootstrapData.length,oddsEvents:bootstrapData.length,ok:bootstrap.ok,
   status:bootstrap.status,error:bootstrap.error,cost:bootstrap.last,remaining:bootstrap.remaining
  });
 
- if(!bootstrap.ok){
+ if((!bootstrap.ok&&(bootstrap.status===400||bootstrap.status===422))||(bootstrap.ok&&bootstrapData.length===0)){
+  warnings.push('Primary upcoming-odds bootstrap was rejected or empty; retrying with the provider-safe US h2h baseline');
+  const fallbackUrl=withKey('/sports/upcoming/odds',key,{
+   regions:'us',markets:'h2h',oddsFormat:'american',dateFormat:'iso'
+  });
+  const fallback=await jsonRequestWith429Retry<unknown[]>(fallbackUrl,timeoutMs);
+  const fallbackData=Array.isArray(fallback.data)?fallback.data:[];
+  attempts.push({
+   sportKey:'upcoming-us-h2h',events:fallbackData.length,oddsEvents:fallbackData.length,ok:fallback.ok,
+   status:fallback.status,error:fallback.error,cost:fallback.last,remaining:fallback.remaining
+  });
+  if(fallback.ok&&fallbackData.length){
+   bootstrap=fallback;
+   bootstrapData=fallbackData;
+   bootstrapError=undefined;
+   warnings.push(`Provider-safe bootstrap recovered ${fallbackData.length} live event(s)`);
+  }else{
+   bootstrapError=fallback.error||bootstrapError;
+  }
+ }
+
+ if(!bootstrap.ok||bootstrapData.length===0){
   const value:TheOddsApiResult={
-   ok:false,data:[],attempts,warnings:['Adaptive full-slate bootstrap failed'],discoveredSports:0,
-   sportsWithEvents:0,fetchedSports:1,
+   ok:false,data:[],attempts,warnings:['Adaptive full-slate bootstrap failed',...warnings],discoveredSports:0,
+   sportsWithEvents:0,fetchedSports:attempts.length,
    quota:{remaining:bootstrap.remaining,used:bootstrap.used,last:bootstrap.last},
-   error:bootstrap.error||'No live sportsbook odds returned'
+   error:bootstrapError||'No live sportsbook odds returned'
   };
   cache={at:Date.now(),ttlMs:failureCacheMs(),value};
   return value;
