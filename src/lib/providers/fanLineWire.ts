@@ -52,7 +52,7 @@ export async function fetchFanDuelOddsPulse(force=false):Promise<FanDuelOddsPuls
   const res=await fetch('https://fanlinewire.com/odds.json',{
    cache:'no-store',
    signal:controller.signal,
-   headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/113 FanDuel pulse'}
+   headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/114 FanDuel pulse'}
   });
   if(!res.ok)throw new Error('HTTP '+res.status);
   const root=obj(await res.json());
