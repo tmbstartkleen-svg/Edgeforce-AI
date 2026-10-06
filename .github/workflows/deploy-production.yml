@@ -380,6 +380,11 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"LAUNCH_DOCTOR_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
+      - name: Verify usable real sportsbook data
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: vercel curl "/api/live-data/status?requireUsable=1&maxStoredAgeMin=90" --deployment "$PRODUCTION_URL"
+
       - name: Smoke test production deployment
         run: npm run remote-smoke
         env:
