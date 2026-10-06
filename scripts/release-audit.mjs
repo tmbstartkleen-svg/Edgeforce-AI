@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V108',
- appVersion:'108.0.0',
- packageVersion:'0.108.0',
- modelVersion:'edgeforce-v108',
+ build:'V109',
+ appVersion:'109.0.0',
+ packageVersion:'0.109.0',
+ modelVersion:'edgeforce-v109',
  migrationVersion:114
 };
 const checks=[];
@@ -949,6 +949,10 @@ add('V108 native Vercel curl auth',!read('.github/workflows/deploy-production.ym
 add('V108 remote smoke native curl',read('scripts/remote-smoke.mjs').includes("const args=['curl',url];"),'remote smoke uses native Vercel curl syntax without passthrough auth flags');
 add('V108 health capability',read('src/app/api/health/route.ts').includes('productionBootstrapRepair:true'),'health exposes production bootstrap repair');
 add('V108 release notes',exists('EDGEFORCE_V108_RELEASE.md'),'V108 release documentation exists');
+add('V109 legacy prediction snapshot bridge',read('scripts/migrate.mjs').includes('reconcile legacy prediction_market_snapshots schema')&&read('scripts/migrate.mjs').includes('prediction_market_snapshots_venue_contract_hour_key'),'legacy prediction-market schemas are reconciled before historical migrations run');
+add('V109 pre-V74 SLO bootstrap bridge',read('.github/workflows/deploy-production.yml').includes('CURRENT_MAJOR="${CURRENT_VERSION%%.*}"')&&read('.github/workflows/deploy-production.yml').includes('[ "$CURRENT_MAJOR" -lt 74 ]')&&read('.github/workflows/deploy-production.yml').includes('legacy bootstrap safety check'),'verified legacy production releases can cross the SLO-governor boundary without disabling fail-closed health checks');
+add('V109 health capability',read('src/app/api/health/route.ts').includes('productionLegacyBridgeRepair:true'),'health exposes production legacy bridge repair');
+add('V109 release notes',exists('EDGEFORCE_V109_RELEASE.md'),'V109 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
