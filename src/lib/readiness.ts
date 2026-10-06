@@ -3,6 +3,7 @@ import {configuredProviders} from './providers/config';
 import {loadProviderHealthStates} from './providers/healthStore';
 import {providerHealth} from './providerRegistry';
 import {RELEASE} from './releaseManifest';
+import {fetchFanDuelOddsPulse} from './providers/fanLineWire';
 
 export type ReadinessCheck={ok:boolean;required:boolean;detail:string};
 
@@ -15,7 +16,7 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
  const platform=process.env.DEPLOYMENT_PLATFORM||(process.env.VERCEL?'vercel':'local');
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [database,states]=await Promise.all([dbHealth(),loadProviderHealthStates()]);
+ const [database,states,pulse]=await Promise.all([dbHealth(),loadProviderHealthStates(),fetchFanDuelOddsPulse().catch(()=>null)]);
  const sql=db();
  let migrationApplied=!database.configured;
  if(sql&&database.ok){
@@ -32,6 +33,8 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
   const state=states.get(p.id);
   return !state||!providerHealth(state).quarantined;
  });
+ const pulsePriceCount=pulse?.rows?.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0)||0;
+ const pulseUsable=Boolean(pulse?.ok&&pulse.fresh&&pulsePriceCount>0);
 
  const checks:Record<string,ReadinessCheck>={
   modelVersion:{
@@ -65,9 +68,13 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    detail:process.env.DEFAULT_BANKROLL||'not configured'
   },
   oddsProvider:{
-   ok:operationalOdds.length>0||!strict,
+   ok:operationalOdds.length>0||pulseUsable||!strict,
    required:strict,
-   detail:`${operationalOdds.length} operational / ${odds.length} configured`
+   detail:operationalOdds.length>0
+    ?`${operationalOdds.length} operational / ${odds.length} configured`
+    :pulseUsable
+     ?`0 full providers operational; fresh FanDuel pulse continuity with ${pulsePriceCount} prices`
+     :`0 operational / ${odds.length} configured`
   },
   productionRealDataOnly:{
    ok:process.env.ALLOW_DEMO_DATA!=='true'||!strict,
@@ -98,7 +105,10 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    configured:providers.length,
    oddsConfigured:odds.length,
    oddsOperational:operationalOdds.length,
-   quarantined:[...states.values()].filter(x=>providerHealth(x).quarantined).map(x=>x.id)
+   quarantined:[...states.values()].filter(x=>providerHealth(x).quarantined).map(x=>x.id),
+   pulseContinuity:pulseUsable,
+   pulsePriceCount,
+   pulseAgeMs:pulse?.ageMs??null
   },
   deployment:{
    platform,
