@@ -60,7 +60,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v114-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v115-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -115,17 +115,17 @@ jobs:
             CODE=$?
             set -e
             if [ "$CODE" -eq 0 ] && printf '%s' "$HEALTH" | jq -e \
-              --arg version "114.0.0" \
-              --arg model "edgeforce-v114" \
+              --arg version "115.0.0" \
+              --arg model "edgeforce-v115" \
               --arg commit "$DEPLOY_COMMIT" \
               '.version==$version and .modelVersion==$model and .deploymentCommit==$commit and .releaseIdentityMatch==true' >/dev/null 2>&1; then
               echo "$HEALTH"
               exit 0
             fi
-            echo "Waiting for exact V114 Worker identity (attempt $i/30)"
+            echo "Waiting for exact V115 Worker identity (attempt $i/30)"
             sleep 3
           done
-          echo "Cloudflare Worker never converged to the exact V114 release identity."
+          echo "Cloudflare Worker never converged to the exact V115 release identity."
           exit 1
 
       - name: Certify real sportsbook provider
@@ -174,20 +174,35 @@ jobs:
       - name: Prime prediction intelligence warehouse
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
         run: |
-          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/cron/predictions"             -H "Authorization: Bearer $CRON_SECRET" > /tmp/prediction-warehouse.json
-          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({contracts:d.fetched?.contracts||0,trades:d.fetched?.kalshiTrades+d.fetched?.polymarketTrades,warehouse:d.warehouse}))"
+          set +e
+          HTTP_CODE=$(curl --silent --show-error -o /tmp/prediction-warehouse.json -w "%{http_code}" \
+            "$DEPLOYMENT_URL/api/cron/predictions" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          CURL_CODE=$?
+          set -e
+          cat /tmp/prediction-warehouse.json || true
+          echo
+          if [ "$CURL_CODE" -ne 0 ]; then
+            exit "$CURL_CODE"
+          fi
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Prediction warehouse prime returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
 
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V114 smoke test
+      - name: Hosted V115 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "114.0.0"
+          EXPECTED_APP_VERSION: "115.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -224,9 +239,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V114 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V114" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v114" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V115 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V115" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v115" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
