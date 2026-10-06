@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V113',
- appVersion:'113.0.0',
- packageVersion:'0.113.0',
- modelVersion:'edgeforce-v113',
+ build:'V114',
+ appVersion:'114.0.0',
+ packageVersion:'0.114.0',
+ modelVersion:'edgeforce-v114',
  migrationVersion:114
 };
 const checks=[];
@@ -984,6 +984,14 @@ add('V113 transport diagnostics',exists('src/app/api/network/transport/route.ts'
 add('V113 transport UI',read('src/components/Dashboard.tsx').includes('FASTEST FEED')&&read('src/components/Dashboard.tsx').includes('fastestProviderLatency'),'dashboard surfaces active provider latency');
 add('V113 health capability',read('src/app/api/health/route.ts').includes('highSpeedProviderTransport:true')&&read('src/app/api/health/route.ts').includes('sportsGameOddsAdapter:true'),'health exposes V113 high-speed transport capabilities');
 add('V113 release notes',exists('EDGEFORCE_V113_RELEASE.md'),'V113 release documentation exists');
+add('V114 exact Cloudflare identity convergence',read('.github/workflows/deploy-cloudflare.yml').includes('Wait for exact Worker release identity')&&read('.github/workflows/deploy-cloudflare.yml').includes(".version==$version and .modelVersion==$model and .deploymentCommit==$commit"),'Cloudflare certification waits for the exact release version, model and commit instead of accepting a stale worker during propagation');
+add('V114 staged Vercel remediation candidate',read('.github/workflows/deploy-production.yml').includes('Deploy prebuilt remediation candidate')&&!read('.github/workflows/deploy-production.yml').includes('--prebuilt\n            --prod')&&read('.github/workflows/deploy-production.yml').includes('Promote certified candidate to production'),'Vercel candidate is staged and promoted only after hosted certification gates');
+add('V114 SLO remediation mode',read('.github/workflows/deploy-production.yml').includes('EDGEFORCE_REMEDIATION_DEPLOY=true')&&read('src/lib/productionCertification.ts').includes("remediationMode=process.env.EDGEFORCE_REMEDIATION_DEPLOY==='true'"),'a frozen prior production release can stage a remediation candidate without bypassing candidate health gates');
+add('V114 FanDuel pulse certification',read('src/lib/providerCertification.ts').includes("providerId:'fanlinewire-fanduel-pulse'")&&read('src/app/api/live-data/status/route.ts').includes("effectiveSource=ingestion.source==='unavailable'&&pulseUsable?'pulse':ingestion.source"),'fresh real FanDuel pulse can provide quota continuity when full normalized and persisted odds are unavailable');
+add('V114 pulse observability continuity',read('src/lib/productionObservability.ts').includes('pulseUsable')&&read('src/lib/productionObservability.ts').includes("state='DEGRADED'")&&read('src/lib/productionObservability.ts').includes('never to HEALTHY'),'pulse continuity may downgrade stale market freshness from critical to degraded but never claim healthy full coverage');
+add('V114 conditional V1 continuity',read('src/lib/v1ReleaseReadiness.ts').includes('pulseContinuity&&remediationMode')&&read('src/lib/v1ReleaseReadiness.ts').includes('full normalized sportsbook recommendations remain protected'),'pulse-only remediation is CONDITIONAL and protected rather than represented as fully healthy live data');
+add('V114 health capability',read('src/app/api/health/route.ts').includes('stagedRemediationPromotion:true')&&read('src/app/api/health/route.ts').includes('exactCloudflareIdentityConvergence:true'),'health exposes V114 remediation continuity capabilities');
+add('V114 release notes',exists('EDGEFORCE_V114_RELEASE.md'),'V114 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
