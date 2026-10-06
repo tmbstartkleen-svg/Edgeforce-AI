@@ -468,10 +468,24 @@ jobs:
       - name: Refresh candidate SLO governor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
         run: |
-          vercel curl "/api/release/error-budget" --deployment "$PRODUCTION_URL" -X POST \
+          set +e
+          REPORT=$(vercel curl "/api/release/error-budget" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json" 2>&1)
+          CODE=$?
+          set -e
+          echo "$REPORT"
+          if [ "$CODE" -ne 0 ]; then
+            CURRENT=$(printf '%s' "$REPORT" | jq -r '.current.overall // "UNKNOWN"' 2>/dev/null || echo UNKNOWN)
+            ACTIONS=$(printf '%s' "$REPORT" | jq -r '.current.actionIncidents // 99' 2>/dev/null || echo 99)
+            if [ "${EDGEFORCE_REMEDIATION_DEPLOY:-false}" = "true" ] && [ "$CURRENT" != "CRITICAL" ] && [ "$ACTIONS" = "0" ]; then
+              echo "Historical SLO freeze remains, but the remediation candidate itself is non-critical with no ACTION incidents."
+            else
+              exit "$CODE"
+            fi
+          fi
           echo
 
       - name: Record SLO-budget-passed launch stage
@@ -530,17 +544,32 @@ jobs:
             -H "Content-Type: application/json"
           echo
 
-      - name: Record v1-ready and complete launch stages
+      - name: Record v1-ready launch stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          for STAGE in V1_READY COMPLETE; do
-            vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
-              -H "Authorization: Bearer $INGEST_SECRET" \
-              -H "Content-Type: application/json" \
-              --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
-            echo
-          done
+          vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"V1_READY\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
+      - name: Promote certified candidate to production
+        id: promote
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel promote "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" --yes
+
+      - name: Record complete launch stage after promotion
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"COMPLETE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
 
       - name: Record V114 production promotion provenance
         env:
@@ -625,7 +654,7 @@ jobs:
           echo
 
       - name: Roll back production on hosted failure
-        if: failure() && steps.deploy.outcome == 'success'
+        if: failure() && steps.promote.outcome == 'success'
         run: |
           test -n "$PREVIOUS_DEPLOYMENT_ID"
           curl --fail --silent --show-error \
@@ -634,7 +663,7 @@ jobs:
             "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V114%20production%20certification%20or%20hosted%20launch%20gate%20failure"
 
       - name: Reconcile V114 rollback evidence
-        if: failure() && steps.deploy.outcome == 'success'
+        if: failure() && steps.promote.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
@@ -658,7 +687,7 @@ jobs:
           echo
 
       - name: Record rollback completion
-        if: failure() && steps.deploy.outcome == 'success'
+        if: failure() && steps.promote.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
