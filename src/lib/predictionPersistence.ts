@@ -2,7 +2,7 @@ import {db} from './db';
 import type {PredictionContract} from './predictionMarkets';
 import type {PredictionTrade} from './predictionFlow';
 import type {PredictionDecisionSignal} from './predictionDecisionSignals';
-import {classifyPredictionContract} from './predictionCategories';
+import {persistPredictionContractBatch} from './predictionContractPersistence';
 
 function hourBucket(date=new Date()){
  const d=new Date(date);
@@ -11,64 +11,7 @@ function hourBucket(date=new Date()){
 }
 
 export async function persistPredictionContracts(contracts:PredictionContract[],snapshot=true){
- const sql=db();
- if(!sql||!contracts.length)return {stateWritten:0,snapshotsWritten:0,mode:'memory' as const};
-
- const maxContracts=Math.max(100,Math.min(5000,Number(process.env.PREDICTION_PERSIST_MAX_CONTRACTS||2000)));
- const selected=[...contracts]
-  .sort((a,b)=>((b.volume??0)+(b.liquidity??0))-((a.volume??0)+(a.liquidity??0)))
-  .slice(0,maxContracts);
-
- let stateWritten=0;
- let snapshotsWritten=0;
- const observedHour=hourBucket();
-
- for(const contract of selected){
-  const venue=String(contract.source||'Unknown');
-  const category=classifyPredictionContract(contract);
-  await sql`
-   insert into prediction_market_state(
-    venue,contract_id,title,category,yes_probability,bid_probability,ask_probability,
-    volume,liquidity,expires_at,raw,updated_at
-   ) values(
-    ${venue},${contract.id},${contract.title},${category},${contract.yesProbability},
-    ${contract.bidProbability??null},${contract.askProbability??null},
-    ${contract.volume??null},${contract.liquidity??null},${contract.expiresAt??null},
-    ${sql.json(contract as any)},now()
-   )
-   on conflict (venue,contract_id) do update set
-    title=excluded.title,
-    category=excluded.category,
-    yes_probability=excluded.yes_probability,
-    bid_probability=excluded.bid_probability,
-    ask_probability=excluded.ask_probability,
-    volume=excluded.volume,
-    liquidity=excluded.liquidity,
-    expires_at=excluded.expires_at,
-    raw=excluded.raw,
-    updated_at=now()
-  `;
-  stateWritten++;
-
-  if(snapshot){
-   const inserted=await sql`
-    insert into prediction_market_snapshots(
-     venue,contract_id,title,category,yes_probability,bid_probability,ask_probability,
-     volume,liquidity,observed_hour,raw
-    ) values(
-     ${venue},${contract.id},${contract.title},${category},${contract.yesProbability},
-     ${contract.bidProbability??null},${contract.askProbability??null},
-     ${contract.volume??null},${contract.liquidity??null},${observedHour},
-     ${sql.json(contract as any)}
-    )
-    on conflict (venue,contract_id,observed_hour) do nothing
-    returning id
-   `;
-   snapshotsWritten+=inserted.length;
-  }
- }
-
- return {stateWritten,snapshotsWritten,mode:'database' as const};
+ return persistPredictionContractBatch(contracts,snapshot);
 }
 
 export async function persistPredictionTrades(trades:PredictionTrade[]){

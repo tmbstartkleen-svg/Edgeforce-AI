@@ -9,10 +9,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: edgeforce-cloudflare-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
+      ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
           (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     env:
@@ -65,6 +69,12 @@ jobs:
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
 
+      - name: Reject a superseded production commit
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse FETCH_HEAD)" = "$DEPLOY_COMMIT"
+
       - name: Apply Neon/Postgres migrations through current release
         run: npm run migrate
         env:
@@ -80,28 +90,31 @@ jobs:
           echo "INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
           echo "CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
 
+      - name: Prepare atomic Cloudflare runtime secrets
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
+        run: |
+          umask 077
+          SECRET_DIR=$(mktemp -d "$RUNNER_TEMP/edgeforce-runtime.XXXXXX")
+          echo "EDGEFORCE_RUNTIME_SECRET_DIR=$SECRET_DIR" >> "$GITHUB_ENV"
+          node scripts/cloudflare-runtime-secrets.mjs "$SECRET_DIR/secrets.json"
+
       - name: Deploy Cloudflare Worker with production secrets
         id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4.147.0"
-          command: deploy --config dist/server/wrangler.json
-          secrets: |
-            DATABASE_URL
-            THE_ODDS_API_KEY
-            INGEST_SECRET
-            CRON_SECRET
-        env:
-          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
-          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          command: deploy --config dist/server/wrangler.json --secrets-file "${{ env.EDGEFORCE_RUNTIME_SECRET_DIR }}/secrets.json"
 
-      - name: Configure optional SportsGameOdds secret
-        if: env.SPORTS_GAME_ODDS_API_KEY != ''
+      - name: Remove private Cloudflare runtime secrets
+        if: always() && env.EDGEFORCE_RUNTIME_SECRET_DIR != ''
         shell: bash
         run: |
-          printf '%s' "$SPORTS_GAME_ODDS_API_KEY" | npx wrangler secret put SPORTS_GAME_ODDS_API_KEY --config dist/server/wrangler.json
+          rm -f "$EDGEFORCE_RUNTIME_SECRET_DIR/secrets.json"
+          rmdir "$EDGEFORCE_RUNTIME_SECRET_DIR"
 
       - name: Wait for exact Worker release identity
         env:
