@@ -222,6 +222,8 @@ export async function GET(){
   legacySchemaReadinessBridge:true,
   providerDeploymentRecovery:true,
   quotaDegradedProviderCertification:true,
+  multiSourceLiveScoreMesh:true,
+  noKeyLeagueLiveFeeds:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
