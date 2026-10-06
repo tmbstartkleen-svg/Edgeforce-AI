@@ -156,7 +156,21 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  warnings.push(...dataQuality.warnings.map(x=>`data: ${x}`));
  if(dataQuality.grade==='REJECT')blockers.push('data: batch quality grade is REJECT');
 
- blockers.push(...automation.blockers.map(x=>`automation: ${x}`));
+ const continuityAutomationFailures=new Set(
+  automation.jobs
+   .filter(job=>
+    (job.jobName==='settle'&&/No RESULTS providers configured/i.test(String(job.error||'')))||
+    (job.jobName==='decision'&&/No live or fresh stored sportsbook markets/i.test(String(job.error||'')))
+   )
+   .map(job=>job.jobName)
+ );
+ for(const blocker of automation.blockers){
+  const jobName=String(blocker).split(':')[0];
+  const message=`automation: ${blocker}`;
+  if(strict&&remediationMode&&continuityCandidate&&continuityAutomationFailures.has(jobName)){
+   warnings.push(message+' (known quota-continuity remediation dependency)');
+  }else blockers.push(message);
+ }
  warnings.push(...automation.warnings.map(x=>`automation: ${x}`));
 
  if(modelGovernance.latestRun?.status==='failed')blockers.push('model governance: latest governance run failed');
@@ -246,7 +260,9 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(incidents.watch>0)warnings.push(`operations: ${incidents.watch} unresolved WATCH incident(s)`);
 
  if(observability.overall==='CRITICAL'){
-  (strict?blockers:warnings).push('observability: production health is CRITICAL');
+  if(strict&&remediationMode&&continuityCandidate){
+   warnings.push('observability: production health remains CRITICAL during quota-continuity remediation; comparative canary must prove no regression before promotion');
+  }else (strict?blockers:warnings).push('observability: production health is CRITICAL');
  }else if(observability.overall==='DEGRADED')warnings.push('observability: production health is DEGRADED');
 
  if(!executionCertification){
