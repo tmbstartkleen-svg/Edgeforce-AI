@@ -27,6 +27,20 @@ V119:
 - retries short transient readiness misses
 - still fails closed if repeated current-release readiness cannot be demonstrated
 
+## Certified pulse readiness continuity
+
+Cloudflare production re-runs strict readiness immediately after provider certification. When the direct pulse recheck is transiently unavailable, V119 may bridge only the `oddsProvider` readiness failure from the just-persisted current-release FanDuel pulse certification.
+
+The bridge is bounded to:
+- current release only
+- launch-ready provider certification
+- provider id `fanlinewire-fanduel-pulse`
+- status `CERTIFIED`
+- certification age <= 2 minutes
+- no other strict readiness failure
+
+Any database, migration, secret, bankroll, model-version, demo-data, or other readiness failure still blocks.
+
 ## Identity
 
 - build: V119
