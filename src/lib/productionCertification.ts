@@ -144,6 +144,14 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   if(strict&&!providerCertification.launchReady)blockers.push('provider certification: launchReady is false');
  }
 
+ const pulseFallbackCertified=Boolean(
+  providerCertification?.providers?.some(x=>
+   String((x as Record<string,unknown>).providerId||'')==='fanlinewire-fanduel-pulse'&&
+   String((x as Record<string,unknown>).status||'')==='CERTIFIED'
+  )
+ );
+ const continuityCandidate=pulseFallbackCertified&&ingestion.markets.length===0;
+
  blockers.push(...dataQuality.blockers.map(x=>`data: ${x}`));
  warnings.push(...dataQuality.warnings.map(x=>`data: ${x}`));
  if(dataQuality.grade==='REJECT')blockers.push('data: batch quality grade is REJECT');
@@ -172,14 +180,20 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
 
  if(unifiedIntelligence.state==='BLOCKED'){
   const rows=unifiedIntelligence.blockers.map(x=>`unified intelligence: ${x}`);
-  if(strict&&remediationMode)warnings.push(...rows.map(x=>x+' (remediation candidate)'));
+  if(strict&&remediationMode&&continuityCandidate)warnings.push(...rows.map(x=>x+' (quota continuity remediation candidate)'));
   else blockers.push(...rows);
  }
  if(unifiedIntelligence.state==='DEGRADED')warnings.push(`unified intelligence: stack score ${(unifiedIntelligence.score*100).toFixed(1)}%, critical coverage ${(unifiedIntelligence.criticalCoverage*100).toFixed(1)}%`);
  warnings.push(...unifiedIntelligence.warnings.map(x=>`unified intelligence: ${x}`));
- if(reliability.mode==='PROTECTIVE')blockers.push(`reliability: protective mode active; open components ${reliability.openComponents.join(', ')||'required system'}`);
- else if(reliability.mode==='DEGRADED')warnings.push(`reliability: degraded mode; open ${reliability.openComponents.join(', ')||'none'}, half-open ${reliability.halfOpenComponents.join(', ')||'none'}`);
- if(reliability.criticalOpen)blockers.push('reliability: required intelligence circuit is open');
+ if(reliability.mode==='PROTECTIVE'){
+  const message=`reliability: protective mode active; open components ${reliability.openComponents.join(', ')||'required system'}`;
+  if(strict&&remediationMode&&continuityCandidate)warnings.push(message+'; recommendations remain protected during pulse-only continuity');
+  else blockers.push(message);
+ }else if(reliability.mode==='DEGRADED')warnings.push(`reliability: degraded mode; open ${reliability.openComponents.join(', ')||'none'}, half-open ${reliability.halfOpenComponents.join(', ')||'none'}`);
+ if(reliability.criticalOpen){
+  if(strict&&remediationMode&&continuityCandidate)warnings.push('reliability: required intelligence circuit is open; protected recommendations remain suppressed in continuity mode');
+  else blockers.push('reliability: required intelligence circuit is open');
+ }
  if(sloGovernor.state==='FROZEN'||sloGovernor.freezeTriggered){
   const message=`SLO: deployment freeze active; ${sloGovernor.reasons.join('; ')||'error budget exhausted'}`;
   if(strict&&!remediationMode)blockers.push(message);
@@ -195,13 +209,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    String((x as Record<string,unknown>).status||'')==='CERTIFIED'
   )
  );
- const pulseFallbackCertified=Boolean(
-  providerCertification?.providers?.some(x=>
-   String((x as Record<string,unknown>).providerId||'')==='fanlinewire-fanduel-pulse'&&
-   String((x as Record<string,unknown>).status||'')==='CERTIFIED'
-  )
- );
- const continuityMode=pulseFallbackCertified&&ingestion.markets.length===0;
+ const continuityMode=continuityCandidate;
  if(strict&&ingestion.source!=='live'&&!(ingestion.source==='stored'&&quotaFallbackCertified)&&!continuityMode){
   blockers.push(`data: strict production certification requires live odds, certified persisted real odds, or certified live pulse continuity; current source is ${ingestion.source}`);
  }
