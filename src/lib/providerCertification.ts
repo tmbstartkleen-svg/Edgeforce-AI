@@ -207,22 +207,23 @@ export async function certifyConfiguredProviders(){
     providerId:'fanlinewire-fanduel-pulse',
     providerName:'FanLine Wire FanDuel Pulse',
     capability:'ODDS',
-    status:pulseAcceptable?'CERTIFIED':'FAILED',
+    status:pulseAcceptable?'CAUTION':'FAILED',
     priority:118,
     latencyMs:Number(pulse?.latencyMs||0),
     rowCount:pulseRows.length,
-    normalizedCount:pricedCount,
+    normalizedCount:0,
     payloadAgeMin:pulse?.ageMs==null?undefined:Number(pulse.ageMs)/60000,
     freshnessScore:pulseAcceptable?1:.25,
     qualityScore:pulseAcceptable ? .78 : .30,
-    qualityGrade:pulseAcceptable?'USABLE':'REJECT',
+    qualityGrade:pulseAcceptable?'CAUTION':'REJECT',
     authConfigured:false,
     maxAgeMin:2,
     reasons:pulseAcceptable
      ?[
-       `Quota continuity certified from ${pulseRows.length} fresh FanDuel market-update rows and ${pricedCount} real prices`,
+       `Quota continuity observed from ${pulseRows.length} fresh FanDuel market-update rows and ${pricedCount} real prices`,
        'This fallback is an operational live-price pulse, not a full normalized sportsbook slate',
-       'Simulation recommendations remain degraded until a full normalized odds provider or persisted slate is available'
+       'Pulse continuity is CAUTION-only and cannot satisfy the strict normalized ODDS launch requirement',
+       'Simulation recommendations remain blocked until a certified normalized odds provider or persisted slate is available'
       ]
      :[
        'The primary odds provider is quota exhausted and the FanDuel pulse did not provide a fresh usable price tape',
