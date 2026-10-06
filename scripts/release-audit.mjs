@@ -4,11 +4,11 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V103',
- appVersion:'103.0.0',
- packageVersion:'0.103.0',
- modelVersion:'edgeforce-v103',
- migrationVersion:113
+ build:'V104',
+ appVersion:'104.0.0',
+ packageVersion:'0.104.0',
+ modelVersion:'edgeforce-v104',
+ migrationVersion:114
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -451,7 +451,7 @@ add('V73 hard rollback gates',read('src/lib/deploymentGuard.ts').includes("obser
 add('V73 baseline capture',read('.github/workflows/deploy-production.yml').includes('Capture production baseline')&&read('.github/workflows/deploy-production.yml').includes('DEPLOYMENT_BASELINE_B64'),'deployment captures the previous production health baseline before replacing it');
 add('V73 three-probe canary',read('.github/workflows/deploy-production.yml').includes('for ATTEMPT in 1 2 3')&&read('.github/workflows/deploy-production.yml').includes('test "$PASSES" -ge 2'),'candidate must pass two of three comparative probes');
 add('V73 canary launch stage',read('src/lib/productionLaunch.ts').includes("'CANARY_PASSED'")&&read('.github/workflows/deploy-production.yml').includes('CANARY_PASSED'),'launch completion requires a successful comparative canary');
-add('V73 automatic rollback',read('.github/workflows/deploy-production.yml').includes('canary%20or%20hosted%20launch%20gate%20failure')&&read('.github/workflows/deploy-production.yml').includes('rollback/$PREVIOUS_DEPLOYMENT_ID'),'canary failure routes to the captured prior deployment');
+add('V73 automatic rollback',read('.github/workflows/deploy-production.yml').includes('rollback/$PREVIOUS_DEPLOYMENT_ID')&&read('.github/workflows/deploy-production.yml').includes('failure() && steps.deploy.outcome == \'success\''),'deployment failure still routes to the captured prior deployment');
 add('V73 release milestone',read('db/v85.sql').includes('deployment_guard_runs')&&read('EDGEFORCE_V73_RELEASE.md').includes('V73'),'V73 comparative canary milestone remains preserved');
 add('V73 deployment handoff',read('EDGEFORCE_V73_RELEASE.md').includes('Comparative Canary')&&read('src/lib/deploymentGuard.ts').includes('evaluateDeploymentGuard'),'V73 deployment-guard handoff remains documented');
 add('V73 regression and dashboard',read('src/app/api/testing/deployment-guard/route.ts').includes("healthy.decision==='PASS'")&&read('src/components/Dashboard.tsx').includes('DeploymentGuardPanel'),'deterministic canary regression and dashboard visibility are present');
@@ -902,11 +902,25 @@ add('V103 convergence evaluator',read('src/lib/releasePlatformConvergence.ts').i
 add('V103 convergence API',exists('src/app/api/release/platform-convergence/route.ts')&&exists('src/app/api/testing/platform-convergence/route.ts'),'convergence API and regression endpoint exist');
 add('V103 Vercel evidence writer',read('.github/workflows/deploy-production.yml').includes('/api/release/platform-convergence')&&read('.github/workflows/deploy-production.yml').includes('platform:"vercel"'),'Vercel production writes convergence evidence');
 add('V103 Cloudflare evidence writer',read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/platform-convergence')&&read('.github/workflows/deploy-cloudflare.yml').includes('platform:"cloudflare"'),'Cloudflare production writes convergence evidence');
-add('V103 strict convergence gate',read('src/lib/productionCertification.ts').includes('platformConvergence')&&read('src/lib/productionCertification.ts').includes('Vercel and Cloudflare are not certified'),'strict production certification checks convergence');
+add('V103 strict convergence gate',read('src/lib/productionCertification.ts').includes('platformConvergence')&&read('src/lib/productionCertification.ts').includes('platform convergence'),'strict production certification checks convergence');
 add('V103 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'platform-convergence'")&&read('src/lib/v1ReleaseReadiness.ts').includes('platformConverged'),'V1 readiness exposes cross-platform convergence');
 add('V103 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('PlatformConvergencePanel'),'platform convergence is visible in System view');
 add('V103 health capability',read('src/app/api/health/route.ts').includes('crossPlatformProductionConvergence:true'),'health exposes convergence capability');
 add('V103 release notes',exists('EDGEFORCE_V103_RELEASE.md'),'V103 release documentation exists');
+
+add('V104 closure schema',exists('db/v114.sql')&&read('db/v114.sql').includes('release_final_closures'),'durable final closure ledger exists');
+add('V104 closure evaluator',read('src/lib/finalProductionClosure.ts').includes('evaluateFinalProductionClosure')&&read('src/lib/finalProductionClosure.ts').includes('saveFinalProductionClosure'),'final production closure evaluator exists');
+add('V104 closure API',exists('src/app/api/release/final-closure/route.ts')&&exists('src/app/api/testing/final-closure/route.ts'),'final closure API and regression endpoint exist');
+add('V104 dual-platform closure writers',read('.github/workflows/deploy-production.yml').includes('/api/release/final-closure')&&read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/final-closure'),'both production workflows can seal closure');
+add('V104 Cloudflare commit stamp',exists('scripts/stamp-cloudflare-deployment.mjs')&&read('.github/workflows/deploy-cloudflare.yml').includes('stamp-cloudflare-deployment.mjs'),'Cloudflare runtime receives exact deployment commit');
+add('V104 convergence fail-fast',read('src/app/api/release/platform-convergence/route.ts').includes('status:invalid?422:200'),'invalid convergence evidence fails fast');
+add('V104 bootstrap-safe convergence',read('src/lib/productionCertification.ts').includes('awaiting evidence from the second production platform'),'one-sided convergence remains bootstrap-safe');
+add('V104 strict closure integration',read('src/lib/productionCertification.ts').includes('finalClosure')&&read('src/lib/productionCertification.ts').includes('converged durable evidence'),'production certification consumes final closure state');
+add('V104 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'final-production-closure'")&&read('src/lib/v1ReleaseReadiness.ts').includes('finalProductionClosed'),'V1 readiness exposes final closure');
+add('V104 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('FinalProductionClosurePanel'),'final closure is visible in System view');
+add('V104 health capability',read('src/app/api/health/route.ts').includes('finalProductionClosure:true'),'health exposes final closure capability');
+add('V104 rollback description',!read('.github/workflows/deploy-production.yml').includes('V74%20SLO'),'rollback description no longer carries stale V74 identity');
+add('V104 release notes',exists('EDGEFORCE_V104_RELEASE.md'),'V104 release documentation exists');
 
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};

@@ -49,6 +49,7 @@ import ReleasePromotionProvenancePanel from './ReleasePromotionProvenancePanel';
 import PostPromotionVerificationPanel from './PostPromotionVerificationPanel';
 import RollbackReconciliationPanel from './RollbackReconciliationPanel';
 import PlatformConvergencePanel from './PlatformConvergencePanel';
+import FinalProductionClosurePanel from './FinalProductionClosurePanel';
 import V1ReleaseReadinessPanel from './V1ReleaseReadinessPanel';
 import ProductionLaunchPanel from './ProductionLaunchPanel';
 
@@ -130,6 +131,7 @@ export default function OperatorCommandCenter(){
   <PostPromotionVerificationPanel/>
   <RollbackReconciliationPanel/>
   <PlatformConvergencePanel/>
+  <FinalProductionClosurePanel/>
  </>;
 
  return <section className="operatorCenter">
@@ -139,7 +141,7 @@ export default function OperatorCommandCenter(){
     <h2>EdgeForce Intelligence Console</h2>
     <p>{active.description}</p>
    </div>
-   <div className="operatorCenterBadge">50 MODULES · CONSOLIDATED</div>
+   <div className="operatorCenterBadge">51 MODULES · CONSOLIDATED</div>
   </div>
 
   <div className="operatorNav" role="tablist" aria-label="EdgeForce operator views">
@@ -158,7 +160,7 @@ export default function OperatorCommandCenter(){
    <div><small>EXECUTION</small><strong>6</strong><span>price + timing</span></div>
    <div><small>LEARNING</small><strong>5</strong><span>validation + stress</span></div>
    <div><small>CASH-OUT</small><strong>5</strong><span>offer + policy</span></div>
-   <div><small>SYSTEM</small><strong>30</strong><span>launch + release + rollback + platform convergence</span></div>
+   <div><small>SYSTEM</small><strong>31</strong><span>launch + release + rollback + convergence + final closure</span></div>
   </div>
 
   <div className="operatorModules">

@@ -213,6 +213,7 @@ export async function GET(){
   rollbackEvidenceReconciliation:true,
   cloudflareHostedPreviewParity:true,
   crossPlatformProductionConvergence:true,
+  finalProductionClosure:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,

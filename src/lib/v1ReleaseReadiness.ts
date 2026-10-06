@@ -58,6 +58,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('post-promotion-verification','Live post-promotion verification',postVerify?.certified?'PASS':'WARN',true,postVerify?`Live verification commit ${String(postVerify.deployedCommitSha).slice(0,8)}; platform ${postVerify.platform}.`:'First promotion of the current release has not written live verification yet.');
  const convergence=certification.platformConvergence;
  add('platform-convergence','Cross-platform production convergence',convergence?.certified?'PASS':'WARN',true,convergence?.certified?`Vercel and Cloudflare converged on ${String(convergence.commitSha).slice(0,8)}.`:'Current release has not yet recorded certified Vercel + Cloudflare convergence.');
+ const finalClosure=certification.finalClosure;
+ add('final-production-closure','Final production closure',finalClosure?.closed?'PASS':'WARN',true,finalClosure?.closed?`Release closed on ${String(finalClosure.commitSha).slice(0,8)} with execution, promotion, live verification, convergence and rollback integrity reconciled.`:'Current release has not yet written a closed final production certificate.');
  const rollback=certification.rollbackReconciliation;
  const rollbackApplies=Boolean(rollback?.rollbackConfirmed&&(!certification.release.commit||String(rollback.failedCommitSha||'')===String(certification.release.commit)));
  add('rollback-reconciliation','Rollback evidence reconciliation',rollbackApplies?(strict?'FAIL':'WARN'):'PASS',true,rollback?.rollbackConfirmed?(rollbackApplies?`Current release commit ${String(rollback.failedCommitSha||'').slice(0,8)} was rolled back; promotion and live verification evidence were reconciled.`:`Historical rollback ${String(rollback.failedCommitSha||'').slice(0,8)} does not match current commit ${String(certification.release.commit||'unknown').slice(0,8)}.`):'No confirmed rollback exists for the current release.');
@@ -108,6 +110,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    rollbackLiveVerificationInvalidated:Boolean(certification.rollbackReconciliation?.verificationInvalidated),
    platformConverged:Boolean(certification.platformConvergence?.certified),
    platformConvergenceCommit:certification.platformConvergence?.commitSha||null,
+   finalProductionClosed:Boolean(certification.finalClosure?.closed),
+   finalClosureCommit:certification.finalClosure?.commitSha||null,
    securityOk:certification.security.ok,
    liveData:certification.ingestion.source==='live',
    unifiedIntelligenceState:certification.unifiedIntelligence.state,

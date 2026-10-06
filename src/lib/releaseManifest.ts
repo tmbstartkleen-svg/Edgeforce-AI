@@ -1,8 +1,8 @@
 export const RELEASE={
-  build:'V103',
-  appVersion:'103.0.0',
-  packageVersion:'0.103.0',
-  modelVersion:'edgeforce-v103',
-  migrationVersion:113,
+  build:'V104',
+  appVersion:'104.0.0',
+  packageVersion:'0.104.0',
+  modelVersion:'edgeforce-v104',
+  migrationVersion:114,
   vercelCliVersion:'62.2.0'
 } as const;
