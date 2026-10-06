@@ -218,6 +218,7 @@ export async function GET(){
   productionCredentialRecovery:true,
   productionTransportRepair:true,
   productionBootstrapRepair:true,
+  productionLegacyBridgeRepair:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
