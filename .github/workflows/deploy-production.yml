@@ -565,6 +565,29 @@ jobs:
         run: |
           vercel promote "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" --yes
 
+      - name: Verify production alias points to certified candidate
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          EXPECTED_URL="${PRODUCTION_URL#https://}"
+          for i in {1..20}; do
+            PROD_JSON=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID")
+            LIVE_URL=$(printf '%s' "$PROD_JSON" | jq -r '.deployments[0].url // empty')
+            LIVE_SHA=$(printf '%s' "$PROD_JSON" | jq -r '.deployments[0].meta.githubCommitSha // .deployments[0].meta.githubCommitRef // empty')
+            if [ "$LIVE_URL" = "$EXPECTED_URL" ]; then
+              echo "Production alias converged to certified candidate: $LIVE_URL"
+              if [ -n "$LIVE_SHA" ]; then echo "Production metadata commit: $LIVE_SHA"; fi
+              exit 0
+            fi
+            echo "Waiting for production alias convergence (attempt $i/20): current=$LIVE_URL expected=$EXPECTED_URL"
+            sleep 3
+          done
+          echo "Production alias did not converge to the certified candidate."
+          exit 1
+
       - name: Record complete launch stage after promotion
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
