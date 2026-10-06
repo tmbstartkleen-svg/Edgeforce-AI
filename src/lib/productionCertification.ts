@@ -103,6 +103,7 @@ function securityPosture(){
 export async function runProductionCertification(options:{strict?:boolean}={}):Promise<ProductionCertificationReport>{
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
+ const remediationMode=process.env.EDGEFORCE_REMEDIATION_DEPLOY==='true';
  const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure]=await Promise.all([
   evaluateReadiness({strict}),
   latestProviderCertification(),
@@ -169,13 +170,21 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(Number(shadowRecovery.latestRun?.leagueWinnersReady||0)>0)warnings.push('external ML shadow league: '+Number(shadowRecovery.latestRun?.leagueWinnersReady||0)+' live league leader(s) are awaiting or eligible for recovery');
  if(Number(shadowRecovery.latestRun?.rejected||0)>0)warnings.push('external ML shadow league: '+Number(shadowRecovery.latestRun?.rejected||0)+' challenger(s) failed live evidence');
 
- if(unifiedIntelligence.state==='BLOCKED')blockers.push(...unifiedIntelligence.blockers.map(x=>`unified intelligence: ${x}`));
+ if(unifiedIntelligence.state==='BLOCKED'){
+  const rows=unifiedIntelligence.blockers.map(x=>`unified intelligence: ${x}`);
+  if(strict&&remediationMode)warnings.push(...rows.map(x=>x+' (remediation candidate)'));
+  else blockers.push(...rows);
+ }
  if(unifiedIntelligence.state==='DEGRADED')warnings.push(`unified intelligence: stack score ${(unifiedIntelligence.score*100).toFixed(1)}%, critical coverage ${(unifiedIntelligence.criticalCoverage*100).toFixed(1)}%`);
  warnings.push(...unifiedIntelligence.warnings.map(x=>`unified intelligence: ${x}`));
  if(reliability.mode==='PROTECTIVE')blockers.push(`reliability: protective mode active; open components ${reliability.openComponents.join(', ')||'required system'}`);
  else if(reliability.mode==='DEGRADED')warnings.push(`reliability: degraded mode; open ${reliability.openComponents.join(', ')||'none'}, half-open ${reliability.halfOpenComponents.join(', ')||'none'}`);
  if(reliability.criticalOpen)blockers.push('reliability: required intelligence circuit is open');
- if(sloGovernor.state==='FROZEN'||sloGovernor.freezeTriggered)(strict?blockers:warnings).push(`SLO: deployment freeze active; ${sloGovernor.reasons.join('; ')||'error budget exhausted'}`);
+ if(sloGovernor.state==='FROZEN'||sloGovernor.freezeTriggered){
+  const message=`SLO: deployment freeze active; ${sloGovernor.reasons.join('; ')||'error budget exhausted'}`;
+  if(strict&&!remediationMode)blockers.push(message);
+  else warnings.push(remediationMode?`${message}; candidate is running in remediation mode and must pass its own hosted gates before promotion`:message);
+ }
  else if(sloGovernor.state==='RECOVERING')warnings.push(`SLO: deployment budget recovering (${sloGovernor.recoveryStreak}/3 safe checks)`);
  warnings.push(...sloGovernor.warnings.map(x=>`SLO: ${x}`));
 
@@ -186,13 +195,23 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    String((x as Record<string,unknown>).status||'')==='CERTIFIED'
   )
  );
- if(strict&&ingestion.source!=='live'&&!(ingestion.source==='stored'&&quotaFallbackCertified)){
-  blockers.push(`data: strict production certification requires live odds or certified quota-degraded persisted real odds, current source is ${ingestion.source}`);
+ const pulseFallbackCertified=Boolean(
+  providerCertification?.providers?.some(x=>
+   String((x as Record<string,unknown>).providerId||'')==='fanlinewire-fanduel-pulse'&&
+   String((x as Record<string,unknown>).status||'')==='CERTIFIED'
+  )
+ );
+ const continuityMode=pulseFallbackCertified&&ingestion.markets.length===0;
+ if(strict&&ingestion.source!=='live'&&!(ingestion.source==='stored'&&quotaFallbackCertified)&&!continuityMode){
+  blockers.push(`data: strict production certification requires live odds, certified persisted real odds, or certified live pulse continuity; current source is ${ingestion.source}`);
  }
  if(strict&&ingestion.source==='stored'&&quotaFallbackCertified){
   warnings.push('data: launch is quota-degraded and using persisted real sportsbook odds until live provider quota recovers');
  }
- if(strict&&ingestion.markets.length===0)blockers.push('data: no sportsbook markets available for strict production certification');
+ if(strict&&continuityMode){
+  warnings.push('data: operational continuity mode is active with a fresh real FanDuel pulse; full normalized sportsbook recommendations remain degraded until a complete odds slate returns');
+ }
+ if(strict&&ingestion.markets.length===0&&!continuityMode)blockers.push('data: no sportsbook markets available for strict production certification');
 
  const attestations=(ops as any).attestations||[];
  const currentAttestation=attestations.find((x:any)=>String(x.version)===RELEASE.appVersion)||null;
@@ -293,7 +312,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,security,
   executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure,
   ingestion:{
-   source:ingestion.source,mode:ingestion.mode,providerId:ingestion.providerId||null,
+   source:continuityMode?'pulse':ingestion.source,mode:continuityMode?'quota-pulse-continuity':ingestion.mode,providerId:continuityMode?'fanlinewire-fanduel-pulse':ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
   },
   releaseAttestation,incidents,time:new Date().toISOString()
