@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V111',
- appVersion:'111.0.0',
- packageVersion:'0.111.0',
- modelVersion:'edgeforce-v111',
+ build:'V112',
+ appVersion:'112.0.0',
+ packageVersion:'0.112.0',
+ modelVersion:'edgeforce-v112',
  migrationVersion:114
 };
 const checks=[];
@@ -963,6 +963,11 @@ add('V111 live odds safe bootstrap',read('src/lib/providers/theOddsApi.ts').incl
 add('V111 provider error detail',read('src/lib/providers/theOddsApi.ts').includes('parsed.error_code')&&read('.github/workflows/deploy-cloudflare.yml').includes('/tmp/provider-certification.json')&&read('.github/workflows/deploy-production.yml').includes('edgeforce-provider-cert.err'),'provider failures preserve upstream API detail and deployment workflows print certification evidence');
 add('V111 health capability',read('src/app/api/health/route.ts').includes('providerDeploymentRecovery:true'),'health exposes provider deployment recovery');
 add('V111 release notes',exists('EDGEFORCE_V111_RELEASE.md'),'V111 release documentation exists');
+add('V112 quota-aware persisted odds fallback',read('src/lib/providerCertification.ts').includes("providerId:'persisted-live-odds'")&&read('src/lib/providerCertification.ts').includes('ODDS_CERTIFICATION_STORED_MAX_AGE_MIN')&&read('src/lib/providerCertification.ts').includes('Live odds provider quota is exhausted'),'quota exhaustion can certify only recent persisted real sportsbook rows with explicit degraded evidence');
+add('V112 no-demo degraded certification',read('src/lib/providerCertification.ts').includes('Fallback is production real-data only')&&read('src/lib/productionCertification.ts').includes('quota-degraded persisted real odds'),'strict certification permits the persisted fallback only when the quota-specific certificate is present');
+add('V112 usable real-data deployment probe',read('src/app/api/live-data/status/route.ts').includes('requireUsable')&&read('.github/workflows/deploy-production.yml').includes('requireUsable=1&maxStoredAgeMin=90')&&read('.github/workflows/deploy-cloudflare.yml').includes('requireUsable=1&maxStoredAgeMin=90'),'production workflows accept live or recent persisted real data while still rejecting unavailable/demo data');
+add('V112 health capability',read('src/app/api/health/route.ts').includes('quotaDegradedProviderCertification:true'),'health exposes quota-degraded provider certification');
+add('V112 release notes',exists('EDGEFORCE_V112_RELEASE.md'),'V112 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
