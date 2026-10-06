@@ -40,6 +40,37 @@ create table if not exists prediction_market_snapshots (
   unique (venue, contract_id, observed_hour)
 );
 
+alter table prediction_market_snapshots add column if not exists venue text;
+alter table prediction_market_snapshots add column if not exists bid_probability numeric;
+alter table prediction_market_snapshots add column if not exists ask_probability numeric;
+alter table prediction_market_snapshots add column if not exists liquidity numeric;
+alter table prediction_market_snapshots add column if not exists observed_hour timestamptz;
+
+update prediction_market_snapshots
+set venue=coalesce(venue, provider, 'legacy')
+where venue is null;
+
+update prediction_market_snapshots
+set observed_hour=coalesce(observed_hour, pulled_at, now())
+where observed_hour is null;
+
+alter table prediction_market_snapshots alter column venue set not null;
+alter table prediction_market_snapshots alter column observed_hour set not null;
+
+do $
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname='prediction_market_snapshots_venue_contract_hour_key'
+  ) then
+    alter table prediction_market_snapshots
+      add constraint prediction_market_snapshots_venue_contract_hour_key
+      unique (venue, contract_id, observed_hour);
+  end if;
+end
+$;
+
 create index if not exists prediction_market_snapshots_lookup_idx
   on prediction_market_snapshots(venue, contract_id, observed_hour desc);
 

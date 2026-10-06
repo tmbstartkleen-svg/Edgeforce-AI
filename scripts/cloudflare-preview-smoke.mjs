@@ -1,6 +1,6 @@
 const base=String(process.env.PREVIEW_URL||'').replace(/\/$/,'');
-const expected=process.env.EXPECTED_APP_VERSION||'108.0.0';
-const expectedModel=process.env.EXPECTED_MODEL_VERSION||'edgeforce-v108';
+const expected=process.env.EXPECTED_APP_VERSION||'109.0.0';
+const expectedModel=process.env.EXPECTED_MODEL_VERSION||'edgeforce-v109';
 if(!/^https:\/\//.test(base))throw new Error('PREVIEW_URL must be https');
 
 async function get(path){
