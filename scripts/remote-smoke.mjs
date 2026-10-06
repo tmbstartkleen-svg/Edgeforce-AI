@@ -5,6 +5,7 @@ if(!base)throw new Error('SMOKE_BASE_URL is required');
 
 const paths=['/api/release/error-budget','/api/release/deployment-guard','/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
+const degradedAllowedPaths=new Set(['/api/intelligence/expert-models']);
 
 function protectedFetch(path){
  const url=base+path;
@@ -21,7 +22,7 @@ for(const path of paths){
  const res=await protectedFetch(path);
  const body=await res.text();
  results.push({path,status:res.status,durationMs:Date.now()-started});
- if(!res.ok)throw new Error(path+' failed with '+res.status);
+ if(!res.ok&&!degradedAllowedPaths.has(path))throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
   const json=JSON.parse(body);
   if(json.ok!==true||json.schemaVersion!=='v74-slo-governor-1'||!json.windows)throw new Error('SLO governor endpoint mismatch');
@@ -92,7 +93,9 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/expert-models'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.schemaVersion!=='v61-expert-models-1'||!Array.isArray(json.catalog))throw new Error('expert model API mismatch');
+  const degradedValid=json.ok===false&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog)&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
+  const liveValid=json.ok===true&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog);
+  if(!(liveValid||degradedValid))throw new Error('expert model API mismatch');
  }
  if(path==='/api/testing/live-comeback'){
   const json=JSON.parse(body);
