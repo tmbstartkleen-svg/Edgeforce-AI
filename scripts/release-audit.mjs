@@ -8,7 +8,7 @@ const expected={
  appVersion:'115.0.0',
  packageVersion:'0.115.0',
  modelVersion:'edgeforce-v115',
- migrationVersion:114
+ migrationVersion:115
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
