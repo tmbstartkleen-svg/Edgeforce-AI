@@ -929,21 +929,27 @@ add('V105 Vercel verified-main trigger',(
 )||(
  read('.github/workflows/deploy-production.yml').includes('push:')&&
  read('.github/workflows/deploy-production.yml').includes('branches: [main]')&&
- read('.github/workflows/deploy-production.yml').includes('Wait for exact Verify Edgeforce success')&&
- read('.github/workflows/deploy-production.yml').includes('--workflow verify.yml --commit "$DEPLOY_COMMIT" --event push')&&
- read('.github/workflows/deploy-production.yml').includes('test "$CONCLUSION" = "success"')&&
- read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.sha }}')
-),'Vercel production deploy is pinned to an exact successful verified main SHA');
+ read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.sha }}')&&
+ read('.github/workflows/deploy-production.yml').includes('Verify prediction persistence against PostgreSQL')&&
+ read('.github/workflows/deploy-production.yml').includes('Verify shared SharpAPI budget against PostgreSQL')&&
+ read('.github/workflows/deploy-production.yml').includes('npm run lint')&&
+ read('.github/workflows/deploy-production.yml').includes('npm run typecheck')&&
+ read('.github/workflows/deploy-production.yml').includes('npm run build')&&
+ read('.github/workflows/deploy-production.yml').includes('npm run release-audit')&&
+ read('.github/workflows/deploy-production.yml').includes('Predeploy local smoke')&&
+ read('.github/workflows/deploy-production.yml').includes('Predeploy local load check')
+),'Vercel production deploy is pinned to an exact main SHA that is fully re-verified inside the staging workflow');
 add('V105 Cloudflare verified-main trigger',read('.github/workflows/deploy-cloudflare.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha'),'Cloudflare production deploy is pinned to the successful verified main SHA');
 add('V105 cross-platform source parity',(
  read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}')||
  (
   read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.sha }}')&&
-  read('.github/workflows/deploy-production.yml').includes('Wait for exact Verify Edgeforce success')&&
-  read('.github/workflows/deploy-production.yml').includes('--workflow verify.yml --commit "$DEPLOY_COMMIT" --event push')&&
-  read('.github/workflows/deploy-production.yml').includes('test "$CONCLUSION" = "success"')
+  read('.github/workflows/deploy-production.yml').includes('Verify prediction persistence against PostgreSQL')&&
+  read('.github/workflows/deploy-production.yml').includes('Verify shared SharpAPI budget against PostgreSQL')&&
+  read('.github/workflows/deploy-production.yml').includes('Predeploy local smoke')&&
+  read('.github/workflows/deploy-production.yml').includes('Predeploy local load check')
  )
-)&&read('.github/workflows/deploy-cloudflare.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}'),'both production paths derive deployment identity from an exact successful verified source');
+)&&read('.github/workflows/deploy-cloudflare.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}'),'both production paths derive identity from an exact verified main source');
 add('V105 Cloudflare exact checkout',read('.github/workflows/deploy-cloudflare.yml').includes('ref: \${{ github.event.workflow_run.head_sha || github.sha }}'),'Cloudflare checks out the exact verified commit');
 add('V105 Cloudflare runtime commit stamp',read('scripts/stamp-cloudflare-deployment.mjs').includes('process.env.DEPLOYMENT_COMMIT||process.env.GITHUB_SHA'),'Cloudflare runtime stamp prefers the verified deployment commit');
 add('V105 manual fallback preserved',read('.github/workflows/deploy-production.yml').includes('workflow_dispatch:')&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_dispatch:'),'both production paths retain operator-triggered fallback');

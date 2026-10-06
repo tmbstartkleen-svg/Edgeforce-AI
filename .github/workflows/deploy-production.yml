@@ -16,6 +16,18 @@ concurrency:
 jobs:
   deploy-production:
     runs-on: ubuntu-latest
+    services:
+      snapshot-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fixture
+          POSTGRES_PASSWORD: fixture-local-only
+          POSTGRES_DB: edgeforce_snapshot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fixture -d edgeforce_snapshot_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       VERCEL_SCOPE: tmbstartkleen-4716s-projects
       VERCEL_PROJECT_NAME: edgeforce-ai
@@ -31,31 +43,6 @@ jobs:
       - name: Verify deployment credential
         run: test -n "$VERCEL_TOKEN"
 
-      - name: Wait for exact Verify Edgeforce success
-        if: github.event_name == 'push'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 180); do
-            RUNS=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow verify.yml --commit "$DEPLOY_COMMIT" --event push --limit 10 --json status,conclusion,databaseId,headSha)
-            MATCH=$(printf '%s' "$RUNS" | jq -c --arg sha "$DEPLOY_COMMIT" '[.[] | select(.headSha==$sha)] | first // empty')
-            if [ -n "$MATCH" ]; then
-              STATUS=$(printf '%s' "$MATCH" | jq -r '.status')
-              CONCLUSION=$(printf '%s' "$MATCH" | jq -r '.conclusion // ""')
-              RUN_ID=$(printf '%s' "$MATCH" | jq -r '.databaseId')
-              echo "Verify Edgeforce run $RUN_ID status=$STATUS conclusion=$CONCLUSION"
-              if [ "$STATUS" = "completed" ]; then
-                test "$CONCLUSION" = "success"
-                exit 0
-              fi
-            fi
-            sleep 10
-          done
-          echo "Timed out waiting for successful Verify Edgeforce run for $DEPLOY_COMMIT"
-          exit 1
-
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -69,6 +56,14 @@ jobs:
         run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
       - run: npm run typecheck
+      - name: Verify prediction persistence against PostgreSQL
+        run: node --test tests/prediction-persistence.postgres.mjs
+        env:
+          PREDICTION_TEST_DATABASE_URL: postgres://fixture:fixture-local-only@127.0.0.1:5432/edgeforce_snapshot_test
+      - name: Verify shared SharpAPI budget against PostgreSQL
+        run: node --test tests/sharp-api.postgres.mjs
+        env:
+          SHARP_TEST_DATABASE_URL: postgres://fixture:fixture-local-only@127.0.0.1:5432/edgeforce_snapshot_test
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-audit
