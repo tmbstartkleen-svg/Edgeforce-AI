@@ -191,7 +191,7 @@ jobs:
             echo "Prediction warehouse prime returned HTTP $HTTP_CODE"
             exit 1
           fi
-          node -e "const d=require('/tmp/prediction-warehouse.json'); if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS') process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
+          node -e "const d=require('/tmp/prediction-warehouse.json'); const p=d.executionProfile||{}; if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS'||p.cloudflareBounded!==true||Number(p.contractLimit)>300||Number(p.tradeLimit)>100) process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),executionProfile:p,contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
 
       - name: Strict launch doctor
         env:
