@@ -91,6 +91,19 @@ jobs:
         if: always()
         run: kill $(cat /tmp/edgeforce-predeploy.pid) 2>/dev/null || true
 
+      - name: Verify Vercel team authorization
+        shell: bash
+        run: |
+          set +e
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" project inspect "$VERCEL_PROJECT_NAME" >/tmp/edgeforce-vercel-project.txt 2>/tmp/edgeforce-vercel-project.err
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            cat /tmp/edgeforce-vercel-project.err
+            echo "VERCEL_TOKEN is not authorized to inspect project '$VERCEL_PROJECT_NAME' under scope '$VERCEL_SCOPE'. Reissue or reconnect the token for this team scope."
+            exit 1
+          fi
+
       - name: Resolve live Vercel project mapping
         shell: bash
         run: |
