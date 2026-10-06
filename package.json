@@ -30,7 +30,7 @@
     "doctor:ml-activation": "node scripts/ml-activation-doctor.mjs",
     "doctor:ml-first-tournament": "node scripts/ml-first-tournament-doctor.mjs",
     "typecheck": "tsc --noEmit",
-    "posttypecheck": "node --test tests/runtime-repair.test.mjs tests/smoke-transport.test.mjs tests/production-target.test.mjs tests/certification-evidence.test.mjs tests/prediction-persistence.test.mjs tests/cloudflare-runtime-secrets.test.mjs",
+    "posttypecheck": "node --test tests/runtime-repair.test.mjs tests/smoke-transport.test.mjs tests/production-target.test.mjs tests/certification-evidence.test.mjs tests/prediction-persistence.test.mjs tests/cloudflare-runtime-secrets.test.mjs tests/sharp-api.test.mjs tests/live-score-mesh.test.mjs tests/the-rundown.test.mjs",
     "test:runtime-repair": "node --test tests/runtime-repair.test.mjs",
     "test:smoke-transport": "node --test tests/smoke-transport.test.mjs",
     "test:production-target": "node --test tests/production-target.test.mjs",

@@ -1,5 +1,7 @@
 import type {ProviderConfig,MarketRole} from './types';
 import type {ProviderCapability} from '../providerRegistry';
+import {sharpApiProvider} from './sharpApi';
+import {theRundownProvider} from './theRundown';
 
 const int=(v:string|undefined,fallback:number)=>{
  const n=Number(v);
@@ -83,9 +85,9 @@ function theOddsApiProvider():ProviderConfig|null{
   apiKey:key,
   authHeader:'X-Api-Key',
   authScheme:'',
-  priority:120,
+  priority:int(process.env.THE_ODDS_API_PRIORITY,120),
   timeoutMs:Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000)),
-  enabled:true,
+  enabled:process.env.THE_ODDS_API_ENABLED!=='false',
   bookmaker:'DraftKings',
   maxAgeMin:Math.max(1,int(process.env.ODDS_PROVIDER_PRIMARY_MAX_AGE_MIN,20)),
   failureThreshold:Math.max(1,int(process.env.PROVIDER_FAILURE_THRESHOLD,3)),
@@ -97,6 +99,8 @@ function theOddsApiProvider():ProviderConfig|null{
 
 export function configuredProviders(capability?:ProviderCapability):ProviderConfig[]{
  const all=[
+  theRundownProvider(),
+  sharpApiProvider(),
   sportsGameOddsProvider(),
   theOddsApiProvider(),
   provider('ODDS_PROVIDER_PRIMARY','Odds Primary','ODDS',100),

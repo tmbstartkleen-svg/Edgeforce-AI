@@ -34,6 +34,10 @@ jobs:
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
           PREDICTION_TEST_DATABASE_URL: postgres://fixture:fixture-local-only@127.0.0.1:5432/edgeforce_snapshot_test
+      - name: Verify shared SharpAPI budget against PostgreSQL
+        run: node --test tests/sharp-api.postgres.mjs
+        env:
+          SHARP_TEST_DATABASE_URL: postgres://fixture:fixture-local-only@127.0.0.1:5432/edgeforce_snapshot_test
       - run: npm run build
       - run: npm run check-migrations
       - run: npm run release-audit

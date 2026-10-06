@@ -67,6 +67,10 @@ export type Market={
  modelProb:number;
  confidence:number;
  sourceAgeMin:number;
+ sourceDelaySeconds?:number;
+ sourceTimestamp?:string;
+ sourceEventId?:string;
+ liveEligible?:boolean;
  period:'AM'|'PM';
  sportFeatures?:Record<string,number>;
 contextSources?:string[];

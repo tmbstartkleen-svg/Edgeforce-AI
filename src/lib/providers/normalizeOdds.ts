@@ -41,6 +41,12 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
   modelProb:num(row.modelProb,suppliedNoVig),
   confidence:num(row.confidence,.6),
   sourceAgeMin:Number.isFinite(sourceAgeMin)?sourceAgeMin:0,
+  ...(row.liveEligible===false?{
+   liveEligible:false,
+   sourceDelaySeconds:Math.max(0,num(row.sourceDelaySeconds)),
+   sourceTimestamp:str(row.sourceTimestamp)||undefined,
+   sourceEventId:str(row.eventId)||undefined
+  }:{}),
   period:new Date(startTime).getHours()<12?'AM':'PM',
   sportFeatures:obj(row.sportFeatures) as Record<string,number>
  };
@@ -110,7 +116,10 @@ function deVigCompleteMarkets(markets:Market[]){
 export function normalizeOddsPayload(payload:unknown,receivedAt=new Date().toISOString()):NormalizedOddsResult{
  const rows=rowsFromPayload(payload);
  const markets:Market[]=[];
- const warnings:string[]=[];
+ const rootWarnings=obj(payload).warnings;
+ const warnings:string[]=Array.isArray(rootWarnings)
+  ?rootWarnings.filter((v):v is string=>typeof v==='string').slice(0,10).map(v=>v.replace(/[\u0000-\u001f\u007f]/g,' ').slice(0,500))
+  :[];
  rows.forEach((value,index)=>{
   const row=obj(value);
   if(Array.isArray(row.bookmakers)){
