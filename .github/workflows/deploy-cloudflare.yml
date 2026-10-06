@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      EDGEFORCE_DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc' }}
+      EDGEFORCE_DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
       DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
@@ -30,12 +30,18 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify required deployment secrets
+      - name: Verify required deployment prerequisites
+        shell: bash
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$CLOUDFLARE_ACCOUNT_ID"
-          test -n "$EDGEFORCE_DATABASE_URL"
-          test -n "$THE_ODDS_API_KEY"
+          missing=()
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || missing+=("CLOUDFLARE_API_TOKEN")
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || missing+=("CLOUDFLARE_ACCOUNT_ID")
+          [ -n "$EDGEFORCE_DATABASE_URL" ] || missing+=("EDGEFORCE_DATABASE_URL or DATABASE_URL")
+          [ -n "$THE_ODDS_API_KEY" ] || missing+=("THE_ODDS_API_KEY")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing Cloudflare production prerequisites: %s\n' "${missing[*]}"
+            exit 1
+          fi
 
       - run: npm install
       - run: npm run preflight:cloudflare
