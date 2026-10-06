@@ -7,7 +7,10 @@ export const dynamic='force-dynamic';
 export async function GET(){
  const ingestion=await ingestOdds();
  if(!ingestion.markets.length){
-  return Response.json({ok:false,source:ingestion.source,error:'No live or stored markets available for context analysis'},{status:503,headers:{'Cache-Control':'no-store'}});
+  return Response.json({
+   ok:false,degraded:true,build:'V51',schemaVersion:'v51-context-intelligence-1',
+   source:ingestion.source,error:'No live or stored markets available for context analysis'
+  },{status:503,headers:{'Cache-Control':'no-store'}});
  }
 
  const enriched=await enrichMarketsWithContext(ingestion.markets);
