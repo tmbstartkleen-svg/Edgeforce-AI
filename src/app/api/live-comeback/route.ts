@@ -18,7 +18,9 @@ export async function GET(){
  if(!ingestion.markets.length){
   return Response.json({
    ok:false,
+   degraded:true,
    build:'V52',
+   schemaVersion:'v52-live-comeback-1',
    source:ingestion.source,
    error:'No live or fresh stored sportsbook markets are available',
    warnings:ingestion.warnings
