@@ -39,6 +39,19 @@ The migration runner now:
 
 This avoids PostgreSQL dollar-quote parsing issues in the migration client while preserving the compatibility behavior.
 
+
+
+### Pulse-only downstream contracts
+
+When the live FanDuel pulse is healthy but a full normalized sportsbook slate is unavailable, downstream analytics routes now return explicit degraded contracts instead of appearing as generic failures:
+
+- expert-model intelligence
+- live-comeback analysis
+- context intelligence
+- parlay recommendations
+
+Hosted smoke validates the schema/error contract for those degraded states while continuing to block unrelated 5xx failures.
+
 ## Identity
 
 - build: V117
