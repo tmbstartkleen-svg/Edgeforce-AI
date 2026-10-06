@@ -19,9 +19,15 @@ const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isA
 const arr=(v:unknown)=>Array.isArray(v)?v:[];
 const str=(v:unknown)=>typeof v==='string'?v:'';
 const finite=(v:unknown)=>typeof v==='number'&&Number.isFinite(v);
-const cacheMs=()=>Math.max(300000,Number(process.env.THERUNDOWN_CACHE_MS||300000));
+const cacheMs=()=>Math.max(300000,Number(process.env.THERUNDOWN_CACHE_MS||1800000));
 const timeoutMs=()=>Math.max(3000,Number(process.env.THERUNDOWN_TIMEOUT_MS||12000));
 const sportIds=()=>[...new Set((process.env.THERUNDOWN_SPORT_IDS||'1,2,3,4,5,6,7,8,10,11,12,13,14,15,16,38,39').split(',').map(x=>x.trim()).filter(x=>/^\d+$/.test(x)))];
+const rotatingSportIds=()=>{
+ const ids=sportIds(),width=Math.max(1,Math.min(8,Number(process.env.THERUNDOWN_SPORTS_PER_BATCH||4)));
+ if(ids.length<=width)return ids;
+ const bucket=Math.floor(Date.now()/cacheMs()),start=(bucket*width)%ids.length;
+ return Array.from({length:Math.min(width,ids.length)},(_,i)=>ids[(start+i)%ids.length]);
+};
 const marketName=(v:unknown)=>{const n=str(v).toLowerCase();return n==='moneyline'?'h2h':n==='spread'?'spreads':n==='total'?'totals':n||'market'};
 const numeric=(v:unknown)=>{
  if(typeof v==='number'&&Number.isFinite(v))return v;
@@ -46,7 +52,7 @@ function lineSelection(participant:Record<string,unknown>,market:string,line:Rec
  }
  return name;
 }
-function flatten(payload:unknown,sportId:string,delaySeconds:number){
+export function normalizeTheRundownPayload(payload:unknown,sportId:string,delaySeconds=300){
  const rows:Row[]=[];
  for(const eventRaw of arr(obj(payload).events)){
   const event=obj(eventRaw),eventId=str(event.event_id),start=str(event.event_date);
@@ -82,7 +88,7 @@ function quotaHeaders(res:Response){
 async function load(apiKey:string){
  const date=new Date().toISOString().slice(0,10);
  const started=Date.now(); const all:Row[]=[]; const quotas:string[]=[];
- for(const sportId of sportIds()){
+ for(const sportId of rotatingSportIds()){
   const url=new URL(`https://therundown.io/api/v2/sports/${sportId}/events/${date}`);
   url.searchParams.set('market_ids','1,2,3');
   url.searchParams.set('affiliate_ids','19,22,23');
@@ -97,7 +103,10 @@ async function load(apiKey:string){
    if(!res.ok)continue;
    const delay=Number(res.headers.get('x-data-delay-seconds'));
    const delaySeconds=Number.isFinite(delay)&&delay>=0?delay:300;
-   all.push(...flatten(await res.json(),sportId,delaySeconds));
+   all.push(...normalizeTheRundownPayload(await res.json(),sportId,delaySeconds));
+   const remaining=Number(res.headers.get('x-datapoints-remaining'));
+   const reserve=Math.max(0,Number(process.env.THERUNDOWN_MIN_REMAINING||2500));
+   if(Number.isFinite(remaining)&&remaining<=reserve)break;
   }finally{clearTimeout(timer)}
  }
  return {at:Date.now(),rows:all,status:200,latencyMs:Date.now()-started,quota:[...new Set(quotas)]};
@@ -107,7 +116,7 @@ export function theRundownProvider(env:Record<string,string|undefined>=process.e
  const key=env.THERUNDOWN_API_KEY?.trim();
  if(env.THERUNDOWN_ENABLED!=='true'||!key||key==='[SENSITIVE]'||/[\s\u0000-\u001f\u007f]/.test(key))return null;
  return {id:'therundown',name:'TheRundown (delayed pregame)',capability:'ODDS',url:'therundown://pregame-main',
-  apiKey:key,authHeader:'X-TheRundown-Key',authScheme:'',priority:130,timeoutMs:12000,enabled:true,
+  apiKey:key,authHeader:'X-TheRundown-Key',authScheme:'',priority:Math.max(1,Number(env.THERUNDOWN_PRIORITY||110)),timeoutMs:12000,enabled:true,
   bookmaker:'TheRundown',maxAgeMin:15,failureThreshold:3,quarantineMin:5,marketRole:'REFERENCE',consensusWeight:1};
 }
 
