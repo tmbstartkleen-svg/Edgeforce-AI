@@ -246,6 +246,8 @@ export async function GET(){
   expertModelPulseContinuitySmoke:true,
   proceduralSqlFreeLegacyRepair:true,
   pulseOnlyDownstreamContracts:true,
+  cloudflareBoundedPredictionPrime:true,
+  workerSafePredictionAutomation:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
