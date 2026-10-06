@@ -242,7 +242,7 @@ jobs:
           echo "- Certification build: V116 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime release: V116" >> "$GITHUB_STEP_SUMMARY"
           echo "- Model: edgeforce-v116" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v115" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"
