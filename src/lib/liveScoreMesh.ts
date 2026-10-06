@@ -42,10 +42,10 @@ function num(v:unknown){const n=Number(v);return Number.isFinite(n)?n:null}
 function teamName(v:unknown){const t=obj(v);return str(t.displayName)||str(t.shortDisplayName)||str(t.name)||str(t.location)||str(t.abbreviation)||'Unknown'}
 function normalizeStatus(v:string){
  const s=v.toLowerCase();
- if(/final|post/.test(s))return 'FINAL' as const;
- if(/in progress|live|halftime|end period|intermission/.test(s))return 'LIVE' as const;
+ if(s==='post'||/final|post/.test(s))return 'FINAL' as const;
+ if(s==='in'||/in progress|live|halftime|end period|intermission/.test(s))return 'LIVE' as const;
  if(/delay|postpon/.test(s))return 'DELAYED' as const;
- if(/pre|scheduled/.test(s))return 'SCHEDULED' as const;
+ if(s==='pre'||/pre|scheduled/.test(s))return 'SCHEDULED' as const;
  return 'UNKNOWN' as const;
 }
 async function json(url:string){
