@@ -59,7 +59,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v110-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v111-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -112,9 +112,25 @@ jobs:
       - name: Certify real sportsbook provider
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
         run: |
-          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/providers/certify"             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"
+          set +e
+          HTTP_CODE=$(curl --silent --show-error -o /tmp/provider-certification.json -w "%{http_code}" \
+            -X POST "$DEPLOYMENT_URL/api/providers/certify" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json")
+          CURL_CODE=$?
+          set -e
+          cat /tmp/provider-certification.json || true
           echo
+          if [ "$CURL_CODE" -ne 0 ]; then
+            exit "$CURL_CODE"
+          fi
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Provider certification returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          jq -e '.launchReady==true' /tmp/provider-certification.json >/dev/null
 
       - name: Verify live sportsbook data
         env:
@@ -148,11 +164,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V110 smoke test
+      - name: Hosted V111 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "110.0.0"
+          EXPECTED_APP_VERSION: "111.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -189,9 +205,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V110 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V110" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v110" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V111 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V111" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v111" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
