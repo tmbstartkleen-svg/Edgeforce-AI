@@ -1014,13 +1014,3 @@ const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,f
 console.log(JSON.stringify(summary,null,2));
 if(process.env.RELEASE_AUDIT_VERBOSE==='true')console.log(JSON.stringify(report,null,2));
 if(failed.length)process.exit(1);
-),'legacy prediction snapshot provider repair uses application-side schema detection instead of fragile procedural SQL');
-add('V117 degraded expert-model smoke',read('scripts/remote-smoke.mjs').includes('degradedAllowedPaths')&&read('scripts/remote-smoke.mjs').includes('degradedValid')&&read('scripts/remote-smoke.mjs').includes('No live or fresh stored sportsbook markets'),'hosted smoke accepts the explicit degraded expert-model contract while still validating its schema and catalog');
-add('V117 health capability',read('src/app/api/health/route.ts').includes('degradedRuntimeCertification:true'),'health exposes degraded runtime certification');
-add('V117 release notes',exists('EDGEFORCE_V117_RELEASE.md'),'V117 release documentation exists');
-const failed=checks.filter(x=>!x.ok);
-const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
-const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
-console.log(JSON.stringify(summary,null,2));
-if(process.env.RELEASE_AUDIT_VERBOSE==='true')console.log(JSON.stringify(report,null,2));
-if(failed.length)process.exit(1);
