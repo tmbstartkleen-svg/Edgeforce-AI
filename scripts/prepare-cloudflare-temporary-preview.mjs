@@ -14,7 +14,7 @@ delete config.triggers;
 
 const sourceVars=config.vars&&typeof config.vars==='object'?config.vars:{};
 config.vars={
-  MODEL_VERSION:'edgeforce-v111',
+  MODEL_VERSION:'edgeforce-v112',
   DEPLOYMENT_PLATFORM:'cloudflare',
   DEPLOYMENT_ENV:'preview',
   DEFAULT_BANKROLL:String(sourceVars.DEFAULT_BANKROLL||'1000'),
