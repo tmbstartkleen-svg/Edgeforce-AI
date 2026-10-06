@@ -215,6 +215,7 @@ export async function GET(){
   crossPlatformProductionConvergence:true,
   finalProductionClosure:true,
   productionClosureOrchestration:true,
+  productionCredentialRecovery:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
