@@ -4,6 +4,7 @@ import {recordPredictionFeedback} from './predictionFeedback';
 import {settlePlayerPropPredictions} from './playerWarehouse';
 import {settleExternalMlPredictionFeedback} from './mlChampionDrift';
 import {settleShadowPredictionFeedback} from './mlShadowRecovery';
+import {finalScoreSettlementRows} from './scoreSettlementFallback';
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const str=(v:unknown)=>typeof v==='string'?v:'';
@@ -38,11 +39,22 @@ function normalizeResult(v:unknown){
 
 export async function runAutomaticSettlement(){
  const provider=await fetchResultsContext();
- if(!provider.ok){
-  return {ok:false,mode:provider.attempts.length?'failed':'unconfigured',provider:provider.providerName||provider.providerId||null,received:0,normalized:0,matchedLegs:0,settledSlips:0,error:provider.error};
+ const raw=provider.ok?rows(provider.data):[];
+ const providerRows=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
+ const fallback=await finalScoreSettlementRows().catch(error=>({
+  rows:[],matchedGames:0,candidateLegs:0,
+  warnings:[error instanceof Error?error.message:'final-score fallback failed']
+ }));
+ const seen=new Set<string>();
+ const normalized=[...providerRows,...fallback.rows].filter(row=>{
+  const key=[row.eventId,row.marketKey||'',row.selectionKey].join('|').toLowerCase();
+  if(seen.has(key))return false;
+  seen.add(key);
+  return true;
+ });
+ if(!provider.ok&&!normalized.length){
+  return {ok:false,mode:provider.attempts.length?'failed':'unconfigured',provider:provider.providerName||provider.providerId||null,received:0,normalized:0,matchedLegs:0,settledSlips:0,error:provider.error,fallbackWarnings:fallback.warnings};
  }
- const raw=rows(provider.data);
- const normalized=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
  const [reconciliation,feedback,playerProps,externalMl,shadowMl]=await Promise.all([
   reconcileLedgerResults(normalized),
   recordPredictionFeedback(normalized),
@@ -52,10 +64,14 @@ export async function runAutomaticSettlement(){
  ]);
  return {
   ok:true,
-  mode:'live',
-  provider:provider.providerName||provider.providerId||'results-provider',
+  mode:provider.ok?'live+score-fallback':'score-fallback',
+  provider:provider.ok?(provider.providerName||provider.providerId||'results-provider'):'no-key-final-score-mesh',
   received:raw.length,
   normalized:normalized.length,
+  fallbackRows:fallback.rows.length,
+  fallbackCandidateLegs:fallback.candidateLegs,
+  fallbackMatchedGames:fallback.matchedGames,
+  fallbackWarnings:fallback.warnings,
   matchedLegs:reconciliation.matchedLegs,
   settledSlips:reconciliation.settledSlips,
   predictionFeedbackWritten:feedback.written,
