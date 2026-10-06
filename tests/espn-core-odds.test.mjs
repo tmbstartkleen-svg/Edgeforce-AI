@@ -67,3 +67,55 @@ test('provider uses bounded cache and fan-out defaults',()=>{
  assert.match(source,/ESPN_CORE_ODDS_EVENTS_PER_LEAGUE\|\|12/);
  assert.match(source,/meta\.state&&meta\.state!=='pre'/);
 });
+
+
+test('normalizes embedded scoreboard odds without requiring Core fan-out',()=>{
+ const event={
+  id:'401000002',
+  date:'2026-10-07T01:00:00Z',
+  competitions:[{
+   id:'401000002',
+   date:'2026-10-07T01:00:00Z',
+   status:{type:{state:'pre'}},
+   competitors:[
+    {homeAway:'home',team:{displayName:'Home Club'}},
+    {homeAway:'away',team:{displayName:'Away Club'}}
+   ],
+   odds:[{
+    provider:{name:'ESPN BET'},
+    spread:-4.5,overUnder:51.5,overOdds:-115,underOdds:-105,
+    homeTeamOdds:{favorite:true,moneyLine:-190,spreadOdds:-110},
+    awayTeamOdds:{favorite:false,moneyLine:160,spreadOdds:-110}
+   }]
+  }]
+ };
+ const rows=runtime.normalizeEspnEmbeddedOdds(event,'NCAAF','2026-10-06T22:30:00Z');
+ assert.equal(rows.length,6);
+ assert.ok(rows.some(x=>x.selection==='Home Club -4.5'));
+ assert.ok(rows.some(x=>x.selection==='Away Club +4.5'));
+ assert.ok(rows.every(x=>x.bookmaker==='ESPN BET'));
+});
+
+test('embedded odds reject events that are already live',()=>{
+ const event={
+  id:'401000003',
+  competitions:[{
+   id:'401000003',
+   date:'2026-10-07T01:00:00Z',
+   status:{type:{state:'in'}},
+   competitors:[
+    {homeAway:'home',team:{displayName:'Home'}},
+    {homeAway:'away',team:{displayName:'Away'}}
+   ],
+   odds:[{provider:{name:'DraftKings'},homeTeamOdds:{moneyLine:-120},awayTeamOdds:{moneyLine:110}}]
+  }]
+ };
+ assert.equal(runtime.normalizeEspnEmbeddedOdds(event,'NFL').length,0);
+});
+
+test('provider prefers embedded scoreboard odds and only falls back to Core',()=>{
+ assert.match(source,/embeddedOdds:arr\(competition\.odds\)/);
+ assert.match(source,/const embeddedRows=normalizeEspnOddsItems/);
+ assert.match(source,/if\(embeddedRows\.length\)/);
+ assert.match(source,/for\(const offset of \[0,1\]\)/);
+});

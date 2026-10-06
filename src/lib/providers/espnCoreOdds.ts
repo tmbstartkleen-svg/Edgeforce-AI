@@ -40,7 +40,7 @@ async function json(url:string){
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs());
  try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/127 ESPN-Core-Odds'}});
+  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/128 ESPN-Odds-Mesh'}});
   if(!res.ok)throw new Error(`HTTP ${res.status}`);
   return await res.json();
  }finally{clearTimeout(timer)}
@@ -62,7 +62,8 @@ function eventMeta(raw:unknown){
   startTime:str(competition.date)||str(event.date),
   home:teamName(home),
   away:teamName(away),
-  state:state.toLowerCase()
+  state:state.toLowerCase(),
+  embeddedOdds:arr(competition.odds)
  };
 }
 
@@ -113,20 +114,41 @@ export function normalizeEspnOddsItems(
  return out;
 }
 
+export function normalizeEspnEmbeddedOdds(raw:unknown,sportLabel:string,observedAt=new Date().toISOString()):FlatRow[]{
+ const meta=eventMeta(raw);
+ if(!meta.eventId||!meta.competitionId||!meta.startTime||!meta.home||!meta.away)return [];
+ if(meta.state&&meta.state!=='pre')return [];
+ if(!meta.embeddedOdds.length)return [];
+ return normalizeEspnOddsItems({items:meta.embeddedOdds},meta,sportLabel,observedAt);
+}
+
+function dateKey(offsetDays=0){
+ return new Date(Date.now()+offsetDays*86400000).toISOString().slice(0,10).replace(/-/g,'');
+}
+
 async function load(){
  const started=Date.now(),rows:FlatRow[]=[],warnings:string[]=[];
- const date=new Date().toISOString().slice(0,10).replace(/-/g,'');
  for(const feed of rotatingFeeds()){
   try{
-   const board=await json(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${date}`);
-   const events=arr(obj(board).events).slice(0,maxEvents());
+   let events:unknown[]=[];
+   for(const offset of [0,1]){
+    const board=await json(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey(offset)}`);
+    events=arr(obj(board).events).slice(0,maxEvents());
+    if(events.some(raw=>eventMeta(raw).state==='pre'))break;
+   }
    for(const raw of events){
     const meta=eventMeta(raw);
     if(!meta.eventId||!meta.competitionId||!meta.startTime||!meta.home||!meta.away)continue;
     if(meta.state&&meta.state!=='pre')continue;
+    const observedAt=new Date().toISOString();
+    const embeddedRows=normalizeEspnOddsItems({items:meta.embeddedOdds},meta,feed.label,observedAt);
+    if(embeddedRows.length){
+     rows.push(...embeddedRows);
+     continue;
+    }
     try{
      const odds=await json(`https://sports.core.api.espn.com/v2/sports/${feed.sportSlug}/leagues/${feed.leagueSlug}/events/${meta.eventId}/competitions/${meta.competitionId}/odds?limit=20`);
-     rows.push(...normalizeEspnOddsItems(odds,meta,feed.label,new Date().toISOString()));
+     rows.push(...normalizeEspnOddsItems(odds,meta,feed.label,observedAt));
     }catch(error){
      warnings.push(`${feed.label} ${meta.eventId}: ${error instanceof Error?error.message:'odds request failed'}`);
     }
