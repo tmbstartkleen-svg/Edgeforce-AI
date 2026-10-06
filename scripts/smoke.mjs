@@ -159,6 +159,9 @@ assert(health.body?.proceduralSqlFreeLegacyRepair===true,'procedural-SQL-free le
 assert(health.body?.pulseOnlyDownstreamContracts===true,'pulse-only downstream contracts flag missing');
 assert(health.body?.cloudflareBoundedPredictionPrime===true,'Cloudflare bounded prediction prime flag missing');
 assert(health.body?.workerSafePredictionAutomation===true,'Worker-safe prediction automation flag missing');
+assert(health.body?.legacyObservabilityTimestampRepair===true,'legacy observability timestamp repair flag missing');
+assert(health.body?.remediationCanaryContinuity===true,'remediation canary continuity flag missing');
+assert(health.body?.strictCertificationPayloadGate===true,'strict certification payload gate flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
