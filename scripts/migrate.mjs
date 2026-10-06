@@ -71,6 +71,105 @@ if(legacyPredictionSnapshots[0]?.table_name){
  });
 }
 
+
+const legacyAthletes=await sql`
+ select to_regclass('public.athletes') as table_name
+`;
+if(legacyAthletes[0]?.table_name){
+ console.log('reconcile legacy athletes schema');
+ await sql.begin(async tx=>{
+  await tx.unsafe(`
+   alter table athletes
+    add column if not exists source_id text,
+    add column if not exists name text,
+    add column if not exists normalized_name text,
+    add column if not exists team text,
+    add column if not exists first_seen_at timestamptz default now(),
+    add column if not exists last_seen_at timestamptz default now()
+  `);
+  await tx.unsafe(`
+   update athletes
+   set name=coalesce(nullif(name,''),nullif(full_name,''),id),
+       normalized_name=coalesce(
+        nullif(normalized_name,''),
+        lower(regexp_replace(trim(coalesce(nullif(full_name,''),id)),'\\s+',' ','g'))
+       ),
+       team=coalesce(nullif(team,''),nullif(team_id,'')),
+       metadata=coalesce(metadata,'{}'::jsonb),
+       first_seen_at=coalesce(first_seen_at,created_at,now()),
+       last_seen_at=coalesce(last_seen_at,updated_at,created_at,now())
+  `);
+  await tx.unsafe(`
+   with ranked as (
+    select id,sport,normalized_name,
+           row_number() over(partition by sport,normalized_name order by id) as rn
+    from athletes
+   )
+   update athletes a
+   set normalized_name=a.normalized_name || ' #' || substr(md5(a.id),1,8)
+   from ranked r
+   where a.id=r.id and r.rn>1
+  `);
+  await tx.unsafe(`
+   alter table athletes
+    alter column name set not null,
+    alter column normalized_name set not null,
+    alter column metadata set default '{}'::jsonb,
+    alter column metadata set not null,
+    alter column first_seen_at set default now(),
+    alter column first_seen_at set not null,
+    alter column last_seen_at set default now(),
+    alter column last_seen_at set not null
+  `);
+  await tx.unsafe(`
+   create unique index if not exists athletes_sport_normalized_name_key
+    on athletes(sport,normalized_name)
+  `);
+ });
+}
+
+const legacyPlayerStats=await sql`
+ select to_regclass('public.player_game_stats') as table_name
+`;
+if(legacyPlayerStats[0]?.table_name){
+ console.log('reconcile legacy player_game_stats schema');
+ await sql.begin(async tx=>{
+  await tx.unsafe(`
+   alter table player_game_stats
+    add column if not exists opponent text,
+    add column if not exists home_away text,
+    add column if not exists team text,
+    add column if not exists minutes numeric,
+    add column if not exists usage_rate numeric,
+    add column if not exists raw jsonb default '{}'::jsonb,
+    add column if not exists ingested_at timestamptz default now()
+  `);
+  await tx.unsafe(`
+   update player_game_stats
+   set source=coalesce(nullif(source,''),'legacy'),
+       raw=coalesce(raw,'{}'::jsonb),
+       ingested_at=coalesce(ingested_at,imported_at,now())
+  `);
+  await tx.unsafe(`
+   alter table player_game_stats
+    alter column stat_date type timestamptz using stat_date::timestamptz,
+    alter column source set not null,
+    alter column raw set default '{}'::jsonb,
+    alter column raw set not null,
+    alter column ingested_at set default now(),
+    alter column ingested_at set not null
+  `);
+  await tx.unsafe(`
+   alter table player_game_stats
+    drop constraint if exists player_game_stats_athlete_id_event_id_key
+  `);
+  await tx.unsafe(`
+   create unique index if not exists player_game_stats_athlete_event_source_key
+    on player_game_stats(athlete_id,event_id,source)
+  `);
+ });
+}
+
 await sql`
  create table if not exists schema_migrations(
   version text primary key,
