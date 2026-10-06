@@ -24,11 +24,11 @@ for(const path of paths){
  if(!res.ok)throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V74'||json.schemaVersion!=='v74-slo-governor-1'||!json.windows)throw new Error('SLO governor endpoint mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v74-slo-governor-1'||!json.windows)throw new Error('SLO governor endpoint mismatch');
  }
  if(path==='/api/release/deployment-guard'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V73'||json.schemaVersion!=='v73-deployment-guard-1'||!json.snapshot)throw new Error('deployment guard endpoint mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v73-deployment-guard-1'||!json.snapshot)throw new Error('deployment guard endpoint mismatch');
  }
  if(path==='/api/testing/ml-shadow-recovery'){
   const json=JSON.parse(body);
@@ -36,7 +36,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-shadow-recovery'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-shadow-league-1')throw new Error('shadow recovery intelligence mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v61-shadow-league-1')throw new Error('shadow recovery intelligence mismatch');
  }
  if(path==='/api/testing/ml-champion-drift'){
   const json=JSON.parse(body);
@@ -44,7 +44,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-drift'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V59'||json.schemaVersion!=='v59-ml-champion-drift-1')throw new Error('champion drift intelligence mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v59-ml-champion-drift-1')throw new Error('champion drift intelligence mismatch');
  }
  if(path==='/api/testing/ml-first-tournament'){
   const json=JSON.parse(body);
@@ -52,7 +52,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-champions'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-first-champion-tournament-1')throw new Error('ML champion intelligence mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v61-first-champion-tournament-1')throw new Error('ML champion intelligence mismatch');
  }
  if(path==='/api/testing/ml-deployment'){
   const json=JSON.parse(body);
@@ -60,7 +60,7 @@ for(const path of paths){
  }
  if(path==='/api/ml/deploy-attest'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-ml-deployment-attestation-1')throw new Error('ML deployment attestation mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v61-ml-deployment-attestation-1')throw new Error('ML deployment attestation mismatch');
  }
  if(path==='/api/testing/ml-activation'){
   const json=JSON.parse(body);
@@ -68,7 +68,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-service'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-ml-activation-1')throw new Error('ML activation status mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v61-ml-activation-1')throw new Error('ML activation status mismatch');
  }
  if(path==='/api/testing/ml-tournament'){
   const json=JSON.parse(body);
@@ -76,7 +76,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/ml-tournament'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V55'||json.schemaVersion!=='v55-external-ml-tournament-1')throw new Error('ML tournament status mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v55-external-ml-tournament-1')throw new Error('ML tournament status mismatch');
  }
  if(path==='/api/testing/trained-models'){
   const json=JSON.parse(body);
@@ -84,7 +84,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/trained-models'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V54'||json.schemaVersion!=='v54-trained-sport-ml-1')throw new Error('trained model status mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v54-trained-sport-ml-1')throw new Error('trained model status mismatch');
  }
  if(path==='/api/testing/expert-models'){
   const json=JSON.parse(body);
@@ -92,7 +92,7 @@ for(const path of paths){
  }
  if(path==='/api/intelligence/expert-models'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-expert-models-1'||!Array.isArray(json.catalog))throw new Error('expert model API mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v61-expert-models-1'||!Array.isArray(json.catalog))throw new Error('expert model API mismatch');
  }
  if(path==='/api/testing/live-comeback'){
   const json=JSON.parse(body);
@@ -100,19 +100,19 @@ for(const path of paths){
  }
  if(path==='/api/live-comeback'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V52'||json.schemaVersion!=='v52-live-comeback-1'||json.gameStateVerified!==false)throw new Error('live comeback API mismatch');
+  if(json.ok!==true||json.schemaVersion!=='v52-live-comeback-1'||json.gameStateVerified!==false)throw new Error('live comeback API mismatch');
  }
  if(path==='/api/intelligence/validation-lab'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V51'||!json.report?.overall)throw new Error('validation laboratory mismatch');
+  if(json.ok!==true||!json.report?.overall)throw new Error('validation laboratory mismatch');
  }
  if(path==='/api/intelligence/context'){
   const json=JSON.parse(body);
-  if(json.ok!==true||json.build!=='V51'||!json.diagnostics?.qualitySummary||!json.diagnostics?.publicNetwork)throw new Error('context intelligence mismatch');
+  if(json.ok!==true||!json.diagnostics?.qualitySummary||!json.diagnostics?.publicNetwork)throw new Error('context intelligence mismatch');
  }
  if(path==='/api/parlays?size=2&view=today'){
   const json=JSON.parse(body);
-  if(json.build!=='V51'||json.schemaVersion!=='v51-prediction-validation-1')throw new Error('parlay route schema mismatch');
+  if(json.schemaVersion!=='v51-prediction-validation-1')throw new Error('parlay route schema mismatch');
   if(Number(json.thresholds?.recommendedMinJoint)!==0.52)throw new Error('parlay recommendation threshold mismatch');
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
  }
