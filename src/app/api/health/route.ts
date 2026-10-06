@@ -221,6 +221,7 @@ export async function GET(){
   productionLegacyBridgeRepair:true,
   legacySchemaReadinessBridge:true,
   providerDeploymentRecovery:true,
+  quotaDegradedProviderCertification:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
