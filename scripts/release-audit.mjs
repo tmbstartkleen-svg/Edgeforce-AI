@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V110',
- appVersion:'110.0.0',
- packageVersion:'0.110.0',
- modelVersion:'edgeforce-v110',
+ build:'V111',
+ appVersion:'111.0.0',
+ packageVersion:'0.111.0',
+ modelVersion:'edgeforce-v111',
  migrationVersion:114
 };
 const checks=[];
@@ -958,6 +958,11 @@ add('V110 legacy player stat bridge',read('scripts/migrate.mjs').includes('recon
 add('V110 layered pre-V74 readiness',read('.github/workflows/deploy-production.yml').includes('layered legacy bootstrap safety checks')&&read('.github/workflows/deploy-production.yml').includes('legacyHealthFallback')&&read('.github/workflows/deploy-production.yml').includes('Legacy production health check is not valid healthy JSON'),'legacy production can bootstrap through health/readiness when newer observability endpoints do not exist');
 add('V110 health capability',read('src/app/api/health/route.ts').includes('legacySchemaReadinessBridge:true'),'health exposes legacy schema readiness bridge');
 add('V110 release notes',exists('EDGEFORCE_V110_RELEASE.md'),'V110 release documentation exists');
+add('V111 Vercel cron-plan bridge',read('.github/workflows/deploy-production.yml').includes('Prepare Vercel Hobby-compatible deployment artifact')&&read('.github/workflows/deploy-production.yml').includes("jq 'del(.crons)' vercel.json")&&read('.github/workflows/deploy-production.yml').includes("jq 'del(.crons)' .vercel/output/config.json"),'Vercel prebuilt production artifacts remove cron registration while Cloudflare remains the canonical scheduler');
+add('V111 live odds safe bootstrap',read('src/lib/providers/theOddsApi.ts').includes('upcoming-us-h2h')&&read('src/lib/providers/theOddsApi.ts').includes('provider-safe US h2h baseline'),'The Odds API retries rejected or empty primary bootstrap requests with a real US h2h baseline');
+add('V111 provider error detail',read('src/lib/providers/theOddsApi.ts').includes('parsed.error_code')&&read('.github/workflows/deploy-cloudflare.yml').includes('/tmp/provider-certification.json')&&read('.github/workflows/deploy-production.yml').includes('edgeforce-provider-cert.err'),'provider failures preserve upstream API detail and deployment workflows print certification evidence');
+add('V111 health capability',read('src/app/api/health/route.ts').includes('providerDeploymentRecovery:true'),'health exposes provider deployment recovery');
+add('V111 release notes',exists('EDGEFORCE_V111_RELEASE.md'),'V111 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
