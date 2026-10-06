@@ -1,8 +1,12 @@
 import type {ProviderConfig,ProviderFetchResult} from './types';
 import {fetchTheOddsApiBoard} from './theOddsApi';
+import {fetchSportsGameOddsBoard} from './sportsGameOdds';
 
 export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
+ if(config.url==='sports-game-odds://live-board'){
+  return fetchSportsGameOddsBoard(config) as Promise<ProviderFetchResult<T>>;
+ }
  if(config.url==='the-odds-api://live-board'){
   const result=await fetchTheOddsApiBoard(config);
   const quota=[

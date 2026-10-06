@@ -29,7 +29,7 @@ export type OddsIngestionResult={
  providerPanel:Array<{
   providerId:string;providerName:string;bookmaker:string;marketRole:string;
   configuredWeight:number;effectiveWeight:number;acceptedMarkets:number;
-  qualityGrade?:string;qualityScore?:number;
+  qualityGrade?:string;qualityScore?:number;latencyMs?:number;freshnessFactor?:number;transportScore?:number;
  }>;
  error?:string;
 };
@@ -66,12 +66,14 @@ type PanelResult={
  rawCount:number;
  warnings:string[];
  effectiveWeight:number;
+ freshnessFactor:number;
+ transportScore:number;
 };
 
 async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean):Promise<PanelResult>{
  if(quarantined){
   return {
-   config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,
+   config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
    attempt:{providerId:config.id,ok:false,latencyMs:0,skipped:true,circuitState:'OPEN',error:'Provider circuit is quarantined'}
   };
  }
@@ -98,7 +100,13 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  await recordProviderResult(config,{...raw,ok:accepted,error} as typeof raw,quality).catch(()=>undefined);
 
  const qualityWeight=quality?.qualityScore??.5;
- const effectiveWeight=Math.max(.1,config.consensusWeight)*Math.max(.15,qualityWeight)*Math.max(.25,healthScore||.8);
+ const latencyFactor=Math.max(.35,Math.min(1,2500/(2500+Math.max(0,raw.latencyMs))));
+ const payloadAge=quality?.payloadAgeMin;
+ const freshnessFactor=payloadAge===undefined
+  ?1
+  :Math.max(.35,Math.min(1,1-(payloadAge/Math.max(1,config.maxAgeMin))*0.65));
+ const transportScore=Math.max(.08,qualityWeight*Math.max(.25,healthScore||.8)*latencyFactor*freshnessFactor);
+ const effectiveWeight=Math.max(.1,config.consensusWeight)*transportScore;
  if(accepted){
   const bookRoles=configuredBookRoles();
   const bookWeights=configuredBookWeights();
@@ -119,6 +127,8 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
 
  return {
   config,markets,rawCount,warnings,effectiveWeight:accepted?effectiveWeight:0,
+  freshnessFactor:accepted?freshnessFactor:0,
+  transportScore:accepted?transportScore:0,
   quality,
   attempt:{
    providerId:config.id,ok:accepted,latencyMs:raw.latencyMs,error,status:raw.status,
@@ -140,7 +150,7 @@ function aggregateQuality(rows:PanelResult[]){
  return {grade,qualityScore,rowCount,payloadAgeMin};
 }
 
-export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
+async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
  const configured=configuredProviders('ODDS');
  const targetBook=process.env.TARGET_BOOKMAKER||'DraftKings';
  if(!configured.length){
@@ -159,7 +169,7 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
    return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined);
   }catch(error){
    return {
-    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,
+    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
     attempt:{
      providerId:config.id,ok:false,latencyMs:0,circuitState:stored?.circuitState||'CLOSED',
      error:error instanceof Error?error.name:'provider exception'
@@ -178,7 +188,8 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
    providerPanel:panel.map(x=>({
     providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
     marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-    acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore
+    acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
+    latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
    })),
    error:'No configured odds provider produced acceptable normalized markets'
   };
@@ -207,7 +218,28 @@ export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
   providerPanel:panel.map(x=>({
    providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
    marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-   acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore
+   acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
+   latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
   }))
  };
+}
+
+let oddsPanelCache:{at:number;value:OddsIngestionResult}|null=null;
+let oddsPanelInFlight:Promise<OddsIngestionResult>|null=null;
+const oddsPanelCacheMs=()=>Math.max(1000,Number(process.env.ODDS_PANEL_CACHE_MS||5000));
+
+export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
+ const now=Date.now();
+ if(oddsPanelCache&&now-oddsPanelCache.at<oddsPanelCacheMs())return oddsPanelCache.value;
+ if(oddsPanelInFlight)return oddsPanelInFlight;
+ const request=fetchNormalizedOddsUncached()
+  .then(value=>{
+   oddsPanelCache={at:Date.now(),value};
+   return value;
+  })
+  .finally(()=>{
+   if(oddsPanelInFlight===request)oddsPanelInFlight=null;
+  });
+ oddsPanelInFlight=request;
+ return request;
 }

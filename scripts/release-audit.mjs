@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V112',
- appVersion:'112.0.0',
- packageVersion:'0.112.0',
- modelVersion:'edgeforce-v112',
+ build:'V113',
+ appVersion:'113.0.0',
+ packageVersion:'0.113.0',
+ modelVersion:'edgeforce-v113',
  migrationVersion:114
 };
 const checks=[];
@@ -646,7 +646,7 @@ for(const workflow of [
 }
 
 const sensitiveKeys=[
- 'INGEST_SECRET','CRON_SECRET','DEPLOY_BOOTSTRAP_SECRET','THE_ODDS_API_KEY',
+ 'INGEST_SECRET','CRON_SECRET','DEPLOY_BOOTSTRAP_SECRET','THE_ODDS_API_KEY','SPORTS_GAME_ODDS_API_KEY',
  'ODDS_PROVIDER_PRIMARY_KEY','ODDS_PROVIDER_SECONDARY_KEY','ODDS_PROVIDER_TERTIARY_KEY',
  'WEATHER_PROVIDER_PRIMARY_KEY','INJURY_PROVIDER_PRIMARY_KEY','STATS_PROVIDER_PRIMARY_KEY',
  'RESULTS_PROVIDER_PRIMARY_KEY','PREDICTION_PROVIDER_PRIMARY_KEY'
@@ -974,6 +974,16 @@ add('V112 FanDuel keyless pulse',exists('src/lib/providers/fanLineWire.ts')&&rea
 add('V112 odds pulse API',exists('src/app/api/odds-pulse/route.ts')&&read('src/app/api/live-board/route.ts').includes('fetchFanDuelOddsPulse'),'FanDuel odds pulse is exposed directly and embedded in the live board');
 add('V112 pulse health disclosure',read('src/components/Dashboard.tsx').includes('FANDUEL PULSE')&&read('src/app/api/health/route.ts').includes('fanduelKeylessOddsPulse:true'),'dashboard and health expose FanDuel pulse state without hiding degradation');
 add('V112 release notes',exists('EDGEFORCE_V112_RELEASE.md'),'V112 release documentation exists');
+add('V113 SportsGameOdds adapter',exists('src/lib/providers/sportsGameOdds.ts')&&read('src/lib/providers/config.ts').includes("url:'sports-game-odds://live-board'")&&read('src/lib/providers/http.ts').includes('fetchSportsGameOddsBoard'),'optional SportsGameOdds key is a native normalized odds source');
+add('V113 odds request coalescing',read('src/lib/providers/odds.ts').includes('oddsPanelInFlight')&&read('src/lib/providers/odds.ts').includes('ODDS_PANEL_CACHE_MS'),'concurrent odds-board requests share one provider fetch');
+add('V113 latency freshness scoring',read('src/lib/providers/odds.ts').includes('latencyFactor')&&read('src/lib/providers/odds.ts').includes('freshnessFactor')&&read('src/lib/providers/odds.ts').includes('transportScore'),'provider consensus weighting rewards fresher lower-latency feeds');
+add('V113 adaptive live score cadence',read('src/lib/liveScoreMesh.ts').includes('nativeLiveTtlMs')&&read('src/lib/liveScoreMesh.ts').includes('espnLiveTtlMs')&&read('src/lib/liveScoreMesh.ts').includes('inFlight')&&read('src/lib/liveScoreMesh.ts').includes('staleFallbackMs'),'live game-state feeds use source-specific live/idle cadence, request coalescing and stale-if-error continuity');
+add('V113 FanDuel pulse coalescing',read('src/lib/providers/fanLineWire.ts').includes('inFlight')&&read('src/lib/providers/fanLineWire.ts').includes('FANLINEWIRE_STALE_FALLBACK_MS'),'FanDuel pulse enforces one in-flight refresh and bounded stale fallback');
+add('V113 adaptive odds refresh',read('src/lib/providers/ingest.ts').includes('adaptiveLiveRefreshMs')&&read('src/lib/providers/ingest.ts').includes('ODDS_LIVE_REFRESH_MS')&&read('src/app/api/live-board/route.ts').includes('ingestion.liveRefreshMs'),'stored odds no longer suppress provider refresh beyond the configured source cadence');
+add('V113 transport diagnostics',exists('src/app/api/network/transport/route.ts')&&read('src/app/api/network/transport/route.ts').includes('providerRequestCoalescing'),'production transport diagnostics expose source cadence and provider configuration without secrets');
+add('V113 transport UI',read('src/components/Dashboard.tsx').includes('FASTEST FEED')&&read('src/components/Dashboard.tsx').includes('fastestProviderLatency'),'dashboard surfaces active provider latency');
+add('V113 health capability',read('src/app/api/health/route.ts').includes('highSpeedProviderTransport:true')&&read('src/app/api/health/route.ts').includes('sportsGameOddsAdapter:true'),'health exposes V113 high-speed transport capabilities');
+add('V113 release notes',exists('EDGEFORCE_V113_RELEASE.md'),'V113 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};

@@ -30,7 +30,9 @@ export type FanDuelOddsPulse={
 };
 
 let cache:{at:number;value:FanDuelOddsPulse}|null=null;
+let inFlight:Promise<FanDuelOddsPulse>|null=null;
 const cacheMs=()=>Math.max(10000,Number(process.env.FANLINEWIRE_CACHE_MS||10000));
+const staleFallbackMs=()=>Math.max(cacheMs(),Number(process.env.FANLINEWIRE_STALE_FALLBACK_MS||120000));
 const timeoutMs=()=>Math.max(1500,Number(process.env.FANLINEWIRE_TIMEOUT_MS||4000));
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
@@ -41,6 +43,8 @@ const num=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
 export async function fetchFanDuelOddsPulse(force=false):Promise<FanDuelOddsPulse>{
  if(!force&&cache&&Date.now()-cache.at<cacheMs())return cache.value;
+ if(!force&&inFlight)return inFlight;
+ const request=(async()=>{
  const started=Date.now();
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs());
@@ -48,7 +52,7 @@ export async function fetchFanDuelOddsPulse(force=false):Promise<FanDuelOddsPuls
   const res=await fetch('https://fanlinewire.com/odds.json',{
    cache:'no-store',
    signal:controller.signal,
-   headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/112 FanDuel pulse'}
+   headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/113 FanDuel pulse'}
   });
   if(!res.ok)throw new Error('HTTP '+res.status);
   const root=obj(await res.json());
@@ -89,6 +93,9 @@ export async function fetchFanDuelOddsPulse(force=false):Promise<FanDuelOddsPuls
   cache={at:Date.now(),value};
   return value;
  }catch(error){
+  if(cache&&Date.now()-cache.at<=staleFallbackMs()){
+   return {...cache.value,fresh:false,warning:`FanDuel pulse network refresh failed; serving last snapshot: ${error instanceof Error?error.message:'request failed'}`};
+  }
   const value:FanDuelOddsPulse={
    ok:false,source:'fanlinewire',mode:'keyless-public-snapshot',generatedAt:null,sequence:null,
    liveTotal:0,prematchTotal:0,rows:[],drops:[],latencyMs:Date.now()-started,fresh:false,ageMs:null,
@@ -97,4 +104,8 @@ export async function fetchFanDuelOddsPulse(force=false):Promise<FanDuelOddsPuls
   cache={at:Date.now(),value};
   return value;
  }finally{clearTimeout(timer)}
+ })();
+ inFlight=request;
+ try{return await request}
+ finally{if(inFlight===request)inFlight=null}
 }
