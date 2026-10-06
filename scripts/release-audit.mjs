@@ -6,7 +6,7 @@ const root=process.cwd();
 const expected={
  build:'V119',
  appVersion:'119.0.0',
- packageVersion:'0.118.0',
+ packageVersion:'0.119.0',
  modelVersion:'edgeforce-v119',
  migrationVersion:114
 };
