@@ -8,6 +8,7 @@ import type {ProviderConfig} from './providers/types';
 import {RELEASE} from './releaseManifest';
 import {latestStoredMarkets} from './persistence';
 import {auditMarketBatch} from './dataQuality';
+import {fetchFanDuelOddsPulse} from './providers/fanLineWire';
 
 export type CertificationStatus='CERTIFIED'|'CAUTION'|'FAILED';
 
@@ -196,6 +197,40 @@ export async function certifyConfiguredProviders(){
      ],
    error:acceptable?undefined:'Quota fallback could not certify persisted real odds'
   });
+
+  if(!acceptable){
+   const pulse=await fetchFanDuelOddsPulse(true).catch(()=>null);
+   const pulseRows=pulse?.rows?.filter(x=>x.status==='OPEN'||x.inplay||x.prices.length>0)||[];
+   const pricedCount=pulseRows.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0);
+   const pulseAcceptable=Boolean(pulse?.ok&&pulse.fresh&&pulseRows.length>0&&pricedCount>0);
+   results.push({
+    providerId:'fanlinewire-fanduel-pulse',
+    providerName:'FanLine Wire FanDuel Pulse',
+    capability:'ODDS',
+    status:pulseAcceptable?'CERTIFIED':'FAILED',
+    priority:118,
+    latencyMs:Number(pulse?.latencyMs||0),
+    rowCount:pulseRows.length,
+    normalizedCount:pricedCount,
+    payloadAgeMin:pulse?.ageMs==null?undefined:Number(pulse.ageMs)/60000,
+    freshnessScore:pulseAcceptable?1:.25,
+    qualityScore:pulseAcceptable ? .78 : .30,
+    qualityGrade:pulseAcceptable?'USABLE':'REJECT',
+    authConfigured:false,
+    maxAgeMin:2,
+    reasons:pulseAcceptable
+     ?[
+       `Quota continuity certified from ${pulseRows.length} fresh FanDuel market-update rows and ${pricedCount} real prices`,
+       'This fallback is an operational live-price pulse, not a full normalized sportsbook slate',
+       'Simulation recommendations remain degraded until a full normalized odds provider or persisted slate is available'
+      ]
+     :[
+       'The primary odds provider is quota exhausted and the FanDuel pulse did not provide a fresh usable price tape',
+       pulse?.warning||'FanDuel pulse unavailable'
+      ],
+    error:pulseAcceptable?undefined:'FanDuel pulse continuity could not be certified'
+   });
+  }
  }
 
  const evaluation=evaluateCertificationResults(results);

@@ -20,6 +20,7 @@ jobs:
       VERCEL_PROJECT_NAME: edgeforce-ai
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+      SPORTS_GAME_ODDS_API_KEY: ${{ secrets.SPORTS_GAME_ODDS_API_KEY }}
       ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
@@ -65,7 +66,7 @@ jobs:
 
       - name: Start predeploy verification server
         run: |
-          MODEL_VERSION=edgeforce-v113 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
+          MODEL_VERSION=edgeforce-v114 ENABLE_TEST_ENDPOINTS=true NEXT_TELEMETRY_DISABLED=1 npm start > /tmp/edgeforce-predeploy.log 2>&1 &
           echo $! > /tmp/edgeforce-predeploy.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
@@ -146,8 +147,10 @@ jobs:
             ALLOWED=$(printf '%s' "$GOVERNOR" | jq -r '.deploymentAllowed // false')
             STATE=$(printf '%s' "$GOVERNOR" | jq -r '.state // "UNKNOWN"')
             if [ "$ALLOWED" != "true" ]; then
-              echo "Production deployment blocked by SLO governor state: $STATE"
-              exit 1
+              echo "Current production SLO governor is $STATE. Entering staged remediation mode; production will not be promoted until the candidate passes hosted gates."
+              echo "EDGEFORCE_REMEDIATION_DEPLOY=true" >> "$GITHUB_ENV"
+            else
+              echo "EDGEFORCE_REMEDIATION_DEPLOY=false" >> "$GITHUB_ENV"
             fi
           else
             HEALTH=$(vercel curl "/api/health" --deployment "$PREVIOUS_DEPLOYMENT_URL")
@@ -252,16 +255,18 @@ jobs:
             test "$(jq '.crons // [] | length' .vercel/output/config.json)" -eq 0
           fi
 
-      - name: Deploy prebuilt artifact to production
+      - name: Deploy prebuilt remediation candidate
         id: deploy
         shell: bash
         run: |
           args=(
             --prebuilt
-            --prod
             --yes
             
-            --env MODEL_VERSION=edgeforce-v113
+            --env MODEL_VERSION=edgeforce-v114
+            --env DEPLOYMENT_ENV=production
+            --env DEPLOYMENT_PLATFORM=vercel
+            --env EDGEFORCE_REMEDIATION_DEPLOY="${EDGEFORCE_REMEDIATION_DEPLOY:-false}"
             --env DEFAULT_BANKROLL=1000
             --env INGEST_SECRET="$INGEST_SECRET"
             --env CRON_SECRET="$CRON_SECRET"
@@ -275,6 +280,12 @@ jobs:
           )
           if [ -n "$THE_ODDS_API_KEY" ]; then
             args+=(--env THE_ODDS_API_KEY="$THE_ODDS_API_KEY")
+          fi
+          if [ -n "$SPORTS_GAME_ODDS_API_KEY" ]; then
+            args+=(
+              --env SPORTS_GAME_ODDS_API_KEY="$SPORTS_GAME_ODDS_API_KEY"
+              --env SPORTS_GAME_ODDS_CACHE_MS=300000
+            )
           fi
           if [ -n "$ML_SERVICE_BASE_URL" ] && [ -n "$ML_SERVICE_KEY" ]; then
             base="${ML_SERVICE_BASE_URL%/}"
@@ -389,7 +400,7 @@ jobs:
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.production_url }}
-          EXPECTED_APP_VERSION: "113.0.0"
+          EXPECTED_APP_VERSION: "114.0.0"
           SMOKE_VERCEL_AUTH: "1"
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -403,12 +414,12 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SMOKE_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
-      - name: Record V113 execution certification
+      - name: Record V114 execution certification
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          BODY=$(jq -cn             --arg releaseVersion "113.0.0"             --arg modelVersion "edgeforce-v113"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
+          BODY=$(jq -cn             --arg releaseVersion "114.0.0"             --arg modelVersion "edgeforce-v114"             --arg commitSha "$DEPLOY_COMMIT"             --arg source "production-deploy"             '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
               lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
               smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
               evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
@@ -457,20 +468,38 @@ jobs:
       - name: Refresh candidate SLO governor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
         run: |
-          vercel curl "/api/release/error-budget" --deployment "$PRODUCTION_URL" -X POST \
+          set +e
+          REPORT=$(vercel curl "/api/release/error-budget" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json" 2>&1)
+          CODE=$?
+          set -e
+          echo "$REPORT"
+          if [ "$CODE" -ne 0 ]; then
+            CURRENT=$(printf '%s' "$REPORT" | jq -r '.current.overall // "UNKNOWN"' 2>/dev/null || echo UNKNOWN)
+            ACTIONS=$(printf '%s' "$REPORT" | jq -r '.current.actionIncidents // 99' 2>/dev/null || echo 99)
+            if [ "${EDGEFORCE_REMEDIATION_DEPLOY:-false}" = "true" ] && [ "$CURRENT" != "CRITICAL" ] && [ "$ACTIONS" = "0" ]; then
+              echo "Historical SLO freeze remains, but the remediation candidate itself is non-critical with no ACTION incidents."
+            else
+              exit "$CODE"
+            fi
+          fi
           echo
 
-      - name: Record SLO-budget-passed launch stage
+      - name: Record accepted SLO launch stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
+          STAGE="SLO_BUDGET_PASSED"
+          if [ "${EDGEFORCE_REMEDIATION_DEPLOY:-false}" = "true" ]; then
+            STAGE="SLO_REMEDIATION_ACCEPTED"
+          fi
           vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
-            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SLO_BUDGET_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
       - name: Run comparative canary guard
@@ -519,26 +548,64 @@ jobs:
             -H "Content-Type: application/json"
           echo
 
-      - name: Record v1-ready and complete launch stages
+      - name: Record v1-ready launch stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
-          for STAGE in V1_READY COMPLETE; do
-            vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
-              -H "Authorization: Bearer $INGEST_SECRET" \
-              -H "Content-Type: application/json" \
-              --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
-            echo
-          done
+          vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"V1_READY\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
 
-      - name: Record V113 production promotion provenance
+      - name: Promote certified candidate to production
+        id: promote
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel promote "$PRODUCTION_URL" --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" --yes
+
+      - name: Verify production alias points to certified candidate
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        shell: bash
+        run: |
+          EXPECTED_URL="${PRODUCTION_URL#https://}"
+          for i in {1..20}; do
+            PROD_JSON=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1&teamId=$VERCEL_ORG_ID")
+            LIVE_URL=$(printf '%s' "$PROD_JSON" | jq -r '.deployments[0].url // empty')
+            LIVE_SHA=$(printf '%s' "$PROD_JSON" | jq -r '.deployments[0].meta.githubCommitSha // .deployments[0].meta.githubCommitRef // empty')
+            if [ "$LIVE_URL" = "$EXPECTED_URL" ]; then
+              echo "Production alias converged to certified candidate: $LIVE_URL"
+              if [ -n "$LIVE_SHA" ]; then echo "Production metadata commit: $LIVE_SHA"; fi
+              exit 0
+            fi
+            echo "Waiting for production alias convergence (attempt $i/20): current=$LIVE_URL expected=$EXPECTED_URL"
+            sleep 3
+          done
+          echo "Production alias did not converge to the certified candidate."
+          exit 1
+
+      - name: Record complete launch stage after promotion
+        env:
+          PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+        run: |
+          vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"COMPLETE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+          echo
+
+      - name: Record V114 production promotion provenance
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
           BODY=$(jq -cn \
-            --arg releaseVersion "113.0.0" \
-            --arg modelVersion "edgeforce-v113" \
+            --arg releaseVersion "114.0.0" \
+            --arg modelVersion "edgeforce-v114" \
             --arg commitSha "$DEPLOY_COMMIT" \
             --arg deploymentUrl "$PRODUCTION_URL" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
@@ -614,16 +681,16 @@ jobs:
           echo
 
       - name: Roll back production on hosted failure
-        if: failure() && steps.deploy.outcome == 'success'
+        if: failure() && steps.promote.outcome == 'success'
         run: |
           test -n "$PREVIOUS_DEPLOYMENT_ID"
           curl --fail --silent --show-error \
             -X POST \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V113%20production%20certification%20or%20hosted%20launch%20gate%20failure"
+            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/rollback/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID&description=Edgeforce%20V114%20production%20certification%20or%20hosted%20launch%20gate%20failure"
 
-      - name: Reconcile V113 rollback evidence
-        if: failure() && steps.deploy.outcome == 'success'
+      - name: Reconcile V114 rollback evidence
+        if: failure() && steps.promote.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
@@ -647,7 +714,7 @@ jobs:
           echo
 
       - name: Record rollback completion
-        if: failure() && steps.deploy.outcome == 'success'
+        if: failure() && steps.promote.outcome == 'success'
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |

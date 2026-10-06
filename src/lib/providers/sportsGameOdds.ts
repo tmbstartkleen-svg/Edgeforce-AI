@@ -136,7 +136,7 @@ async function load(apiKey:string){
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs());
  try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','x-api-key':apiKey,'User-Agent':'Edgeforce-AI/113 provider-mesh'}});
+  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','x-api-key':apiKey,'User-Agent':'Edgeforce-AI/114 provider-mesh'}});
   const latencyMs=Date.now()-started;
   if(!res.ok)throw new Error(`SportsGameOdds HTTP ${res.status}`);
   const parsed=flatten(await res.json());

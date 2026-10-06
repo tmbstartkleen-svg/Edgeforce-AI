@@ -20,6 +20,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc' }}
       EDGEFORCE_DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+      SPORTS_GAME_ODDS_API_KEY: ${{ secrets.SPORTS_GAME_ODDS_API_KEY }}
       DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -59,7 +60,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v113-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v114-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -96,17 +97,35 @@ jobs:
           DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
 
-      - name: Wait for Worker
+      - name: Configure optional SportsGameOdds secret
+        if: env.SPORTS_GAME_ODDS_API_KEY != ''
+        shell: bash
+        run: |
+          printf '%s' "$SPORTS_GAME_ODDS_API_KEY" | npx wrangler secret put SPORTS_GAME_ODDS_API_KEY --config dist/server/wrangler.json
+
+      - name: Wait for exact Worker release identity
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
         run: |
           test -n "$DEPLOYMENT_URL"
-          for i in {1..20}; do
-            if curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/live" >/dev/null; then
+          for i in {1..30}; do
+            set +e
+            HEALTH=$(curl --silent --show-error "$DEPLOYMENT_URL/api/health")
+            CODE=$?
+            set -e
+            if [ "$CODE" -eq 0 ] && printf '%s' "$HEALTH" | jq -e \
+              --arg version "114.0.0" \
+              --arg model "edgeforce-v114" \
+              --arg commit "$DEPLOY_COMMIT" \
+              '.version==$version and .modelVersion==$model and .deploymentCommit==$commit and .releaseIdentityMatch==true' >/dev/null 2>&1; then
+              echo "$HEALTH"
               exit 0
             fi
+            echo "Waiting for exact V114 Worker identity (attempt $i/30)"
             sleep 3
           done
+          echo "Cloudflare Worker never converged to the exact V114 release identity."
           exit 1
 
       - name: Certify real sportsbook provider
@@ -164,11 +183,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V113 smoke test
+      - name: Hosted V114 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "113.0.0"
+          EXPECTED_APP_VERSION: "114.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -205,9 +224,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V113 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V113" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v113" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V114 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V114" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"

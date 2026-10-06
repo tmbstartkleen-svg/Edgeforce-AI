@@ -55,7 +55,7 @@ async function json(url:string){
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs());
  try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/113 live-score-mesh'}});
+  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/114 live-score-mesh'}});
   if(!res.ok)throw new Error('HTTP '+res.status);
   return await res.json() as unknown;
  }finally{clearTimeout(timer)}

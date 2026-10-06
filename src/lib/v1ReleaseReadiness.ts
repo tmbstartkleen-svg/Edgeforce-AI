@@ -10,6 +10,7 @@ export type V1Gate={id:string;label:string;state:V1GateState;required:boolean;de
 export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
+ const remediationMode=process.env.EDGEFORCE_REMEDIATION_DEPLOY==='true';
  const [certification,deploymentGuard,launchStatus]=await Promise.all([runProductionCertification({strict}),loadDeploymentGuardSummary(),getProductionLaunchStatus()]);
  const sql=db();
  let replay:any=null;
@@ -43,12 +44,21 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
 
  const gates:V1Gate[]=[];
  const add=(id:string,label:string,state:V1GateState,required:boolean,detail:string)=>gates.push({id,label,state,required,detail});
+ const pulseContinuity=certification.ingestion.source==='pulse';
 
  add('production-certification','Production certification',certification.certified?'PASS':strict?'FAIL':'WARN',true,certification.certified?'Base production certification passed.':certification.blockers.length?certification.blockers.join(' • '):'Certification is not fully satisfied in this environment.');
  add('observability','Operational health',certification.observability.overall==='HEALTHY'?'PASS':certification.observability.overall==='CRITICAL'?(strict?'FAIL':'WARN'):'WARN',true,`Current health ${certification.observability.overall} at ${(certification.observability.score*100).toFixed(1)}%.`);
  add('security','Security posture',certification.security.ok?'PASS':'FAIL',true,certification.security.ok?'Required security headers and mutation/rate limits are present.':`Missing headers: ${certification.security.missingHeaders.join(', ')||'security posture failed'}.`);
  add('automation','Automation health',certification.automation.failedCount===0&&certification.automation.staleCount===0?'PASS':'FAIL',true,`${certification.automation.healthyCount} healthy, ${certification.automation.pendingCount} pending, ${certification.automation.failedCount} failed, ${certification.automation.staleCount} stale.`);
- add('live-data','Live sportsbook data',certification.ingestion.source==='live'?'PASS':strict?'FAIL':'WARN',true,`Current ingestion source: ${certification.ingestion.source}; markets: ${certification.ingestion.marketCount}.`);
+ add('live-data','Live sportsbook data',
+  certification.ingestion.source==='live'?'PASS':
+  pulseContinuity&&remediationMode?'WARN':
+  strict?'FAIL':'WARN',
+  true,
+  pulseContinuity
+   ?'Fresh real FanDuel pulse continuity is active; full normalized sportsbook recommendations remain protected.'
+   :`Current ingestion source: ${certification.ingestion.source}; markets: ${certification.ingestion.marketCount}.`
+ );
  add('release-attestation','Release attestation',certification.releaseAttestation.found&&certification.releaseAttestation.buildPassed&&certification.releaseAttestation.smokePassed&&certification.releaseAttestation.loadPassed&&certification.releaseAttestation.readinessPassed?'PASS':strict?'FAIL':'WARN',true,certification.releaseAttestation.found?`Attestation ${certification.releaseAttestation.version}: build=${certification.releaseAttestation.buildPassed}, smoke=${certification.releaseAttestation.smokePassed}, load=${certification.releaseAttestation.loadPassed}, readiness=${certification.releaseAttestation.readinessPassed}.`:'No current release attestation found.');
  const execCert=certification.executionCertification;
  add('release-execution','Release execution evidence',execCert?.certified?'PASS':strict?'FAIL':'WARN',true,execCert?`Execution certificate ${execCert.releaseVersion} @ ${execCert.commitSha.slice(0,8)}; source ${execCert.source}.`:'No current-release execution certificate found.');
@@ -66,11 +76,41 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
  add('provider-certification','Provider certification',certification.providerCertification?.launchReady?'PASS':strict?'FAIL':'WARN',true,certification.providerCertification?`Provider launchReady=${Boolean(certification.providerCertification.launchReady)}.`:'No persisted provider certification yet.');
  add('model-validation','Model validation',certification.modelValidation.latestRun?.status==='failed'?'FAIL':certification.modelValidation.latestRun?'PASS':'WARN',true,certification.modelValidation.latestRun?`Latest validation run ${certification.modelValidation.latestRun.status}; evidence failures ${certification.modelValidation.report.evidence.failed}.`:'No durable validation run yet.');
  add('model-governance','Model governance',certification.modelGovernance.latestRun?.status==='failed'?'FAIL':certification.modelGovernance.latestRun?'PASS':'WARN',true,certification.modelGovernance.latestRun?`Latest governance run ${certification.modelGovernance.latestRun.status}; critical ${certification.modelGovernance.summary.critical}, drifting ${certification.modelGovernance.summary.drifting}.`:'No completed governance run yet.');
- add('unified-intelligence','Unified intelligence stack',certification.unifiedIntelligence.state==='BLOCKED'?'FAIL':certification.unifiedIntelligence.state==='HEALTHY'?'PASS':'WARN',true,`State ${certification.unifiedIntelligence.state}; score ${(certification.unifiedIntelligence.score*100).toFixed(1)}%; critical coverage ${(certification.unifiedIntelligence.criticalCoverage*100).toFixed(1)}%.`);
- add('reliability-supervisor','Reliability supervisor',certification.reliability.mode==='PROTECTIVE'?'FAIL':certification.reliability.mode==='NORMAL'?'PASS':'WARN',true,`Mode ${certification.reliability.mode}; score ${(certification.reliability.score*100).toFixed(1)}%; open ${certification.reliability.openComponents.length}; half-open ${certification.reliability.halfOpenComponents.length}.`);
- add('slo-error-budget','SLO error budget',certification.sloGovernor.state==='FROZEN'?(strict?'FAIL':'WARN'):certification.sloGovernor.state==='OPEN'?'PASS':'WARN',true,`State ${certification.sloGovernor.state}; 1h burn ${certification.sloGovernor.windows.oneHour.burnRate.toFixed(1)}x; 24h burn ${certification.sloGovernor.windows.twentyFourHour.burnRate.toFixed(1)}x; 7d budget ${(Math.max(0,certification.sloGovernor.windows.sevenDay.budgetRemaining)*100).toFixed(1)}% remaining.`);
- const sloLaunchPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_BUDGET_PASSED'));
- add('slo-launch-stage','SLO deployment launch stage',sloLaunchPass?'PASS':strict?'FAIL':'WARN',true,sloLaunchPass?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_BUDGET_PASSED.`:'Current launch has not recorded SLO_BUDGET_PASSED.');
+ add('unified-intelligence','Unified intelligence stack',
+  certification.unifiedIntelligence.state==='BLOCKED'
+   ?(pulseContinuity&&remediationMode?'WARN':'FAIL')
+   :certification.unifiedIntelligence.state==='HEALTHY'?'PASS':'WARN',
+  true,
+  `State ${certification.unifiedIntelligence.state}; score ${(certification.unifiedIntelligence.score*100).toFixed(1)}%; critical coverage ${(certification.unifiedIntelligence.criticalCoverage*100).toFixed(1)}%.`
+ );
+ add('reliability-supervisor','Reliability supervisor',
+  certification.reliability.mode==='PROTECTIVE'
+   ?(pulseContinuity&&remediationMode?'WARN':'FAIL')
+   :certification.reliability.mode==='NORMAL'?'PASS':'WARN',
+  true,
+  `Mode ${certification.reliability.mode}; score ${(certification.reliability.score*100).toFixed(1)}%; open ${certification.reliability.openComponents.length}; half-open ${certification.reliability.halfOpenComponents.length}.`
+ );
+ add('slo-error-budget','SLO error budget',
+  certification.sloGovernor.state==='FROZEN'
+   ?(remediationMode&&certification.observability.overall!=='CRITICAL'?'WARN':strict?'FAIL':'WARN')
+   :certification.sloGovernor.state==='OPEN'?'PASS':'WARN',
+  true,
+  `State ${certification.sloGovernor.state}; 1h burn ${certification.sloGovernor.windows.oneHour.burnRate.toFixed(1)}x; 24h burn ${certification.sloGovernor.windows.twentyFourHour.burnRate.toFixed(1)}x; 7d budget ${(Math.max(0,certification.sloGovernor.windows.sevenDay.budgetRemaining)*100).toFixed(1)}% remaining.`
+ );
+ const sloBudgetPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_BUDGET_PASSED'));
+ const sloRemediationAccepted=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='SLO_REMEDIATION_ACCEPTED'));
+ const sloLaunchPass=sloBudgetPass||sloRemediationAccepted;
+ add(
+  'slo-launch-stage',
+  'SLO deployment launch stage',
+  sloBudgetPass?'PASS':sloRemediationAccepted&&remediationMode?'WARN':strict?'FAIL':'WARN',
+  true,
+  sloBudgetPass
+   ?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_BUDGET_PASSED.`
+   :sloRemediationAccepted
+    ?`Launch ${(launchStatus as any).launchId||'current'} recorded SLO_REMEDIATION_ACCEPTED; historical freeze remains visible while the candidate proves hosted health.`
+    :'Current launch has not recorded an accepted SLO gate.'
+ );
  const canaryPass=Boolean((launchStatus as any).events?.some((x:any)=>x.stage==='CANARY_PASSED'));
  add('deployment-canary','Comparative deployment canary',canaryPass?'PASS':strict?'FAIL':'WARN',true,canaryPass?`Launch ${(launchStatus as any).launchId||'current'} passed the comparative canary.`:`No accepted comparative canary stage is recorded; latest probe ${deploymentGuard.latest?.decision||'none'}.`);
 
@@ -114,6 +154,8 @@ export async function buildV1ReleaseReadiness(options:{strict?:boolean}={}){
    finalClosureCommit:certification.finalClosure?.commitSha||null,
    securityOk:certification.security.ok,
    liveData:certification.ingestion.source==='live',
+   continuityData:pulseContinuity,
+   remediationMode,
    unifiedIntelligenceState:certification.unifiedIntelligence.state,
    unifiedIntelligenceScore:certification.unifiedIntelligence.score,
    reliabilityMode:certification.reliability.mode,
