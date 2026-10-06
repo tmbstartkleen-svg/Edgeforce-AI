@@ -10,5 +10,5 @@ test('Odds API exhausted quota uses monthly reset cooldown',()=>{
 });
 
 test('429 cooldown remains distinct from monthly quota cooldown',()=>{
- assert.match(source,/status===429\?300000/);
+ assert.match(source,/attempts\.some\(x=>x\.status===429\)\?300000/);
 });
