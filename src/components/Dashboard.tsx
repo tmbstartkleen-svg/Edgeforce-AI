@@ -199,6 +199,17 @@ type LiveBoardResponse={
     games:LiveScoreGame[];
     warnings:string[];
   };
+  fanduelPulse?:{
+    ok:boolean;
+    generatedAt:string|null;
+    sequence:number|null;
+    liveTotal:number;
+    prematchTotal:number;
+    latencyMs:number;
+    fresh:boolean;
+    ageMs:number|null;
+    warning?:string;
+  };
   learnedSgpCorrelations?:LearnedSgpMap;
   learnedSgpProfileCount?:number;
   predictions:{
@@ -781,6 +792,10 @@ export default function Dashboard(){
         <div>
           <small>DATA PULL</small>
           <b>{Math.round(board.sourceRefreshMs/1000)} sec cache</b>
+        </div>
+        <div>
+          <small>FANDUEL PULSE</small>
+          <b>{board.fanduelPulse?.ok?(board.fanduelPulse.fresh?'LIVE':'AGING'):'FALLBACK'}</b>
         </div>
       </div>
     </header>
