@@ -150,7 +150,8 @@ export async function GET(req:Request){
   return Response.json({
     generatedAt:new Date().toISOString(),
     uiRefreshMs:1000,
-    sourceRefreshMs:SOURCE_TTL_MS,
+    sourceRefreshMs:ingestion.liveRefreshMs??SOURCE_TTL_MS,
+    nextLiveRefreshMs:ingestion.nextLiveRefreshMs??0,
     view,
     limit,
     risk,
