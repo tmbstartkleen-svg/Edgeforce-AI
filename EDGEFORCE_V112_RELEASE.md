@@ -43,3 +43,18 @@ The endpoint still fails when neither live nor recent stored real data is availa
 - package: 0.112.0
 - model: edgeforce-v112
 - migration: v114 (unchanged)
+
+
+## High-speed live game-state mesh
+
+V112 also separates live game timing from betting-odds quota.
+
+EdgeForce now combines:
+
+- NHL league-native public web score/game-state data
+- MLB public Stats API schedules/linescore state
+- ESPN public scoreboard coverage as a broad fallback for NFL, NCAAF, NBA, WNBA, NCAAB, MLB, NHL, MLS, EPL, UFC, ATP and WTA
+
+The dashboard exposes a dedicated live score/clock surface and the same game-state mesh is embedded in the one-second live-board response. The upstream game-state layer is cached independently from odds, with a default 5-second source cache, so odds-provider quota exhaustion cannot freeze score, period, inning or clock updates.
+
+These no-key web feeds are treated as operational fallbacks rather than guaranteed licensed commercial feeds; provider-specific terms and availability still apply.
