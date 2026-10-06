@@ -4,11 +4,15 @@ import {fetchSportsGameOddsBoard} from './sportsGameOdds';
 import {fetchSharpApiBoard} from './sharpApi';
 import {fetchTheRundownBoard} from './theRundown';
 import {fetchTheRundownResults} from './theRundownResults';
+import {fetchEspnCoreOdds} from './espnCoreOdds';
 
 const untilNextMonthMs=()=>{const now=new Date();const next=Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1,0,5,0);return Math.max(3600000,next-Date.now());};
 
 export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
+ if(config.url==='espn-core://odds'){
+  return fetchEspnCoreOdds(config) as Promise<ProviderFetchResult<T>>;
+ }
  if(config.url==='therundown://results'){
   return fetchTheRundownResults(config) as Promise<ProviderFetchResult<T>>;
  }
