@@ -16,9 +16,8 @@ jobs:
           (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     env:
-      VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
-      VERCEL_PROJECT_ID: prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo
       VERCEL_SCOPE: tmbstartkleen-4716s-projects
+      VERCEL_PROJECT_NAME: edgeforce-ai
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
       ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
@@ -92,8 +91,21 @@ jobs:
         if: always()
         run: kill $(cat /tmp/edgeforce-predeploy.pid) 2>/dev/null || true
 
+      - name: Resolve live Vercel project mapping
+        shell: bash
+        run: |
+          rm -rf .vercel
+          vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" link --yes --project="$VERCEL_PROJECT_NAME"
+          test -f .vercel/project.json
+          RESOLVED_PROJECT_ID=$(jq -r '.projectId // empty' .vercel/project.json)
+          RESOLVED_ORG_ID=$(jq -r '.orgId // empty' .vercel/project.json)
+          test -n "$RESOLVED_PROJECT_ID"
+          test -n "$RESOLVED_ORG_ID"
+          echo "VERCEL_PROJECT_ID=$RESOLVED_PROJECT_ID" >> "$GITHUB_ENV"
+          echo "VERCEL_ORG_ID=$RESOLVED_ORG_ID" >> "$GITHUB_ENV"
+
       - name: Pull production project settings
-        run: vercel --token="$VERCEL_TOKEN" pull --yes --environment=production 
+        run: vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" pull --yes --environment=production
 
       - name: Capture previous production deployment
         shell: bash
