@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V107',
- appVersion:'107.0.0',
- packageVersion:'0.107.0',
- modelVersion:'edgeforce-v107',
+ build:'V108',
+ appVersion:'108.0.0',
+ packageVersion:'0.108.0',
+ modelVersion:'edgeforce-v108',
  migrationVersion:114
 };
 const checks=[];
@@ -617,7 +617,7 @@ add('direct preview promotion disabled',!candidateWorkflow.includes('vercel prom
 add('production final certification',productionWorkflow.includes('/api/release/certify?strict=1'),'strict final certification required');
 add('V124 production strict v1 readiness',productionWorkflow.includes('/api/release/v1-readiness?strict=1')&&productionWorkflow.includes('V1_READY')&&productionWorkflow.includes('COMPLETE'),'production cannot complete before V123 strict readiness passes');
 add('V124 launch rollback evidence',productionWorkflow.includes('FAILED')&&productionWorkflow.includes('ROLLED_BACK')&&productionWorkflow.includes('/rollback/$PREVIOUS_DEPLOYMENT_ID'),'failed production launches are recorded and rolled back through the Vercel REST API');
-add('V124.3 protected deployment team scope',productionWorkflow.includes('VERCEL_SCOPE: tmbstartkleen-4716s-projects')&&productionWorkflow.includes('vercel curl "')&&productionWorkflow.includes('SMOKE_VERCEL_AUTH')&&read('scripts/remote-smoke.mjs').includes("['curl',url,'--token',process.env.VERCEL_TOKEN||'','--scope',process.env.VERCEL_SCOPE||'']"),'hosted checks use Vercel auth and explicit team scope before the curl subcommand');
+add('V124.3 protected deployment team scope',productionWorkflow.includes('VERCEL_SCOPE: tmbstartkleen-4716s-projects')&&productionWorkflow.includes('vercel curl "')&&productionWorkflow.includes('SMOKE_VERCEL_AUTH')&&read('scripts/remote-smoke.mjs').includes("const args=['curl',url];"),'hosted checks use the linked Vercel project and authenticated CLI environment for protected requests');
 add('V124.4 rollback deployment id',productionWorkflow.includes('PREVIOUS_DEPLOYMENT_ID')&&productionWorkflow.includes('/rollback/$PREVIOUS_DEPLOYMENT_ID')&&productionWorkflow.includes('teamId=$VERCEL_ORG_ID'),'rollback targets the captured prior deployment ID through the team-scoped REST API');
 add('V124.5 canonical Vercel project target',productionWorkflow.includes('VERCEL_PROJECT_NAME: edgeforce-ai')&&productionWorkflow.includes('Resolve live Vercel project mapping')&&productionWorkflow.includes('.vercel/project.json')&&!productionWorkflow.includes('prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo'),'production deploy resolves the authenticated Edgeforce Vercel project dynamically instead of trusting a stale committed ID');
 const cloudflareWorkflow=read('.github/workflows/deploy-cloudflare.yml');
@@ -939,11 +939,16 @@ add('V106 Cloudflare database fallback',read('.github/workflows/deploy-cloudflar
 add('V106 Cloudflare prerequisite diagnostics',read('.github/workflows/deploy-cloudflare.yml').includes('Missing Cloudflare production prerequisites')&&read('.github/workflows/deploy-cloudflare.yml').includes('CLOUDFLARE_API_TOKEN'),'missing production credentials are reported explicitly');
 add('V106 health capability',read('src/app/api/health/route.ts').includes('productionCredentialRecovery:true'),'health exposes production credential recovery');
 add('V106 release notes',exists('EDGEFORCE_V106_RELEASE.md'),'V106 release documentation exists');
-add('V107 documented Vercel curl syntax',read('.github/workflows/deploy-production.yml').includes('vercel curl \"/api/release/error-budget\" --deployment \"$PREVIOUS_DEPLOYMENT_URL\" --token=\"$VERCEL_TOKEN\" --scope=\"$VERCEL_SCOPE\"')&&!read('.github/workflows/deploy-production.yml').includes('vercel --token=\"$VERCEL_TOKEN\" --scope=\"$VERCEL_SCOPE\" curl'),'production protected requests use the documented vercel curl command form');
-add('V107 protected remote smoke syntax',read('scripts/remote-smoke.mjs').includes("['curl',url,'--token',process.env.VERCEL_TOKEN||'','--scope',process.env.VERCEL_SCOPE||'']"),'remote smoke uses curl subcommand before auth options');
+add('V107 documented Vercel curl syntax',read('.github/workflows/deploy-production.yml').includes('vercel curl \"/api/release/error-budget\" --deployment \"$PREVIOUS_DEPLOYMENT_URL\"')&&!read('.github/workflows/deploy-production.yml').includes('vercel --token=\"$VERCEL_TOKEN\" --scope=\"$VERCEL_SCOPE\" curl'),'production protected requests keep the documented vercel curl command form');
+add('V107 protected remote smoke syntax',read('scripts/remote-smoke.mjs').includes("const args=['curl',url];"),'remote smoke uses the native Vercel curl subcommand');
 add('V107 Cloudflare migration database handoff',read('.github/workflows/deploy-cloudflare.yml').includes('DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}'),'Cloudflare migration receives either supported database secret');
 add('V107 health capability',read('src/app/api/health/route.ts').includes('productionTransportRepair:true'),'health exposes production transport repair');
 add('V107 release notes',exists('EDGEFORCE_V107_RELEASE.md'),'V107 release documentation exists');
+add('V108 base schema bootstrap',read('scripts/migrate.mjs').includes("db','schema.sql")&&read('scripts/migrate.mjs').includes("console.log('apply base schema')")&&read('scripts/migrate.mjs').includes('await sql.unsafe(baseSchema)'),'fresh databases apply the idempotent base schema before versioned migrations');
+add('V108 native Vercel curl auth',!read('.github/workflows/deploy-production.yml').includes('vercel curl "/api/release/error-budget" --deployment "$PREVIOUS_DEPLOYMENT_URL" --token=')&&read('.github/workflows/deploy-production.yml').includes('vercel curl "/api/release/error-budget" --deployment "$PREVIOUS_DEPLOYMENT_URL"'),'protected requests rely on linked-project Vercel auth instead of passing CLI flags through native curl');
+add('V108 remote smoke native curl',read('scripts/remote-smoke.mjs').includes("const args=['curl',url];"),'remote smoke uses native Vercel curl syntax without passthrough auth flags');
+add('V108 health capability',read('src/app/api/health/route.ts').includes('productionBootstrapRepair:true'),'health exposes production bootstrap repair');
+add('V108 release notes',exists('EDGEFORCE_V108_RELEASE.md'),'V108 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
