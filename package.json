@@ -30,6 +30,8 @@
     "doctor:ml-activation": "node scripts/ml-activation-doctor.mjs",
     "doctor:ml-first-tournament": "node scripts/ml-first-tournament-doctor.mjs",
     "typecheck": "tsc --noEmit",
+    "posttypecheck": "node --test tests/runtime-repair.test.mjs",
+    "test:runtime-repair": "node --test tests/runtime-repair.test.mjs",
     "write-execution-evidence": "node scripts/write-execution-evidence.mjs"
   },
   "dependencies": {
