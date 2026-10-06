@@ -90,7 +90,7 @@ async function load(apiKey:string){
  const dates=[today,new Date(today.getTime()+86400000)].map(d=>d.toISOString().slice(0,10));
  const started=Date.now(); const all:Row[]=[]; const quotas:string[]=[];
  for(const sportId of rotatingSportIds()){
-  let sportRows:Row[]=[];
+  const sportRows:Row[]=[];
   for(const date of dates){
    const url=new URL(`https://therundown.io/api/v2/sports/${sportId}/events/${date}`);
    url.searchParams.set('market_ids','1,2,3');
