@@ -152,13 +152,26 @@ jobs:
           else
             HEALTH=$(vercel curl "/api/health" --deployment "$PREVIOUS_DEPLOYMENT_URL")
             CURRENT_VERSION=$(printf '%s' "$HEALTH" | jq -r '.version // "unknown"')
-            if [[ "$CURRENT_VERSION" == 73.* ]]; then
-              echo "SLO governor endpoint not present on V73 production; using one-time V74 bootstrap safety check."
-              OBS=$(vercel curl "/api/operations/observability" --deployment "$PREVIOUS_DEPLOYMENT_URL")
-              OVERALL=$(printf '%s' "$OBS" | jq -r '.overall // "CRITICAL"')
-              if [ "$OVERALL" = "CRITICAL" ]; then
-                echo "Bootstrap blocked because current production observability is CRITICAL."
-                exit 1
+            CURRENT_MAJOR="${CURRENT_VERSION%%.*}"
+            if [[ "$CURRENT_MAJOR" =~ ^[0-9]+$ ]] && [ "$CURRENT_MAJOR" -lt 74 ]; then
+              echo "SLO governor endpoint predates V74 on production version $CURRENT_VERSION; using bounded legacy bootstrap safety checks."
+              set +e
+              OBS=$(vercel curl "/api/operations/observability" --deployment "$PREVIOUS_DEPLOYMENT_URL" 2>/tmp/edgeforce-legacy-observability.err)
+              OBS_CODE=$?
+              set -e
+              if [ "$OBS_CODE" -eq 0 ] && printf '%s' "$OBS" | jq -e . >/dev/null 2>&1; then
+                OVERALL=$(printf '%s' "$OBS" | jq -r '.overall // "CRITICAL"')
+                if [ "$OVERALL" = "CRITICAL" ]; then
+                  echo "Bootstrap blocked because current production observability is CRITICAL."
+                  exit 1
+                fi
+              else
+                READY=$(vercel curl "/api/health/ready" --deployment "$PREVIOUS_DEPLOYMENT_URL")
+                READY_OK=$(printf '%s' "$READY" | jq -r '.productionReady // .ready // false')
+                if [ "$READY_OK" != "true" ]; then
+                  echo "Bootstrap blocked because legacy production readiness is not healthy."
+                  exit 1
+                fi
               fi
             else
               echo "SLO governor is unavailable on production version $CURRENT_VERSION; fail closed."
