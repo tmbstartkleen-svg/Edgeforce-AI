@@ -42,6 +42,9 @@ export async function GET(req:Request){
  if(!ingestion.markets.length){
   return Response.json({
    ok:false,
+   degraded:true,
+   build:'V51',
+   schemaVersion:PARLAY_SCHEMA_VERSION,
    source:ingestion.source,
    providerId:ingestion.providerId||null,
    error:'No live or fresh stored sportsbook markets are available',

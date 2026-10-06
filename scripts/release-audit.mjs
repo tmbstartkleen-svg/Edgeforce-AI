@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V116',
- appVersion:'116.0.0',
- packageVersion:'0.116.0',
- modelVersion:'edgeforce-v116',
+ build:'V117',
+ appVersion:'117.0.0',
+ packageVersion:'0.117.0',
+ modelVersion:'edgeforce-v117',
  migrationVersion:114
 };
 const checks=[];
@@ -998,11 +998,16 @@ add('V115 prediction prime diagnostics',read('.github/workflows/deploy-cloudflar
 add('V115 fail-soft prediction warehouse',read('src/app/api/cron/predictions/route.ts').includes('const degraded=warnings.length>0')&&read('src/app/api/cron/predictions/route.ts').includes('Prediction market persistence:')&&read('src/app/api/cron/predictions/route.ts').includes('warnings:[...new Set'),'prediction-market auxiliary source and persistence failures are reported as degraded instead of converting all partial success to HTTP 500');
 add('V115 health capability',read('src/app/api/health/route.ts').includes('releasePathConvergence:true'),'health exposes release-path convergence');
 add('V115 release notes',exists('EDGEFORCE_V115_RELEASE.md'),'V115 release documentation exists');
-add('V116 schema-based hosted smoke',!read('scripts/remote-smoke.mjs').includes("json.build!=='V61'")&&!read('scripts/remote-smoke.mjs').includes("json.build!=='V51'")&&read('scripts/remote-smoke.mjs').includes("schemaVersion!=='v61-expert-models-1'"),'hosted smoke validates feature schemas while release identity remains owned by health endpoints');
+add('V116 schema-based hosted smoke',read('scripts/remote-smoke.mjs').includes("json.schemaVersion==='v61-expert-models-1'")&&!read('scripts/remote-smoke.mjs').includes("json.ok!==true||json.build!=='V61'||json.schemaVersion!=='v61-expert-models-1'"),'hosted smoke validates the expert-model feature schema while release identity remains owned by health endpoints');
 add('V116 pulse-aware strict readiness',read('src/lib/readiness.ts').includes('pulseUsable')&&read('src/lib/readiness.ts').includes('fresh FanDuel pulse continuity'),'strict readiness recognizes fresh real pulse continuity when normalized providers are quarantined');
 add('V116 legacy snapshot provider repair',read('scripts/migrate.mjs').includes("column_name='provider'")&&read('scripts/migrate.mjs').includes('alter column provider drop not null'),'legacy prediction snapshot provider constraint no longer blocks canonical venue-based inserts');
 add('V116 health capability',read('src/app/api/health/route.ts').includes('runtimeContractConvergence:true'),'health exposes runtime contract convergence');
 add('V116 release notes',exists('EDGEFORCE_V116_RELEASE.md'),'V116 release documentation exists');
+add('V117 procedural-SQL-free snapshot repair',read('scripts/migrate.mjs').includes('legacyProviderColumn')&&read('scripts/migrate.mjs').includes('alter column provider drop not null'),'legacy prediction snapshot provider repair uses application-side schema detection instead of fragile procedural SQL');
+add('V117 degraded expert-model smoke',read('scripts/remote-smoke.mjs').includes('degradedAllowedPaths')&&read('scripts/remote-smoke.mjs').includes('degradedValid')&&read('scripts/remote-smoke.mjs').includes('No live or fresh stored sportsbook markets'),'hosted smoke accepts the explicit degraded expert-model contract while still validating its schema and catalog');
+add('V117 pulse-only downstream contracts',read('src/app/api/live-comeback/route.ts').includes('degraded:true')&&read('src/app/api/intelligence/context/route.ts').includes('v51-context-intelligence-1')&&read('src/app/api/parlays/route.ts').includes('degraded:true')&&read('scripts/remote-smoke.mjs').includes("'/api/live-comeback'")&&read('scripts/remote-smoke.mjs').includes("'/api/intelligence/context'")&&read('scripts/remote-smoke.mjs').includes("'/api/parlays?size=2&view=today'"),'pulse-only continuity returns explicit degraded contracts for downstream recommendation/context features rather than appearing broken');
+add('V117 health capability',read('src/app/api/health/route.ts').includes('degradedRuntimeCertification:true'),'health exposes degraded runtime certification');
+add('V117 release notes',exists('EDGEFORCE_V117_RELEASE.md'),'V117 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};

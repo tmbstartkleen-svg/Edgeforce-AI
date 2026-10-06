@@ -19,6 +19,14 @@ const legacyPredictionSnapshots=await sql`
 `;
 if(legacyPredictionSnapshots[0]?.table_name){
  console.log('reconcile legacy prediction_market_snapshots schema');
+ const legacyProviderColumn=await sql`
+  select is_nullable
+  from information_schema.columns
+  where table_schema='public'
+    and table_name='prediction_market_snapshots'
+    and column_name='provider'
+  limit 1
+ `;
  await sql.begin(async tx=>{
   await tx.unsafe(`
    alter table prediction_market_snapshots
@@ -64,25 +72,17 @@ if(legacyPredictionSnapshots[0]?.table_name){
     alter column raw set default '{}'::jsonb,
     alter column raw set not null
   `);
-  await tx.unsafe(`
-   do $
-   begin
-    if exists(
-     select 1
-     from information_schema.columns
-     where table_schema='public'
-       and table_name='prediction_market_snapshots'
-       and column_name='provider'
-    ) then
-     update prediction_market_snapshots
-     set provider=coalesce(nullif(provider,''),venue,'legacy')
-     where provider is null or provider='';
-     alter table prediction_market_snapshots
-      alter column provider drop not null;
-    end if;
-   end
-   $;
-  `);
+  if(legacyProviderColumn.length){
+   await tx.unsafe(`
+    update prediction_market_snapshots
+    set provider=coalesce(nullif(provider,''),venue,'legacy')
+    where provider is null or provider=''
+   `);
+   await tx.unsafe(`
+    alter table prediction_market_snapshots
+     alter column provider drop not null
+   `);
+  }
   await tx.unsafe(`
    create unique index if not exists prediction_market_snapshots_venue_contract_hour_key
     on prediction_market_snapshots(venue,contract_id,observed_hour)
