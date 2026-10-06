@@ -491,12 +491,24 @@ jobs:
       - name: Certify final production release
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
+          EXPECTED_APP_VERSION: "119.0.0"
+          EXPECTED_MODEL_VERSION: "edgeforce-v119"
+          EXPECTED_MIGRATION_VERSION: "114"
         shell: bash
         run: |
-          REPORT=$(vercel curl "/api/release/certify?strict=1" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error -X POST \
-            -H "Authorization: Bearer $INGEST_SECRET" \
-            -H "Content-Type: application/json")
-          echo "$REPORT"
+          umask 077
+          RESPONSE_DIR=$(mktemp -d)
+          trap 'rm -rf "$RESPONSE_DIR"' EXIT
+          CURL_EXIT=0
+          HTTP_CODE=$(vercel curl "/api/release/certify?strict=1" --deployment "$PRODUCTION_URL" \
+            --fail-with-body --silent --show-error --max-time 120 --connect-timeout 10 -X POST \
+            -H "Authorization: Bearer $INGEST_SECRET" -H "Content-Type: application/json" \
+            --output "$RESPONSE_DIR/report.json" --write-out '%{http_code}' \
+            2>"$RESPONSE_DIR/transport.err") || CURL_EXIT=$?
+          CERTIFICATION_HTTP_STATUS="$HTTP_CODE" CERTIFICATION_TRANSPORT_EXIT="$CURL_EXIT" \
+            node scripts/certification-evidence.mjs "$RESPONSE_DIR/report.json"
+          # Retain the existing payload assertion after transport and identity validation.
+          REPORT=$(cat "$RESPONSE_DIR/report.json")
           printf '%s' "$REPORT" | jq -e '.certified==true and (.blockers|length)==0' >/dev/null
 
       - name: Record strict certification launch stage
