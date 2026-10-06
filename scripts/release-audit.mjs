@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V114',
- appVersion:'114.0.0',
- packageVersion:'0.114.0',
- modelVersion:'edgeforce-v114',
+ build:'V115',
+ appVersion:'115.0.0',
+ packageVersion:'0.115.0',
+ modelVersion:'edgeforce-v115',
  migrationVersion:114
 };
 const checks=[];
@@ -993,6 +993,11 @@ add('V114 pulse observability continuity',read('src/lib/productionObservability.
 add('V114 conditional V1 continuity',read('src/lib/v1ReleaseReadiness.ts').includes('pulseContinuity&&remediationMode')&&read('src/lib/v1ReleaseReadiness.ts').includes('full normalized sportsbook recommendations remain protected'),'pulse-only remediation is CONDITIONAL and protected rather than represented as fully healthy live data');
 add('V114 health capability',read('src/app/api/health/route.ts').includes('stagedRemediationPromotion:true')&&read('src/app/api/health/route.ts').includes('exactCloudflareIdentityConvergence:true'),'health exposes V114 remediation continuity capabilities');
 add('V114 release notes',exists('EDGEFORCE_V114_RELEASE.md'),'V114 release documentation exists');
+add('V115 staged preview-target artifact',read('.github/workflows/deploy-production.yml').includes('Build staged remediation preview artifact')&&!read('.github/workflows/deploy-production.yml').includes('build --prod'),'staged remediation deploy builds a preview-target prebuilt artifact before certification and promotion');
+add('V115 prediction prime diagnostics',read('.github/workflows/deploy-cloudflare.yml').includes('Prediction warehouse prime returned HTTP')&&read('.github/workflows/deploy-cloudflare.yml').includes('/tmp/prediction-warehouse.json'),'Cloudflare preserves prediction warehouse failure evidence instead of hiding the response body');
+add('V115 fail-soft prediction warehouse',read('src/app/api/cron/predictions/route.ts').includes('const degraded=warnings.length>0')&&read('src/app/api/cron/predictions/route.ts').includes('Prediction market persistence:')&&read('src/app/api/cron/predictions/route.ts').includes('warnings:[...new Set'),'prediction-market auxiliary source and persistence failures are reported as degraded instead of converting all partial success to HTTP 500');
+add('V115 health capability',read('src/app/api/health/route.ts').includes('releasePathConvergence:true'),'health exposes release-path convergence');
+add('V115 release notes',exists('EDGEFORCE_V115_RELEASE.md'),'V115 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
