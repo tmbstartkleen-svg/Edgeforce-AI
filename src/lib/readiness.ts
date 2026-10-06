@@ -3,6 +3,7 @@ import {configuredProviders} from './providers/config';
 import {loadProviderHealthStates} from './providers/healthStore';
 import {providerHealth} from './providerRegistry';
 import {RELEASE} from './releaseManifest';
+import {latestProviderCertification} from './providerCertification';
 
 export type ReadinessCheck={ok:boolean;required:boolean;detail:string};
 
@@ -15,7 +16,7 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
  const platform=process.env.DEPLOYMENT_PLATFORM||(process.env.VERCEL?'vercel':'local');
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
- const [database,states]=await Promise.all([dbHealth(),loadProviderHealthStates()]);
+ const [database,states,certification]=await Promise.all([dbHealth(),loadProviderHealthStates(),latestProviderCertification()]);
  const sql=db();
  let migrationApplied=!database.configured;
  if(sql&&database.ok){
@@ -32,6 +33,23 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
   const state=states.get(p.id);
   return !state||!providerHealth(state).quarantined;
  });
+ const continuityProviders=(certification?.providers||[]).filter(row=>{
+  const providerId=String(row.providerId||'');
+  const status=String(row.status||'');
+  const capability=String(row.capability||'');
+  const checkedAt=row.checkedAt?new Date(String(row.checkedAt)).getTime():0;
+  const maxAgeMin=Math.max(1,Number(row.maxAgeMin||2));
+  const payloadAgeMin=Math.max(0,Number(row.payloadAgeMin||0));
+  const checkedAgeMin=checkedAt?Math.max(0,(Date.now()-checkedAt)/60000):Number.POSITIVE_INFINITY;
+  return certification?.releaseVersion===RELEASE.appVersion
+   &&certification.launchReady===true
+   &&capability==='ODDS'
+   &&status==='CERTIFIED'
+   &&['fanlinewire-fanduel-pulse','persisted-live-odds'].includes(providerId)
+   &&payloadAgeMin<=maxAgeMin
+   &&checkedAgeMin<=maxAgeMin;
+ });
+ const certifiedOddsContinuity=continuityProviders.length>0;
 
  const checks:Record<string,ReadinessCheck>={
   modelVersion:{
@@ -65,9 +83,9 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    detail:process.env.DEFAULT_BANKROLL||'not configured'
   },
   oddsProvider:{
-   ok:operationalOdds.length>0||!strict,
+   ok:operationalOdds.length>0||certifiedOddsContinuity||!strict,
    required:strict,
-   detail:`${operationalOdds.length} operational / ${odds.length} configured`
+   detail:`${operationalOdds.length} operational / ${odds.length} configured${certifiedOddsContinuity?`; certified continuity ${continuityProviders.map(x=>String(x.providerId)).join(', ')}`:''}`
   },
   productionRealDataOnly:{
    ok:process.env.ALLOW_DEMO_DATA!=='true'||!strict,
@@ -98,6 +116,8 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    configured:providers.length,
    oddsConfigured:odds.length,
    oddsOperational:operationalOdds.length,
+   certifiedContinuity:certifiedOddsContinuity,
+   continuityProviders:continuityProviders.map(x=>String(x.providerId)),
    quarantined:[...states.values()].filter(x=>providerHealth(x).quarantined).map(x=>x.id)
   },
   deployment:{

@@ -60,7 +60,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v115-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v116-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -109,23 +109,30 @@ jobs:
         shell: bash
         run: |
           test -n "$DEPLOYMENT_URL"
-          for i in {1..30}; do
+          STREAK=0
+          for i in {1..40}; do
             set +e
             HEALTH=$(curl --silent --show-error "$DEPLOYMENT_URL/api/health")
             CODE=$?
             set -e
             if [ "$CODE" -eq 0 ] && printf '%s' "$HEALTH" | jq -e \
-              --arg version "115.0.0" \
-              --arg model "edgeforce-v115" \
+              --arg version "116.0.0" \
+              --arg model "edgeforce-v116" \
               --arg commit "$DEPLOY_COMMIT" \
               '.version==$version and .modelVersion==$model and .deploymentCommit==$commit and .releaseIdentityMatch==true' >/dev/null 2>&1; then
-              echo "$HEALTH"
-              exit 0
+              STREAK=$((STREAK+1))
+              echo "Exact V116 identity confirmation $STREAK/3"
+              if [ "$STREAK" -ge 3 ]; then
+                echo "$HEALTH"
+                exit 0
+              fi
+            else
+              STREAK=0
             fi
-            echo "Waiting for exact V115 Worker identity (attempt $i/30)"
-            sleep 3
+            echo "Waiting for stable exact V116 Worker identity (attempt $i/40)"
+            sleep 2
           done
-          echo "Cloudflare Worker never converged to the exact V115 release identity."
+          echo "Cloudflare Worker never achieved three consecutive exact V116 identity confirmations."
           exit 1
 
       - name: Certify real sportsbook provider
@@ -149,12 +156,17 @@ jobs:
             echo "Provider certification returned HTTP $HTTP_CODE"
             exit 1
           fi
-          jq -e '.launchReady==true' /tmp/provider-certification.json >/dev/null
+          jq -e '.launchReady==true and .version=="116.0.0" and .modelVersion=="edgeforce-v116"' /tmp/provider-certification.json >/dev/null
 
       - name: Verify live sportsbook data
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireUsable=1&maxStoredAgeMin=90"
+        shell: bash
+        run: |
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireUsable=1&maxStoredAgeMin=90" > /tmp/live-data-status.json
+          cat /tmp/live-data-status.json
+          echo
+          jq -e '.usable==true and .version=="116.0.0" and .modelVersion=="edgeforce-v116"' /tmp/live-data-status.json >/dev/null
 
       - name: Verify cross-venue prediction terminal
         env:
@@ -196,13 +208,19 @@ jobs:
       - name: Strict launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
+        shell: bash
+        run: |
+          HTTP_CODE=$(curl --silent --show-error -o /tmp/launch-doctor.json -w "%{http_code}" "$DEPLOYMENT_URL/api/launch-doctor?strict=1")
+          cat /tmp/launch-doctor.json
+          echo
+          test "$HTTP_CODE" = "200"
+          jq -e '.ok==true and .ready==true and (.blockers|length)==0' /tmp/launch-doctor.json >/dev/null
 
-      - name: Hosted V115 smoke test
+      - name: Hosted V116 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "115.0.0"
+          EXPECTED_APP_VERSION: "116.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -239,10 +257,10 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V115 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V115" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v115" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V116 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V116" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v116" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database migration: v115" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction terminal: /predictions" >> "$GITHUB_STEP_SUMMARY"
