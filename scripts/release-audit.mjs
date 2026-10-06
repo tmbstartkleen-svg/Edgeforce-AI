@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V105',
- appVersion:'105.0.0',
- packageVersion:'0.105.0',
- modelVersion:'edgeforce-v105',
+ build:'V106',
+ appVersion:'106.0.0',
+ packageVersion:'0.106.0',
+ modelVersion:'edgeforce-v106',
  migrationVersion:114
 };
 const checks=[];
@@ -619,7 +619,7 @@ add('V124 production strict v1 readiness',productionWorkflow.includes('/api/rele
 add('V124 launch rollback evidence',productionWorkflow.includes('FAILED')&&productionWorkflow.includes('ROLLED_BACK')&&productionWorkflow.includes('/rollback/$PREVIOUS_DEPLOYMENT_ID'),'failed production launches are recorded and rolled back through the Vercel REST API');
 add('V124.3 protected deployment team scope',productionWorkflow.includes('VERCEL_SCOPE: tmbstartkleen-4716s-projects')&&productionWorkflow.includes('vercel --token="$VERCEL_TOKEN" --scope="$VERCEL_SCOPE" curl')&&productionWorkflow.includes('SMOKE_VERCEL_AUTH')&&read('scripts/remote-smoke.mjs').includes("['--token',process.env.VERCEL_TOKEN||'','--scope',process.env.VERCEL_SCOPE||'','curl',url]"),'hosted checks use Vercel auth and explicit team scope before the curl subcommand');
 add('V124.4 rollback deployment id',productionWorkflow.includes('PREVIOUS_DEPLOYMENT_ID')&&productionWorkflow.includes('/rollback/$PREVIOUS_DEPLOYMENT_ID')&&productionWorkflow.includes('teamId=$VERCEL_ORG_ID'),'rollback targets the captured prior deployment ID through the team-scoped REST API');
-add('V124.5 canonical Vercel project target',productionWorkflow.includes('VERCEL_PROJECT_ID: prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo')&&!productionWorkflow.includes('prj_8edFTZzS8e6RZyMVm1mjxuGJnLPZ'),'production deploy targets the authenticated Edgeforce Vercel project identified by the team CLI');
+add('V124.5 canonical Vercel project target',productionWorkflow.includes('VERCEL_PROJECT_NAME: edgeforce-ai')&&productionWorkflow.includes('Resolve live Vercel project mapping')&&productionWorkflow.includes('.vercel/project.json')&&!productionWorkflow.includes('prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo'),'production deploy resolves the authenticated Edgeforce Vercel project dynamically instead of trusting a stale committed ID');
 const cloudflareWorkflow=read('.github/workflows/deploy-cloudflare.yml');
 add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflight:cloudflare'),'preflight required');
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
@@ -931,6 +931,14 @@ add('V105 manual fallback preserved',read('.github/workflows/deploy-production.y
 add('V105 closure writer parity',read('.github/workflows/deploy-production.yml').includes('/api/release/final-closure')&&read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/final-closure'),'both production paths attempt durable final closure');
 add('V105 health capability',read('src/app/api/health/route.ts').includes('productionClosureOrchestration:true'),'health exposes production closure orchestration');
 add('V105 release notes',exists('EDGEFORCE_V105_RELEASE.md'),'V105 release documentation exists');
+add('V106 Vercel stale project ID removed',!read('.github/workflows/deploy-production.yml').includes('prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo'),'production deploy no longer trusts the stale Vercel project ID');
+add('V106 Vercel authorization preflight',read('.github/workflows/deploy-production.yml').includes('Verify Vercel team authorization')&&read('.github/workflows/deploy-production.yml').includes('project inspect "$VERCEL_PROJECT_NAME"'),'Vercel team authorization is checked before deployment');
+add('V106 Vercel dynamic mapping',read('.github/workflows/deploy-production.yml').includes('Resolve live Vercel project mapping')&&read('.github/workflows/deploy-production.yml').includes('.vercel/project.json')&&read('.github/workflows/deploy-production.yml').includes('VERCEL_PROJECT_ID=$RESOLVED_PROJECT_ID'),'live Vercel project mapping drives deployment and rollback');
+add('V106 Cloudflare account fallback',read('.github/workflows/deploy-cloudflare.yml').includes("secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc'"),'Cloudflare account ID uses repository-safe fallback');
+add('V106 Cloudflare database fallback',read('.github/workflows/deploy-cloudflare.yml').includes('secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL'),'Cloudflare accepts either database secret name');
+add('V106 Cloudflare prerequisite diagnostics',read('.github/workflows/deploy-cloudflare.yml').includes('Missing Cloudflare production prerequisites')&&read('.github/workflows/deploy-cloudflare.yml').includes('CLOUDFLARE_API_TOKEN'),'missing production credentials are reported explicitly');
+add('V106 health capability',read('src/app/api/health/route.ts').includes('productionCredentialRecovery:true'),'health exposes production credential recovery');
+add('V106 release notes',exists('EDGEFORCE_V106_RELEASE.md'),'V106 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
