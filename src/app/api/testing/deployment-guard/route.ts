@@ -8,7 +8,7 @@ const base:DeploymentGuardSnapshot={
  observabilityOverall:'HEALTHY',observabilityScore:.91,criticalChecks:0,degradedChecks:0,
  reliabilityMode:'NORMAL',reliabilityScore:.94,openCircuits:0,halfOpenCircuits:0,
  automationFailed:0,automationStale:0,actionIncidents:0,watchIncidents:0,
- latestMarketAgeMin:4,latestModelRunAgeMin:12,capturedAt:'2026-10-05T17:00:00Z'
+ latestMarketAgeMin:4,latestModelRunAgeMin:12,pulseUsable:true,capturedAt:'2026-10-05T17:00:00Z'
 };
 
 export async function GET(){
