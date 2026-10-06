@@ -14,8 +14,32 @@ export async function GET(req:Request){
  ]);
  const configured=configuredProviders();
  const configuredCapabilities=[...new Set(configured.map(x=>x.capability))];
- const blockers=[...readiness.requiredFailures.map(x=>`readiness: ${x}`)];
- const warnings=[...readiness.warnings];
+ const pulseRow=((certification as any)?.providers||[]).find((x:any)=>
+  String(x?.providerId||'')==='fanlinewire-fanduel-pulse'&&String(x?.status||'')==='CERTIFIED'
+ );
+ const pulseCheckedAt=pulseRow?.checkedAt?new Date(String(pulseRow.checkedAt)).getTime():0;
+ const pulseCertificationAgeMs=pulseCheckedAt?Math.max(0,Date.now()-pulseCheckedAt):Number.POSITIVE_INFINITY;
+ const currentPulseCertification=Boolean(
+  certification&&
+  certification.releaseVersion===RELEASE.appVersion&&
+  certification.launchReady===true&&
+  pulseRow&&
+  pulseCertificationAgeMs<=2*60*1000
+ );
+ const onlyTransientPulseFailure=
+  readiness.requiredFailures.length>0&&
+  readiness.requiredFailures.every(x=>x==='oddsProvider')&&
+  currentPulseCertification;
+ const effectiveRequiredFailures=onlyTransientPulseFailure
+  ?readiness.requiredFailures.filter(x=>x!=='oddsProvider')
+  :readiness.requiredFailures;
+ const blockers=[...effectiveRequiredFailures.map(x=>`readiness: ${x}`)];
+ const warnings=[
+  ...readiness.warnings,
+  ...(onlyTransientPulseFailure
+   ?[`readiness: live pulse recheck missed, but current-release FanDuel pulse certification is ${Math.round(pulseCertificationAgeMs/1000)}s old`]
+   :[])
+ ];
 
  if(!certification){
   blockers.push('provider certification has not been run');
@@ -27,7 +51,7 @@ export async function GET(req:Request){
   }
  }
 
- const ready=blockers.length===0&&readiness.ready;
+ const ready=blockers.length===0&&(readiness.ready||onlyTransientPulseFailure);
  return Response.json({
   ok:true,
   ready,
@@ -37,6 +61,7 @@ export async function GET(req:Request){
   migrationVersion:RELEASE.migrationVersion,
   readiness,
   certification,
+  pulseCertificationContinuity:{active:onlyTransientPulseFailure,current:currentPulseCertification,ageMs:Number.isFinite(pulseCertificationAgeMs)?pulseCertificationAgeMs:null},
   configuredProviders:configured.length,
   configuredCapabilities,
   blockers,
