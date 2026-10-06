@@ -162,6 +162,8 @@ assert(health.body?.workerSafePredictionAutomation===true,'Worker-safe predictio
 assert(health.body?.legacyObservabilityTimestampRepair===true,'legacy observability timestamp repair flag missing');
 assert(health.body?.remediationCanaryContinuity===true,'remediation canary continuity flag missing');
 assert(health.body?.strictCertificationPayloadGate===true,'strict certification payload gate flag missing');
+assert(health.body?.launchDoctorCertifiedPulseContinuity===true,'launch doctor certified pulse continuity flag missing');
+assert(health.body?.productionGateBooleanCorrectness===true,'production gate boolean correctness flag missing');
 assert(health.body?.mutationBodyLimit===true,'mutation body limit flag missing');
 assert(health.body?.hardenedContentSecurityPolicy===true,'CSP hardening flag missing');
 assert(health.body?.championChallengerGovernance===true,'champion challenger governance flag missing');
