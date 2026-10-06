@@ -67,7 +67,7 @@ jobs:
       - name: Apply Neon/Postgres migrations through current release
         run: npm run migrate
         env:
-          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
 
       - name: Generate Edgeforce runtime secrets
         shell: bash
@@ -93,7 +93,7 @@ jobs:
             INGEST_SECRET
             CRON_SECRET
         env:
-          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
 
       - name: Wait for Worker
