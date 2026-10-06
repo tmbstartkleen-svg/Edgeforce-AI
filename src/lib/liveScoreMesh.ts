@@ -15,7 +15,12 @@ export type LiveGameState={
 
 type Cached={at:number;games:LiveGameState[]};
 const cache=new Map<string,Cached>();
-const ttlMs=()=>Math.max(1000,Number(process.env.LIVE_SCORE_CACHE_MS||5000));
+const inFlight=new Map<string,Promise<LiveGameState[]>>();
+const nativeLiveTtlMs=()=>Math.max(1000,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||2000));
+const nativeIdleTtlMs=()=>Math.max(nativeLiveTtlMs(),Number(process.env.LIVE_SCORE_NATIVE_IDLE_CACHE_MS||15000));
+const espnLiveTtlMs=()=>Math.max(2000,Number(process.env.LIVE_SCORE_ESPN_LIVE_CACHE_MS||5000));
+const espnIdleTtlMs=()=>Math.max(espnLiveTtlMs(),Number(process.env.LIVE_SCORE_ESPN_IDLE_CACHE_MS||30000));
+const staleFallbackMs=()=>Math.max(30000,Number(process.env.LIVE_SCORE_STALE_FALLBACK_MS||120000));
 const timeoutMs=()=>Math.max(1500,Number(process.env.LIVE_SCORE_TIMEOUT_MS||5000));
 
 const ESPN_LEAGUES=[
@@ -50,7 +55,7 @@ async function json(url:string){
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs());
  try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/112 live-score-mesh'}});
+  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/113 live-score-mesh'}});
   if(!res.ok)throw new Error('HTTP '+res.status);
   return await res.json() as unknown;
  }finally{clearTimeout(timer)}
@@ -131,27 +136,48 @@ export function parseMlbSchedule(payload:unknown):LiveGameState[]{
  return out.filter(x=>x.id);
 }
 
-async function cached(key:string,load:()=>Promise<LiveGameState[]>){
+async function cached(
+ key:string,
+ liveTtl:number,
+ idleTtl:number,
+ load:()=>Promise<LiveGameState[]>
+){
+ const now=Date.now();
  const hit=cache.get(key);
- if(hit&&Date.now()-hit.at<ttlMs())return hit.games;
- const games=await load();
- cache.set(key,{at:Date.now(),games});
- return games;
+ const ttl=hit?.games.some(x=>x.status==='LIVE')?liveTtl:idleTtl;
+ if(hit&&now-hit.at<ttl)return hit.games;
+ const pending=inFlight.get(key);
+ if(pending)return pending;
+ const request=(async()=>{
+  try{
+   const games=await load();
+   cache.set(key,{at:Date.now(),games});
+   return games;
+  }catch(error){
+   const stale=cache.get(key);
+   if(stale&&Date.now()-stale.at<=staleFallbackMs())return stale.games;
+   throw error;
+  }finally{
+   inFlight.delete(key);
+  }
+ })();
+ inFlight.set(key,request);
+ return request;
 }
 
 async function espn(sport:string,league:string,label:string){
  const key='espn:'+league;
- return cached(key,async()=>{
+ return cached(key,espnLiveTtlMs(),espnIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10).replaceAll('-','');
   const payload=await json(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${date}`);
   return parseEspnLiveGames(payload,label);
  });
 }
 async function nhl(){
- return cached('nhl-native',async()=>parseNhlGames(await json('https://api-web.nhle.com/v1/score/now')));
+ return cached('nhl-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>parseNhlGames(await json('https://api-web.nhle.com/v1/score/now')));
 }
 async function mlb(){
- return cached('mlb-native',async()=>{
+ return cached('mlb-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10);
   return parseMlbSchedule(await json(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=linescore`));
  });
@@ -187,12 +213,13 @@ export async function fetchLiveScoreMesh(){
  return {
   ok:true,
   generatedAt:new Date().toISOString(),
-  refreshMs:ttlMs(),
+  refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   sourceMode:'multi-source-no-key',
+  transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
   sources:[
-   {id:'nhl-web',auth:'none',priority:'league-native'},
-   {id:'mlb-statsapi',auth:'none',priority:'league-native'},
-   {id:'espn-public',auth:'none',priority:'broad-fallback'}
+   {id:'nhl-web',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
+   {id:'mlb-statsapi',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
+   {id:'espn-public',auth:'none',priority:'broad-fallback',liveRefreshMs:espnLiveTtlMs(),idleRefreshMs:espnIdleTtlMs()}
   ],
   liveGames:games.filter(x=>x.status==='LIVE').length,
   games,
