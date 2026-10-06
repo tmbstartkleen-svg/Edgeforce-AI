@@ -38,9 +38,18 @@ export async function GET(req:Request){
   const decisionSignals=buildPredictionDecisionSignals(predictions.contracts,gaps,flow4h,movers,traderSignals,100);
 
   const [marketWrite,tradeWrite,signalWrite,leaderWrite]=await Promise.all([
-   persistPredictionContracts(predictions.contracts,true),
-   persistPredictionTrades(trades),
-   persistPredictionDecisionSignals(decisionSignals),
+   persistPredictionContracts(predictions.contracts,true).catch(error=>{
+    warnings.push('Prediction market persistence: '+(error instanceof Error?error.message:'failed'));
+    return {stateWritten:0,snapshotsWritten:0,mode:'memory' as const};
+   }),
+   persistPredictionTrades(trades).catch(error=>{
+    warnings.push('Prediction trade persistence: '+(error instanceof Error?error.message:'failed'));
+    return {written:0,tradersUpdated:0,mode:'memory' as const};
+   }),
+   persistPredictionDecisionSignals(decisionSignals).catch(error=>{
+    warnings.push('Prediction signal persistence: '+(error instanceof Error?error.message:'failed'));
+    return {written:0,mode:'memory' as const};
+   }),
    upsertPublicTraderProfiles(
     leaderboard.rows.map(row=>({
      venue:'Polymarket',
@@ -52,11 +61,18 @@ export async function GET(req:Request){
      verified:row.verified,
      raw:row as unknown as Record<string,unknown>
     }))
-   )
+   ).catch(error=>{
+    warnings.push('Prediction leaderboard persistence: '+(error instanceof Error?error.message:'failed'));
+    return {written:0,mode:'memory' as const};
+   })
   ]);
 
-  const warehouse=await predictionWarehouseStats();
-  await recordAutomationRun('prediction-intelligence','success',started,{
+  const warehouse=await predictionWarehouseStats().catch(error=>{
+   warnings.push('Prediction warehouse stats: '+(error instanceof Error?error.message:'failed'));
+   return {configured:false,markets:0,snapshots:0,trades:0,traders:0,signals:0,buySignals:0,lastMarketUpdate:null,lastTrade:null,lastSignal:null};
+  });
+  const degraded=warnings.length>0;
+  await recordAutomationRun('prediction-intelligence','success',started,{degraded,
    contracts:predictions.contracts.length,
    tradesFetched:trades.length,
    marketsPersisted:marketWrite.stateWritten,
@@ -72,6 +88,7 @@ export async function GET(req:Request){
 
   return Response.json({
    ok:true,
+   degraded,
    ranAt:new Date().toISOString(),
    scope:'ALL_PREDICTION_MARKETS',
    sources:predictions.sources||[],
@@ -93,12 +110,7 @@ export async function GET(req:Request){
     gradeA:decisionSignals.filter(x=>x.evidenceGrade==='A').length
    },
    warehouse,
-   warnings:[
-    ...(predictions.warnings||[]),
-    ...(!kalshi.ok&&kalshi.error?['Kalshi trade tape: '+kalshi.error]:[]),
-    ...(!polymarket.ok&&polymarket.error?['Polymarket trade tape: '+polymarket.error]:[]),
-    ...(!leaderboard.ok&&leaderboard.error?['Polymarket leaderboard: '+leaderboard.error]:[])
-   ]
+   warnings:[...new Set([...(predictions.warnings||[]),...warnings])]
   },{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'prediction intelligence collection failed';
