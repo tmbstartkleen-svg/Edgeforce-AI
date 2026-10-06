@@ -214,6 +214,7 @@ export async function GET(){
   cloudflareHostedPreviewParity:true,
   crossPlatformProductionConvergence:true,
   finalProductionClosure:true,
+  productionClosureOrchestration:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
