@@ -251,6 +251,8 @@ export async function GET(){
   legacyObservabilityTimestampRepair:true,
   remediationCanaryContinuity:true,
   strictCertificationPayloadGate:true,
+  launchDoctorCertifiedPulseContinuity:true,
+  productionGateBooleanCorrectness:true,
   staticReleaseAudit:true,
   mutationBodyLimit:true,
   hardenedContentSecurityPolicy:true,
