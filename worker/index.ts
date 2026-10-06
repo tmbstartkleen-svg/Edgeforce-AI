@@ -1,4 +1,5 @@
 import handler from 'vinext/server/fetch-handler';
+import {withDatabaseScope} from '../src/lib/db';
 
 type EdgeforceEnv={
  CRON_SECRET?:string;
@@ -21,12 +22,18 @@ async function callInternal(path:string,env:EdgeforceEnv,ctx:ExecutionContextLik
   method:path.startsWith('/api/providers/certify')?'POST':'GET',
   headers:secret?{authorization:`Bearer ${secret}`}:{},
  });
- const response=await handler.fetch(request,env as any,ctx as any);
- if(!response.ok){
-  const body=await response.text().catch(()=>'');
-  throw new Error(`${path} failed with ${response.status}${body?`: ${body.slice(0,240)}`:''}`);
- }
- return response;
+ // Keep every in-flight internal route in the scheduled invocation's lifetime,
+ // even if a sibling fails first. All routes share only this invocation's pool.
+ const task=(async()=>{
+  const response=await handler.fetch(request,env as any,ctx as any);
+  const body=await response.text();
+  if(!response.ok){
+   throw new Error(`${path} failed with ${response.status}${body?`: ${body.slice(0,240)}`:''}`);
+  }
+  return {status:response.status};
+ })();
+ ctx.waitUntil(task);
+ return task;
 }
 
 async function runInjuries(env:EdgeforceEnv,ctx:ExecutionContextLike){
@@ -53,10 +60,13 @@ async function runDaily(env:EdgeforceEnv,ctx:ExecutionContextLike){
 
 const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
-  return handler.fetch(request,env as any,ctx as any);
+  return withDatabaseScope(scoped=>handler.fetch(request,env as any,scoped as any),env,ctx);
  },
  async scheduled(controller:ScheduledControllerLike,env:EdgeforceEnv,ctx:ExecutionContextLike){
-  const task=controller.cron==='15 6 * * *'?runDaily(env,ctx):controller.cron==='*/15 * * * *'?runInjuries(env,ctx):runHourly(env,ctx);
+  const task=withDatabaseScope(scoped=>
+   controller.cron==='15 6 * * *'?runDaily(env,scoped):controller.cron==='*/15 * * * *'?runInjuries(env,scoped):runHourly(env,scoped),
+   env,ctx
+  );
   ctx.waitUntil(task);
  },
 };
