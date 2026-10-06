@@ -58,3 +58,18 @@ EdgeForce now combines:
 The dashboard exposes a dedicated live score/clock surface and the same game-state mesh is embedded in the one-second live-board response. The upstream game-state layer is cached independently from odds, with a default 5-second source cache, so odds-provider quota exhaustion cannot freeze score, period, inning or clock updates.
 
 These no-key web feeds are treated as operational fallbacks rather than guaranteed licensed commercial feeds; provider-specific terms and availability still apply.
+
+
+## GitHub/API feed research and FanDuel pulse
+
+Repository and provider research found three distinct categories:
+
+- production-friendly documented aggregators with keys and published limits
+- keyless public snapshots suitable as supplemental pulses
+- unofficial direct-book adapters that depend on private/internal sportsbook endpoints or TLS impersonation
+
+V112 adopts the safest useful free addition: the FanLine Wire keyless FanDuel snapshot. EdgeForce polls it no faster than the documented 10-second floor, tracks sequence/freshness/latency, exposes it at `/api/odds-pulse`, and embeds pulse health into the one-second dashboard response.
+
+The pulse is deliberately supplemental. It does not replace a complete bookmaker board and it cannot make stored odds appear live. Failure or staleness is disclosed and falls back cleanly.
+
+Additional keyed feeds can be layered through the existing provider failover slots. SportsGameOdds is a strong redundancy candidate for DraftKings/FanDuel and broad book coverage, but its free tier is intentionally slow and should not be treated as a high-frequency live source. Faster WebSocket/SSE products are paid tiers and can be added without changing the EdgeForce model contract.
