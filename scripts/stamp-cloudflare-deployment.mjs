@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const target=path.resolve('dist/server/wrangler.json');
 if(!fs.existsSync(target))throw new Error('generated Wrangler config is missing');
-const commit=String(process.env.GITHUB_SHA||process.env.DEPLOYMENT_COMMIT||'');
+const commit=String(process.env.DEPLOYMENT_COMMIT||process.env.GITHUB_SHA||'');
 if(commit.length<7)throw new Error('deployment commit SHA is missing');
 const config=JSON.parse(fs.readFileSync(target,'utf8'));
 config.vars=config.vars&&typeof config.vars==='object'?config.vars:{};

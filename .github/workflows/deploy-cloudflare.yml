@@ -1,6 +1,9 @@
 name: Deploy Edgeforce to Cloudflare
 
 on:
+  workflow_run:
+    workflows: ["Verify Edgeforce"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -8,14 +11,20 @@ permissions:
 
 jobs:
   deploy:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       EDGEFORCE_DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+      DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -44,7 +53,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: edgeforce-v104-cloudflare-build-${{ github.sha }}
+          name: edgeforce-v105-cloudflare-build-${{ github.sha }}
           path: /tmp/edgeforce-vinext-build.log
           if-no-files-found: warn
       - run: npm run validate:cloudflare-build
@@ -133,11 +142,11 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/launch-doctor?strict=1"
 
-      - name: Hosted V104 smoke test
+      - name: Hosted V105 smoke test
         run: npm run remote-smoke
         env:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
-          EXPECTED_APP_VERSION: "104.0.0"
+          EXPECTED_APP_VERSION: "105.0.0"
 
       - name: Record Cloudflare platform convergence evidence
         env:
@@ -174,9 +183,9 @@ jobs:
         run: |
           echo "## Cloudflare Deploy Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Certification build: V104 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Runtime release: V104" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Model: edgeforce-v104" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Certification build: V105 cross-platform production convergence" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime release: V105" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Model: edgeforce-v105" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: v114" >> "$GITHUB_STEP_SUMMARY"
           echo "- Odds provider certification: passed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Prediction intelligence warehouse: primed" >> "$GITHUB_STEP_SUMMARY"
