@@ -379,7 +379,11 @@ jobs:
       - name: Require strict launch doctor
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
-        run: vercel curl "/api/launch-doctor?strict=1" --deployment "$PRODUCTION_URL" 
+        shell: bash
+        run: |
+          DOCTOR=$(vercel curl "/api/launch-doctor?strict=1" --deployment "$PRODUCTION_URL")
+          echo "$DOCTOR"
+          printf '%s' "$DOCTOR" | jq -e '.ok==true and .ready==true and (.blockers|length)==0' >/dev/null
 
       - name: Record launch-doctor stage
         env:
