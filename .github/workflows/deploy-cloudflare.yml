@@ -135,7 +135,7 @@ jobs:
       - name: Verify live sportsbook data
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
-        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireLive=1"
+        run: curl --fail --silent --show-error "$DEPLOYMENT_URL/api/live-data/status?requireUsable=1&maxStoredAgeMin=90"
 
       - name: Verify cross-venue prediction terminal
         env:
