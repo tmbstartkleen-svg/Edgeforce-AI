@@ -6,6 +6,8 @@ import {normalizeOddsPayload} from './providers/normalizeOdds';
 import type {ProviderCapability} from './providerRegistry';
 import type {ProviderConfig} from './providers/types';
 import {RELEASE} from './releaseManifest';
+import {latestStoredMarkets} from './persistence';
+import {auditMarketBatch} from './dataQuality';
 
 export type CertificationStatus='CERTIFIED'|'CAUTION'|'FAILED';
 
@@ -153,6 +155,47 @@ export async function certifyConfiguredProviders(){
  const results:ProviderCertification[]=[];
  for(const provider of providers){
   results.push(await certifyProvider(provider));
+ }
+
+ const oddsReady=results.some(x=>x.capability==='ODDS'&&x.status==='CERTIFIED');
+ const quotaFailure=results.some(x=>
+  x.capability==='ODDS'&&x.status==='FAILED'&&
+  /quota|usage quota|credit|requests remaining|remaining=0|remaining=1/i.test([x.error,...x.reasons].filter(Boolean).join(' '))
+ );
+ if(!oddsReady&&quotaFailure){
+  const maxAgeMin=Math.max(5,Number(process.env.ODDS_CERTIFICATION_STORED_MAX_AGE_MIN||90));
+  const stored=(await latestStoredMarkets().catch(()=>[])).filter(x=>Number(x.sourceAgeMin)<=maxAgeMin);
+  const audit=auditMarketBatch(stored);
+  const age=stored.length?Math.max(...stored.map(x=>Number(x.sourceAgeMin)||0)):undefined;
+  const acceptable=stored.length>0&&audit.grade!=='REJECT'&&audit.blockers.length===0;
+  results.push({
+   providerId:'persisted-live-odds',
+   providerName:'Persisted Real Odds Snapshot',
+   capability:'ODDS',
+   status:acceptable?'CERTIFIED':'FAILED',
+   priority:119,
+   latencyMs:0,
+   rowCount:stored.length,
+   normalizedCount:stored.length,
+   payloadAgeMin:age,
+   freshnessScore:audit.freshnessScore,
+   qualityScore:audit.score,
+   qualityGrade:audit.grade,
+   authConfigured:true,
+   maxAgeMin,
+   reasons:acceptable
+    ?[
+      `Live odds provider quota is exhausted; certified ${stored.length} persisted real market rows as degraded launch continuity`,
+      `Stored odds maximum age ${(age??0).toFixed(1)}m within ${maxAgeMin}m quota-fallback limit`,
+      'Fallback is production real-data only and remains explicitly degraded until live quota recovers'
+     ]
+    :[
+      'Live odds provider quota is exhausted and no acceptable persisted real-odds snapshot is available',
+      ...audit.blockers,
+      ...audit.warnings.slice(0,3)
+     ],
+   error:acceptable?undefined:'Quota fallback could not certify persisted real odds'
+  });
  }
 
  const evaluation=evaluateCertificationResults(results);
