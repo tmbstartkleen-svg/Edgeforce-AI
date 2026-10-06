@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V104',
- appVersion:'104.0.0',
- packageVersion:'0.104.0',
- modelVersion:'edgeforce-v104',
+ build:'V105',
+ appVersion:'105.0.0',
+ packageVersion:'0.105.0',
+ modelVersion:'edgeforce-v105',
  migrationVersion:114
 };
 const checks=[];
@@ -922,6 +922,15 @@ add('V104 health capability',read('src/app/api/health/route.ts').includes('final
 add('V104 rollback description',!read('.github/workflows/deploy-production.yml').includes('V74%20SLO'),'rollback description no longer carries stale V74 identity');
 add('V104 release notes',exists('EDGEFORCE_V104_RELEASE.md'),'V104 release documentation exists');
 
+add('V105 Vercel verified-main trigger',read('.github/workflows/deploy-production.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-production.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-production.yml').includes('workflow_run.head_sha'),'Vercel production deploy is pinned to the successful verified main SHA');
+add('V105 Cloudflare verified-main trigger',read('.github/workflows/deploy-cloudflare.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha'),'Cloudflare production deploy is pinned to the successful verified main SHA');
+add('V105 cross-platform source parity',read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: \${{ github.event.workflow_run.head_sha || github.sha }}')&&read('.github/workflows/deploy-cloudflare.yml').includes('DEPLOY_COMMIT: \${{ github.event.workflow_run.head_sha || github.sha }}'),'both production paths derive deployment identity from the same verified source');
+add('V105 Cloudflare exact checkout',read('.github/workflows/deploy-cloudflare.yml').includes('ref: \${{ github.event.workflow_run.head_sha || github.sha }}'),'Cloudflare checks out the exact verified commit');
+add('V105 Cloudflare runtime commit stamp',read('scripts/stamp-cloudflare-deployment.mjs').includes('process.env.DEPLOYMENT_COMMIT||process.env.GITHUB_SHA'),'Cloudflare runtime stamp prefers the verified deployment commit');
+add('V105 manual fallback preserved',read('.github/workflows/deploy-production.yml').includes('workflow_dispatch:')&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_dispatch:'),'both production paths retain operator-triggered fallback');
+add('V105 closure writer parity',read('.github/workflows/deploy-production.yml').includes('/api/release/final-closure')&&read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/final-closure'),'both production paths attempt durable final closure');
+add('V105 health capability',read('src/app/api/health/route.ts').includes('productionClosureOrchestration:true'),'health exposes production closure orchestration');
+add('V105 release notes',exists('EDGEFORCE_V105_RELEASE.md'),'V105 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
