@@ -70,11 +70,20 @@ export async function buildProductionObservability(){
  freshness('model-freshness','Model-run freshness',latestModelRunAgeMin,60,360);
  freshness('automation-freshness','Automation-run freshness',latestAutomationAgeMin,180,1440);
 
+ const pulseCanDegradeReliability=Boolean(
+  pulseUsable&&
+  !reliability.criticalOpen&&
+  !reliability.openComponents.some(id=>['injuries','automation','validation'].includes(id))
+ );
  checks.push({
   id:'reliability-mode',label:'Intelligence reliability mode',
-  state:reliability.mode==='PROTECTIVE'?'CRITICAL':reliability.mode==='DEGRADED'?'DEGRADED':'HEALTHY',
+  state:reliability.mode==='PROTECTIVE'
+   ?(pulseCanDegradeReliability?'DEGRADED':'CRITICAL')
+   :reliability.mode==='DEGRADED'?'DEGRADED':'HEALTHY',
   value:Math.round(reliability.score*100),unit:'%',threshold:'NORMAL mode; no required OPEN circuits',
-  reason:`${reliability.mode}; open ${reliability.openComponents.length}, half-open ${reliability.halfOpenComponents.length}.`
+  reason:pulseCanDegradeReliability&&reliability.mode==='PROTECTIVE'
+   ?`PROTECTIVE data mode is contained by fresh pulse continuity; open ${reliability.openComponents.length}, half-open ${reliability.halfOpenComponents.length}. Recommendations remain protected.`
+   :`${reliability.mode}; open ${reliability.openComponents.length}, half-open ${reliability.halfOpenComponents.length}.`
  });
 
  checks.push({
