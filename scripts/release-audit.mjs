@@ -4,10 +4,10 @@ import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
 const expected={
- build:'V107',
- appVersion:'107.0.0',
- packageVersion:'0.107.0',
- modelVersion:'edgeforce-v107',
+ build:'V108',
+ appVersion:'108.0.0',
+ packageVersion:'0.108.0',
+ modelVersion:'edgeforce-v108',
  migrationVersion:114
 };
 const checks=[];
@@ -944,6 +944,11 @@ add('V107 protected remote smoke syntax',read('scripts/remote-smoke.mjs').includ
 add('V107 Cloudflare migration database handoff',read('.github/workflows/deploy-cloudflare.yml').includes('DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}'),'Cloudflare migration receives either supported database secret');
 add('V107 health capability',read('src/app/api/health/route.ts').includes('productionTransportRepair:true'),'health exposes production transport repair');
 add('V107 release notes',exists('EDGEFORCE_V107_RELEASE.md'),'V107 release documentation exists');
+add('V108 base schema bootstrap',read('scripts/migrate.mjs').includes("db','schema.sql")&&read('scripts/migrate.mjs').includes("console.log('apply base schema')")&&read('scripts/migrate.mjs').includes('await sql.unsafe(baseSchema)'),'fresh databases apply the idempotent base schema before versioned migrations');
+add('V108 native Vercel curl auth',!read('.github/workflows/deploy-production.yml').includes('vercel curl "/api/release/error-budget" --deployment "$PREVIOUS_DEPLOYMENT_URL" --token=')&&read('.github/workflows/deploy-production.yml').includes('vercel curl "/api/release/error-budget" --deployment "$PREVIOUS_DEPLOYMENT_URL"'),'protected requests rely on linked-project Vercel auth instead of passing CLI flags through native curl');
+add('V108 remote smoke native curl',read('scripts/remote-smoke.mjs').includes("const args=['curl',url];"),'remote smoke uses native Vercel curl syntax without passthrough auth flags');
+add('V108 health capability',read('src/app/api/health/route.ts').includes('productionBootstrapRepair:true'),'health exposes production bootstrap repair');
+add('V108 release notes',exists('EDGEFORCE_V108_RELEASE.md'),'V108 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
