@@ -3,7 +3,7 @@ import type {ProviderConfig,ProviderFetchResult} from './types';
 type Row={
  id:string; sport:string; league:string; event:string; home:string; away:string;
  selection:string; market:string; startTime:string; odds:number; bookmaker:string; pulledAt:string;
- sourceDelaySeconds:number; liveEligible:false;
+ sourceUpdatedAt:string; sourceDelaySeconds:number; liveEligible:false;
 };
 type Cached={at:number;rows:Row[];status:number;latencyMs:number;quota:string[]};
 let cache:Cached|null=null;
@@ -52,7 +52,7 @@ function lineSelection(participant:Record<string,unknown>,market:string,line:Rec
  }
  return name;
 }
-export function normalizeTheRundownPayload(payload:unknown,sportId:string,delaySeconds=300){
+export function normalizeTheRundownPayload(payload:unknown,sportId:string,delaySeconds=300,observedAt=new Date().toISOString()){
  const rows:Row[]=[];
  for(const eventRaw of arr(obj(payload).events)){
   const event=obj(eventRaw),eventId=str(event.event_id),start=str(event.event_date);
@@ -72,7 +72,7 @@ export function normalizeTheRundownPayload(payload:unknown,sportId:string,delayS
        id:`therundown:${eventId}:${marketObj.market_id||market}:${participant.id||selection}:${affiliate}:${String(line.value??'main')}`,
        sport:SPORT_LABELS[sportId]||`SPORT-${sportId}`,league:SPORT_LABELS[sportId]||`SPORT-${sportId}`,
        event:`${away} @ ${home}`,home,away,selection,market,startTime:start,odds,bookmaker:BOOKS[affiliate],
-       pulledAt:updated,sourceDelaySeconds:delaySeconds,liveEligible:false
+       pulledAt:observedAt,sourceUpdatedAt:updated,sourceDelaySeconds:delaySeconds,liveEligible:false
       });
      }
     }
@@ -86,28 +86,36 @@ function quotaHeaders(res:Response){
   .map(k=>{const v=res.headers.get(k);return v?`${k}=${v}`:''}).filter(Boolean);
 }
 async function load(apiKey:string){
- const date=new Date().toISOString().slice(0,10);
+ const today=new Date();
+ const dates=[today,new Date(today.getTime()+86400000)].map(d=>d.toISOString().slice(0,10));
  const started=Date.now(); const all:Row[]=[]; const quotas:string[]=[];
  for(const sportId of rotatingSportIds()){
-  const url=new URL(`https://therundown.io/api/v2/sports/${sportId}/events/${date}`);
-  url.searchParams.set('market_ids','1,2,3');
-  url.searchParams.set('affiliate_ids','19,22,23');
-  url.searchParams.set('main_line','true');
-  url.searchParams.set('hide_closed','true');
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs());
-  try{
-   const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','X-TheRundown-Key':apiKey,'User-Agent':'Edgeforce-AI/119 provider-mesh'}});
-   quotas.push(...quotaHeaders(res));
-   if(res.status===429)throw new Error('TheRundown HTTP 429');
-   if(res.status===401||res.status===403)throw new Error(`TheRundown HTTP ${res.status}`);
-   if(!res.ok)continue;
-   const delay=Number(res.headers.get('x-data-delay-seconds'));
-   const delaySeconds=Number.isFinite(delay)&&delay>=0?delay:300;
-   all.push(...normalizeTheRundownPayload(await res.json(),sportId,delaySeconds));
-   const remaining=Number(res.headers.get('x-datapoints-remaining'));
-   const reserve=Math.max(0,Number(process.env.THERUNDOWN_MIN_REMAINING||2500));
-   if(Number.isFinite(remaining)&&remaining<=reserve)break;
-  }finally{clearTimeout(timer)}
+  let sportRows:Row[]=[];
+  for(const date of dates){
+   const url=new URL(`https://therundown.io/api/v2/sports/${sportId}/events/${date}`);
+   url.searchParams.set('market_ids','1,2,3');
+   url.searchParams.set('affiliate_ids','19,22,23');
+   url.searchParams.set('main_line','true');
+   url.searchParams.set('hide_closed','true');
+   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs());
+   try{
+    const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','X-TheRundown-Key':apiKey,'User-Agent':'Edgeforce-AI/121 provider-mesh'}});
+    quotas.push(...quotaHeaders(res));
+    if(res.status===429)throw new Error('TheRundown HTTP 429');
+    if(res.status===401||res.status===403)throw new Error(`TheRundown HTTP ${res.status}`);
+    if(!res.ok)continue;
+    const delay=Number(res.headers.get('x-data-delay-seconds'));
+    const delaySeconds=Number.isFinite(delay)&&delay>=0?delay:300;
+    const observedAt=new Date().toISOString();
+    const rows=normalizeTheRundownPayload(await res.json(),sportId,delaySeconds,observedAt);
+    sportRows.push(...rows);
+    const remaining=Number(res.headers.get('x-datapoints-remaining'));
+    const reserve=Math.max(0,Number(process.env.THERUNDOWN_MIN_REMAINING||2500));
+    if(Number.isFinite(remaining)&&remaining<=reserve)break;
+    if(rows.length)break;
+   }finally{clearTimeout(timer)}
+  }
+  all.push(...sportRows);
  }
  return {at:Date.now(),rows:all,status:200,latencyMs:Date.now()-started,quota:[...new Set(quotas)]};
 }
