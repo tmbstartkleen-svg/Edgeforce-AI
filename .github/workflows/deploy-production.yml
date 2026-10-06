@@ -1,13 +1,13 @@
 name: Edgeforce Production Deploy
 
 on:
-  workflow_run:
-    workflows: ["Verify Edgeforce"]
-    types: [completed]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: edgeforce-vercel-production
@@ -15,9 +15,6 @@ concurrency:
 
 jobs:
   deploy-production:
-    if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
-          (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     env:
       VERCEL_SCOPE: tmbstartkleen-4716s-projects
@@ -29,14 +26,39 @@ jobs:
       ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
-      DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_COMMIT: ${{ github.sha }}
     steps:
       - name: Verify deployment credential
         run: test -n "$VERCEL_TOKEN"
 
+      - name: Wait for exact Verify Edgeforce success
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 180); do
+            RUNS=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow verify.yml --commit "$DEPLOY_COMMIT" --event push --limit 10 --json status,conclusion,databaseId,headSha)
+            MATCH=$(printf '%s' "$RUNS" | jq -c --arg sha "$DEPLOY_COMMIT" '[.[] | select(.headSha==$sha)] | first // empty')
+            if [ -n "$MATCH" ]; then
+              STATUS=$(printf '%s' "$MATCH" | jq -r '.status')
+              CONCLUSION=$(printf '%s' "$MATCH" | jq -r '.conclusion // ""')
+              RUN_ID=$(printf '%s' "$MATCH" | jq -r '.databaseId')
+              echo "Verify Edgeforce run $RUN_ID status=$STATUS conclusion=$CONCLUSION"
+              if [ "$STATUS" = "completed" ]; then
+                test "$CONCLUSION" = "success"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for successful Verify Edgeforce run for $DEPLOY_COMMIT"
+          exit 1
+
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - uses: actions/setup-node@v4
         with:
