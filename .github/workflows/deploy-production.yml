@@ -488,14 +488,18 @@ jobs:
           fi
           echo
 
-      - name: Record SLO-budget-passed launch stage
+      - name: Record accepted SLO launch stage
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         run: |
+          STAGE="SLO_BUDGET_PASSED"
+          if [ "${EDGEFORCE_REMEDIATION_DEPLOY:-false}" = "true" ]; then
+            STAGE="SLO_REMEDIATION_ACCEPTED"
+          fi
           vercel curl "/api/release/launch-status" --deployment "$PRODUCTION_URL" -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
-            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"SLO_BUDGET_PASSED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
+            --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"$STAGE\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
       - name: Run comparative canary guard
