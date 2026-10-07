@@ -2,6 +2,7 @@ import {db} from './db';
 import {summarizeBacktest,walkForward,type HistoricalPrediction,type BacktestSummary} from './backtest';
 import {calibrationBuckets,calibrationSummary,type CalibrationBucket} from './modelCalibration';
 import {RELEASE} from './releaseManifest';
+import {settlementLearningFromFeatures} from './settlementLearning';
 
 export type EvidenceGrade='VERIFIED'|'QUALIFIED'|'PROVISIONAL'|'INSUFFICIENT'|'FAILED';
 
@@ -332,7 +333,7 @@ export async function loadValidationRows(limit=Math.max(1000,Number(process.env.
   order by occurred_at desc
   limit ${limit}
  `;
- return rows as unknown as HistoricalPrediction[];
+ return (rows as unknown as HistoricalPrediction[]).filter(row=>settlementLearningFromFeatures(row.features).trainingEligible);
 }
 
 export async function runValidationLab(){
