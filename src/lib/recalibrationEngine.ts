@@ -19,7 +19,9 @@ export type RecalibrationGroup={
  sport:string;
  marketKey:string;
  sampleSize:number;
+ effectiveSampleSize:number;
  holdoutSampleSize:number;
+ holdoutEffectiveSampleSize:number;
  multiplier:number;
  promoted:boolean;
  reason:string;
@@ -93,14 +95,16 @@ function evaluateGroup(modelName:string,sport:string,marketKey:string,rows:Histo
    - Math.max(0,avgFoldLog-.693)*.15
    + clamp(avgClv,-.05,.05)*1.2;
  const rawMultiplier=1+qualitySignal;
- const shrinkage=sorted.length/(sorted.length+options.shrinkageSamples);
+ const effectiveSampleSize=allSummary.effectiveSampleSize;
+ const holdoutEffectiveSampleSize=holdoutSummary.effectiveSampleSize;
+ const shrinkage=effectiveSampleSize/(effectiveSampleSize+options.shrinkageSamples);
  const shrunk=1+(rawMultiplier-1)*shrinkage;
  const multiplier=promoted
    ?clamp(shrunk,1-options.maxAdjustment,1+options.maxAdjustment)
    :1;
 
  return {
-  modelName,sport,marketKey,sampleSize:sorted.length,holdoutSampleSize:holdout.length,
+  modelName,sport,marketKey,sampleSize:sorted.length,effectiveSampleSize,holdoutSampleSize:holdout.length,holdoutEffectiveSampleSize,
   multiplier,promoted,reason,calibrationError,decayedScore,avgClv,
   brierScore:allSummary.brierScore,logLoss:allSummary.logLoss,roi:allSummary.roi,
   walkForwardFolds:folds.length,holdoutBrierScore:holdoutSummary.brierScore,holdoutLogLoss:holdoutSummary.logLoss

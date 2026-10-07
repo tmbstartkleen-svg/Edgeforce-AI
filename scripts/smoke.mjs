@@ -706,6 +706,13 @@ assert(health.body?.evidenceAwareSportModelTraining===true,'evidence-aware sport
 assert(health.body?.evidenceAwareExternalMlTraining===true,'evidence-aware external ML training flag missing');
 assert(health.body?.weakSettlementEvidenceTrainingExclusion===true,'weak settlement evidence training exclusion flag missing');
 assert(health.body?.legacyLearningCompatibility===true,'legacy learning compatibility flag missing');
+assert(health.body?.evidenceWeightedBacktesting===true,'evidence-weighted backtesting flag missing');
+assert(health.body?.evidenceWeightedCalibration===true,'evidence-weighted calibration flag missing');
+assert(health.body?.evidenceWeightedRollingPerformance===true,'evidence-weighted rolling performance flag missing');
+assert(health.body?.evidenceWeightedRecalibrationStrength===true,'evidence-weighted recalibration strength flag missing');
+assert(health.body?.evidenceWeightedSportModelTraining===true,'evidence-weighted sport model training flag missing');
+assert(health.body?.evidenceWeightedExternalMlTraining===true,'evidence-weighted external ML training flag missing');
+assert(health.body?.effectiveEvidenceSampleTelemetry===true,'effective evidence sample telemetry flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
@@ -729,6 +736,13 @@ assert(settlementLearning.body?.assertions?.providerEligible===true,'provider-na
 assert(settlementLearning.body?.assertions?.mediumReduced===true,'medium-confidence settlement learning policy regressed');
 assert(settlementLearning.body?.assertions?.trustedSingleExcluded===true,'trusted single-source training exclusion regressed');
 assert(settlementLearning.body?.assertions?.legacyRetained===true,'legacy learning compatibility regressed');
+
+const weightedLearning=await get('/api/testing/evidence-weighted-learning');
+assert(weightedLearning.res.ok&&weightedLearning.body?.ok===true,'evidence-weighted learning regression failed');
+assert(weightedLearning.body?.assertions?.effectiveSampleSize===true,'effective evidence sample size regressed');
+assert(weightedLearning.body?.assertions?.weightedBrier===true,'evidence-weighted Brier calculation regressed');
+assert(weightedLearning.body?.assertions?.calibrationWeighted===true,'evidence-weighted calibration regressed');
+assert(weightedLearning.body?.assertions?.performanceWeighted===true,'evidence-weighted rolling performance regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
