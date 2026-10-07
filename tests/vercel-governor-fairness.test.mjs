@@ -56,7 +56,7 @@ test('V142 persists and displays queue allocation evidence',()=>{
   assert.match(panel,/VERCEL TEAM GOVERNOR/);
   assert.match(panel,/BORROWED/);
   assert.match(panel,/score \{row\.fairnessScore/);
-  assert.match(route,/x-edgeforce-governor-telemetry':'v143/);
+  assert.match(route,/x-edgeforce-governor-telemetry':'v144/);
 });
 
 test('V142 leaves V141 emergency manual release hard cap intact',()=>{
