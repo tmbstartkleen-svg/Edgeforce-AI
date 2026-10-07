@@ -196,9 +196,17 @@ async function promoteServiceCandidate(group:ServiceGroup,candidate:ServiceCandi
  }
 }
 
-export function promotionDecision(candidate:ServiceCandidate,incumbent:any,margin:number){
+export function promotionDecision(candidate:ServiceCandidate,incumbent:any,margin:number,minSample=120,minHoldout=25){
  if(!candidate.eligible)return {promote:false,reason:'Candidate failed service eligibility gates'};
- if(!incumbent)return {promote:true,reason:'No incumbent external ML champion'};
+ const effectiveSample=Number(candidate.effectiveSampleSize);
+ const effectiveHoldout=Number(candidate.holdoutEffectiveSampleSize);
+ if(!Number.isFinite(effectiveSample)||effectiveSample<minSample){
+  return {promote:false,reason:`Candidate effective evidence depth ${Number.isFinite(effectiveSample)?effectiveSample.toFixed(2):'missing'}/${minSample} is below promotion minimum`};
+ }
+ if(!Number.isFinite(effectiveHoldout)||effectiveHoldout<minHoldout){
+  return {promote:false,reason:`Candidate effective holdout depth ${Number.isFinite(effectiveHoldout)?effectiveHoldout.toFixed(2):'missing'}/${minHoldout} is below promotion minimum`};
+ }
+ if(!incumbent)return {promote:true,reason:'No incumbent external ML champion and effective evidence minimums passed'};
  const incumbentScore=Number(incumbent.compositeScore)||0;
  const required=incumbentScore+margin;
  if(candidate.compositeScore>=required){
@@ -281,7 +289,7 @@ export async function runExternalMlTournament(){
    const decision=winner
     ?(shadowRequired
       ?{promote:false,reason:'Post-quarantine slot requires V61 multi-challenger live shadow league before external ML can return'}
-      :promotionDecision(winner,incumbent,promotionMargin))
+      :promotionDecision(winner,incumbent,promotionMargin,minSample,Math.max(15,Number(process.env.ML_TOURNAMENT_MIN_HOLDOUT||25))))
     :{promote:false,reason:'No eligible service winner'};
    let promotionResult:{ok:boolean;error?:string}|null=null;
    if(winner&&decision.promote){
