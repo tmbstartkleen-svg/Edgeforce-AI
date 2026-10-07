@@ -27,9 +27,13 @@ export type TrainedSportArtifact={
  calibrationA:number;
  calibrationB:number;
  sampleSize:number;
+ effectiveSampleSize?:number;
  trainSize:number;
+ trainEffectiveSampleSize?:number;
  calibrationSize:number;
+ calibrationEffectiveSampleSize?:number;
  holdoutSize:number;
+ holdoutEffectiveSampleSize?:number;
  trainBrier:number;
  holdoutBrier:number;
  holdoutLogLoss:number;
@@ -332,7 +336,10 @@ export function trainSportArtifact(
   artifactVersion:`v54-${canonical.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${marketKey.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,
   featureNames,coefficients:fitted.weights,intercept:fitted.intercept,
   scalerMeans:means,scalerScales:scales,calibrationA:calibrationFit.a,calibrationB:calibrationFit.b,
-  sampleSize:all.length,trainSize:train.length,calibrationSize:calibration.length,holdoutSize:holdout.length,
+  sampleSize:all.length,effectiveSampleSize:all.reduce((sum,row)=>sum+row.evidenceWeight,0),
+  trainSize:train.length,trainEffectiveSampleSize:trainMetrics.effectiveSampleSize,
+  calibrationSize:calibration.length,calibrationEffectiveSampleSize:calibration.reduce((sum,row)=>sum+row.evidenceWeight,0),
+  holdoutSize:holdout.length,holdoutEffectiveSampleSize:holdoutMetrics.effectiveSampleSize,
   trainBrier:trainMetrics.brier,holdoutBrier:holdoutMetrics.brier,holdoutLogLoss:holdoutMetrics.logLoss,
   holdoutAccuracy:holdoutMetrics.accuracy,marketBaselineBrier:marketBaseline.brier,
   marketBaselineLogLoss:marketBaseline.logLoss,brierSkillScore,calibrationError:holdoutMetrics.calibrationError,
@@ -539,7 +546,8 @@ export async function trainAndPersistSportModels(){
     sports=${sql.json(sports)},metrics=${sql.json({
      minSample,minHoldout,lookback,maxGroupRows,settlementLearning:learningSummary,
      top:artifacts.sort((a,b)=>b.brierSkillScore-a.brierSkillScore).slice(0,30).map(a=>({
-      sport:a.sport,marketKey:a.marketKey,sampleSize:a.sampleSize,holdoutSize:a.holdoutSize,
+      sport:a.sport,marketKey:a.marketKey,sampleSize:a.sampleSize,effectiveSampleSize:a.effectiveSampleSize,
+      holdoutSize:a.holdoutSize,holdoutEffectiveSampleSize:a.holdoutEffectiveSampleSize,
       brierSkillScore:a.brierSkillScore,holdoutBrier:a.holdoutBrier,marketBaselineBrier:a.marketBaselineBrier,
       calibrationError:a.calibrationError,promoted:a.promoted,promotionReason:a.promotionReason
      }))
