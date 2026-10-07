@@ -7,6 +7,8 @@ const finiteNumber=(value,name)=>{
   return n;
 };
 
+const createdAt=row=>Number(row?.created??row?.createdAt??0);
+
 export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()}){
   if(!config||!Array.isArray(config.projects)||!Array.isArray(deployments)||!Array.isArray(statuses)){
     throw new Error('Invalid governor input');
@@ -17,12 +19,23 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
   const windowMs=finiteNumber(config.windowMs,'windowMs');
   const cooldown=finiteNumber(config.minProjectIntervalMs,'minProjectIntervalMs');
   const maxActions=Math.max(0,Math.floor(finiteNumber(config.maxActionsPerRun,'maxActionsPerRun')));
+  const fairness=config.fairness||{};
+  const agingPointsPerHour=finiteNumber(fairness.agingPointsPerHour??10,'agingPointsPerHour');
+  const maxAgingPoints=finiteNumber(fairness.maxAgingPoints??240,'maxAgingPoints');
+  const underBudgetPointsPerSlot=finiteNumber(fairness.underBudgetPointsPerSlot??12,'underBudgetPointsPerSlot');
+  const maxUnderBudgetPoints=finiteNumber(fairness.maxUnderBudgetPoints??300,'maxUnderBudgetPoints');
+  const overBudgetPenaltyPerSlot=finiteNumber(fairness.overBudgetPenaltyPerSlot??25,'overBudgetPenaltyPerSlot');
+  const maxBorrowedActionsPerRun=Math.max(0,Math.floor(finiteNumber(fairness.maxBorrowedActionsPerRun??1,'maxBorrowedActionsPerRun')));
   if(softCap<0||hardCap<softCap||reserve!==hardCap-softCap) throw new Error('Invalid deployment budget partition');
 
+  const configuredShares=config.projects.reduce((sum,p)=>sum+finiteNumber(p.normalBudgetShare??0,p.key+' normalBudgetShare'),0);
+  if(configuredShares!==softCap) throw new Error('Project normalBudgetShare values must sum to softCap');
+
   const cutoff=now-windowMs;
-  const recent=deployments.filter(row=>Number(row?.created??row?.createdAt??0)>=cutoff);
+  const recent=deployments.filter(row=>createdAt(row)>=cutoff);
   const usage=recent.length;
   const statusByKey=new Map(statuses.map(row=>[row.key,row]));
+
   const projects=config.projects.map(project=>{
     const status=statusByKey.get(project.key)||{};
     const lastDeploymentAt=Number(status.lastDeploymentAt||0);
@@ -31,6 +44,22 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
     const stale=project.mode==='workflow-dispatch'
       ? Boolean(status.headSha)&&status.headSha!==status.liveSha
       : Number(status.repoUpdatedAt||0)>lastDeploymentAt;
+    const projectUsage24h=recent.filter(row=>row?.name===project.projectName).length;
+    const normalBudgetShare=finiteNumber(project.normalBudgetShare,project.key+' normalBudgetShare');
+    const budgetRemaining=Math.max(0,normalBudgetShare-projectUsage24h);
+    const overBudgetBy=Math.max(0,projectUsage24h-normalBudgetShare);
+    const budgetState=projectUsage24h<normalBudgetShare?'UNDER_SHARE':projectUsage24h===normalBudgetShare?'AT_SHARE':'OVER_SHARE';
+    const waitMs=Math.max(0,now-(lastDeploymentAt||cutoff));
+    const waitHours=waitMs/3_600_000;
+    const agingScore=Math.min(maxAgingPoints,waitHours*agingPointsPerHour);
+    const underBudgetScore=Math.min(maxUnderBudgetPoints,budgetRemaining*underBudgetPointsPerSlot);
+    const overBudgetPenalty=overBudgetBy*overBudgetPenaltyPerSlot;
+    const fairnessScore=Number((
+      finiteNumber(project.priority??0,project.key+' priority')*10+
+      agingScore+
+      underBudgetScore-
+      overBudgetPenalty
+    ).toFixed(2));
     const eligible=stale&&!active&&cooldownReady;
     return {
       ...project,
@@ -41,22 +70,45 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
       lastDeploymentAt,
       headSha:status.headSha||null,
       liveSha:status.liveSha||null,
-      repoUpdatedAt:Number(status.repoUpdatedAt||0)
+      repoUpdatedAt:Number(status.repoUpdatedAt||0),
+      projectUsage24h,
+      normalBudgetShare,
+      budgetRemaining,
+      overBudgetBy,
+      budgetState,
+      waitHours:Number(waitHours.toFixed(2)),
+      agingScore:Number(agingScore.toFixed(2)),
+      underBudgetScore:Number(underBudgetScore.toFixed(2)),
+      overBudgetPenalty:Number(overBudgetPenalty.toFixed(2)),
+      fairnessScore
     };
   });
 
+  const compare=(a,b)=>{
+    if(a.fairnessScore!==b.fairnessScore)return b.fairnessScore-a.fairnessScore;
+    const ageOrder=(a.lastDeploymentAt||0)-(b.lastDeploymentAt||0);
+    if(ageOrder!==0)return ageOrder;
+    return String(a.key).localeCompare(String(b.key));
+  };
+  const underShare=projects.filter(p=>p.eligible&&p.budgetState!=='OVER_SHARE').sort(compare);
+  const overShare=projects.filter(p=>p.eligible&&p.budgetState==='OVER_SHARE').sort(compare);
+  const ranked=[...underShare,...overShare];
+  const rankByKey=new Map(ranked.map((p,index)=>[p.key,index+1]));
+
   const remainingNormal=Math.max(0,softCap-usage);
   const slots=Math.min(maxActions,remainingNormal);
-  const eligible=projects.filter(p=>p.eligible).sort((a,b)=>{
-    const ageOrder=(a.lastDeploymentAt||0)-(b.lastDeploymentAt||0);
-    if(ageOrder!==0) return ageOrder;
-    return Number(b.priority||0)-Number(a.priority||0);
-  });
-  const selected=usage>=softCap?[]:eligible.slice(0,slots);
+  const selected=[];
+  if(usage<softCap&&slots>0){
+    selected.push(...underShare.slice(0,slots));
+    const borrowedSlots=Math.min(maxBorrowedActionsPerRun,Math.max(0,slots-selected.length));
+    if(borrowedSlots>0)selected.push(...overShare.slice(0,borrowedSlots));
+  }
   const selectedKeys=new Set(selected.map(p=>p.key));
+
   const decisions=projects.map(project=>{
     let state='CURRENT';
     let reason='production already reflects the latest repository state';
+    const borrowedCapacity=selectedKeys.has(project.key)&&project.budgetState==='OVER_SHARE';
     if(project.active){
       state='DEFERRED';
       reason='a release is already active';
@@ -70,14 +122,24 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
       reason='team normal deployment budget is exhausted';
     }else if(!selectedKeys.has(project.key)){
       state='DEFERRED';
-      reason='normal deployment slots are reserved for older pending projects';
+      reason=project.budgetState==='OVER_SHARE'
+        ? 'project is over its normal share and recovered capacity is reserved for higher-fairness pending work'
+        : 'recovered capacity is reserved for a higher-fairness pending project';
     }else{
       state='APPROVED';
-      reason=project.mode==='workflow-dispatch'
-        ? 'dispatch guarded project release workflow'
-        : 'deploy latest linked main branch through Vercel Git source';
+      reason=borrowedCapacity
+        ? 'borrow unused normal capacity because no under-share pending project needs this slot'
+        : project.mode==='workflow-dispatch'
+          ? 'dispatch guarded project release workflow'
+          : 'deploy latest linked main branch through Vercel Git source';
     }
-    return {...project,state,reason};
+    return {
+      ...project,
+      queueRank:rankByKey.get(project.key)||null,
+      borrowedCapacity,
+      state,
+      reason
+    };
   });
 
   return {
@@ -90,6 +152,24 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
     remainingNormal,
     reserveUntouched:Math.max(0,hardCap-Math.max(usage,softCap)),
     saturated:usage>=softCap,
+    configuredShares,
+    fairnessPolicy:{
+      agingPointsPerHour,
+      maxAgingPoints,
+      underBudgetPointsPerSlot,
+      maxUnderBudgetPoints,
+      overBudgetPenaltyPerSlot,
+      maxBorrowedActionsPerRun
+    },
+    queue:ranked.map(project=>({
+      key:project.key,
+      projectName:project.projectName,
+      queueRank:rankByKey.get(project.key),
+      fairnessScore:project.fairnessScore,
+      budgetState:project.budgetState,
+      projectUsage24h:project.projectUsage24h,
+      normalBudgetShare:project.normalBudgetShare
+    })),
     decisions
   };
 }
