@@ -106,7 +106,7 @@ export function parseApiSports(payload:unknown,source='api-sports'):LiveGameStat
       sport:str(m.sport)||str(league.type)||'Multi',
       league:str(league.name)||'Multi',source,
       status:status(st),detail:st,
-      clock:str(statusNode.elapsed)||undefined,
+      clock:statusNode.elapsed==null?undefined:String(statusNode.elapsed),
       startTime:str(fixture.date)||str(game.date)||str(m.date)||undefined,
       home:{name:str(home.name)||'Home',score:num(goals.home)??num(obj(scores.home).total)??num(m.home_score)},
       away:{name:str(away.name)||'Away',score:num(goals.away)??num(obj(scores.away).total)??num(m.away_score)},
