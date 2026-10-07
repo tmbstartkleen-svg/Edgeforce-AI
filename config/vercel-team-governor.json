@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "v139-team-vercel-governor-1",
+  "teamId": "team_XlvGJkid1lgNPLVGPJn1ScEr",
+  "softCap": 84,
+  "hardCap": 90,
+  "emergencyReserve": 6,
+  "windowMs": 86400000,
+  "minProjectIntervalMs": 3300000,
+  "maxActionsPerRun": 3,
+  "projects": [
+    {
+      "key": "edgeforce",
+      "projectId": "prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo",
+      "projectName": "edgeforce-ai",
+      "repo": "Edgeforce-AI",
+      "repoId": 1393696808,
+      "mode": "workflow-dispatch",
+      "workflow": "deploy-production.yml",
+      "priority": 100
+    },
+    {
+      "key": "safeguard",
+      "projectId": "prj_g7S3xtYRz1TVpnmCmQR9ZbJ1ujY7",
+      "projectName": "safeguard",
+      "repo": "Safeguard",
+      "repoId": 1373957308,
+      "mode": "vercel-git",
+      "priority": 90
+    },
+    {
+      "key": "travai",
+      "projectId": "prj_hoGp45Adl6IuWxGNptfecYqB1geE",
+      "projectName": "travai",
+      "repo": "TravAI",
+      "repoId": 1393788508,
+      "mode": "vercel-git",
+      "priority": 80
+    }
+  ]
+}
