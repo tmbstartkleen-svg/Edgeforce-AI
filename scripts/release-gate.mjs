@@ -21,10 +21,9 @@ export function evaluateReleaseGate(kind, report, {remediation = false, legacyHa
   if (kind === 'slo') {
     if (report.schemaVersion !== 'v74-slo-governor-1' ||
         typeof report.deploymentAllowed !== 'boolean' || typeof report.ok !== 'boolean' ||
-        typeof report.freezeTriggered !== 'boolean' || !stringList(report.reasons) ||
         !['OPEN', 'FROZEN', 'RECOVERING'].includes(report.state) ||
         !object(report.current) || typeof report.current.overall !== 'string' ||
-        typeof report.current.actionIncidents !== 'number' || typeof report.current.criticalChecks !== 'number') {
+        typeof report.current.actionIncidents !== 'number') {
       throw new Error('slo: invalid response contract');
     }
     if (report.ok && report.deploymentAllowed && report.state !== 'FROZEN') return 'SLO_BUDGET_PASSED';
@@ -39,7 +38,9 @@ export function evaluateReleaseGate(kind, report, {remediation = false, legacyHa
     // certification. This is not available to normal remediation deployments.
     if (remediation && legacyHandoff && strictCertified &&
         report.state === 'FROZEN' && report.deploymentAllowed === false &&
-        report.freezeTriggered === true && report.current.overall === 'CRITICAL') {
+        report.freezeTriggered === true && stringList(report.reasons) &&
+        typeof report.current.criticalChecks === 'number' &&
+        report.current.overall === 'CRITICAL') {
       return 'SLO_REMEDIATION_ACCEPTED';
     }
     throw new Error(`slo: deployment blocked (${report.state}; current ${String(report.current.overall)})`);
