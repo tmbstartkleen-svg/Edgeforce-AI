@@ -55,7 +55,89 @@ test('V139 central workflow preserves Edgeforce gated release and uses linked Gi
   assert.match(workflow,/cron: '17 \* \* \* \*'/);
   assert.match(workflow,/deploy-production\.yml\/dispatches/);
   assert.match(workflow,/v13\/deployments\?teamId=\$TEAM_ID&forceNew=0/);
-  assert.match(workflow,/deploymentGovernor:"edgeforce-v139"/);
+  assert.match(workflow,/deploymentGovernor:"edgeforce-v142"/);
   assert.match(workflow,/v1\/integrations\/search-repo\?provider=github/);
   assert.doesNotMatch(workflow,/--force/);
+});
+
+
+const namedDeployments=(counts)=>{
+  const rows=[];
+  for(const [name,count] of Object.entries(counts)){
+    for(let i=0;i<count;i++)rows.push({name,created:now-60_000-rows.length});
+  }
+  return rows;
+};
+
+test('V142 project shares exactly partition the 84-slot normal budget',()=>{
+  assert.equal(config.schemaVersion,'v142-team-vercel-governor-2');
+  assert.equal(config.projects.reduce((sum,p)=>sum+p.normalBudgetShare,0),config.softCap);
+  assert.deepEqual(
+    Object.fromEntries(config.projects.map(p=>[p.key,p.normalBudgetShare])),
+    {edgeforce:34,safeguard:28,travai:22}
+  );
+});
+
+test('V142 under-share pending work outranks a high-volume over-share project',()=>{
+  const plan=evaluateTeamGovernor({
+    config,
+    deployments:namedDeployments({'edgeforce-ai':20,safeguard:40,travai:20}),
+    statuses:status(),
+    now
+  });
+  const edge=plan.decisions.find(x=>x.key==='edgeforce');
+  const safe=plan.decisions.find(x=>x.key==='safeguard');
+  assert.equal(edge.budgetState,'UNDER_SHARE');
+  assert.equal(safe.budgetState,'OVER_SHARE');
+  assert.ok(edge.queueRank<safe.queueRank);
+  assert.ok(edge.fairnessScore>safe.fairnessScore);
+});
+
+test('V142 aging raises fairness without overriding the shared hard capacity gate',()=>{
+  const aged=status({
+    edgeforce:{lastDeploymentAt:now-23*3_600_000},
+    safeguard:{lastDeploymentAt:now-2*3_600_000},
+    travai:{lastDeploymentAt:now-2*3_600_000}
+  });
+  const plan=evaluateTeamGovernor({
+    config,
+    deployments:namedDeployments({'edgeforce-ai':30,safeguard:27,travai:26}),
+    statuses:aged,
+    now
+  });
+  const edge=plan.decisions.find(x=>x.key==='edgeforce');
+  assert.ok(edge.agingScore>200);
+  assert.equal(plan.usage,83);
+  assert.equal(plan.decisions.filter(x=>x.state==='APPROVED').length,1);
+});
+
+test('V142 permits at most one over-share borrower after under-share demand is satisfied',()=>{
+  const local=structuredClone(config);
+  local.maxActionsPerRun=3;
+  const plan=evaluateTeamGovernor({
+    config:local,
+    deployments:namedDeployments({'edgeforce-ai':35,safeguard:29,travai:18}),
+    statuses:status({
+      edgeforce:{lastDeploymentAt:now-9_000_000},
+      safeguard:{lastDeploymentAt:now-10_000_000},
+      travai:{lastDeploymentAt:now-11_000_000}
+    }),
+    now
+  });
+  const approved=plan.decisions.filter(x=>x.state==='APPROVED');
+  const borrowed=approved.filter(x=>x.borrowedCapacity);
+  assert.equal(approved.some(x=>x.key==='travai'),true);
+  assert.ok(borrowed.length<=config.fairness.maxBorrowedActionsPerRun);
+});
+
+test('V142 queue exposes rank, fairness score, share usage, and budget state',()=>{
+  const plan=evaluateTeamGovernor({
+    config,
+    deployments:namedDeployments({'edgeforce-ai':10,safeguard:10,travai:10}),
+    statuses:status(),
+    now
+  });
+  assert.ok(plan.queue.length===3);
+  assert.ok(plan.queue.every(row=>Number.isInteger(row.queueRank)&&Number.isFinite(row.fairnessScore)));
+  assert.ok(plan.queue.every(row=>row.normalBudgetShare>0&&row.projectUsage24h===10));
 });

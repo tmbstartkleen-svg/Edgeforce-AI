@@ -141,6 +141,7 @@ jobs:
           {
             echo "### Team Vercel governor"
             jq -r '"Usage: **\(.usage) / \(.softCap)** normal slots; hard cap **\(.hardCap)**; emergency reserve **\(.emergencyReserve)**."' /tmp/vercel-team-plan.json
+            jq -r '.queue[] | "- Queue **#\(.queueRank)** — **\(.projectName)** — score **\(.fairnessScore)** — usage/share **\(.projectUsage24h)/\(.normalBudgetShare)** — \(.budgetState)"' /tmp/vercel-team-plan.json
             jq -r '.decisions[] | "- **\(.projectName)**: \(.state) — \(.reason)"' /tmp/vercel-team-plan.json
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -155,6 +156,10 @@ jobs:
             PROJECT_NAME=$(printf '%s' "$decision" | jq -r '.projectName')
             REPO=$(printf '%s' "$decision" | jq -r '.repo')
             REPO_ID=$(printf '%s' "$decision" | jq -r '.repoId')
+            QUEUE_RANK=$(printf '%s' "$decision" | jq -r '.queueRank // 0')
+            FAIRNESS_SCORE=$(printf '%s' "$decision" | jq -r '.fairnessScore // 0')
+            BUDGET_STATE=$(printf '%s' "$decision" | jq -r '.budgetState // "UNKNOWN"')
+            BORROWED=$(printf '%s' "$decision" | jq -r '.borrowedCapacity // false')
 
             if [ "$MODE" = "workflow-dispatch" ]; then
               curl --fail --silent --show-error -X POST \
@@ -172,7 +177,11 @@ jobs:
               --arg project "$PROJECT_ID" \
               --arg repo "$REPO" \
               --argjson repoId "$REPO_ID" \
-              '{name:$name,project:$project,target:"production",gitSource:{type:"github",repoId:$repoId,ref:"main"},meta:{deploymentGovernor:"edgeforce-v139"}}')
+              --arg queueRank "$QUEUE_RANK" \
+              --arg fairnessScore "$FAIRNESS_SCORE" \
+              --arg budgetState "$BUDGET_STATE" \
+              --arg borrowed "$BORROWED" \
+              '{name:$name,project:$project,target:"production",gitSource:{type:"github",repoId:$repoId,ref:"main"},meta:{deploymentGovernor:"edgeforce-v142",governorQueueRank:$queueRank,governorFairnessScore:$fairnessScore,governorBudgetState:$budgetState,governorBorrowedCapacity:$borrowed}}')
             curl --fail --silent --show-error --connect-timeout 10 --max-time 60 \
               -X POST \
               -H "Authorization: Bearer $VERCEL_TOKEN" \

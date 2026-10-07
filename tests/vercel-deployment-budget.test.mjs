@@ -53,7 +53,7 @@ test('V138 retry safety is preserved by the V139 team governor',()=>{
  assert.match(retryWorkflow,/api\.vercel\.com\/v6\/deployments\?teamId=\$TEAM_ID&limit=100/);
  assert.match(retryWorkflow,/ACTIVE_COUNT/);
  assert.match(retryWorkflow,/actions\/workflows\/deploy-production\.yml\/dispatches/);
- assert.match(retryWorkflow,/deploymentGovernor:\"edgeforce-v139\"/);
+ assert.match(retryWorkflow,/deploymentGovernor:\"edgeforce-v142\"/);
 });
 
 test('V139 team governor avoids project-scoped counting for the shared budget',()=>{

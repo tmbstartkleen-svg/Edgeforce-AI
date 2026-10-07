@@ -8,7 +8,7 @@ const expected={
  appVersion:'119.0.0',
  packageVersion:'0.119.0',
  modelVersion:'edgeforce-v119',
- migrationVersion:116
+ migrationVersion:117
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -1101,6 +1101,17 @@ add('V141 mandatory regression',exists('tests/vercel-governor-recovery.test.mjs'
 add('V141 exact scheduled budget accounting',read('.github/workflows/team-vercel-governor.yml').includes('Capture exact team deployment usage')&&read('.github/workflows/team-vercel-governor.yml').includes('until=$UNTIL')&&read('.github/workflows/team-vercel-governor.yml').includes('unique_by(.id)'),'hourly governor pages the complete trailing deployment window instead of truncating at 100');
 add('V141 scheduled capacity alerts',read('.github/workflows/team-vercel-governor.yml').includes('Vercel normal capacity available')&&read('.github/workflows/team-vercel-governor.yml').includes('Vercel emergency reserve active')&&read('.github/workflows/team-vercel-governor.yml').includes('Vercel hard-cap block active'),'hourly governor publishes capacity-state annotations from exact usage');
 add('V141 release notes',exists('EDGEFORCE_V141_RELEASE.md'),'V141 release documentation exists');
+add('V142 exact project share partition',read('config/vercel-team-governor.json').includes('"schemaVersion": "v142-team-vercel-governor-2"')&&read('config/vercel-team-governor.json').includes('"normalBudgetShare": 34')&&read('config/vercel-team-governor.json').includes('"normalBudgetShare": 28')&&read('config/vercel-team-governor.json').includes('"normalBudgetShare": 22'),'Edgeforce, Safeguard and TravAI shares exactly partition the 84 normal slots');
+add('V142 fairness scoring',read('scripts/team-vercel-governor.mjs').includes('agingScore')&&read('scripts/team-vercel-governor.mjs').includes('underBudgetScore')&&read('scripts/team-vercel-governor.mjs').includes('overBudgetPenalty')&&read('scripts/team-vercel-governor.mjs').includes('fairnessScore'),'allocator combines project priority, waiting age, under-share credit and over-share penalty');
+add('V142 under-share queue precedence',read('scripts/team-vercel-governor.mjs').includes('const ranked=[...underShare,...overShare]')&&read('scripts/team-vercel-governor.mjs').includes('maxBorrowedActionsPerRun'),'under-share demand is served before bounded borrowed normal capacity');
+add('V142 automatic reserve isolation',read('scripts/team-vercel-governor.mjs').includes('if(usage<softCap&&slots>0)')&&read('.github/workflows/team-vercel-manual-release.yml').includes('HARD_CAP: "90"'),'automatic allocation remains below 84 while emergency reserve stays manual and hard-capped');
+add('V142 allocation evidence metadata',read('.github/workflows/team-vercel-governor.yml').includes('governorQueueRank')&&read('.github/workflows/team-vercel-governor.yml').includes('governorFairnessScore')&&read('.github/workflows/team-vercel-governor.yml').includes('deploymentGovernor:"edgeforce-v142"'),'peer deployments carry queue and fairness evidence from the allocator');
+add('V142 durable allocation history',read('db/v117.sql').includes('queue_rank int')&&read('db/v117.sql').includes('fairness_score numeric')&&read('db/v117.sql').includes('normal_budget_share int')&&read('db/v117.sql').includes('borrowed_capacity boolean'),'v117 persists queue rank, fairness, share usage and borrowed-capacity evidence');
+add('V142 live fair-share telemetry',read('src/lib/vercelGovernorTelemetry.ts').includes("schemaVersion:'v142-governor-telemetry-2'")&&read('src/lib/vercelGovernorTelemetry.ts').includes('normalBudgetShare')&&read('src/lib/vercelGovernorTelemetry.ts').includes('queueRank')&&read('src/lib/vercelGovernorTelemetry.ts').includes('fairnessScore'),'server telemetry exposes the same fair-share state used by the allocator');
+add('V142 dashboard queue evidence',read('src/components/VercelGovernorPanel.tsx').includes('V142 VERCEL TEAM GOVERNOR')&&read('src/components/VercelGovernorPanel.tsx').includes('BORROWED')&&read('src/components/VercelGovernorPanel.tsx').includes('fairnessScore'),'dashboard shows queue rank, score, share state and borrowed capacity');
+add('V142 health capability',read('src/app/api/health/route.ts').includes('vercelGovernorFairShareAllocation:true')&&read('scripts/smoke.mjs').includes('Vercel governor fair-share allocation flag missing'),'health and smoke contracts advertise fair-share allocation');
+add('V142 mandatory fair-share regression',exists('tests/vercel-governor-fairness.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/vercel-governor-fairness.test.mjs'),'V142 queue and allocation evidence tests are mandatory');
+add('V142 release notes',exists('EDGEFORCE_V142_RELEASE.md'),'V142 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
