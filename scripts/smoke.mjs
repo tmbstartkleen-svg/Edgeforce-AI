@@ -675,6 +675,10 @@ assert(topologyWatchdogTest.body?.assertions?.driftAllowed===true,'topology watc
 assert(topologyWatchdogTest.body?.assertions?.automaticPromotionDisabled===true,'topology watchdog automatic promotion policy regressed');
 assert(topologyWatchdogTest.body?.assertions?.badStandbyBlocks===true,'topology watchdog standby failure gate regressed');
 assert(topologyWatchdogTest.body?.assertions?.staleClosureBlocks===true,'topology watchdog stale closure gate regressed');
+assert(health.body?.liveScoreFreshnessGovernor===true,'live score freshness governor flag missing');
+assert(health.body?.sourceAwareLiveScoreReconciliation===true,'live score reconciliation flag missing');
+assert(health.body?.espnCdnFastPathPreserved===true,'ESPN CDN fast path flag missing');
+assert(health.body?.adaptiveLiveBoardPolling===true,'adaptive live board polling flag missing');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
