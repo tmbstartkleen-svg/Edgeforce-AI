@@ -335,13 +335,14 @@ def hyperparameters(estimator) -> dict[str, Any]:
 
 def train_candidate(name: str, group: TrainingGroup) -> tuple[dict[str, Any], Any]:
     rows = sorted(group.rows, key=lambda row: row.occurredAt)[-MAX_ROWS_PER_GROUP:]
-    if len(rows) < MIN_SAMPLE:
-        raise ValueError(f"insufficient sample: {len(rows)}/{MIN_SAMPLE}")
 
     x = np.asarray([row.features for row in rows], dtype=float)
     y = np.asarray([row.outcome for row in rows], dtype=int)
     market = np.asarray([row.marketProbability for row in rows], dtype=float)
     evidence_weight = np.asarray([row.evidenceWeight for row in rows], dtype=float)
+    effective_sample_size = float(evidence_weight.sum())
+    if effective_sample_size < MIN_SAMPLE:
+        raise ValueError(f"insufficient effective sample: {effective_sample_size:.2f}/{MIN_SAMPLE} from {len(rows)} raw rows")
     if x.ndim != 2 or x.shape[1] != len(group.featureNames):
         raise ValueError("feature shape does not match featureNames")
     if len(np.unique(y)) < 2:
@@ -356,8 +357,9 @@ def train_candidate(name: str, group: TrainingGroup) -> tuple[dict[str, Any], An
     hold_x, hold_y = x[calibration_end:], y[calibration_end:]
     hold_weight = evidence_weight[calibration_end:]
     hold_market = market[calibration_end:]
-    if len(hold_y) < MIN_HOLDOUT or len(np.unique(train_y)) < 2 or len(np.unique(cal_y)) < 2:
-        raise ValueError("insufficient chronological calibration/holdout diversity")
+    holdout_effective_sample_size = float(hold_weight.sum())
+    if holdout_effective_sample_size < MIN_HOLDOUT or len(np.unique(train_y)) < 2 or len(np.unique(cal_y)) < 2:
+        raise ValueError(f"insufficient chronological calibration/holdout evidence: holdout effective {holdout_effective_sample_size:.2f}/{MIN_HOLDOUT}")
 
     estimator = estimator_for(name)
     started = time.time()
@@ -399,7 +401,7 @@ def train_candidate(name: str, group: TrainingGroup) -> tuple[dict[str, Any], An
         "serviceModelId": model_id,
         "artifactUri": str(artifact_path),
         "sampleSize": len(rows),
-        "effectiveSampleSize": float(evidence_weight.sum()),
+        "effectiveSampleSize": effective_sample_size,
         "trainSize": len(train_y),
         "trainEffectiveSampleSize": float(train_weight.sum()),
         "calibrationSize": len(cal_y),
