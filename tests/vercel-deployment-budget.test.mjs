@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 
 const workflow=readFileSync(new URL('../.github/workflows/deploy-production.yml',import.meta.url),'utf8');
-const retryWorkflow=readFileSync(new URL('../.github/workflows/retry-production-on-budget.yml',import.meta.url),'utf8');
+const retryWorkflow=readFileSync(new URL('../.github/workflows/team-vercel-governor.yml',import.meta.url),'utf8');
 const budgetStep=()=>{
  const marker='      - name: Check Vercel 24h deployment budget\n';
  const start=workflow.indexOf(marker);
@@ -48,18 +48,19 @@ test('V138 budget preflight gates the expensive production job before checkout o
  assert.match(workflow,/Deferring production before checkout, install, test, build, or upload/);
 });
 
-test('V138 hourly retry is bounded by live identity, active runs, and recovered team capacity',()=>{
- assert.match(retryWorkflow,/cron: '23 \* \* \* \*'/);
- assert.match(retryWorkflow,/api\.vercel\.com\/v4\/aliases\/\$PRODUCTION_ALIAS\?projectId=\$VERCEL_PROJECT_ID&teamId=\$VERCEL_ORG_ID/);
- assert.match(retryWorkflow,/LIVE_COMMIT.*HEAD_SHA/);
- assert.match(retryWorkflow,/status==\"queued\" or \.status==\"in_progress\"/);
- assert.match(retryWorkflow,/api\.vercel\.com\/v6\/deployments\?teamId=\$VERCEL_ORG_ID&limit=100/);
- assert.doesNotMatch(retryWorkflow,/v6\/deployments\?projectId=/);
+test('V138 retry safety is preserved by the V139 team governor',()=>{
+ assert.match(retryWorkflow,/cron: '17 \* \* \* \*'/);
+ assert.match(retryWorkflow,/api\.vercel\.com\/v6\/deployments\?teamId=\$TEAM_ID&limit=100/);
+ assert.match(retryWorkflow,/ACTIVE_COUNT/);
  assert.match(retryWorkflow,/actions\/workflows\/deploy-production\.yml\/dispatches/);
+ assert.match(retryWorkflow,/deploymentGovernor:\"edgeforce-v139\"/);
 });
 
-test('V138 retry never dispatches when production is current or budget remains constrained',()=>{
- assert.match(retryWorkflow,/if \[ \"\$LIVE_COMMIT\" = \"\$HEAD_SHA\" \]; then[\s\S]*dispatch=false/);
- assert.match(retryWorkflow,/if \[ \"\$COUNT\" -ge \"\$MAX\" \]; then[\s\S]*dispatch=false/);
- assert.match(retryWorkflow,/if: steps\.gate\.outputs\.dispatch == 'true'/);
+test('V139 team governor avoids project-scoped counting for the shared budget',()=>{
+ const sharedCapture=retryWorkflow.slice(
+   retryWorkflow.indexOf('Capture team deployment usage'),
+   retryWorkflow.indexOf('Capture governed project state')
+ );
+ assert.match(sharedCapture,/v6\/deployments\?teamId=\$TEAM_ID&limit=100/);
+ assert.doesNotMatch(sharedCapture,/projectId=/);
 });
