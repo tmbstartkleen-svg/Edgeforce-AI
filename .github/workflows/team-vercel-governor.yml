@@ -33,15 +33,28 @@ jobs:
       - name: Verify governor credential
         run: test -n "$VERCEL_TOKEN"
 
-      - name: Capture team deployment usage
+      - name: Capture exact team deployment usage
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v6/deployments?teamId=$TEAM_ID&limit=100" \
-            --output /tmp/vercel-team-response.json
-          jq '.deployments // .result.deployments.deployments // []' /tmp/vercel-team-response.json > /tmp/vercel-team-deployments.json
+          SINCE_MS=$(( ($(date +%s) - 86400) * 1000 ))
+          printf '[]' > /tmp/vercel-team-deployments.json
+          UNTIL=""
+          for PAGE in 1 2 3 4 5 6; do
+            URL="https://api.vercel.com/v6/deployments?teamId=$TEAM_ID&limit=100&since=$SINCE_MS"
+            if [ -n "$UNTIL" ]; then URL="$URL&until=$UNTIL"; fi
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "$URL" --output /tmp/vercel-team-page.json
+            jq -s '.[0] + (.[1].deployments // [])' /tmp/vercel-team-deployments.json /tmp/vercel-team-page.json > /tmp/vercel-team-deployments.next
+            mv /tmp/vercel-team-deployments.next /tmp/vercel-team-deployments.json
+            NEXT=$(jq -r '.pagination.next // empty' /tmp/vercel-team-page.json)
+            if [ -z "$NEXT" ]; then break; fi
+            UNTIL="$NEXT"
+          done
+          jq --argjson since "$SINCE_MS" '[.[] | select(((.created // .createdAt // 0) | tonumber) >= $since)] | unique_by(.id)' /tmp/vercel-team-deployments.json > /tmp/vercel-team-deployments.filtered
+          mv /tmp/vercel-team-deployments.filtered /tmp/vercel-team-deployments.json
+          echo "Exact trailing-24h team deployment count: $(jq 'length' /tmp/vercel-team-deployments.json)"
 
       - name: Capture governed project state
         shell: bash
@@ -115,6 +128,16 @@ jobs:
           cat /tmp/vercel-team-plan.json
           APPROVED=$(jq '[.decisions[] | select(.state=="APPROVED")] | length' /tmp/vercel-team-plan.json)
           echo "approved=$APPROVED" >> "$GITHUB_OUTPUT"
+          USAGE=$(jq -r '.usage' /tmp/vercel-team-plan.json)
+          SOFT=$(jq -r '.softCap' /tmp/vercel-team-plan.json)
+          HARD=$(jq -r '.hardCap' /tmp/vercel-team-plan.json)
+          if [ "$USAGE" -lt "$SOFT" ]; then
+            echo "::notice title=Vercel normal capacity available::Team usage is $USAGE/$SOFT normal slots."
+          elif [ "$USAGE" -lt "$HARD" ]; then
+            echo "::warning title=Vercel emergency reserve active::Team usage is $USAGE/$HARD; normal automation is frozen."
+          else
+            echo "::warning title=Vercel hard-cap block active::Team usage is $USAGE/$HARD; all release paths remain blocked."
+          fi
           {
             echo "### Team Vercel governor"
             jq -r '"Usage: **\(.usage) / \(.softCap)** normal slots; hard cap **\(.hardCap)**; emergency reserve **\(.emergencyReserve)**."' /tmp/vercel-team-plan.json
