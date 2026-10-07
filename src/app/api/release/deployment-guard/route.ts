@@ -19,7 +19,7 @@ export async function POST(req:Request){
  if(!body.baseline)return Response.json({ok:false,error:'baseline required'},{status:400});
  const baseline=normalizeDeploymentBaseline(body.baseline);
  const candidate=await captureDeploymentGuardSnapshot();
- const result=evaluateDeploymentGuard(baseline,candidate);
+ const result=evaluateDeploymentGuard(baseline,candidate,{legacyHandoff:body.legacyHandoff===true});
  const persistence=await persistDeploymentGuardRun({launchId:body.launchId?String(body.launchId):null,baseline,candidate,result});
  return Response.json({ok:result.decision==='PASS',build:'V73',schemaVersion:'v73-deployment-guard-1',baseline,candidate,...result,persistence},{
   status:200,

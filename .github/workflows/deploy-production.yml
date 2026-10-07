@@ -259,6 +259,7 @@ jobs:
         run: |
           HEALTH=$(vercel curl "/api/health" --deployment "$PREVIOUS_DEPLOYMENT_URL")
           printf '%s' "$HEALTH" | jq -e 'type=="object" and .ok==true' >/dev/null
+          LEGACY_TELEMETRY_UNAVAILABLE=false
           set +e
           OBS_RAW=$(vercel curl "/api/operations/observability" --deployment "$PREVIOUS_DEPLOYMENT_URL" 2>/tmp/edgeforce-baseline-observability.err)
           REL_RAW=$(vercel curl "/api/intelligence/reliability" --deployment "$PREVIOUS_DEPLOYMENT_URL" 2>/tmp/edgeforce-baseline-reliability.err)
@@ -268,23 +269,26 @@ jobs:
             OBS="$OBS_RAW"
           else
             OBS='{"overall":"LEGACY","score":0.5,"summary":{"critical":0,"degraded":0},"automation":{"failedCount":0,"staleCount":0},"incidents":{"action":0,"watch":0},"freshness":{}}'
+            LEGACY_TELEMETRY_UNAVAILABLE=true
           fi
           if printf '%s' "$REL_RAW" | jq -e 'type=="object"' >/dev/null 2>&1; then
             REL="$REL_RAW"
           else
             REL='{"mode":"LEGACY","score":0.55,"openComponents":[],"halfOpenComponents":[]}'
+            LEGACY_TELEMETRY_UNAVAILABLE=true
           fi
           if printf '%s' "$READY_RAW" | jq -e 'type=="object"' >/dev/null 2>&1; then
             READY="$READY_RAW"
           else
             READY='{"ready":true,"productionReady":true,"legacyHealthFallback":true}'
           fi
-          BASELINE_JSON=$(jq -cn --argjson obs "$OBS" --argjson rel "$REL" --argjson ready "$READY" --argjson health "$HEALTH" '{
+          BASELINE_JSON=$(jq -cn --argjson obs "$OBS" --argjson rel "$REL" --argjson ready "$READY" --argjson health "$HEALTH" --arg legacyTelemetryUnavailable "$LEGACY_TELEMETRY_UNAVAILABLE" '{
             releaseVersion:($health.version // null),
             modelVersion:($health.modelVersion // null),
             ready:($ready.ready // false),
             productionReady:($ready.productionReady // $ready.ready // false),
             certified:($ready.productionReady // $ready.ready // false),
+            legacyTelemetryUnavailable:($legacyTelemetryUnavailable=="true"),
             observabilityOverall:($obs.overall // "UNKNOWN"),
             observabilityScore:($obs.score // 0.5),
             criticalChecks:($obs.summary.critical // 0),
@@ -606,7 +610,7 @@ jobs:
           BASELINE_JSON=$(printf '%s' "$DEPLOYMENT_BASELINE_B64" | base64 --decode)
           PASSES=0
           for ATTEMPT in 1 2 3; do
-            BODY=$(jq -cn --argjson baseline "$BASELINE_JSON" --arg launchId "$LAUNCH_ID" '{baseline:$baseline,launchId:$launchId}')
+            BODY=$(jq -cn --argjson baseline "$BASELINE_JSON" --arg launchId "$LAUNCH_ID" --arg legacyHandoff "${EDGEFORCE_LEGACY_REMEDIATION_HANDOFF:-false}" '{baseline:$baseline,launchId:$launchId,legacyHandoff:($legacyHandoff=="true")}')
             HTTP_CODE=$(vercel curl "/api/release/deployment-guard" --deployment "$PRODUCTION_URL" \
               -X POST -H "Authorization: Bearer $INGEST_SECRET" -H "Content-Type: application/json" \
               --data "$BODY" --silent --show-error --max-time 120 \

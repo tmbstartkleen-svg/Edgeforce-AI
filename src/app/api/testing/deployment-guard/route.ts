@@ -5,6 +5,7 @@ export const dynamic='force-dynamic';
 
 const base:DeploymentGuardSnapshot={
  releaseVersion:RELEASE.appVersion,modelVersion:RELEASE.modelVersion,ready:true,productionReady:true,certified:true,
+ legacyTelemetryUnavailable:false,
  observabilityOverall:'HEALTHY',observabilityScore:.91,criticalChecks:0,degradedChecks:0,
  reliabilityMode:'NORMAL',reliabilityScore:.94,openCircuits:0,halfOpenCircuits:0,
  automationFailed:0,automationStale:0,actionIncidents:0,watchIncidents:0,
