@@ -2,6 +2,7 @@ import {db} from './db';
 import {summarizeBacktest,walkForward,type HistoricalPrediction} from './backtest';
 import {calibrationSummary} from './modelCalibration';
 import {rollingModelPerformance} from './modelPerformance';
+import {settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
 
 export type RecalibrationOptions={
  minSample:number;
@@ -130,13 +131,15 @@ export async function runRecalibration(options=defaultRecalibrationOptions()){
  try{
   const rows=await sql`
    select occurred_at as "occurredAt",sport,market_key as "marketKey",model_name as "modelName",
-    predicted_probability::float as predicted,offered_odds as odds,closing_odds as "closingOdds",outcome
+    predicted_probability::float as predicted,offered_odds as odds,closing_odds as "closingOdds",outcome,features
    from historical_predictions
    where outcome is not null
    order by occurred_at desc
    limit ${options.lookbackRows}
   `;
-  const history=rows as unknown as HistoricalPrediction[];
+  const allHistory=rows as unknown as HistoricalPrediction[];
+  const learningSummary=summarizeSettlementLearning(allHistory);
+  const history=allHistory.filter(row=>settlementLearningFromFeatures(row.features).trainingEligible);
   const groups=evaluateRecalibration(history,options);
 
   for(const g of groups){
@@ -179,10 +182,10 @@ export async function runRecalibration(options=defaultRecalibrationOptions()){
    update recalibration_runs set
     completed_at=now(),status='completed',prediction_rows=${history.length},
     groups_evaluated=${groups.length},groups_promoted=${promoted},groups_held=${groups.length-promoted},
-    metrics=${sql.json({options,topAdjustments:groups.filter(x=>x.promoted).slice(0,20)})}
+    metrics=${sql.json({options,settlementLearning:learningSummary,topAdjustments:groups.filter(x=>x.promoted).slice(0,20)})}
    where id=${run.id}
   `;
-  return {ok:true,mode:'database' as const,runId:Number(run.id),rows:history.length,groups,promoted,held:groups.length-promoted,options};
+  return {ok:true,mode:'database' as const,runId:Number(run.id),rows:history.length,rowsRead:allHistory.length,rowsExcludedByEvidence:learningSummary.excluded,settlementLearning:learningSummary,groups,promoted,held:groups.length-promoted,options};
  }catch(error){
   await sql`
    update recalibration_runs set completed_at=now(),status='failed',error_text=${error instanceof Error?error.message:'recalibration failed'}

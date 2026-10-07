@@ -6,6 +6,7 @@ import {
 } from './trainedSportModels';
 import {mlServiceCircuitAllows,probeMlService,recordMlServiceFailure,recordMlServiceSuccess} from './mlServiceHealth';
 import {startShadowLeague} from './mlShadowRecovery';
+import {settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
 
 type ServiceCandidate={
  algorithm:string;
@@ -230,11 +231,13 @@ export async function runExternalMlTournament(){
    order by occurred_at desc
    limit ${lookback}
   `;
-  const history=(rows as any[]).map(r=>({
+  const allHistory=(rows as any[]).map(r=>({
    occurredAt:new Date(r.occurredAt).toISOString(),
    sport:String(r.sport),marketKey:String(r.marketKey),predicted:Number(r.predicted),
    odds:Number(r.odds),outcome:Number(r.outcome) as 0|1,features:obj(r.features)
   })) as TrainingHistoryRow[];
+  const learningSummary=summarizeSettlementLearning(allHistory);
+  const history=allHistory.filter(row=>settlementLearningFromFeatures(row.features).trainingEligible);
 
   const groups=groupHistory(history,minSample,maxRows);
   const payload=groups.map(group=>{
@@ -362,7 +365,7 @@ export async function runExternalMlTournament(){
     champions_promoted=${promoted},challengers_retained=${challengers},
     metrics=${sql.json({
      algorithmsAvailable:algorithmsAvailable,
-     promotionMargin,minSample,maxRows,
+     promotionMargin,minSample,maxRows,settlementLearning:learningSummary,
      serviceGroups:responseGroups.length,groupBatchSize,shadowsStarted,shadowsRetained
     })}
    where id=${run.id}
@@ -370,7 +373,7 @@ export async function runExternalMlTournament(){
 
   return {
    ok:true,mode:'service' as const,configured:true,runId:Number(run.id),
-   serviceVersion:serviceVersion,rows:history.length,groups:payload.length,
+   serviceVersion:serviceVersion,rows:history.length,rowsRead:allHistory.length,rowsExcludedByEvidence:learningSummary.excluded,settlementLearning:learningSummary,groups:payload.length,
    candidates:candidatesEvaluated,promoted,challengers,shadowsStarted,shadowsRetained,
    algorithmsAvailable:algorithmsAvailable
   };
