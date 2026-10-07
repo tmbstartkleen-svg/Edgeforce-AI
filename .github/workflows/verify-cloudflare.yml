@@ -6,15 +6,22 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: edgeforce-verify-cloudflare-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   vinext-workers:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
       - name: Cloudflare preflight
         run: npm run preflight:cloudflare
       - name: TypeScript gate
