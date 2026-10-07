@@ -14,7 +14,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  budget-preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.budget.outputs.allowed }}
+      count: ${{ steps.budget.outputs.count }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
+      VERCEL_DEPLOYMENT_BUDGET_MAX: "90"
+    steps:
+      - name: Verify deployment credential
+        run: test -n "$VERCEL_TOKEN"
+
+      - name: Check Vercel team deployment budget before build
+        id: budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX="${VERCEL_DEPLOYMENT_BUDGET_MAX:-90}"
+          if ! [[ "$MAX" =~ ^[0-9]+$ ]]; then
+            echo "VERCEL_DEPLOYMENT_BUDGET_MAX must be a non-negative integer"
+            exit 1
+          fi
+          if [ "$MAX" -eq 0 ]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "Vercel deployment budget guard disabled by configuration"
+            exit 0
+          fi
+          SINCE_MS=$(( ($(date +%s) - 86400) * 1000 ))
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?teamId=$VERCEL_ORG_ID&limit=100" \
+            --output /tmp/edgeforce-vercel-deployments.json
+          COUNT=$(jq --argjson since "$SINCE_MS" '[.deployments[]? | select(((.created // .createdAt // 0) | tonumber) >= $since)] | length' /tmp/edgeforce-vercel-deployments.json)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$COUNT" -ge "$MAX" ]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            echo "Vercel team deployment budget is $COUNT / $MAX. Deferring production before checkout, install, test, build, or upload."
+            {
+              echo "### Vercel production deferred"
+              echo "Team usage is **$COUNT / $MAX** in the trailing 24 hours."
+              echo "The production job was skipped before expensive validation/build work and before any Vercel upload."
+              echo "The hourly budget retry workflow will re-check capacity."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "allowed=true" >> "$GITHUB_OUTPUT"
+          echo "Vercel team deployment budget available: $COUNT / $MAX"
+
   deploy-production:
+    needs: budget-preflight
+    if: needs.budget-preflight.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     services:
       snapshot-postgres:
