@@ -9,6 +9,66 @@ export type ScoreSettlementRow={
  settledAt:string;
 };
 
+export type SettlementEvidenceDecision={
+ accepted:boolean;
+ reason:string;
+ source:string;
+ confidence:'HIGH'|'MEDIUM'|'LOW'|'SINGLE_SOURCE'|'UNKNOWN';
+ sourceCount:number;
+ agreeingSources:number;
+ activeConflict:boolean;
+ trustedSingleSource:boolean;
+};
+
+type SettlementGame={
+ status?:string;
+ source?:string;
+ home?:{name?:string;score?:number|null};
+ away?:{name?:string;score?:number|null};
+ consensus?:{
+  confidence?:'HIGH'|'MEDIUM'|'LOW'|'SINGLE_SOURCE';
+  sourceCount?:number;
+  agreeingSources?:number;
+  activeConflict?:boolean;
+  statusConflict?:boolean;
+  scoreConflict?:boolean;
+  laggingSources?:string[];
+ };
+};
+
+const TRUSTED_FINAL_SCORE_SOURCES=new Set(['nhl-web','mlb-statsapi','espn-cdn','espn-public']);
+
+export function evaluateFinalScoreSettlementEvidence(game:SettlementGame):SettlementEvidenceDecision{
+ const source=String(game.source||'unknown');
+ const consensus=game.consensus;
+ const confidence=consensus?.confidence||'UNKNOWN';
+ const sourceCount=Math.max(1,Number(consensus?.sourceCount||1));
+ const agreeingSources=Math.max(0,Number(consensus?.agreeingSources||0));
+ const activeConflict=Boolean(consensus?.activeConflict||consensus?.statusConflict);
+ const scoresKnown=typeof game.home?.score==='number'&&typeof game.away?.score==='number';
+
+ if(String(game.status||'').toUpperCase()!=='FINAL'){
+  return {accepted:false,reason:'game is not final',source,confidence,sourceCount,agreeingSources,activeConflict,trustedSingleSource:false};
+ }
+ if(!scoresKnown){
+  return {accepted:false,reason:'final score is incomplete',source,confidence,sourceCount,agreeingSources,activeConflict,trustedSingleSource:false};
+ }
+ if(activeConflict){
+  return {accepted:false,reason:'contemporaneous score or status conflict is unresolved',source,confidence,sourceCount,agreeingSources,activeConflict:true,trustedSingleSource:false};
+ }
+ if(confidence==='LOW'){
+  return {accepted:false,reason:'cross-source confidence is low',source,confidence,sourceCount,agreeingSources,activeConflict:false,trustedSingleSource:false};
+ }
+ if(confidence==='HIGH'||confidence==='MEDIUM'){
+  return {accepted:true,reason:confidence==='HIGH'?'cross-source final score is corroborated':'cross-source final score passed bounded consensus',source,confidence,sourceCount,agreeingSources,activeConflict:false,trustedSingleSource:false};
+ }
+ const trustedSingleSource=TRUSTED_FINAL_SCORE_SOURCES.has(source);
+ if(trustedSingleSource){
+  return {accepted:true,reason:'trusted primary final-score source accepted without contradictory evidence',source,confidence:confidence==='UNKNOWN'?'SINGLE_SOURCE':confidence,sourceCount,agreeingSources,activeConflict:false,trustedSingleSource:true};
+ }
+ return {accepted:false,reason:'single-source final score is not from an approved primary provider',source,confidence:confidence==='UNKNOWN'?'SINGLE_SOURCE':confidence,sourceCount,agreeingSources,activeConflict:false,trustedSingleSource:false};
+}
+
 const canon=(v:string)=>v.toLowerCase().replace(/[^a-z0-9@.+-]+/g,' ').replace(/\s+/g,' ').trim();
 const compare=(a:number,b:number):'win'|'loss'|'push'=>a>b?'win':a<b?'loss':'push';
 const pointFrom=(selection:string)=>{
@@ -56,9 +116,21 @@ export async function finalScoreSettlementRows():Promise<{
  matchedGames:number;
  candidateLegs:number;
  warnings:string[];
+ evidence:{
+  totalFinalGames:number;
+  acceptedFinalGames:number;
+  blockedFinalGames:number;
+  highConfidence:number;
+  mediumConfidence:number;
+  trustedSingleSource:number;
+  blockedConflict:number;
+  blockedLowConfidence:number;
+  blockedSingleSource:number;
+ };
 }>{
+ const emptyEvidence={totalFinalGames:0,acceptedFinalGames:0,blockedFinalGames:0,highConfidence:0,mediumConfidence:0,trustedSingleSource:0,blockedConflict:0,blockedLowConfidence:0,blockedSingleSource:0};
  const sql=db();
- if(!sql)return {rows:[],matchedGames:0,candidateLegs:0,warnings:['Database unavailable for final-score settlement fallback']};
+ if(!sql)return {rows:[],matchedGames:0,candidateLegs:0,warnings:['Database unavailable for final-score settlement fallback'],evidence:emptyEvidence};
 
  const legs=await sql`
   select bl.event_id as "eventId",bl.event_label as "eventLabel",bl.market_type as "marketType",bl.selection
@@ -67,12 +139,25 @@ export async function finalScoreSettlementRows():Promise<{
   where bs.result='open' and bl.result='unknown'
    and bl.event_id is not null and bl.event_label is not null
  `;
- if(!(legs as any[]).length)return {rows:[],matchedGames:0,candidateLegs:0,warnings:[]};
+ if(!(legs as any[]).length)return {rows:[],matchedGames:0,candidateLegs:0,warnings:[],evidence:emptyEvidence};
 
  const mesh=await fetchLiveScoreMesh();
- const finals=(mesh.games||[]).filter((g:any)=>
-  g?.status==='FINAL'&&typeof g?.home?.score==='number'&&typeof g?.away?.score==='number'
- );
+ const allFinals=(mesh.games||[]).filter((g:any)=>g?.status==='FINAL');
+ const evidenceDecisions=allFinals.map((game:any)=>({game,decision:evaluateFinalScoreSettlementEvidence(game)}));
+ const accepted=evidenceDecisions.filter(x=>x.decision.accepted);
+ const blocked=evidenceDecisions.filter(x=>!x.decision.accepted);
+ const evidence={
+  totalFinalGames:allFinals.length,
+  acceptedFinalGames:accepted.length,
+  blockedFinalGames:blocked.length,
+  highConfidence:accepted.filter(x=>x.decision.confidence==='HIGH').length,
+  mediumConfidence:accepted.filter(x=>x.decision.confidence==='MEDIUM').length,
+  trustedSingleSource:accepted.filter(x=>x.decision.trustedSingleSource).length,
+  blockedConflict:blocked.filter(x=>x.decision.activeConflict).length,
+  blockedLowConfidence:blocked.filter(x=>x.decision.confidence==='LOW').length,
+  blockedSingleSource:blocked.filter(x=>x.decision.confidence==='SINGLE_SOURCE'&&!x.decision.trustedSingleSource).length
+ };
+ const finals=accepted.map(x=>x.game);
  const byLabel=new Map<string,any[]>();
  for(const g of finals){
   const label=canon(`${g.away.name} @ ${g.home.name}`);
@@ -83,7 +168,7 @@ export async function finalScoreSettlementRows():Promise<{
 
  const rows:ScoreSettlementRow[]=[];
  let matchedGames=0;
- const warnings:string[]=[];
+ const warnings:string[]=blocked.slice(0,12).map(({game,decision}:any)=>`Blocked final-score settlement for ${String(game?.away?.name||'Away')} @ ${String(game?.home?.name||'Home')}: ${decision.reason}`);
  for(const leg of legs as any[]){
   const matches=byLabel.get(canon(String(leg.eventLabel)))||[];
   if(matches.length!==1){
@@ -113,6 +198,7 @@ export async function finalScoreSettlementRows():Promise<{
   rows,
   matchedGames,
   candidateLegs:(legs as any[]).length,
-  warnings:[...new Set(warnings)].slice(0,20)
+  warnings:[...new Set(warnings)].slice(0,20),
+  evidence
  };
 }
