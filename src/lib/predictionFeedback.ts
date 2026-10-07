@@ -1,5 +1,6 @@
 import {db} from './db';
 import {inferCanonicalClosingLine} from './marketMovementLearning';
+import {settlementLearningPolicy} from './settlementLearning';
 
 export type PredictionFeedbackResult={
  eventId:string;
@@ -50,6 +51,7 @@ export async function recordPredictionFeedback(results:PredictionFeedbackResult[
   const effectiveClosingOdds=Number.isFinite(closingOdds)&&closingOdds!==0?closingOdds:undefined;
   const occurredAt=run.startTime?new Date(run.startTime).toISOString():(result.settledAt||new Date().toISOString());
   const outcome=result.result==='win'?1:0;
+  const settlementLearning=settlementLearningPolicy(result.settlementProvenance);
   const votes=Array.isArray(run.featureSnapshot?.modelVotes)?run.featureSnapshot.modelVotes:[];
   const predictions=[
    {name:'Model Council',prob:Number(run.modelProbability)},
@@ -71,7 +73,9 @@ export async function recordPredictionFeedback(results:PredictionFeedbackResult[
       source:'settled-model-run',
       simProbability:Number(run.featureSnapshot?.rawSimProbability??run.modelProbability),
       modelProbability:Number(run.modelProbability),
-      closingLineSource:result.closingOdds!==undefined?'results-provider':effectiveClosingOdds!==undefined?'canonical-market-snapshots':'missing'
+      closingLineSource:result.closingOdds!==undefined?'results-provider':effectiveClosingOdds!==undefined?'canonical-market-snapshots':'missing',
+      settlementProvenance:result.settlementProvenance||null,
+      settlementLearning
      })},${sourceKey}
     )
     on conflict do nothing
