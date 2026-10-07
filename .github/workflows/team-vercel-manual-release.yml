@@ -144,7 +144,7 @@ jobs:
           PROJECT_ID='${{ steps.project.outputs.id }}'
           REPO='${{ steps.project.outputs.repo }}'
           REPO_ID='${{ steps.project.outputs.repo_id }}'
-          BODY=$(jq -cn             --arg name "$NAME"             --arg project "$PROJECT_ID"             --arg repo "$REPO"             --arg tier '${{ inputs.tier }}'             --arg justification '${{ inputs.justification }}'             --argjson repoId "$REPO_ID"             '{name:$name,project:$project,target:"production",gitSource:{type:"github",repoId:$repoId,ref:"main"},meta:{deploymentGovernor:"edgeforce-v141-manual",releaseTier:$tier,manualJustification:$justification}}')
+          BODY=$(jq -cn             --arg name "$NAME"             --arg project "$PROJECT_ID"             --arg repo "$REPO"             --arg tier "$RELEASE_TIER"             --arg justification "$RELEASE_JUSTIFICATION"             --argjson repoId "$REPO_ID"             '{name:$name,project:$project,target:"production",gitSource:{type:"github",repoId:$repoId,ref:"main"},meta:{deploymentGovernor:"edgeforce-v141-manual",releaseTier:$tier,manualJustification:$justification}}')
           curl --fail --silent --show-error --connect-timeout 10 --max-time 60             -X POST             -H "Authorization: Bearer $VERCEL_TOKEN"             -H "Content-Type: application/json"             "https://api.vercel.com/v13/deployments?teamId=$TEAM_ID&forceNew=0&skipAutoDetectionConfirmation=1"             --data "$BODY"             --output /tmp/manual-deployment.json
           DEPLOYMENT_ID=$(jq -r '.id // empty' /tmp/manual-deployment.json)
           test -n "$DEPLOYMENT_ID"
