@@ -156,6 +156,9 @@ assert(health.body?.freeFirstSportsDataMesh===true,'Free-first sports data mesh 
 assert(health.body?.sportsbookQuotaDoesNotBlockPlatform===true,'Sportsbook quota isolation flag missing');
 assert(health.body?.primaryStandbyProductionClosure===true,'Primary standby closure flag missing');
 assert(health.body?.standbyCommitDriftAllowed===true,'Standby commit drift policy flag missing');
+assert(health.body?.productionTopologyWatchdog===true,'Production topology watchdog flag missing');
+assert(health.body?.manualFailoverReadiness===true,'Manual failover readiness flag missing');
+assert(health.body?.automaticStandbyPromotionDisabled===true,'Automatic standby promotion policy flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
