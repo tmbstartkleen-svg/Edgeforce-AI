@@ -154,7 +154,37 @@ export async function loadSettlementEvidenceHistory(limit=100){
   left join bet_legs bl
    on bl.bet_slip_id=le.bet_slip_id
    and bl.ordinal=case
-    when coalesce(le.payload->>'ordinal','') ~ '^[0-9]+
+    when jsonb_typeof(le.payload->'ordinal')='number' then (le.payload->>'ordinal')::int
+    else null
+   end
+  where le.event_type='RESULT_EVIDENCE_APPLIED'
+  order by le.created_at desc,le.id desc
+  limit ${bounded}
+ `;
+ const normalized=(rows as any[]).map(row=>({
+  id:Number(row.id),
+  betSlipId:row.betSlipId?String(row.betSlipId):null,
+  source:row.source?String(row.source):null,
+  createdAt:row.createdAt?new Date(row.createdAt).toISOString():null,
+  ordinal:row.ordinal==null?null:Number(row.ordinal),
+  sport:row.sport?String(row.sport):null,
+  marketType:row.marketType?String(row.marketType):null,
+  selection:row.selection?String(row.selection):null,
+  eventId:row.eventId?String(row.eventId):null,
+  result:row.result?String(row.result):null,
+  settledAt:row.settledAt?new Date(row.settledAt).toISOString():null,
+  settlementProvenance:row.legProvenance||row.payload?.settlementProvenance||null,
+  payload:row.payload||{}
+ }));
+ const evidenceClasses:Record<string,number>={};
+ for(const row of normalized){
+  const key=String(row.settlementProvenance?.evidenceClass||'UNSPECIFIED');
+  evidenceClasses[key]=(evidenceClasses[key]||0)+1;
+ }
+ return {mode:'database' as const,rows:normalized,count:normalized.length,evidenceClasses};
+}
+
+export async function recordWager(input:WagerInput){
  if(!Number.isFinite(input.stake)||input.stake<=0)throw new Error('stake must be greater than zero');
  if(!Array.isArray(input.legs)||!input.legs.length)throw new Error('at least one leg is required');
  const sql=db();
