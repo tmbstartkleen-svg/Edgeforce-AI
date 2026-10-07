@@ -8,6 +8,7 @@ export const dynamic='force-dynamic';
 export async function GET(req:Request){
  const url=new URL(req.url);
  const strict=url.searchParams.get('strict')==='1'||url.searchParams.get('strict')==='true';
+ const platformOnly=url.searchParams.get('platform')==='1'||url.searchParams.get('platform')==='true';
  const deploymentCommit=providerCertificationRuntimeCommit();
  const [readiness,certification]=await Promise.all([
   evaluateReadiness({strict:strict||undefined}),
@@ -57,10 +58,17 @@ export async function GET(req:Request){
   }
  }
 
- const ready=blockers.length===0&&(readiness.ready||onlyTransientPulseFailure);
+ const recommendationReady=blockers.length===0&&(readiness.ready||onlyTransientPulseFailure);
+ const platformBlockers=platformOnly
+  ?blockers.filter(x=>!x.includes('readiness: oddsProvider')&&!x.includes('provider: ODDS:'))
+  :blockers;
+ const ready=platformBlockers.length===0&&(platformOnly||readiness.ready||onlyTransientPulseFailure);
  return Response.json({
   ok:true,
   ready,
+  mode:platformOnly?'PLATFORM':'FULL',
+  platformReady:platformOnly?ready:platformBlockers.length===0,
+  recommendationReady,
   build:RELEASE.build,
   version:RELEASE.appVersion,
   modelVersion:RELEASE.modelVersion,
@@ -71,7 +79,8 @@ export async function GET(req:Request){
   pulseCertificationContinuity:{active:onlyTransientPulseFailure,current:currentPulseCertification,ageMs:Number.isFinite(pulseCertificationAgeMs)?pulseCertificationAgeMs:null},
   configuredProviders:configured.length,
   configuredCapabilities,
-  blockers,
+  blockers:platformOnly?platformBlockers:blockers,
+  recommendationBlockers:blockers,
   warnings,
   recommendations:[
    ...(configured.filter(x=>x.capability==='ODDS').length>=2?[]:['Connect a second independent odds provider to enable deeper cross-book consensus.']),
