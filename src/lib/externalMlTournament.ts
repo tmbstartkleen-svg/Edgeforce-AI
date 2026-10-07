@@ -13,6 +13,7 @@ type ServiceCandidate={
  serviceModelId:string;
  artifactUri?:string;
  sampleSize:number;
+ effectiveSampleSize?:number;
  trainSize:number;
  calibrationSize:number;
  holdoutSize:number;
@@ -248,7 +249,8 @@ export async function runExternalMlTournament(){
      occurredAt:row.occurredAt,
      features:trainingFeatureVectorFromHistory(row,featureNames),
      outcome:row.outcome,
-     marketProbability:implied(row.odds)
+     marketProbability:implied(row.odds),
+     evidenceWeight:settlementLearningFromFeatures(row.features).evidenceWeight
     }))
    };
   });
