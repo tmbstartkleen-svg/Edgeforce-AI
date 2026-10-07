@@ -176,7 +176,7 @@ jobs:
         run: |
           umask 077
           trap 'rm -f /tmp/edgeforce-env-metadata.json' EXIT
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/env?decrypt=false&teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-env-metadata.json
@@ -186,13 +186,13 @@ jobs:
         shell: bash
         run: |
           umask 077
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-baseline-alias.json
           BASELINE=$(node scripts/production-target.mjs alias /tmp/edgeforce-baseline-alias.json)
           PREVIOUS_DEPLOYMENT_ID=$(printf '%s' "$BASELINE" | jq -er '.id')
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v13/deployments/$PREVIOUS_DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-baseline-deployment.json
@@ -380,13 +380,13 @@ jobs:
         shell: bash
         run: |
           HOST=$(node --input-type=module -e 'import {deploymentHost} from "./scripts/production-target.mjs"; console.log(deploymentHost(process.env.PRODUCTION_URL));')
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v13/deployments/$HOST?teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-staged-deployment.json
           CANDIDATE=$(EXPECTED_DEPLOYMENT_URL="$PRODUCTION_URL" EXPECTED_DEPLOYMENT_COMMIT="$DEPLOY_COMMIT" node scripts/production-target.mjs deployment /tmp/edgeforce-staged-deployment.json)
           echo "CANDIDATE_DEPLOYMENT_ID=$(printf '%s' "$CANDIDATE" | jq -er '.id')" >> "$GITHUB_ENV"
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-staged-alias.json
@@ -655,7 +655,7 @@ jobs:
       - name: Recheck production alias before promotion
         shell: bash
         run: |
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-prepromotion-alias.json
@@ -674,7 +674,7 @@ jobs:
         shell: bash
         run: |
           for i in {1..20}; do
-            curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
               -H "Authorization: Bearer $VERCEL_TOKEN" \
               "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
               --output /tmp/edgeforce-promoted-alias.json
@@ -748,7 +748,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 --retry 3 --retry-all-errors --retry-delay 2 --retry-max-time 120 \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v4/aliases/$PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID" \
             --output /tmp/edgeforce-postpromotion-alias.json
