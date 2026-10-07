@@ -668,6 +668,14 @@ assert(finalClosureTest.body?.assertions?.allClosureGatesRequired===true,'final 
 const finalClosureStatus=await get('/api/release/final-closure');
 assert(finalClosureStatus.res.ok&&finalClosureStatus.body?.ok===true,'final production closure endpoint failed');
 
+const topologyWatchdogTest=await get('/api/testing/production-topology');
+assert(topologyWatchdogTest.res.ok&&topologyWatchdogTest.body?.ok===true,'production topology watchdog regression failed');
+assert(topologyWatchdogTest.body?.assertions?.healthyReady===true,'topology watchdog healthy readiness regressed');
+assert(topologyWatchdogTest.body?.assertions?.driftAllowed===true,'topology watchdog standby drift policy regressed');
+assert(topologyWatchdogTest.body?.assertions?.automaticPromotionDisabled===true,'topology watchdog automatic promotion policy regressed');
+assert(topologyWatchdogTest.body?.assertions?.badStandbyBlocks===true,'topology watchdog standby failure gate regressed');
+assert(topologyWatchdogTest.body?.assertions?.staleClosureBlocks===true,'topology watchdog stale closure gate regressed');
+
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
 
