@@ -33,33 +33,58 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
  ]);
  const commitSha=String(input.commitSha||'');
  const blockers:string[]=[];
- const executionCertified=Boolean(execution?.certified&&String(execution?.commitSha||'')===commitSha);
- const promotionVerified=Boolean(
+ const topologyEvidence=(convergence?.evidence&&typeof convergence.evidence==='object'?convergence.evidence:{}) as any;
+ const primaryStandby=topologyEvidence?.topology==='cloudflare-primary-vercel-standby';
+ const primary=topologyEvidence?.primary||{};
+ const standby=topologyEvidence?.standby||{};
+
+ const legacyExecutionCertified=Boolean(execution?.certified&&String(execution?.commitSha||'')===commitSha);
+ const legacyPromotionVerified=Boolean(
   promotion?.promoted
   &&!promotion?.rolledBack
   &&!(promotion?.blockers?.length)
   &&String(promotion?.commitSha||'')===commitSha
  );
- const postPromotionVerified=Boolean(
+ const legacyPostPromotionVerified=Boolean(
   postPromotion?.certified
   &&String(postPromotion?.deployedCommitSha||'')===commitSha
  );
- const platformConverged=Boolean(
-  convergence?.certified
-  &&String(convergence?.commitSha||'')===commitSha
-  &&convergence?.vercelVerified
-  &&convergence?.cloudflareVerified
- );
+
+ const executionCertified=primaryStandby
+  ?Boolean(primary.exactMainCertified&&String(convergence?.commitSha||'')===commitSha)
+  :legacyExecutionCertified;
+ const promotionVerified=primaryStandby
+  ?Boolean(convergence?.cloudflareVerified&&primary.platform==='cloudflare'&&primary.platformReady&&String(primary.commitSha||'')===commitSha)
+  :legacyPromotionVerified;
+ const postPromotionVerified=primaryStandby
+  ?Boolean(convergence?.cloudflareVerified&&primary.hostedSmokePassed&&String(primary.commitSha||'')===commitSha)
+  :legacyPostPromotionVerified;
+ const platformConverged=primaryStandby
+  ?Boolean(
+    convergence?.certified
+    &&String(convergence?.commitSha||'')===commitSha
+    &&convergence?.cloudflareVerified
+    &&convergence?.vercelVerified
+    &&standby.healthy===true
+    &&standby.manualOnly===true
+    &&String(standby.state||'').toUpperCase()==='READY'
+   )
+  :Boolean(
+    convergence?.certified
+    &&String(convergence?.commitSha||'')===commitSha
+    &&convergence?.vercelVerified
+    &&convergence?.cloudflareVerified
+   );
  const rollbackClear=!Boolean(
   rollback?.rollbackConfirmed
   &&String(rollback?.failedCommitSha||'')===commitSha
  );
 
  if(!commitSha||commitSha.length<7)blockers.push('release commit SHA is missing or invalid');
- if(!executionCertified)blockers.push('execution certification is missing, failed, or belongs to a different commit');
- if(!promotionVerified)blockers.push('production promotion provenance is missing, rolled back, blocked, or belongs to a different commit');
- if(!postPromotionVerified)blockers.push('post-promotion live verification is missing, failed, or belongs to a different commit');
- if(!platformConverged)blockers.push('Vercel and Cloudflare are not converged on the same production commit');
+ if(!executionCertified)blockers.push(primaryStandby?'exact-main production certification is missing or failed':'execution certification is missing, failed, or belongs to a different commit');
+ if(!promotionVerified)blockers.push(primaryStandby?'Cloudflare primary deployment identity or platform readiness is not verified':'production promotion provenance is missing, rolled back, blocked, or belongs to a different commit');
+ if(!postPromotionVerified)blockers.push(primaryStandby?'Cloudflare primary hosted smoke verification is missing or failed':'post-promotion live verification is missing, failed, or belongs to a different commit');
+ if(!platformConverged)blockers.push(primaryStandby?'Cloudflare primary and Vercel manual standby topology is not ready':'Vercel and Cloudflare are not converged on the same production commit');
  if(!rollbackClear)blockers.push('the candidate production commit has a confirmed rollback');
 
  return {
@@ -71,6 +96,11 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
   closed:blockers.length===0,
   blockers,
   evidence:{
+   topology:primaryStandby?'cloudflare-primary-vercel-standby':'dual-active',
+   primaryCommitSha:primary?.commitSha||null,
+   standbyCommitSha:standby?.commitSha||null,
+   standbyCommitDrift:Boolean(standby?.commitSha&&standby?.commitSha!==commitSha),
+   standbyDeploymentId:standby?.deploymentId||null,
    executionId:execution?.id||null,
    promotionId:promotion?.id||null,
    postPromotionId:postPromotion?.id||null,
