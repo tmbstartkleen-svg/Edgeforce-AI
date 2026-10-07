@@ -55,7 +55,7 @@ test('V139 central workflow preserves Edgeforce gated release and uses linked Gi
   assert.match(workflow,/cron: '17 \* \* \* \*'/);
   assert.match(workflow,/deploy-production\.yml\/dispatches/);
   assert.match(workflow,/v13\/deployments\?teamId=\$TEAM_ID&forceNew=0/);
-  assert.match(workflow,/deploymentGovernor:"edgeforce-v139"/);
+  assert.match(workflow,/deploymentGovernor:"edgeforce-v142"/);
   assert.match(workflow,/v1\/integrations\/search-repo\?provider=github/);
   assert.doesNotMatch(workflow,/--force/);
 });
@@ -116,7 +116,7 @@ test('V142 permits at most one over-share borrower after under-share demand is s
   local.maxActionsPerRun=3;
   const plan=evaluateTeamGovernor({
     config:local,
-    deployments:namedDeployments({'edgeforce-ai':34,safeguard:28,travai:20}),
+    deployments:namedDeployments({'edgeforce-ai':35,safeguard:29,travai:18}),
     statuses:status({
       edgeforce:{lastDeploymentAt:now-9_000_000},
       safeguard:{lastDeploymentAt:now-10_000_000},
