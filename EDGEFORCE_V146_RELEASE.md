@@ -45,6 +45,10 @@ A new dashboard panel shows:
 
 The read-only `/api/operations/production-topology` endpoint exposes the same report.
 
+## Cloudflare secret handoff hardening
+
+Production runtime secrets are generated before the Worker build so vinext build-time environment access and Cloudflare runtime bindings resolve to the same INGEST_SECRET and CRON_SECRET values. Provider certification tolerates only a bounded post-deploy HTTP 401 propagation window: up to ten attempts, two seconds apart. Persistent authentication mismatch still blocks the release.
+
 ## Certification
 
 V146 adds deterministic test fixtures for healthy topology, unhealthy standby, stale production closure, commit-drift allowance, and automatic-promotion prohibition. Health, smoke, release audit, and the mandatory post-typecheck suite all cover the new contract.
