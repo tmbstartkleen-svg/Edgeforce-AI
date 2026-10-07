@@ -31,8 +31,8 @@ test('V141 manual release fails closed at the hard cap and reserves emergency ti
   assert.match(manual,/NORMAL_CAP: "84"/);
   assert.match(manual,/HARD_CAP: "90"/);
   assert.match(manual,/if \[ "\$COUNT" -ge "\$HARD_CAP" \]/);
-  assert.match(manual,/if \[ "\$TIER" = "normal" \] && \[ "\$COUNT" -ge "\$NORMAL_CAP" \]/);
-  assert.match(manual,/if \[ "\$TIER" = "emergency" \] && \[ "\$COUNT" -lt "\$NORMAL_CAP" \]/);
+  assert.match(manual,/if \[ "\$RELEASE_TIER" = "normal" \] && \[ "\$COUNT" -ge "\$NORMAL_CAP" \]/);
+  assert.match(manual,/if \[ "\$RELEASE_TIER" = "emergency" \] && \[ "\$COUNT" -lt "\$NORMAL_CAP" \]/);
   assert.match(manual,/Hard-cap bypass: \*\*not permitted\*\*/);
 });
 
@@ -40,7 +40,9 @@ test('V141 manual release uses exact paginated team usage and requires justifica
   assert.match(manual,/until=\$UNTIL/);
   assert.match(manual,/unique_by\(\.id\)/);
   assert.match(manual,/Manual release justification must be at least 12 characters/);
-  assert.match(manual,/inputs\.justification/);
+  assert.match(manual,/RELEASE_JUSTIFICATION: \$\{\{ inputs\.justification \}\}/);
+  assert.match(manual,/--arg justification "\$RELEASE_JUSTIFICATION"/);
+  assert.doesNotMatch(manual,/--arg justification '\$\{\{ inputs\.justification \}\}'/);
 });
 
 test('V141 preserves Edgeforce guarded deployment while peers use linked Git',()=>{
