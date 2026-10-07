@@ -3,6 +3,7 @@ import {summarizeBacktest,type HistoricalPrediction} from './backtest';
 import {calibrationSummary} from './modelCalibration';
 import {rollingModelPerformance} from './modelPerformance';
 import {RELEASE} from './releaseManifest';
+import {settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
 
 export type ModelDriftStatus='HEALTHY'|'WATCH'|'DRIFTING'|'CRITICAL'|'INSUFFICIENT';
 export type ModelGovernanceRole='CHAMPION'|'CHALLENGER'|'MONITORED'|'HELD';
@@ -236,13 +237,15 @@ export async function runModelGovernance(options=defaultModelGovernanceOptions()
  try{
   const rows=await sql`
    select occurred_at as "occurredAt",sport,market_key as "marketKey",model_name as "modelName",
-    predicted_probability::float as predicted,offered_odds as odds,closing_odds as "closingOdds",outcome
+    predicted_probability::float as predicted,offered_odds as odds,closing_odds as "closingOdds",outcome,features
    from historical_predictions
    where outcome is not null
    order by occurred_at desc
    limit ${options.lookbackRows}
   `;
-  const history=rows as unknown as HistoricalPrediction[];
+  const allHistory=rows as unknown as HistoricalPrediction[];
+  const learningSummary=summarizeSettlementLearning(allHistory);
+  const history=allHistory.filter(row=>settlementLearningFromFeatures(row.features).trainingEligible);
   const previous=await previousChampionMap();
   const profiles=evaluateModelGovernance(history,options,previous);
 
@@ -277,10 +280,10 @@ export async function runModelGovernance(options=defaultModelGovernanceOptions()
     groups_evaluated=${profiles.length},champions=${summary.champions},
     challengers=${summary.challengers},watch_count=${summary.watch},
     drifting_count=${summary.drifting},critical_count=${summary.critical},
-    metrics=${sql.json({options,top:profiles.slice(0,50)})}
+    metrics=${sql.json({options,settlementLearning:learningSummary,top:profiles.slice(0,50)})}
    where id=${run.id}
   `;
-  return {ok:true,mode:'database' as const,runId:Number(run.id),rows:history.length,profiles,summary,options};
+  return {ok:true,mode:'database' as const,runId:Number(run.id),rows:history.length,rowsRead:allHistory.length,rowsExcludedByEvidence:learningSummary.excluded,settlementLearning:learningSummary,profiles,summary,options};
  }catch(error){
   await sql`
    update model_governance_runs set completed_at=now(),status='failed',
