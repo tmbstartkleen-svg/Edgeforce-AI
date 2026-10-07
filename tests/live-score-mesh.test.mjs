@@ -60,9 +60,11 @@ test('CDN parser fails closed when competition sides are missing',()=>{
  assert.equal(runtime.parseEspnCdnGame({gamepackageJSON:{header:{competitions:[{competitors:[]}]}}},base),null);
 });
 
-test('mesh source contains one-second adaptive fast path and broad backup coverage',()=>{
- assert.match(sourceRaw,/LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS\|\|1000/);
- assert.match(source,/uiRefreshMs:1000/);
+test('mesh source contains sub-second fast path, adaptive freshness governor, and broad backup coverage',()=>{
+ assert.match(sourceRaw,/LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS\|\|750/);
+ assert.match(sourceRaw,/recommendedUiRefreshMs/);
+ assert.match(sourceRaw,/g\.source==='espn-public'\|\|g\.source==='espn-cdn'/);
+ assert.match(sourceRaw,/reconcileLiveGames\(specialized,espnGames/);
  for(const marker of ['womens-college-basketball','college-baseball','uefa.champions','australian-football','rugby-league'])assert.ok(registrySource.includes(marker),marker);
  assert.ok(sourceRaw.includes("source:'espn-cdn'"));
 });
@@ -78,4 +80,27 @@ test('master sport registry includes NCAA depth and global external families',()
  assert.ok(registry.GLOBAL_SPORT_REGISTRY.some(x=>x.id==='ncaa-m-water-polo'));
  assert.ok(registry.GLOBAL_SPORT_REGISTRY.some(x=>x.id==='ncaa-w-volleyball'));
  assert.equal(registry.GLOBAL_SPORT_REGISTRY.find(x=>x.id==='table-tennis')?.scoreProvider,'EXTERNAL');
+});
+
+
+test('freshness governor prefers richer fast-path rows and adapts UI cadence',()=>{
+ const observedAt='2026-10-07T12:00:00.000Z';
+ const base={
+  id:'401000001',sport:'NBA',league:'NBA',status:'LIVE',detail:'3rd Quarter',
+  period:'3',startTime:'2026-10-07T11:30:00Z',
+  home:{name:'Home Team',score:80},away:{name:'Away Team',score:79},observedAt
+ };
+ const publicRow={...base,source:'espn-public',clock:undefined};
+ const cdnRow={...base,source:'espn-cdn',clock:'01:12',home:{...base.home,score:84},away:{...base.away,score:81}};
+ const communityRow={...base,source:'thesportsdb',clock:'01:40',home:{...base.home,score:82},away:{...base.away,score:80}};
+ const reconciled=runtime.reconcileLiveGames([publicRow],[communityRow],[cdnRow]);
+ assert.equal(reconciled.length,1);
+ assert.equal(reconciled[0].source,'espn-cdn');
+ assert.equal(reconciled[0].clock,'01:12');
+ const fresh=runtime.evaluateLiveScoreFreshness([cdnRow],Date.parse(observedAt)+1000);
+ assert.equal(fresh.state,'FAST');
+ assert.equal(fresh.recommendedUiRefreshMs,750);
+ const stale=runtime.evaluateLiveScoreFreshness([cdnRow],Date.parse(observedAt)+20000);
+ assert.equal(stale.state,'STALE');
+ assert.ok(stale.recommendedUiRefreshMs>=1500);
 });
