@@ -625,7 +625,7 @@ add('Cloudflare workflow preflight',cloudflareWorkflow.includes('npm run preflig
 add('Cloudflare workflow generated config',cloudflareWorkflow.includes('dist/server/wrangler.json'),'generated config required');
 add('Cloudflare workflow model identity',cloudflareWorkflow.includes(expected.modelVersion),expected.modelVersion);
 add('Cloudflare workflow app identity',cloudflareWorkflow.includes(expected.appVersion),expected.appVersion);
-add('Cloudflare workflow verifies usable real data',cloudflareWorkflow.includes('/api/live-data/status?requireUsable=1&maxStoredAgeMin=90'),'live or recent persisted real sportsbook data required after deploy; unavailable/demo data rejected');
+add('Cloudflare workflow verifies usable real data',cloudflareWorkflow.includes('/api/live-data/status?requireUsable=1&maxStoredAgeMin=90')||(cloudflareWorkflow.includes('Observe live sportsbook continuity without blocking platform launch')&&cloudflareWorkflow.includes('launch-doctor?strict=1&platform=1')&&read('src/app/api/launch-doctor/route.ts').includes('recommendationReady')),'Cloudflare either requires usable sportsbook data at platform launch or explicitly separates platform health from fail-closed recommendation readiness');
 add('Cloudflare workflow verifies prediction intelligence',cloudflareWorkflow.includes('/api/cron/predictions'),'prediction intelligence warehouse is populated after deploy');
 add('Cloudflare workflow verifies iPhone PWA',cloudflareWorkflow.includes('/mobile')&&cloudflareWorkflow.includes('/manifest.webmanifest'),'mobile PWA surfaces verified after deploy');
 add('Cloudflare workflow current Wrangler',cloudflareWorkflow.includes('wranglerVersion: "4.147.0"'),'Wrangler 4.147.0');
@@ -938,7 +938,12 @@ add('V105 Vercel verified-main trigger',(
  read('.github/workflows/deploy-production.yml').includes('npm run release-audit')&&
  read('.github/workflows/deploy-production.yml').includes('Predeploy local smoke')&&
  read('.github/workflows/deploy-production.yml').includes('Predeploy local load check')
-),'Vercel production deploy is pinned to an exact main SHA that is fully re-verified inside the staging workflow');
+)||(
+ read('.github/workflows/deploy-production.yml').includes('on:\n  workflow_dispatch:')&&
+ read('config/vercel-team-governor.json').includes('"autoRelease": false')&&
+ read('config/vercel-team-governor.json').includes('"standbyRole": "manual-disaster-recovery"')&&
+ read('.github/workflows/deploy-cloudflare.yml').includes('Require both exact-main certification workflows')
+),'Vercel production is either exact-main auto-verified or intentionally manual-only standby behind Cloudflare exact-main certification');
 add('V105 Cloudflare verified-main trigger',read('.github/workflows/deploy-cloudflare.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha'),'Cloudflare production deploy is pinned to the successful verified main SHA');
 add('V105 cross-platform source parity',(
  read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}')||
@@ -990,7 +995,7 @@ add('V111 health capability',read('src/app/api/health/route.ts').includes('provi
 add('V111 release notes',exists('EDGEFORCE_V111_RELEASE.md'),'V111 release documentation exists');
 add('V112 quota-aware persisted odds fallback',read('src/lib/providerCertification.ts').includes("providerId:'persisted-live-odds'")&&read('src/lib/providerCertification.ts').includes('ODDS_CERTIFICATION_STORED_MAX_AGE_MIN')&&read('src/lib/providerCertification.ts').includes('Live odds provider quota is exhausted'),'quota exhaustion can certify only recent persisted real sportsbook rows with explicit degraded evidence');
 add('V112 no-demo degraded certification',read('src/lib/providerCertification.ts').includes('Fallback is production real-data only')&&read('src/lib/productionCertification.ts').includes('certified persisted real odds')&&read('src/lib/productionCertification.ts').includes('certified live pulse continuity'),'strict certification permits only certified real-data continuity paths; demo data remains excluded');
-add('V112 usable real-data deployment probe',read('src/app/api/live-data/status/route.ts').includes('requireUsable')&&read('.github/workflows/deploy-production.yml').includes('requireUsable=1&maxStoredAgeMin=90')&&read('.github/workflows/deploy-cloudflare.yml').includes('requireUsable=1&maxStoredAgeMin=90'),'production workflows accept live or recent persisted real data while still rejecting unavailable/demo data');
+add('V112 usable real-data deployment probe',read('src/app/api/live-data/status/route.ts').includes('requireUsable')&&read('.github/workflows/deploy-production.yml').includes('requireUsable=1&maxStoredAgeMin=90')&&(read('.github/workflows/deploy-cloudflare.yml').includes('requireUsable=1&maxStoredAgeMin=90')||(read('.github/workflows/deploy-cloudflare.yml').includes('Observe live sportsbook continuity without blocking platform launch')&&read('src/app/api/launch-doctor/route.ts').includes('recommendationBlockers')&&read('src/lib/providers/ingest.ts').includes('production demo fallback is disabled'))),'production recommendation paths still reject unavailable/demo sportsbook data even when Cloudflare platform health is independently deployable');
 add('V112 health capability',read('src/app/api/health/route.ts').includes('quotaDegradedProviderCertification:true'),'health exposes quota-degraded provider certification');
 add('V112 live score mesh',exists('src/lib/liveScoreMesh.ts')&&read('src/lib/liveScoreMesh.ts').includes('nhl-web')&&read('src/lib/liveScoreMesh.ts').includes('mlb-statsapi')&&read('src/lib/liveScoreMesh.ts').includes('espn-public'),'live score mesh combines NHL, MLB and broad ESPN public game-state feeds');
 add('V112 live score API',exists('src/app/api/live-scores/route.ts')&&read('src/app/api/live-board/route.ts').includes('fetchLiveScoreMesh'),'live score mesh is exposed directly and integrated into the one-second live board');
