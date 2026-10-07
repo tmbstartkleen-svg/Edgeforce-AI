@@ -167,3 +167,18 @@ test('provider inventory is metadata-only and removes raw response file', () => 
   assert.match(content, /node scripts\/production-target\.mjs environment/);
   assert.doesNotMatch(content, /cat \/tmp|decrypt=true|--method POST/);
 });
+
+
+test('identity-critical Vercel API reads use bounded retries for transient transport failures', () => {
+  for (const name of ['Capture previous production deployment', 'Verify candidate target and unchanged production alias',
+    'Recheck production alias before promotion', 'Verify production alias points to certified candidate',
+    'Verify live deployment identity after promotion']) {
+    const content = step(name);
+    assert.match(content, /--retry 3/);
+    assert.match(content, /--retry-all-errors/);
+    assert.match(content, /--retry-delay 2/);
+    assert.match(content, /--retry-max-time 120/);
+  }
+  assert.doesNotMatch(step('Promote certified candidate to production'), /--retry-all-errors/);
+  assert.doesNotMatch(step('Roll back production on hosted failure'), /--retry-all-errors/);
+});
