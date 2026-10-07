@@ -238,6 +238,7 @@ export async function GET(){
   vercelTeamGovernorTelemetry:true,
   vercelGovernorRecoveryControls:true,
   vercelGovernorFairShareAllocation:true,
+  certifiedReleaseBacklog:true,
   releasePathConvergence:true,
   previewTargetRemediationArtifact:true,
   failSoftPredictionWarehousePrime:true,
