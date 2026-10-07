@@ -147,6 +147,7 @@ assert(health.body?.exactCloudflareIdentityConvergence===true,'exact Cloudflare 
 assert(health.body?.fanDuelPulseOperationalContinuity===true,'FanDuel pulse operational continuity flag missing');
 assert(health.body?.conditionalV1ContinuityReadiness===true,'conditional V1 continuity readiness flag missing');
 assert(health.body?.vercelTeamGovernorTelemetry===true,'Vercel team governor telemetry flag missing');
+assert(health.body?.vercelGovernorRecoveryControls===true,'Vercel governor recovery controls flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
