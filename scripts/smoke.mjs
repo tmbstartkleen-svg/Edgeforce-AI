@@ -690,12 +690,22 @@ assert(health.body?.boundedCiExecution===true,'bounded CI execution flag missing
 assert(health.body?.pinnedCiActions===true,'pinned CI actions flag missing');
 assert(health.body?.prPreviewConvergence===true,'PR preview convergence flag missing');
 assert(health.body?.productionDeploySerializationPreserved===true,'production deploy serialization flag missing');
+assert(health.body?.certifiedScoreSettlementEvidence===true,'certified score settlement evidence flag missing');
+assert(health.body?.settlementConflictFailClosed===true,'settlement conflict fail-closed flag missing');
+assert(health.body?.trustedPrimarySingleSourceSettlement===true,'trusted primary single-source settlement flag missing');
+assert(health.body?.settlementEvidenceTelemetry===true,'settlement evidence telemetry flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
 assert(liveScoreConsensus.body?.assertions?.highConfidenceCorroboration===true,'live score corroboration regressed');
 assert(liveScoreConsensus.body?.assertions?.lagSeparatedFromConflict===true,'live score lag classification regressed');
 assert(liveScoreConsensus.body?.assertions?.activeConflictDetected===true,'live score conflict detection regressed');
+
+const settlementEvidence=await get('/api/testing/settlement-evidence');
+assert(settlementEvidence.res.ok&&settlementEvidence.body?.ok===true,'settlement evidence regression failed');
+assert(settlementEvidence.body?.assertions?.corroboratedAccepted===true,'corroborated final settlement regressed');
+assert(settlementEvidence.body?.assertions?.activeConflictBlocked===true,'conflicting final settlement gate regressed');
+assert(settlementEvidence.body?.assertions?.untrustedSingleBlocked===true,'untrusted single-source settlement gate regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
