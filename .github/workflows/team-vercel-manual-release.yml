@@ -41,6 +41,9 @@ jobs:
       TEAM_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
       NORMAL_CAP: "84"
       HARD_CAP: "90"
+      REQUESTED_PROJECT: ${{ inputs.project }}
+      RELEASE_TIER: ${{ inputs.tier }}
+      RELEASE_JUSTIFICATION: ${{ inputs.justification }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -52,8 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$VERCEL_TOKEN"
-          JUSTIFICATION='${{ inputs.justification }}'
-          if [ "${#JUSTIFICATION}" -lt 12 ]; then
+          if [ "${#RELEASE_JUSTIFICATION}" -lt 12 ]; then
             echo "Manual release justification must be at least 12 characters."
             exit 1
           fi
@@ -81,28 +83,26 @@ jobs:
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "Observed exact trailing-24h team usage: $COUNT deployments."
 
-          TIER='${{ inputs.tier }}'
           if [ "$COUNT" -ge "$HARD_CAP" ]; then
             echo "Manual release blocked: team usage $COUNT is at or above hard cap $HARD_CAP."
             exit 1
           fi
-          if [ "$TIER" = "normal" ] && [ "$COUNT" -ge "$NORMAL_CAP" ]; then
+          if [ "$RELEASE_TIER" = "normal" ] && [ "$COUNT" -ge "$NORMAL_CAP" ]; then
             echo "Normal manual release blocked: team usage $COUNT is at or above normal cap $NORMAL_CAP."
             exit 1
           fi
-          if [ "$TIER" = "emergency" ] && [ "$COUNT" -lt "$NORMAL_CAP" ]; then
+          if [ "$RELEASE_TIER" = "emergency" ] && [ "$COUNT" -lt "$NORMAL_CAP" ]; then
             echo "Emergency tier is unnecessary while normal capacity is available; use normal tier instead."
             exit 1
           fi
-          echo "::notice title=Manual Vercel release authorized::Project ${{ inputs.project }} at $COUNT/$HARD_CAP using ${{ inputs.tier }} tier."
+          echo "::notice title=Manual Vercel release authorized::Project $REQUESTED_PROJECT at $COUNT/$HARD_CAP using $RELEASE_TIER tier."
 
       - name: Resolve project configuration
         id: project
         shell: bash
         run: |
           set -euo pipefail
-          PROJECT='${{ inputs.project }}'
-          case "$PROJECT" in
+          case "$REQUESTED_PROJECT" in
             edgeforce)
               echo "mode=workflow" >> "$GITHUB_OUTPUT"
               echo "name=edgeforce-ai" >> "$GITHUB_OUTPUT"
@@ -155,9 +155,9 @@ jobs:
         run: |
           {
             echo "### V141 governed manual release"
-            echo "- Project: **${{ inputs.project }}**"
-            echo "- Tier: **${{ inputs.tier }}**"
+            echo "- Project: **$REQUESTED_PROJECT**"
+            echo "- Tier: **$RELEASE_TIER**"
             echo "- Team usage before action: **${{ steps.budget.outputs.count }} / $HARD_CAP**"
-            echo "- Justification: ${{ inputs.justification }}"
+            echo "- Justification: $RELEASE_JUSTIFICATION"
             echo "- Hard-cap bypass: **not permitted**"
           } >> "$GITHUB_STEP_SUMMARY"
