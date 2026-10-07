@@ -1,6 +1,7 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
 import type {Market} from './types';
+import {settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
 
 export type TrainingHistoryRow={
  occurredAt:string;
@@ -492,11 +493,13 @@ export async function trainAndPersistSportModels(){
    order by occurred_at desc
    limit ${lookback}
   `;
-  const history=(rows as any[]).map(r=>({
+  const allHistory=(rows as any[]).map(r=>({
    occurredAt:new Date(r.occurredAt).toISOString(),sport:String(r.sport),marketKey:String(r.marketKey),
    predicted:Number(r.predicted),odds:Number(r.odds),outcome:Number(r.outcome) as 0|1,
    features:obj(r.features)
   })) as TrainingHistoryRow[];
+  const learningSummary=summarizeSettlementLearning(allHistory);
+  const history=allHistory.filter(row=>settlementLearningFromFeatures(row.features).trainingEligible);
   const groups=trainingGroups(history,minSample);
   const artifacts=groups.map(g=>trainSportArtifact(g.list.slice(0,maxGroupRows),g.sport,g.marketKey,{minSample,minHoldout}));
 
