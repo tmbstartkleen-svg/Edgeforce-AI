@@ -683,6 +683,12 @@ assert(health.body?.liveScoreCrossSourceConsensus===true,'live score cross-sourc
 assert(health.body?.liveScoreConflictDetection===true,'live score conflict detection flag missing');
 assert(health.body?.lagAwareScoreReconciliation===true,'lag-aware score reconciliation flag missing');
 assert(health.body?.liveScoreConsensusTelemetry===true,'live score consensus telemetry flag missing');
+assert(health.body?.ciSupersededRunCancellation===true,'CI superseded-run cancellation flag missing');
+assert(health.body?.deterministicCiInstall===true,'deterministic CI install flag missing');
+assert(health.body?.boundedCiExecution===true,'bounded CI execution flag missing');
+assert(health.body?.pinnedCiActions===true,'pinned CI actions flag missing');
+assert(health.body?.prPreviewConvergence===true,'PR preview convergence flag missing');
+assert(health.body?.productionDeploySerializationPreserved===true,'production deploy serialization flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
