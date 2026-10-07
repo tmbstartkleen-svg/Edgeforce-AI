@@ -245,6 +245,8 @@ jobs:
               else
                 echo "Legacy observability/readiness endpoints unavailable; health endpoint is healthy and will be used as the bootstrap baseline."
               fi
+              echo "Pre-V74 production lacks modern SLO evidence. Staging the replacement candidate in remediation mode; promotion still requires strict certification, SLO acceptance, comparative canary, and V1 readiness."
+              echo "EDGEFORCE_REMEDIATION_DEPLOY=true" >> "$GITHUB_ENV"
             else
               echo "SLO governor is unavailable on production version $CURRENT_VERSION; fail closed."
               exit 1
