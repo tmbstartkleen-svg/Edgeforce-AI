@@ -14,6 +14,16 @@ type ProjectState={
   repoUpdatedAt:number;
   cooldownReady:boolean;
   pending:boolean;
+  priority:number;
+  normalBudgetShare:number;
+  budgetRemaining:number;
+  overBudgetBy:number;
+  budgetState:'UNDER_SHARE'|'AT_SHARE'|'OVER_SHARE';
+  waitHours:number;
+  agingScore:number;
+  fairnessScore:number;
+  queueRank:number|null;
+  borrowedCapacity:boolean;
   governorState:'CURRENT'|'ACTIVE'|'APPROVED'|'DEFERRED';
   reason:string;
 };
@@ -43,6 +53,12 @@ type Decision={
   usage:number;
   softCap:number;
   hardCap:number;
+  queueRank:number|null;
+  fairnessScore:number|null;
+  normalBudgetShare:number|null;
+  projectUsage24h:number|null;
+  budgetState:string|null;
+  borrowedCapacity:boolean;
   createdAt:string;
 };
 
@@ -142,8 +158,8 @@ export default function VercelGovernorPanel(){
   return <section className="v21Panel">
     <div className="v21PanelHead">
       <div>
-        <div className="eyebrow">V141 VERCEL TEAM GOVERNOR</div>
-        <h3>Capacity recovery, alerts, decision history, and hard-capped manual release control</h3>
+        <div className="eyebrow">V142 VERCEL TEAM GOVERNOR</div>
+        <h3>Priority queue, fair-share allocation, recovery controls, and release history</h3>
       </div>
       <div className="panelMeta">
         <span>{telemetry?.mode||'UNAVAILABLE'}</span>
@@ -196,16 +212,16 @@ export default function VercelGovernorPanel(){
 
       <div className="tableWrap">
         <table>
-          <thead><tr><th>Project</th><th>Governor</th><th>24h Usage</th><th>Ready</th><th>Canceled</th><th>Active</th><th>Repo Activity</th><th>Last Deploy</th><th>Reason</th></tr></thead>
+          <thead><tr><th>Project</th><th>Queue</th><th>Score</th><th>Budget</th><th>Governor</th><th>24h Usage</th><th>Active</th><th>Last Deploy</th><th>Reason</th></tr></thead>
           <tbody>
             {projectStates.map(project=><tr key={project.key}>
               <td><b>{project.projectName}</b></td>
+              <td>{project.queueRank?'#'+project.queueRank:'—'}</td>
+              <td>{project.fairnessScore.toFixed(0)}</td>
+              <td>{project.usage+'/'+project.normalBudgetShare}<br/><small>{project.budgetState}{project.borrowedCapacity?' • BORROWED':''}</small></td>
               <td><span className={'grade '+(project.governorState==='CURRENT'?'elite':project.governorState==='APPROVED'?'strong':project.governorState==='ACTIVE'?'watch':'pass')}>{project.governorState}</span></td>
               <td>{project.usage}</td>
-              <td>{project.ready}</td>
-              <td>{project.canceled}</td>
               <td>{project.active}</td>
-              <td>{age(project.repoUpdatedAt)}</td>
               <td>{age(project.latestDeploymentAt)}</td>
               <td>{project.reason}</td>
             </tr>)}
@@ -221,8 +237,8 @@ export default function VercelGovernorPanel(){
         </div>
         <div className="historyBox">
           <h4>Governor decision history</h4>
-          {(data?.decisions||[]).slice(0,10).map(row=><div className="historyRow" key={row.id}><span>{row.projectName}</span><b>{row.decision}</b><small>{time(row.createdAt)} • {row.reason} • usage {row.usage}/{row.softCap}</small></div>)}
-          {!data?.decisions?.length&&<div className="historyRow"><span>No decision records yet</span><b>—</b><small>New v116 snapshots will persist each project decision.</small></div>}
+          {(data?.decisions||[]).slice(0,10).map(row=><div className="historyRow" key={row.id}><span>{row.projectName}{row.queueRank?' • #'+row.queueRank:''}</span><b>{row.decision}</b><small>{time(row.createdAt)} • score {row.fairnessScore??'—'} • share {row.projectUsage24h??'—'}/{row.normalBudgetShare??'—'} • {row.budgetState||'—'}{row.borrowedCapacity?' • BORROWED':''} • {row.reason}</small></div>)}
+          {!data?.decisions?.length&&<div className="historyRow"><span>No decision records yet</span><b>—</b><small>New v117 snapshots will persist queue rank, score, share usage, and allocation state.</small></div>}
         </div>
         <div className="historyBox">
           <h4>Governor history</h4>
