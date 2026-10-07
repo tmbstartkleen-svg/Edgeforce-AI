@@ -19,9 +19,9 @@ export type LiveGameState={
 type Cached={at:number;games:LiveGameState[]};
 const cache=new Map<string,Cached>();
 const inFlight=new Map<string,Promise<LiveGameState[]>>();
-const nativeLiveTtlMs=()=>Math.max(750,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||1000));
+const nativeLiveTtlMs=()=>Math.max(500,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||750));
 const nativeIdleTtlMs=()=>Math.max(nativeLiveTtlMs(),Number(process.env.LIVE_SCORE_NATIVE_IDLE_CACHE_MS||15000));
-const espnCdnLiveTtlMs=()=>Math.max(750,Number(process.env.LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS||1000));
+const espnCdnLiveTtlMs=()=>Math.max(500,Number(process.env.LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS||750));
 const espnLiveTtlMs=()=>Math.max(1500,Number(process.env.LIVE_SCORE_ESPN_LIVE_CACHE_MS||3000));
 const espnIdleTtlMs=()=>Math.max(espnLiveTtlMs(),Number(process.env.LIVE_SCORE_ESPN_IDLE_CACHE_MS||30000));
 const staleFallbackMs=()=>Math.max(30000,Number(process.env.LIVE_SCORE_STALE_FALLBACK_MS||120000));
@@ -49,6 +49,102 @@ function normalizeStatus(v:string){
  if(/delay|postpon/.test(s))return 'DELAYED' as const;
  if(s==='pre'||/pre|scheduled/.test(s))return 'SCHEDULED' as const;
  return 'UNKNOWN' as const;
+}
+
+const SOURCE_PRIORITY:Record<string,number>={
+ 'nhl-web':120,
+ 'mlb-statsapi':120,
+ 'espn-cdn':115,
+ 'espn-public':100,
+ 'api-sports':85,
+ 'football-data.org':75,
+ 'sportscore':65,
+ 'thesportsdb':55,
+ 'bigballsdata':50
+};
+
+const clampMs=(value:number,fallback:number,min:number,max:number)=>{
+ const n=Number(value);
+ return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;
+};
+const uiFastMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_FAST_MS||750),750,500,5000);
+const uiLiveMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_LIVE_MS||1000),1000,500,5000);
+const uiDegradedMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_DEGRADED_MS||1500),1500,750,5000);
+const uiIdleMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_IDLE_MS||3000),3000,1000,15000);
+
+function normalizeTeamKey(value:string){
+ return value.toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+export function liveGameIdentity(game:LiveGameState){
+ const start=game.startTime?Date.parse(game.startTime):NaN;
+ const bucket=Number.isFinite(start)?Math.floor(start/(3*60*60*1000)):String(game.startTime||'').slice(0,10);
+ return [normalizeTeamKey(game.away.name),normalizeTeamKey(game.home.name),String(bucket)].join('|');
+}
+function statusRank(status:LiveGameState['status']){
+ return status==='FINAL'?16:status==='LIVE'?14:status==='DELAYED'?8:status==='SCHEDULED'?4:0;
+}
+export function liveGameQuality(game:LiveGameState,now=Date.now()){
+ const observed=Date.parse(game.observedAt);
+ const ageMs=Number.isFinite(observed)?Math.max(0,now-observed):60000;
+ const source=SOURCE_PRIORITY[game.source]??40;
+ const scores=(game.home.score!==null?5:0)+(game.away.score!==null?5:0);
+ const clock=game.clock?8:0;
+ const period=game.period?3:0;
+ const detail=game.detail?1:0;
+ const freshness=ageMs<=1500?10:ageMs<=5000?7:ageMs<=15000?3:ageMs<=120000?0:-20;
+ return source+statusRank(game.status)+scores+clock+period+detail+freshness;
+}
+export function reconcileLiveGames(...groups:LiveGameState[][]){
+ const selected=new Map<string,LiveGameState>();
+ for(const game of groups.flat()){
+  const key=liveGameIdentity(game);
+  const current=selected.get(key);
+  if(!current){
+   selected.set(key,game);
+   continue;
+  }
+  const candidateQuality=liveGameQuality(game);
+  const currentQuality=liveGameQuality(current);
+  const candidateObserved=Date.parse(game.observedAt)||0;
+  const currentObserved=Date.parse(current.observedAt)||0;
+  if(candidateQuality>currentQuality||(candidateQuality===currentQuality&&candidateObserved>currentObserved)){
+   selected.set(key,game);
+  }
+ }
+ return [...selected.values()];
+}
+export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now()){
+ const live=games.filter(x=>x.status==='LIVE');
+ const ages=live.map(x=>{
+  const observed=Date.parse(x.observedAt);
+  return Number.isFinite(observed)?Math.max(0,now-observed):Number.POSITIVE_INFINITY;
+ });
+ const maxLiveAgeMs=ages.length?Math.max(...ages):0;
+ const clockCoverage=live.length?live.filter(x=>Boolean(x.clock)).length/live.length:1;
+ const scoreCoverage=live.length?live.filter(x=>x.home.score!==null&&x.away.score!==null).length/live.length:1;
+ const staleLiveGames=ages.filter(x=>x>15000).length;
+ let state:'IDLE'|'FAST'|'HEALTHY'|'DEGRADED'|'STALE'='IDLE';
+ if(live.length){
+  if(maxLiveAgeMs<=2500&&clockCoverage>=.75&&scoreCoverage>=.95)state='FAST';
+  else if(maxLiveAgeMs<=6000&&clockCoverage>=.40&&scoreCoverage>=.85)state='HEALTHY';
+  else if(maxLiveAgeMs<=15000&&scoreCoverage>=.70)state='DEGRADED';
+  else state='STALE';
+ }
+ const recommendedUiRefreshMs=!live.length?uiIdleMs():state==='FAST'?uiFastMs():state==='HEALTHY'?uiLiveMs():uiDegradedMs();
+ const sourceCounts=[...games.reduce((map,game)=>map.set(game.source,(map.get(game.source)||0)+1),new Map<string,number>())]
+  .sort((a,b)=>b[1]-a[1])
+  .map(([source,count])=>({source,count}));
+ return {
+  state,
+  liveGames:live.length,
+  maxLiveAgeMs:Number.isFinite(maxLiveAgeMs)?Math.round(maxLiveAgeMs):null,
+  clockCoverage:Number(clockCoverage.toFixed(3)),
+  scoreCoverage:Number(scoreCoverage.toFixed(3)),
+  staleLiveGames,
+  selectedSourceCount:sourceCounts.length,
+  sourceCounts,
+  recommendedUiRefreshMs
+ };
 }
 async function json(url:string){
  const controller=new AbortController();
@@ -218,16 +314,6 @@ async function mlb(){
  });
 }
 
-function merge(primary:LiveGameState[],fallback:LiveGameState[]){
- const out=[...primary];
- const keys=new Set(primary.map(x=>[x.league,x.home.name,x.away.name].join('|').toLowerCase()));
- for(const game of fallback){
-  const key=[game.league,game.home.name,game.away.name].join('|').toLowerCase();
-  if(!keys.has(key))out.push(game);
- }
- return out;
-}
-
 export async function fetchLiveScoreMesh(){
  const settled=await Promise.allSettled([
   nhl(),mlb(),
@@ -245,17 +331,19 @@ export async function fetchLiveScoreMesh(){
  });
  const nhlNative=batches.find(x=>x.some(g=>g.source==='nhl-web'))||[];
  const mlbNative=batches.find(x=>x.some(g=>g.source==='mlb-statsapi'))||[];
- const espnGames=batches.flat().filter(g=>g.source==='espn-public');
+ const espnGames=batches.flat().filter(g=>g.source==='espn-public'||g.source==='espn-cdn');
  const specialized=[...nhlNative,...mlbNative];
  const sportScoreGames=Array.isArray(sportScore.games)?sportScore.games:[];
  const communityGames=Array.isArray(community.games)?community.games:[];
- const games=merge(specialized,merge(espnGames,merge(sportScoreGames as LiveGameState[],communityGames as LiveGameState[])))
+ const games=reconcileLiveGames(specialized,espnGames,sportScoreGames as LiveGameState[],communityGames as LiveGameState[])
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
+ const freshness=evaluateLiveScoreFreshness(games);
  return {
   ok:true,
   generatedAt:new Date().toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
-  uiRefreshMs:1000,
+  uiRefreshMs:freshness.recommendedUiRefreshMs,
+  freshness,
   sourceMode:'adaptive-multi-source-free-first',
   coverage:sportCoverageSummary(),
   transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
