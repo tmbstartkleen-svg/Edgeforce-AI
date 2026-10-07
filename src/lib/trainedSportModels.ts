@@ -532,7 +532,7 @@ export async function trainAndPersistSportModels(){
     rows_seen=${history.length},groups_evaluated=${groups.length},
     artifacts_trained=${artifacts.length},artifacts_promoted=${promoted},
     sports=${sql.json(sports)},metrics=${sql.json({
-     minSample,minHoldout,lookback,maxGroupRows,
+     minSample,minHoldout,lookback,maxGroupRows,settlementLearning:learningSummary,
      top:artifacts.sort((a,b)=>b.brierSkillScore-a.brierSkillScore).slice(0,30).map(a=>({
       sport:a.sport,marketKey:a.marketKey,sampleSize:a.sampleSize,holdoutSize:a.holdoutSize,
       brierSkillScore:a.brierSkillScore,holdoutBrier:a.holdoutBrier,marketBaselineBrier:a.marketBaselineBrier,
@@ -541,7 +541,7 @@ export async function trainAndPersistSportModels(){
     })}
    where id=${run.id}
   `;
-  return {ok:true,mode:'database' as const,runId:Number(run.id),rows:history.length,groups:groups.length,artifacts,promoted,sports};
+  return {ok:true,mode:'database' as const,runId:Number(run.id),rows:history.length,rowsRead:allHistory.length,rowsExcludedByEvidence:learningSummary.excluded,settlementLearning:learningSummary,groups:groups.length,artifacts,promoted,sports};
  }catch(error){
   await sql`
    update trained_model_runs set completed_at=now(),status='failed',
