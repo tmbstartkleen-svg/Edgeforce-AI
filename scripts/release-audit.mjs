@@ -850,7 +850,7 @@ add('V97 production evidence post',read('.github/workflows/deploy-production.yml
 add('V97 durable execution history',read('db/v109.sql').includes('release_execution_certifications'),'execution certifications are durable');
 add('V97 regression endpoint',read('src/app/api/testing/release-execution-certification/route.ts').includes('fail.blockers.length===2'),'execution certification regression covers passing and failed evidence');
 add('V97 V1 readiness gate',read('src/lib/v1ReleaseReadiness.ts').includes("'release-execution'"),'V1 readiness exposes execution evidence as a required gate');
-add('V97 CI evidence artifact',read('.github/workflows/verify.yml').includes('actions/upload-artifact@v4')&&read('scripts/write-execution-evidence.mjs').includes('sha256'),'verification produces inspectable hashed execution evidence');
+add('V97 CI evidence artifact',read('.github/workflows/verify.yml').includes('actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02')&&read('scripts/write-execution-evidence.mjs').includes('sha256'),'verification produces inspectable hashed execution evidence with immutable artifact action pin');
 add('V97 compile regression repair',read('src/lib/preventiveThresholdRecovery.ts').includes('export type ThresholdRecoverySummary')&&read('src/lib/preventiveThresholdStability.ts').includes('export type ThresholdStabilitySummary')&&read('src/lib/preventiveChampionBaseline.ts').includes('export type ChampionBaselineSummary'),'V96 TypeScript inference regressions are repaired with explicit summary contracts');
 add('V97 dashboard surface',read('src/components/OperatorCommandCenter.tsx').includes('ReleaseExecutionCertificationPanel'),'execution certification is visible');
 
