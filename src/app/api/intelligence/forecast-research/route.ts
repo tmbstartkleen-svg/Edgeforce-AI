@@ -1,5 +1,6 @@
 import {db} from '@/lib/db';
-import {buildForecastResearchReport,type HistoricalPrediction} from '@/lib/forecastResearchLab';
+import {buildForecastResearchReport} from '@/lib/forecastResearchLab';
+import type {HistoricalPrediction} from '@/lib/backtest';
 
 export const dynamic='force-dynamic';
 
