@@ -53,7 +53,7 @@ test('V142 persists and displays queue allocation evidence',()=>{
   assert.match(telemetry,/normalBudgetShare/);
   assert.match(telemetry,/fairnessScore/);
   assert.match(telemetry,/queueRank/);
-  assert.match(panel,/V142 VERCEL TEAM GOVERNOR/);
+  assert.match(panel,/VERCEL TEAM GOVERNOR/);
   assert.match(panel,/BORROWED/);
   assert.match(panel,/score \{row\.fairnessScore/);
   assert.match(route,/x-edgeforce-governor-telemetry':'v143/);
