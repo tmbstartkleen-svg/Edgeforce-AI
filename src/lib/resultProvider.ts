@@ -4,7 +4,7 @@ import {recordPredictionFeedback} from './predictionFeedback';
 import {settlePlayerPropPredictions} from './playerWarehouse';
 import {settleExternalMlPredictionFeedback} from './mlChampionDrift';
 import {settleShadowPredictionFeedback} from './mlShadowRecovery';
-import {finalScoreSettlementRows} from './scoreSettlementFallback';
+import {finalScoreSettlementRows,type SettlementProvenance} from './scoreSettlementFallback';
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const str=(v:unknown)=>typeof v==='string'?v:'';
@@ -40,7 +40,23 @@ function normalizeResult(v:unknown){
 export async function runAutomaticSettlement(){
  const provider=await fetchResultsContext();
  const raw=provider.ok?rows(provider.data):[];
- const providerRows=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
+ const providerSource=provider.providerName||provider.providerId||'results-provider';
+ const providerRows=raw
+  .map(normalizeResult)
+  .filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x))
+  .map(row=>({
+   ...row,
+   settlementProvenance:{
+    schemaVersion:'v151-settlement-provenance-1',
+    evidenceClass:'PROVIDER_NATIVE',
+    source:providerSource,
+    confidence:'PROVIDER_NATIVE',
+    sourceCount:1,
+    agreeingSources:1,
+    reason:'configured results provider supplied the settlement outcome',
+    observedAt:row.settledAt
+   } satisfies SettlementProvenance
+  }));
  const fallback=await finalScoreSettlementRows().catch(error=>({
   rows:[],matchedGames:0,candidateLegs:0,
   warnings:[error instanceof Error?error.message:'final-score fallback failed'],
@@ -75,6 +91,9 @@ export async function runAutomaticSettlement(){
   fallbackWarnings:fallback.warnings,
   fallbackEvidence:fallback.evidence,
   fallbackEvidenceCertified:fallback.evidence.blockedConflict===0&&fallback.evidence.blockedLowConfidence===0,
+  settlementProvenanceWritten:reconciliation.provenanceWritten,
+  settlementEvidenceEvents:reconciliation.evidenceEvents,
+  settlementEvidenceClasses:reconciliation.evidenceClasses,
   matchedLegs:reconciliation.matchedLegs,
   settledSlips:reconciliation.settledSlips,
   predictionFeedbackWritten:feedback.written,
