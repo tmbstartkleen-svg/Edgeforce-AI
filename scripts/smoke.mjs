@@ -154,6 +154,8 @@ assert(health.body?.cloudflarePrimaryProduction===true,'Cloudflare primary produ
 assert(health.body?.vercelManualStandby===true,'Vercel manual standby flag missing');
 assert(health.body?.freeFirstSportsDataMesh===true,'Free-first sports data mesh flag missing');
 assert(health.body?.sportsbookQuotaDoesNotBlockPlatform===true,'Sportsbook quota isolation flag missing');
+assert(health.body?.primaryStandbyProductionClosure===true,'Primary standby closure flag missing');
+assert(health.body?.standbyCommitDriftAllowed===true,'Standby commit drift policy flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
