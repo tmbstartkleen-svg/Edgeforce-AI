@@ -21,8 +21,6 @@ type ProjectConfig = {
   mode:string;
   workflow?:string;
   priority:number;
-  autoRelease:boolean;
-  standbyRole:string|null;
   normalBudgetShare:number;
   autoRelease?:boolean;
   standbyRole?:string;
@@ -42,6 +40,8 @@ type ProjectState = {
   cooldownReady:boolean;
   pending:boolean;
   priority:number;
+  autoRelease:boolean;
+  standbyRole:string|null;
   normalBudgetShare:number;
   budgetRemaining:number;
   overBudgetBy:number;
