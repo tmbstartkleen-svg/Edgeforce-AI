@@ -74,6 +74,10 @@ test('workflow deploys code and secrets once, cleans private files, and retains 
  for(const gate of ['Require both exact-main certification workflows','Wait for exact Worker release identity','Certify recommendation data without blocking platform launch','Observe live sportsbook continuity without blocking platform launch','Strict Cloudflare platform launch doctor','Hosted V119 smoke test'])assert.ok(workflow.includes(gate));
  assert.doesNotMatch(workflow,/missing\+=\("THE_ODDS_API_KEY"\)/);
  assert.match(workflow,/launch-doctor\?strict=1&platform=1/);
+ assert.ok(workflow.indexOf('Generate Edgeforce runtime secrets')<workflow.indexOf('Build Cloudflare Worker'));
  assert.ok(workflow.indexOf('Prepare atomic Cloudflare')<workflow.indexOf('id: deploy'));
+ assert.match(workflow,/for ATTEMPT in \{1\.\.10\}/);
+ assert.match(workflow,/\[ \"\$HTTP_CODE\" = \"401\" \]/);
+ assert.match(workflow,/Waiting for rotated Cloudflare ingest secret propagation/);
  assert.ok(workflow.indexOf('id: deploy')<workflow.indexOf('Remove private Cloudflare'));
 });
