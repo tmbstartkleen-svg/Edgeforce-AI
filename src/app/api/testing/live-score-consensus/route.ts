@@ -3,17 +3,19 @@ import {reconcileLiveGames,summarizeLiveScoreConsensus} from '@/lib/liveScoreMes
 export const dynamic='force-dynamic';
 
 export async function GET(){
+ const now=Date.now();
+ const iso=(delta:number)=>new Date(now+delta).toISOString();
  const base={
   id:'v148-test',sport:'NBA',league:'NBA',status:'LIVE' as const,detail:'4th Quarter',period:'4',
-  startTime:'2026-10-07T11:00:00Z',
+  startTime:iso(-3600000),
   home:{name:'Consensus Home',score:102},away:{name:'Consensus Away',score:99}
  };
- const cdn={...base,source:'espn-cdn',clock:'01:22',observedAt:'2026-10-07T12:00:10.000Z'};
- const publicSame={...base,source:'espn-public',clock:'01:24',observedAt:'2026-10-07T12:00:09.000Z'};
- const lagging={...base,source:'thesportsdb',home:{...base.home,score:100},away:{...base.away,score:98},clock:'01:40',observedAt:'2026-10-07T12:00:04.000Z'};
+ const cdn={...base,source:'espn-cdn',clock:'01:22',observedAt:iso(0)};
+ const publicSame={...base,source:'espn-public',clock:'01:24',observedAt:iso(-1000)};
+ const lagging={...base,source:'thesportsdb',home:{...base.home,score:100},away:{...base.away,score:98},clock:'01:40',observedAt:iso(-6000)};
  const corroborated=reconcileLiveGames([lagging],[publicSame],[cdn])[0];
 
- const activeConflict={...base,source:'api-sports',home:{...base.home,score:101},clock:'01:23',observedAt:'2026-10-07T12:00:09.500Z'};
+ const activeConflict={...base,source:'api-sports',home:{...base.home,score:101},clock:'01:23',observedAt:iso(-500)};
  const conflicted=reconcileLiveGames([publicSame],[activeConflict],[cdn])[0];
  const conflictSummary=summarizeLiveScoreConsensus([conflicted]);
 
