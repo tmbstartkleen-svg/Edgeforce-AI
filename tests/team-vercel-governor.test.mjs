@@ -8,7 +8,7 @@ const workflow=readFileSync(new URL('../.github/workflows/team-vercel-governor.y
 const now=1_800_000_000_000;
 
 const status=(overrides={})=>[
-  {key:'edgeforce',headSha:'b'.repeat(40),liveSha:'a'.repeat(40),lastDeploymentAt:now-8_000_000,active:false,...(overrides.edgeforce||{})},
+  {key:'edgeforce',headSha:'b'.repeat(40),liveSha:'a'.repeat(40),headCertified:true,catchUpEligible:true,backlogDepth:1,certifiedBacklogDepth:1,backlogAgeMinutes:60,latestCertifiedSha:'b'.repeat(40),lastDeploymentAt:now-8_000_000,active:false,...(overrides.edgeforce||{})},
   {key:'safeguard',repoUpdatedAt:now-1_000,lastDeploymentAt:now-9_000_000,active:false,...(overrides.safeguard||{})},
   {key:'travai',repoUpdatedAt:now-2_000,lastDeploymentAt:now-7_000_000,active:false,...(overrides.travai||{})}
 ];
