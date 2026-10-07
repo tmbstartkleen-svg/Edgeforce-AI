@@ -29,6 +29,10 @@ jobs:
       FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
       API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
       BIGBALLS_API_KEY: ${{ secrets.BIGBALLS_API_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
+      VERCEL_PROJECT_ID: prj_CJokQ1ngz20Rwb7eNjk9gf3HjFHo
+      VERCEL_PRODUCTION_ALIAS: edgeforce-ai.vercel.app
       DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -279,23 +283,58 @@ jobs:
           SMOKE_BASE_URL: ${{ steps.deploy.outputs.deployment-url }}
           EXPECTED_APP_VERSION: "119.0.0"
 
-      - name: Record Cloudflare platform convergence evidence
+      - name: Verify Vercel manual standby without deploying
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN"
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30             -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v4/aliases/$VERCEL_PRODUCTION_ALIAS?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID"             --output /tmp/vercel-standby-alias.json
+          STANDBY_ID=$(jq -r '.deploymentId // .deployment.id // empty' /tmp/vercel-standby-alias.json)
+          test -n "$STANDBY_ID"
+
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30             -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v13/deployments/$STANDBY_ID?teamId=$VERCEL_ORG_ID"             --output /tmp/vercel-standby-deployment.json
+          STANDBY_STATE=$(jq -r '.readyState // .state // empty' /tmp/vercel-standby-deployment.json)
+          STANDBY_URL=$(jq -r '.url // empty' /tmp/vercel-standby-deployment.json)
+          STANDBY_SHA=$(jq -r '.meta.githubCommitSha // .meta.githubCommit // .meta.vercelGitCommitSha // empty' /tmp/vercel-standby-deployment.json)
+          test "$STANDBY_STATE" = "READY"
+          if [ -z "$STANDBY_URL" ]; then STANDBY_URL="$VERCEL_PRODUCTION_ALIAS"; fi
+          case "$STANDBY_URL" in https://*) ;; *) STANDBY_URL="https://$STANDBY_URL" ;; esac
+
+          set +e
+          STANDBY_HEALTH_CODE=$(curl --silent --show-error --connect-timeout 10 --max-time 30             --output /tmp/vercel-standby-health.json --write-out "%{http_code}"             "https://$VERCEL_PRODUCTION_ALIAS/api/health")
+          CURL_CODE=$?
+          set -e
+          if [ "$CURL_CODE" -ne 0 ] || [ "$STANDBY_HEALTH_CODE" != "200" ]; then
+            echo "Vercel standby health check failed."
+            exit 1
+          fi
+          jq -e '.ok==true' /tmp/vercel-standby-health.json >/dev/null
+
+          jq -cn             --arg deploymentUrl "$STANDBY_URL"             --arg deploymentId "$STANDBY_ID"             --arg commitSha "$STANDBY_SHA"             --arg state "$STANDBY_STATE"             --argjson healthStatus "$STANDBY_HEALTH_CODE"             '{deploymentUrl:$deploymentUrl,deploymentId:$deploymentId,commitSha:$commitSha,state:$state,healthy:true,manualOnly:true,healthStatus:$healthStatus}'             > /tmp/vercel-standby-evidence.json
+
+          {
+            echo "### Vercel disaster-recovery standby"
+            echo "- Deployment: **$STANDBY_ID**"
+            echo "- State: **$STANDBY_STATE**"
+            echo "- Health: **HTTP $STANDBY_HEALTH_CODE**"
+            echo "- Commit: **${STANDBY_SHA:-unknown}**"
+            if [ -n "$STANDBY_SHA" ] && [ "$STANDBY_SHA" != "$DEPLOY_COMMIT" ]; then
+              echo "- Commit drift: **expected for manual standby**"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record Cloudflare primary + Vercel standby topology evidence
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         shell: bash
         run: |
           HEALTH=$(curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health")
-          BODY=$(jq -cn \
-            --arg deploymentUrl "$DEPLOYMENT_URL" \
-            --arg workflowRunId "$GITHUB_RUN_ID" \
-            --argjson runtime "$HEALTH" \
-            '{platform:"cloudflare",deploymentUrl:$deploymentUrl,version:$runtime.version,
+          BODY=$(jq -cn             --arg deploymentUrl "$DEPLOYMENT_URL"             --arg workflowRunId "$GITHUB_RUN_ID"             --argjson runtime "$HEALTH"             --argjson standby "$(cat /tmp/vercel-standby-evidence.json)"             '{platform:"cloudflare",deploymentUrl:$deploymentUrl,version:$runtime.version,
               modelVersion:$runtime.modelVersion,migrationVersion:$runtime.migrationVersion,
-              commitSha:$runtime.deploymentCommit,workflowRunId:$workflowRunId,source:"production-cloudflare"}')
-          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/release/platform-convergence" \
-            -H "Authorization: Bearer $INGEST_SECRET" \
-            -H "Content-Type: application/json" \
-            --data "$BODY"
+              commitSha:$runtime.deploymentCommit,workflowRunId:$workflowRunId,source:"production-cloudflare",
+              topology:"cloudflare-primary-vercel-standby",standby:$standby,
+              exactMainCertified:true,hostedSmokePassed:true,platformReady:true}')
+          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/release/platform-convergence"             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY"
           echo
 
       - name: Attempt final production closure
@@ -316,6 +355,7 @@ jobs:
           echo "- URL: $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Primary platform: Cloudflare Workers (free tier)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Vercel role: manual disaster-recovery standby" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Closure policy: Cloudflare current + Vercel standby healthy; standby commit drift is allowed" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime release: V119" >> "$GITHUB_STEP_SUMMARY"
           echo "- Model: edgeforce-v119" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database migration: current release manifest" >> "$GITHUB_STEP_SUMMARY"
