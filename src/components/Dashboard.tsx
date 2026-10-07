@@ -29,6 +29,7 @@ import CrossSportOptimizerPanel from './CrossSportOptimizerPanel';
 import UnifiedIntelligencePanel from './UnifiedIntelligencePanel';
 import ReliabilitySupervisorPanel from './ReliabilitySupervisorPanel';
 import DeploymentGuardPanel from './DeploymentGuardPanel';
+import VercelGovernorPanel from './VercelGovernorPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
@@ -1139,6 +1140,8 @@ export default function Dashboard(){
     <SloGovernorPanel/>
 
     <DeploymentGuardPanel/>
+
+    <VercelGovernorPanel/>
 
     <ReliabilitySupervisorPanel/>
 
