@@ -30,6 +30,46 @@ type Snapshot={
   createdAt:string;
 };
 
+type Decision={
+  id:number;
+  snapshotId:number;
+  projectKey:string;
+  projectName:string;
+  decision:string;
+  reason:string;
+  pending:boolean;
+  active:number;
+  cooldownReady:boolean;
+  usage:number;
+  softCap:number;
+  hardCap:number;
+  createdAt:string;
+};
+
+type Alert={
+  id?:number;
+  key?:string;
+  alertKey?:string;
+  severity:'INFO'|'WATCH'|'ACTION';
+  category:string;
+  projectKey?:string|null;
+  message:string;
+  active:boolean;
+  firstSeenAt?:string;
+  lastSeenAt?:string;
+  resolvedAt?:string|null;
+};
+
+type RecoveryPoint={
+  kind:string;
+  label:string;
+  at:string;
+  recoveredSlots:number;
+  projectedUsage:number;
+  emergencyAvailable:boolean;
+  normalAvailable:boolean;
+};
+
 type Payload={
   ok:boolean;
   configured:boolean;
@@ -45,12 +85,27 @@ type Payload={
     overHardCap:number;
     slotsToRecover:number;
     nextNormalSlotAt:string|null;
+    recoveryTimeline:RecoveryPoint[];
     mode:'NORMAL'|'SATURATED'|'EMERGENCY_RESERVE'|'OVER_HARD_CAP';
     projectUsage:Record<string,number>;
     deploymentStates:Record<string,number>;
     projectStates:ProjectState[];
   };
+  currentAlerts?:Alert[];
+  alerts?:Alert[];
+  decisions?:Decision[];
   history?:Snapshot[];
+  manualControl?:{
+    workflow:string;
+    url:string;
+    publicBrowserReadOnly:boolean;
+    normalAvailable:boolean;
+    emergencyAvailable:boolean;
+    hardBlocked:boolean;
+    normalCap:number;
+    hardCap:number;
+    justificationRequired:boolean;
+  };
   error?:string;
 };
 
@@ -82,11 +137,13 @@ export default function VercelGovernorPanel(){
 
   const telemetry=data?.telemetry;
   const projectStates=telemetry?.projectStates||[];
+  const activeAlerts=(data?.alerts||data?.currentAlerts||[]).filter(alert=>alert.active!==false);
+  const manual=data?.manualControl;
   return <section className="v21Panel">
     <div className="v21PanelHead">
       <div>
-        <div className="eyebrow">V140 VERCEL TEAM GOVERNOR</div>
-        <h3>Shared deployment capacity, recovery forecast, and project release state</h3>
+        <div className="eyebrow">V141 VERCEL TEAM GOVERNOR</div>
+        <h3>Capacity recovery, alerts, decision history, and hard-capped manual release control</h3>
       </div>
       <div className="panelMeta">
         <span>{telemetry?.mode||'UNAVAILABLE'}</span>
@@ -105,6 +162,36 @@ export default function VercelGovernorPanel(){
         <div><small>OVER HARD CAP</small><strong>{telemetry.overHardCap}</strong><span>hard cap {telemetry.hardCap}</span></div>
         <div><small>SLOTS TO RECOVER</small><strong>{telemetry.slotsToRecover}</strong><span>before a normal release can run</span></div>
         <div><small>NEXT NORMAL SLOT</small><strong>{telemetry.nextNormalSlotAt?time(telemetry.nextNormalSlotAt):'NOW'}</strong><span>{telemetry.nextNormalSlotAt?'predicted from rolling 24h expirations':'normal capacity available'}</span></div>
+      </div>
+
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Active recovery alerts</h4>
+          {activeAlerts.slice(0,8).map(alert=><div className="historyRow" key={alert.alertKey||alert.key||alert.message}>
+            <span>{alert.category}{alert.projectKey?' • '+alert.projectKey:''}</span>
+            <b>{alert.severity}</b>
+            <small>{alert.message}</small>
+          </div>)}
+          {!activeAlerts.length&&<div className="historyRow"><span>No active governor alert</span><b>READY</b><small>No current capacity or project-state warning is recorded.</small></div>}
+        </div>
+
+        <div className="historyBox">
+          <h4>Recovery timeline</h4>
+          {(telemetry.recoveryTimeline||[]).map(point=><div className="historyRow" key={point.kind+'-'+point.at}>
+            <span>{point.label}</span>
+            <b>{time(point.at)}</b>
+            <small>{point.recoveredSlots} expired • projected usage {point.projectedUsage}{point.normalAvailable?' • NORMAL OPEN':point.emergencyAvailable?' • EMERGENCY RESERVE':''}</small>
+          </div>)}
+          {!telemetry.recoveryTimeline?.length&&<div className="historyRow"><span>No recovery wait</span><b>NOW</b><small>Normal governed capacity is currently available.</small></div>}
+        </div>
+
+        <div className="historyBox">
+          <h4>Reviewed manual release control</h4>
+          <div className="historyRow"><span>Normal release</span><b>{manual?.normalAvailable?'AVAILABLE':'BLOCKED'}</b><small>allowed only below {manual?.normalCap??telemetry.softCap}</small></div>
+          <div className="historyRow"><span>Emergency reserve</span><b>{manual?.emergencyAvailable?'AVAILABLE':'BLOCKED'}</b><small>reviewed workflow only; never at or above {manual?.hardCap??telemetry.hardCap}</small></div>
+          <div className="historyRow"><span>Hard-cap bypass</span><b>NEVER</b><small>project, tier, and written justification are required in GitHub Actions</small></div>
+          {manual?.url&&<a className="ackBtn" href={manual.url} target="_blank" rel="noreferrer">OPEN REVIEWED MANUAL RELEASE</a>}
+        </div>
       </div>
 
       <div className="tableWrap">
@@ -133,8 +220,9 @@ export default function VercelGovernorPanel(){
           {Object.entries(telemetry.projectUsage).sort((a,b)=>b[1]-a[1]).map(([name,count])=><div className="historyRow" key={name}><span>{name}</span><b>{count}</b><small>deployments in the rolling window</small></div>)}
         </div>
         <div className="historyBox">
-          <h4>Deployment states</h4>
-          {Object.entries(telemetry.deploymentStates).sort((a,b)=>b[1]-a[1]).map(([state,count])=><div className="historyRow" key={state}><span>{state}</span><b>{count}</b><small>team-wide within the rolling window</small></div>)}
+          <h4>Governor decision history</h4>
+          {(data?.decisions||[]).slice(0,10).map(row=><div className="historyRow" key={row.id}><span>{row.projectName}</span><b>{row.decision}</b><small>{time(row.createdAt)} • {row.reason} • usage {row.usage}/{row.softCap}</small></div>)}
+          {!data?.decisions?.length&&<div className="historyRow"><span>No decision records yet</span><b>—</b><small>New v116 snapshots will persist each project decision.</small></div>}
         </div>
         <div className="historyBox">
           <h4>Governor history</h4>
