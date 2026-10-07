@@ -11,6 +11,12 @@ const closurePanel=readFileSync(new URL('../src/components/FinalProductionClosur
 const topologyTest=readFileSync(new URL('../src/app/api/testing/platform-convergence/route.ts',import.meta.url),'utf8');
 const closureTest=readFileSync(new URL('../src/app/api/testing/final-closure/route.ts',import.meta.url),'utf8');
 
+test('V145 accepts real Cloudflare and Vercel HTTPS topology URLs',()=>{
+ assert.match(topology,/new URL\(String\(value\|\|'\'\)\)/);
+ assert.match(topology,/url\.protocol==='https:'/);
+ assert.doesNotMatch(topology,/\^https/);
+});
+
 test('V145 topology requires certified Cloudflare primary and healthy manual Vercel standby',()=>{
  assert.match(topology,/cloudflare-primary-vercel-standby/);
  assert.match(topology,/exact-main certification did not pass/);
