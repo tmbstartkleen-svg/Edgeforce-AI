@@ -19,16 +19,16 @@ test('V149 PR workflows cancel superseded runs by stable workflow and PR identit
  for(const source of [verify,cloudflare,preview])assert.match(source,/cancel-in-progress: true/);
 });
 
-test('V149 validation jobs are bounded and deterministic',()=>{
+test('V149 validation jobs are bounded and lockfile-safe',()=>{
  assert.match(verify,/build-and-smoke:\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 30/);
  assert.match(cloudflare,/vinext-workers:\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 25/);
  assert.match(preview,/preview:\n[\s\S]*?runs-on: ubuntu-latest\n\s+timeout-minutes: 25/);
  assert.match(preview,/cleanup:\n[\s\S]*?runs-on: ubuntu-latest\n\s+timeout-minutes: 10/);
  for(const source of [verify,cloudflare,preview]){
-  assert.ok(source.includes('cache: npm'));
-  assert.ok(source.includes('cache-dependency-path: package-lock.json'));
-  assert.ok(source.includes('npm ci'));
-  assert.ok(!source.includes('npm install'));
+  assert.ok(source.includes('npm install --no-audit --no-fund'));
+  assert.ok(!source.includes('cache: npm'));
+  assert.ok(!source.includes('cache-dependency-path: package-lock.json'));
+  assert.ok(!source.includes('npm ci'));
  }
 });
 
