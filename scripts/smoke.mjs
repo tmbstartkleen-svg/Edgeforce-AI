@@ -713,6 +713,12 @@ assert(health.body?.evidenceWeightedRecalibrationStrength===true,'evidence-weigh
 assert(health.body?.evidenceWeightedSportModelTraining===true,'evidence-weighted sport model training flag missing');
 assert(health.body?.evidenceWeightedExternalMlTraining===true,'evidence-weighted external ML training flag missing');
 assert(health.body?.effectiveEvidenceSampleTelemetry===true,'effective evidence sample telemetry flag missing');
+assert(health.body?.effectiveSamplePromotionGates===true,'effective sample promotion gate flag missing');
+assert(health.body?.effectiveSampleValidationGrades===true,'effective sample validation grade flag missing');
+assert(health.body?.effectiveSampleGovernanceDepth===true,'effective sample governance depth flag missing');
+assert(health.body?.effectiveSampleInternalModelPromotion===true,'effective sample internal model promotion flag missing');
+assert(health.body?.effectiveSampleExternalMlPromotion===true,'effective sample external ML promotion flag missing');
+assert(health.body?.staleMlServicePromotionFailClosed===true,'stale ML service promotion fail-closed flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
@@ -743,6 +749,12 @@ assert(weightedLearning.body?.assertions?.effectiveSampleSize===true,'effective 
 assert(weightedLearning.body?.assertions?.weightedBrier===true,'evidence-weighted Brier calculation regressed');
 assert(weightedLearning.body?.assertions?.calibrationWeighted===true,'evidence-weighted calibration regressed');
 assert(weightedLearning.body?.assertions?.performanceWeighted===true,'evidence-weighted rolling performance regressed');
+
+const effectiveSampleGates=await get('/api/testing/effective-sample-gates');
+assert(effectiveSampleGates.res.ok&&effectiveSampleGates.body?.ok===true,'effective sample gate regression failed');
+assert(effectiveSampleGates.body?.assertions?.providerPasses===true,'provider-native effective sample gate regressed');
+assert(effectiveSampleGates.body?.assertions?.mediumRawInflationBlocked===true,'medium-confidence raw-count inflation gate regressed');
+assert(effectiveSampleGates.body?.assertions?.mixedWeightedCorrectly===true,'mixed effective sample calculation regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
