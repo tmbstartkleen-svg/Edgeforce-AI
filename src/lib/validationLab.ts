@@ -62,7 +62,9 @@ export type ValidationGroup={
  sport:string;
  marketKey:string;
  sampleSize:number;
+ effectiveSampleSize:number;
  holdoutSampleSize:number;
+ holdoutEffectiveSampleSize:number;
  evidenceGrade:EvidenceGrade;
  promotionEligible:boolean;
  reason:string;
@@ -233,9 +235,11 @@ export function validationMetrics(rows:HistoricalPrediction[]):ValidationMetrics
 
 function gradeEvidence(rows:HistoricalPrediction[],metrics:ValidationMetrics){
  const sample=rows.length;
+ const effectiveSample=metrics.summary.effectiveSampleSize;
  const holdout=metrics.holdout.sampleSize;
- if(sample<25||holdout<8){
-  return {evidenceGrade:'INSUFFICIENT' as const,promotionEligible:false,reason:`Insufficient settled history: ${sample} samples, ${holdout} holdout`};
+ const effectiveHoldout=metrics.holdout.effectiveSampleSize;
+ if(effectiveSample<25||effectiveHoldout<8){
+  return {evidenceGrade:'INSUFFICIENT' as const,promotionEligible:false,reason:`Insufficient effective settled history: ${effectiveSample.toFixed(2)} effective / ${sample} raw samples, ${effectiveHoldout.toFixed(2)} effective / ${holdout} raw holdout`};
  }
  const failed=
   metrics.holdout.brierScore>.32||
@@ -245,8 +249,8 @@ function gradeEvidence(rows:HistoricalPrediction[],metrics:ValidationMetrics){
  if(failed){
   return {evidenceGrade:'FAILED' as const,promotionEligible:false,reason:`Holdout quality failed: Brier ${metrics.holdout.brierScore.toFixed(3)}, log loss ${metrics.holdout.logLoss.toFixed(3)}, calibration ${metrics.holdoutCalibrationError.toFixed(3)}, skill ${metrics.brierSkillScore.toFixed(3)}`};
  }
- if(sample<75||holdout<20||metrics.walkForwardFolds<1){
-  return {evidenceGrade:'PROVISIONAL' as const,promotionEligible:false,reason:`Promising but not enough out-of-sample depth: ${sample} samples, ${holdout} holdout, ${metrics.walkForwardFolds} folds`};
+ if(effectiveSample<75||effectiveHoldout<20||metrics.walkForwardFolds<1){
+  return {evidenceGrade:'PROVISIONAL' as const,promotionEligible:false,reason:`Promising but not enough effective out-of-sample depth: ${effectiveSample.toFixed(2)} effective / ${sample} raw samples, ${effectiveHoldout.toFixed(2)} effective / ${holdout} raw holdout, ${metrics.walkForwardFolds} folds`};
  }
  const eligible=
   metrics.holdout.brierScore<=.28&&
@@ -257,7 +261,7 @@ function gradeEvidence(rows:HistoricalPrediction[],metrics:ValidationMetrics){
  if(!eligible){
   return {evidenceGrade:'PROVISIONAL' as const,promotionEligible:false,reason:`Evidence not yet strong enough for promotion: holdout Brier ${metrics.holdout.brierScore.toFixed(3)}, calibration ${metrics.holdoutCalibrationError.toFixed(3)}, skill ${metrics.brierSkillScore.toFixed(3)}, CLV ${metrics.summary.avgClv.toFixed(3)}`};
  }
- if(sample>=200&&holdout>=50&&metrics.walkForwardFolds>=3&&metrics.holdout.brierScore<=.25&&metrics.holdoutCalibrationError<=.075&&metrics.brierSkillScore>=.03){
+ if(effectiveSample>=200&&effectiveHoldout>=50&&metrics.walkForwardFolds>=3&&metrics.holdout.brierScore<=.25&&metrics.holdoutCalibrationError<=.075&&metrics.brierSkillScore>=.03){
   return {evidenceGrade:'VERIFIED' as const,promotionEligible:true,reason:'Verified with deep settled history, multiple walk-forward folds, positive market-relative skill, and calibrated holdout performance'};
  }
  return {evidenceGrade:'QUALIFIED' as const,promotionEligible:true,reason:'Qualified by minimum out-of-sample, calibration, CLV, and market-relative skill gates'};
@@ -273,7 +277,7 @@ function groups(rows:HistoricalPrediction[]){
   const [modelName,sport,marketKey]=key.split('|');
   const metrics=validationMetrics(group);
   const evidence=gradeEvidence(group,metrics);
-  return {modelName,sport,marketKey,sampleSize:group.length,holdoutSampleSize:metrics.holdout.sampleSize,...evidence,metrics} satisfies ValidationGroup;
+  return {modelName,sport,marketKey,sampleSize:group.length,effectiveSampleSize:metrics.summary.effectiveSampleSize,holdoutSampleSize:metrics.holdout.sampleSize,holdoutEffectiveSampleSize:metrics.holdout.effectiveSampleSize,...evidence,metrics} satisfies ValidationGroup;
  }).sort((a,b)=>{
   const rank=(x:EvidenceGrade)=>x==='VERIFIED'?0:x==='QUALIFIED'?1:x==='PROVISIONAL'?2:x==='INSUFFICIENT'?3:4;
   return rank(a.evidenceGrade)-rank(b.evidenceGrade)||b.sampleSize-a.sampleSize;
