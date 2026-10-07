@@ -137,7 +137,7 @@ export default function VercelGovernorPanel(){
 
   const telemetry=data?.telemetry;
   const projectStates=telemetry?.projectStates||[];
-  const activeAlerts=(data?.alerts||data?.currentAlerts||[]).filter(alert=>alert.active!==false);
+  const activeAlerts=((data?.alerts?.length?data.alerts:data?.currentAlerts)||[]).filter(alert=>alert.active!==false);
   const manual=data?.manualControl;
   return <section className="v21Panel">
     <div className="v21PanelHead">
