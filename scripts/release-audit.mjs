@@ -8,7 +8,7 @@ const expected={
  appVersion:'119.0.0',
  packageVersion:'0.119.0',
  modelVersion:'edgeforce-v119',
- migrationVersion:114
+ migrationVersion:115
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -1077,6 +1077,16 @@ add('V139 preserves Edgeforce certification path',read('.github/workflows/team-v
 add('V139 supersedes independent retry',!exists('.github/workflows/retry-production-on-budget.yml'),'the Edgeforce-only hourly retry is retired so scheduling has a single authority');
 add('V139 mandatory governor regression',exists('tests/team-vercel-governor.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/team-vercel-governor.test.mjs'),'team deployment governor tests are mandatory');
 add('V139 release notes',exists('EDGEFORCE_V139_RELEASE.md'),'V139 release documentation exists');
+add('V140 governor telemetry schema',read('db/v115.sql').includes('vercel_governor_snapshots')&&read('db/v115.sql').includes('next_normal_slot_at')&&read('db/v115.sql').includes('project_states jsonb'),'v115 stores governor capacity and project-state snapshots');
+add('V140 live team telemetry',read('src/lib/vercelGovernorTelemetry.ts').includes("import 'server-only'")&&read('src/lib/vercelGovernorTelemetry.ts').includes('VERCEL_TOKEN')&&read('src/lib/vercelGovernorTelemetry.ts').includes("since:String(cutoff)")&&read('src/lib/vercelGovernorTelemetry.ts').includes("params.set('until'"),'server-only telemetry pages the rolling team deployment window without exposing credentials');
+add('V140 recovery forecast',read('src/lib/vercelGovernorTelemetry.ts').includes('usage-softCap+1')&&read('src/lib/vercelGovernorTelemetry.ts').includes('recent[slotsToRecover-1]')&&read('src/lib/vercelGovernorTelemetry.ts').includes('overHardCap=Math.max(0,usage-hardCap)'),'telemetry predicts when enough deployments age out for normal capacity to resume');
+add('V140 project governor states',read('src/lib/vercelGovernorTelemetry.ts').includes("'CURRENT'|'ACTIVE'|'APPROVED'|'DEFERRED'")&&read('src/lib/vercelGovernorTelemetry.ts').includes('project cooldown has not expired')&&read('src/lib/vercelGovernorTelemetry.ts').includes('team normal deployment budget is exhausted'),'project status explains current, active, approved, and deferred release states');
+add('V140 throttled durable history',read('src/lib/vercelGovernorTelemetry.ts').includes('15*60*1000')&&read('src/lib/vercelGovernorTelemetry.ts').includes('insert into vercel_governor_snapshots')&&read('src/lib/vercelGovernorTelemetry.ts').includes('recentVercelGovernorSnapshots'),'governor history is persisted without writing on every dashboard poll');
+add('V140 sanitized telemetry API',read('src/app/api/operations/vercel-governor/route.ts').includes('x-edgeforce-governor-telemetry')&&!read('src/components/VercelGovernorPanel.tsx').includes('VERCEL_TOKEN'),'browser receives sanitized governor telemetry, not the Vercel credential');
+add('V140 governor dashboard',read('src/components/Dashboard.tsx').includes('VercelGovernorPanel')&&read('src/components/VercelGovernorPanel.tsx').includes('SLOTS TO RECOVER')&&read('src/components/VercelGovernorPanel.tsx').includes('NEXT NORMAL SLOT'),'main dashboard shows capacity, project accounting and recovery forecast');
+add('V140 health capability',read('src/app/api/health/route.ts').includes('vercelTeamGovernorTelemetry:true')&&read('scripts/smoke.mjs').includes('Vercel team governor telemetry flag missing'),'health and smoke contracts advertise governor telemetry');
+add('V140 mandatory regression',exists('tests/vercel-governor-telemetry.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/vercel-governor-telemetry.test.mjs'),'governor telemetry contracts are mandatory in typecheck verification');
+add('V140 release notes',exists('EDGEFORCE_V140_RELEASE.md'),'V140 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};

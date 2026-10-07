@@ -38,7 +38,7 @@ assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='119.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v119','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===114,'unexpected migration version');
+assert(health.body?.migrationVersion===115,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -146,6 +146,7 @@ assert(health.body?.stagedRemediationPromotion===true,'staged remediation promot
 assert(health.body?.exactCloudflareIdentityConvergence===true,'exact Cloudflare identity convergence flag missing');
 assert(health.body?.fanDuelPulseOperationalContinuity===true,'FanDuel pulse operational continuity flag missing');
 assert(health.body?.conditionalV1ContinuityReadiness===true,'conditional V1 continuity readiness flag missing');
+assert(health.body?.vercelTeamGovernorTelemetry===true,'Vercel team governor telemetry flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
@@ -382,7 +383,7 @@ assert(releaseReady.body?.version==='119.0.0','release readiness version mismatc
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
 assert(deployment.body?.version==='119.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v114','deployment migration identity mismatch');
+assert(deployment.body?.checks?.migrations==='v115','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
