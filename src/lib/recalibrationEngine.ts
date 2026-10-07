@@ -73,10 +73,12 @@ function evaluateGroup(modelName:string,sport:string,marketKey:string,rows:Histo
  const avgFoldBrier=folds.length?folds.reduce((s,x)=>s+x.test.brierScore,0)/folds.length:holdoutSummary.brierScore;
  const avgFoldLog=folds.length?folds.reduce((s,x)=>s+x.test.logLoss,0)/folds.length:holdoutSummary.logLoss;
 
+ const effectiveSampleSize=allSummary.effectiveSampleSize;
+ const holdoutEffectiveSampleSize=holdoutSummary.effectiveSampleSize;
  let promoted=true;
- let reason='Promoted after minimum-sample and holdout checks';
- if(sorted.length<options.minSample){promoted=false;reason=`Held: ${sorted.length} samples < ${options.minSample} minimum`;}
- else if(holdout.length<options.minHoldout){promoted=false;reason=`Held: ${holdout.length} holdout samples < ${options.minHoldout} minimum`;}
+ let reason='Promoted after effective-evidence minimum and holdout checks';
+ if(effectiveSampleSize<options.minSample){promoted=false;reason=`Held: effective evidence ${effectiveSampleSize.toFixed(2)}/${options.minSample} from ${sorted.length} raw samples`;}
+ else if(holdoutEffectiveSampleSize<options.minHoldout){promoted=false;reason=`Held: effective holdout evidence ${holdoutEffectiveSampleSize.toFixed(2)}/${options.minHoldout} from ${holdout.length} raw holdout samples`;}
  else if(holdoutSummary.brierScore>.32||holdoutSummary.logLoss>.85){
   promoted=false;
   reason=`Held: holdout quality failed (Brier ${holdoutSummary.brierScore.toFixed(3)}, log loss ${holdoutSummary.logLoss.toFixed(3)})`;
@@ -95,8 +97,6 @@ function evaluateGroup(modelName:string,sport:string,marketKey:string,rows:Histo
    - Math.max(0,avgFoldLog-.693)*.15
    + clamp(avgClv,-.05,.05)*1.2;
  const rawMultiplier=1+qualitySignal;
- const effectiveSampleSize=allSummary.effectiveSampleSize;
- const holdoutEffectiveSampleSize=holdoutSummary.effectiveSampleSize;
  const shrinkage=effectiveSampleSize/(effectiveSampleSize+options.shrinkageSamples);
  const shrunk=1+(rawMultiplier-1)*shrinkage;
  const multiplier=promoted
