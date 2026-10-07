@@ -154,6 +154,8 @@ assert(health.body?.cloudflarePrimaryProduction===true,'Cloudflare primary produ
 assert(health.body?.vercelManualStandby===true,'Vercel manual standby flag missing');
 assert(health.body?.freeFirstSportsDataMesh===true,'Free-first sports data mesh flag missing');
 assert(health.body?.sportsbookQuotaDoesNotBlockPlatform===true,'Sportsbook quota isolation flag missing');
+assert(health.body?.primaryStandbyProductionClosure===true,'Primary standby closure flag missing');
+assert(health.body?.standbyCommitDriftAllowed===true,'Standby commit drift policy flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
@@ -648,14 +650,17 @@ assert(rollbackStatus.res.ok&&rollbackStatus.body?.ok===true,'rollback reconcili
 
 const platformConvergenceTest=await get('/api/testing/platform-convergence');
 assert(platformConvergenceTest.res.ok&&platformConvergenceTest.body?.ok===true,'platform convergence regression failed');
-assert(platformConvergenceTest.body?.assertions?.commitIdentityMatches===true,'platform convergence commit assertion failed');
+assert(platformConvergenceTest.body?.assertions?.primaryReleaseIdentity===true,'primary release identity assertion failed');
+assert(platformConvergenceTest.body?.assertions?.standbyReady===true,'standby readiness assertion failed');
+assert(platformConvergenceTest.body?.assertions?.standbyCommitDriftAllowed===true,'standby drift policy assertion failed');
 const platformConvergenceStatus=await get('/api/release/platform-convergence');
 assert(platformConvergenceStatus.res.ok&&platformConvergenceStatus.body?.ok===true,'platform convergence endpoint failed');
 
 const finalClosureTest=await get('/api/testing/final-closure');
 assert(finalClosureTest.res.ok&&finalClosureTest.body?.ok===true,'final production closure regression failed');
 assert(finalClosureTest.body?.assertions?.releaseIdentity===true,'final closure release identity assertion failed');
-assert(finalClosureTest.body?.assertions?.commitIdentity===true,'final closure commit identity assertion failed');
+assert(finalClosureTest.body?.assertions?.primaryCommitIdentity===true,'final closure primary commit identity assertion failed');
+assert(finalClosureTest.body?.assertions?.standbyDriftAllowed===true,'final closure standby drift assertion failed');
 assert(finalClosureTest.body?.assertions?.allClosureGatesRequired===true,'final closure gate assertion failed');
 const finalClosureStatus=await get('/api/release/final-closure');
 assert(finalClosureStatus.res.ok&&finalClosureStatus.body?.ok===true,'final production closure endpoint failed');

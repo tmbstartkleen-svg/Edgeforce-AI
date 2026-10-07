@@ -243,6 +243,8 @@ export async function GET(){
   vercelManualStandby:true,
   freeFirstSportsDataMesh:true,
   sportsbookQuotaDoesNotBlockPlatform:true,
+  primaryStandbyProductionClosure:true,
+  standbyCommitDriftAllowed:true,
   releasePathConvergence:true,
   previewTargetRemediationArtifact:true,
   failSoftPredictionWarehousePrime:true,
