@@ -74,7 +74,16 @@
     "THESPORTSDB_SPORTS": "Soccer,Basketball,American Football,Baseball,Ice Hockey",
     "BIGBALLS_API_BASE_URL": "https://api.bigballsdata.com/v1",
     "API_SPORTS_SCORE_ENDPOINTS_JSON": "[{\"id\":\"api-sports-football\",\"url\":\"https://v3.football.api-sports.io/fixtures?live=all\"}]",
-    "COMMUNITY_SCORE_TIMEOUT_MS": "6000"
+    "COMMUNITY_SCORE_TIMEOUT_MS": "6000",
+    "LIVE_SCORE_NATIVE_LIVE_CACHE_MS": "750",
+    "LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS": "750",
+    "LIVE_SCORE_ESPN_LIVE_CACHE_MS": "3000",
+    "LIVE_SCORE_UI_FAST_MS": "750",
+    "LIVE_SCORE_UI_LIVE_MS": "1000",
+    "LIVE_SCORE_UI_DEGRADED_MS": "1500",
+    "LIVE_SCORE_UI_IDLE_MS": "3000",
+    "LIVE_SCORE_CONSENSUS_WINDOW_MS": "8000",
+    "LIVE_SCORE_LAG_TOLERANCE_MS": "3000"
   },
   "account_id": "de9b84b39940a0b5b622ae5d27b415dc",
   "triggers": {

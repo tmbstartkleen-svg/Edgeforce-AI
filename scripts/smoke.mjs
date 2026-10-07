@@ -675,6 +675,37 @@ assert(topologyWatchdogTest.body?.assertions?.driftAllowed===true,'topology watc
 assert(topologyWatchdogTest.body?.assertions?.automaticPromotionDisabled===true,'topology watchdog automatic promotion policy regressed');
 assert(topologyWatchdogTest.body?.assertions?.badStandbyBlocks===true,'topology watchdog standby failure gate regressed');
 assert(topologyWatchdogTest.body?.assertions?.staleClosureBlocks===true,'topology watchdog stale closure gate regressed');
+assert(health.body?.liveScoreFreshnessGovernor===true,'live score freshness governor flag missing');
+assert(health.body?.sourceAwareLiveScoreReconciliation===true,'live score reconciliation flag missing');
+assert(health.body?.espnCdnFastPathPreserved===true,'ESPN CDN fast path flag missing');
+assert(health.body?.adaptiveLiveBoardPolling===true,'adaptive live board polling flag missing');
+assert(health.body?.liveScoreCrossSourceConsensus===true,'live score cross-source consensus flag missing');
+assert(health.body?.liveScoreConflictDetection===true,'live score conflict detection flag missing');
+assert(health.body?.lagAwareScoreReconciliation===true,'lag-aware score reconciliation flag missing');
+assert(health.body?.liveScoreConsensusTelemetry===true,'live score consensus telemetry flag missing');
+assert(health.body?.ciSupersededRunCancellation===true,'CI superseded-run cancellation flag missing');
+assert(health.body?.lockfileSafeCiInstall===true,'lockfile-safe CI install flag missing');
+assert(health.body?.npmInstallFallbackWithoutLockfile===true,'npm install fallback without lockfile flag missing');
+assert(health.body?.boundedCiExecution===true,'bounded CI execution flag missing');
+assert(health.body?.pinnedCiActions===true,'pinned CI actions flag missing');
+assert(health.body?.prPreviewConvergence===true,'PR preview convergence flag missing');
+assert(health.body?.productionDeploySerializationPreserved===true,'production deploy serialization flag missing');
+assert(health.body?.certifiedScoreSettlementEvidence===true,'certified score settlement evidence flag missing');
+assert(health.body?.settlementConflictFailClosed===true,'settlement conflict fail-closed flag missing');
+assert(health.body?.trustedPrimarySingleSourceSettlement===true,'trusted primary single-source settlement flag missing');
+assert(health.body?.settlementEvidenceTelemetry===true,'settlement evidence telemetry flag missing');
+
+const liveScoreConsensus=await get('/api/testing/live-score-consensus');
+assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
+assert(liveScoreConsensus.body?.assertions?.highConfidenceCorroboration===true,'live score corroboration regressed');
+assert(liveScoreConsensus.body?.assertions?.lagSeparatedFromConflict===true,'live score lag classification regressed');
+assert(liveScoreConsensus.body?.assertions?.activeConflictDetected===true,'live score conflict detection regressed');
+
+const settlementEvidence=await get('/api/testing/settlement-evidence');
+assert(settlementEvidence.res.ok&&settlementEvidence.body?.ok===true,'settlement evidence regression failed');
+assert(settlementEvidence.body?.assertions?.corroboratedAccepted===true,'corroborated final settlement regressed');
+assert(settlementEvidence.body?.assertions?.activeConflictBlocked===true,'conflicting final settlement gate regressed');
+assert(settlementEvidence.body?.assertions?.untrustedSingleBlocked===true,'untrusted single-source settlement gate regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');

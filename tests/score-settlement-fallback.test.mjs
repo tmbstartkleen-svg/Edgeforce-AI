@@ -31,3 +31,60 @@ test('unsupported or malformed markets fail closed',()=>{
  assert.equal(runtime.gradeScoreLeg('player prop','Player Over 1.5','Home','Away',2,1),null);
  assert.equal(runtime.gradeScoreLeg('spread','Home','Home','Away',2,1),null);
 });
+
+
+test('V150 accepts corroborated final scores and trusted primary single-source finals',()=>{
+ const base={status:'FINAL',home:{name:'Home',score:27},away:{name:'Away',score:20}};
+ const high=runtime.evaluateFinalScoreSettlementEvidence({
+  ...base,source:'espn-cdn',
+  consensus:{confidence:'HIGH',sourceCount:3,agreeingSources:2,activeConflict:false,statusConflict:false,scoreConflict:false,laggingSources:[]}
+ });
+ assert.equal(high.accepted,true);
+ assert.equal(high.confidence,'HIGH');
+ assert.equal(high.trustedSingleSource,false);
+
+ const trustedSingle=runtime.evaluateFinalScoreSettlementEvidence({
+  ...base,source:'mlb-statsapi',
+  consensus:{confidence:'SINGLE_SOURCE',sourceCount:1,agreeingSources:1,activeConflict:false,statusConflict:false,scoreConflict:false,laggingSources:[]}
+ });
+ assert.equal(trustedSingle.accepted,true);
+ assert.equal(trustedSingle.trustedSingleSource,true);
+});
+
+test('V150 blocks unresolved score conflicts, low confidence, and untrusted single-source finals',()=>{
+ const base={status:'FINAL',home:{name:'Home',score:27},away:{name:'Away',score:20}};
+ const conflict=runtime.evaluateFinalScoreSettlementEvidence({
+  ...base,source:'espn-cdn',
+  consensus:{confidence:'MEDIUM',sourceCount:3,agreeingSources:1,activeConflict:true,statusConflict:false,scoreConflict:true,laggingSources:[]}
+ });
+ assert.equal(conflict.accepted,false);
+ assert.match(conflict.reason,/conflict/i);
+
+ const low=runtime.evaluateFinalScoreSettlementEvidence({
+  ...base,source:'espn-public',
+  consensus:{confidence:'LOW',sourceCount:2,agreeingSources:0,activeConflict:false,statusConflict:false,scoreConflict:true,laggingSources:['thesportsdb']}
+ });
+ assert.equal(low.accepted,false);
+ assert.match(low.reason,/confidence/i);
+
+ const untrusted=runtime.evaluateFinalScoreSettlementEvidence({
+  ...base,source:'thesportsdb',
+  consensus:{confidence:'SINGLE_SOURCE',sourceCount:1,agreeingSources:1,activeConflict:false,statusConflict:false,scoreConflict:false,laggingSources:[]}
+ });
+ assert.equal(untrusted.accepted,false);
+ assert.match(untrusted.reason,/approved primary provider/i);
+});
+
+test('V150 settlement evidence fails closed for non-final or incomplete scores',()=>{
+ const live=runtime.evaluateFinalScoreSettlementEvidence({
+  status:'LIVE',source:'espn-cdn',home:{name:'Home',score:27},away:{name:'Away',score:20}
+ });
+ assert.equal(live.accepted,false);
+ assert.match(live.reason,/not final/i);
+
+ const incomplete=runtime.evaluateFinalScoreSettlementEvidence({
+  status:'FINAL',source:'espn-cdn',home:{name:'Home',score:null},away:{name:'Away',score:20}
+ });
+ assert.equal(incomplete.accepted,false);
+ assert.match(incomplete.reason,/incomplete/i);
+});

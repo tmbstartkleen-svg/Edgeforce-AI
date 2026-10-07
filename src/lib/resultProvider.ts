@@ -43,7 +43,8 @@ export async function runAutomaticSettlement(){
  const providerRows=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
  const fallback=await finalScoreSettlementRows().catch(error=>({
   rows:[],matchedGames:0,candidateLegs:0,
-  warnings:[error instanceof Error?error.message:'final-score fallback failed']
+  warnings:[error instanceof Error?error.message:'final-score fallback failed'],
+  evidence:{totalFinalGames:0,acceptedFinalGames:0,blockedFinalGames:0,highConfidence:0,mediumConfidence:0,trustedSingleSource:0,blockedConflict:0,blockedLowConfidence:0,blockedSingleSource:0}
  }));
  const seen=new Set<string>();
  const normalized=[...providerRows,...fallback.rows].filter(row=>{
@@ -72,6 +73,8 @@ export async function runAutomaticSettlement(){
   fallbackCandidateLegs:fallback.candidateLegs,
   fallbackMatchedGames:fallback.matchedGames,
   fallbackWarnings:fallback.warnings,
+  fallbackEvidence:fallback.evidence,
+  fallbackEvidenceCertified:fallback.evidence.blockedConflict===0&&fallback.evidence.blockedLowConfidence===0,
   matchedLegs:reconciliation.matchedLegs,
   settledSlips:reconciliation.settledSlips,
   predictionFeedbackWritten:feedback.written,

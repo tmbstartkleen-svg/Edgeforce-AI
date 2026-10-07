@@ -5,9 +5,14 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: edgeforce-verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       snapshot-postgres:
         image: postgres:16
@@ -21,11 +26,11 @@ jobs:
           --health-cmd "pg_isready -U fixture -d edgeforce_snapshot_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - run: npm install
+      - run: npm install --no-audit --no-fund
       - name: Compile ML service
         run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
@@ -66,7 +71,7 @@ jobs:
           EXECUTION_EVIDENCE_SOURCE: github-verify
           REMOTE_SMOKE_PASSED: "false"
       - name: Upload verification evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: edgeforce-execution-evidence-${{ github.sha }}
           path: artifacts/release-execution-evidence.json

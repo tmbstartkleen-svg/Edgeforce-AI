@@ -60,9 +60,11 @@ test('CDN parser fails closed when competition sides are missing',()=>{
  assert.equal(runtime.parseEspnCdnGame({gamepackageJSON:{header:{competitions:[{competitors:[]}]}}},base),null);
 });
 
-test('mesh source contains one-second adaptive fast path and broad backup coverage',()=>{
- assert.match(sourceRaw,/LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS\|\|1000/);
- assert.match(source,/uiRefreshMs:1000/);
+test('mesh source contains sub-second fast path, adaptive freshness governor, and broad backup coverage',()=>{
+ assert.match(sourceRaw,/LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS\|\|750/);
+ assert.match(sourceRaw,/recommendedUiRefreshMs/);
+ assert.match(sourceRaw,/g\.source==='espn-public'\|\|g\.source==='espn-cdn'/);
+ assert.match(sourceRaw,/reconcileLiveGames\(specialized,espnGames/);
  for(const marker of ['womens-college-basketball','college-baseball','uefa.champions','australian-football','rugby-league'])assert.ok(registrySource.includes(marker),marker);
  assert.ok(sourceRaw.includes("source:'espn-cdn'"));
 });
@@ -78,4 +80,71 @@ test('master sport registry includes NCAA depth and global external families',()
  assert.ok(registry.GLOBAL_SPORT_REGISTRY.some(x=>x.id==='ncaa-m-water-polo'));
  assert.ok(registry.GLOBAL_SPORT_REGISTRY.some(x=>x.id==='ncaa-w-volleyball'));
  assert.equal(registry.GLOBAL_SPORT_REGISTRY.find(x=>x.id==='table-tennis')?.scoreProvider,'EXTERNAL');
+});
+
+
+test('freshness governor prefers richer fast-path rows and adapts UI cadence',()=>{
+ const observedAt='2026-10-07T12:00:00.000Z';
+ const base={
+  id:'401000001',sport:'NBA',league:'NBA',status:'LIVE',detail:'3rd Quarter',
+  period:'3',startTime:'2026-10-07T11:30:00Z',
+  home:{name:'Home Team',score:80},away:{name:'Away Team',score:79},observedAt
+ };
+ const publicRow={...base,source:'espn-public',clock:undefined};
+ const cdnRow={...base,source:'espn-cdn',clock:'01:12',home:{...base.home,score:84},away:{...base.away,score:81}};
+ const communityRow={...base,source:'thesportsdb',clock:'01:40',home:{...base.home,score:82},away:{...base.away,score:80}};
+ const reconciled=runtime.reconcileLiveGames([publicRow],[communityRow],[cdnRow]);
+ assert.equal(reconciled.length,1);
+ assert.equal(reconciled[0].source,'espn-cdn');
+ assert.equal(reconciled[0].clock,'01:12');
+ const fresh=runtime.evaluateLiveScoreFreshness([cdnRow],Date.parse(observedAt)+1000);
+ assert.equal(fresh.state,'FAST');
+ assert.equal(fresh.recommendedUiRefreshMs,750);
+ const stale=runtime.evaluateLiveScoreFreshness([cdnRow],Date.parse(observedAt)+20000);
+ assert.equal(stale.state,'STALE');
+ assert.ok(stale.recommendedUiRefreshMs>=1500);
+});
+
+
+test('V148 consensus distinguishes corroboration, lag, and active contradictions',()=>{
+ const now=Date.now();
+ const iso=(delta)=>new Date(now+delta).toISOString();
+ const base={
+  id:'game-consensus',sport:'NBA',league:'NBA',status:'LIVE',detail:'4th Quarter',clock:'02:10',period:'4',
+  startTime:iso(-3600000),
+  home:{name:'Home Team',score:84},away:{name:'Away Team',score:81}
+ };
+ const cdn={...base,source:'espn-cdn',observedAt:iso(0)};
+ const publicSame={...base,source:'espn-public',clock:'02:12',observedAt:iso(-1000)};
+ const lagging={...base,source:'thesportsdb',home:{...base.home,score:82},away:{...base.away,score:80},observedAt:iso(-6000)};
+ const corroborated=runtime.reconcileLiveGames([lagging],[publicSame],[cdn]);
+ assert.equal(corroborated.length,1);
+ assert.equal(corroborated[0].source,'espn-cdn');
+ assert.equal(corroborated[0].consensus.confidence,'HIGH');
+ assert.equal(corroborated[0].consensus.agreeingSources,2);
+ assert.equal(corroborated[0].consensus.activeConflict,false);
+ assert.deepEqual(corroborated[0].consensus.laggingSources,['thesportsdb']);
+
+ const activeConflict={...base,source:'api-sports',home:{...base.home,score:83},observedAt:iso(-500)};
+ const conflicted=runtime.reconcileLiveGames([publicSame],[activeConflict],[cdn]);
+ assert.equal(conflicted[0].consensus.activeConflict,true);
+ assert.equal(conflicted[0].consensus.scoreConflict,true);
+ assert.equal(conflicted[0].consensus.confidence,'MEDIUM');
+ const summary=runtime.summarizeLiveScoreConsensus(conflicted);
+ assert.equal(summary.liveGames,1);
+ assert.equal(summary.activeConflicts,1);
+ assert.equal(summary.medium,1);
+ assert.equal(summary.conflictRate,1);
+});
+
+test('V148 consensus marks one-source live rows explicitly',()=>{
+ const now=Date.now();
+ const row={
+  id:'solo',sport:'NHL',league:'NHL',source:'nhl-web',status:'LIVE',detail:'2nd',clock:'08:00',period:'2',
+  startTime:new Date(now-3600000).toISOString(),home:{name:'Home',score:2},away:{name:'Away',score:1},observedAt:new Date(now).toISOString()
+ };
+ const reconciled=runtime.reconcileLiveGames([row]);
+ assert.equal(reconciled[0].consensus.confidence,'SINGLE_SOURCE');
+ assert.equal(reconciled[0].consensus.sourceCount,1);
+ assert.equal(runtime.summarizeLiveScoreConsensus(reconciled).singleSource,1);
 });
