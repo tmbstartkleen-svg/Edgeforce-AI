@@ -1,6 +1,19 @@
 import {ESPN_SCOREBOARD_FEEDS,sportCoverageSummary} from './sportRegistry';
 import {fetchSportScoreBackup} from './providers/sportScore';
 import {fetchCommunityScoreBackups} from './providers/communityScoreBackups';
+export type LiveScoreConsensus={
+ confidence:'HIGH'|'MEDIUM'|'LOW'|'SINGLE_SOURCE';
+ sourceCount:number;
+ observationCount:number;
+ agreeingSources:number;
+ sources:string[];
+ selectedSource:string;
+ scoreConflict:boolean;
+ statusConflict:boolean;
+ activeConflict:boolean;
+ laggingSources:string[];
+ reasons:string[];
+};
 export type LiveGameState={
  id:string;
  sport:string;
@@ -14,6 +27,7 @@ export type LiveGameState={
  home:{name:string;score:number|null};
  away:{name:string;score:number|null};
  observedAt:string;
+ consensus?:LiveScoreConsensus;
 };
 
 type Cached={at:number;games:LiveGameState[]};
@@ -94,24 +108,98 @@ export function liveGameQuality(game:LiveGameState,now=Date.now()){
  const freshness=ageMs<=1500?10:ageMs<=5000?7:ageMs<=15000?3:ageMs<=120000?0:-20;
  return source+statusRank(game.status)+scores+clock+period+detail+freshness;
 }
+function observationTime(game:LiveGameState){
+ const value=Date.parse(game.observedAt);
+ return Number.isFinite(value)?value:0;
+}
+function scoreKnown(game:LiveGameState){
+ return game.home.score!==null&&game.away.score!==null;
+}
+function sameScore(a:LiveGameState,b:LiveGameState){
+ return scoreKnown(a)&&scoreKnown(b)&&a.home.score===b.home.score&&a.away.score===b.away.score;
+}
+function liveStatusConflict(a:LiveGameState,b:LiveGameState){
+ const meaningful=new Set<LiveGameState['status']>(['SCHEDULED','LIVE','FINAL','DELAYED']);
+ return meaningful.has(a.status)&&meaningful.has(b.status)&&a.status!==b.status;
+}
+export function liveScoreConsensus(observations:LiveGameState[],selected:LiveGameState,now=Date.now()):LiveScoreConsensus{
+ const uniqueSources=[...new Set(observations.map(x=>x.source))];
+ const selectedAt=observationTime(selected)||now;
+ const contemporaneous=observations.filter(x=>Math.abs(selectedAt-(observationTime(x)||selectedAt))<=8000);
+ const scorePeers=contemporaneous.filter(scoreKnown);
+ const agreeing=scorePeers.filter(x=>sameScore(x,selected));
+ const conflicting=scorePeers.filter(x=>!sameScore(x,selected));
+ const lagging=conflicting.filter(x=>selectedAt-observationTime(x)>3000);
+ const activeConflicts=conflicting.filter(x=>selectedAt-observationTime(x)<=3000);
+ const statusConflicts=contemporaneous.filter(x=>liveStatusConflict(x,selected));
+ const trusted=(SOURCE_PRIORITY[selected.source]??40)>=100;
+ const selectedAge=Math.max(0,now-selectedAt);
+ const reasons:string[]=[];
+ if(agreeing.length>=2)reasons.push('score corroborated by multiple sources');
+ if(uniqueSources.length>=2)reasons.push(uniqueSources.length+' independent sources observed');
+ if(lagging.length)reasons.push(lagging.length+' older source'+(lagging.length===1?' appears':'s appear')+' to be lagging');
+ if(activeConflicts.length)reasons.push(activeConflicts.length+' contemporaneous score conflict'+(activeConflicts.length===1?'':'s')+' detected');
+ if(statusConflicts.length)reasons.push(statusConflicts.length+' status conflict'+(statusConflicts.length===1?'':'s')+' detected');
+ if(trusted)reasons.push('selected source is a high-trust league or ESPN feed');
+ let confidence:LiveScoreConsensus['confidence']='SINGLE_SOURCE';
+ if(uniqueSources.length>=2){
+  if(agreeing.length>=2&&!activeConflicts.length&&!statusConflicts.length)confidence='HIGH';
+  else if(!activeConflicts.length&&!statusConflicts.length&&(trusted||agreeing.length>=1))confidence='MEDIUM';
+  else if(trusted&&selectedAge<=5000&&activeConflicts.length<=1&&!statusConflicts.length)confidence='MEDIUM';
+  else confidence='LOW';
+ }
+ return {
+  confidence,
+  sourceCount:uniqueSources.length,
+  observationCount:observations.length,
+  agreeingSources:new Set(agreeing.map(x=>x.source)).size,
+  sources:uniqueSources,
+  selectedSource:selected.source,
+  scoreConflict:conflicting.length>0,
+  statusConflict:statusConflicts.length>0,
+  activeConflict:activeConflicts.length>0||statusConflicts.length>0,
+  laggingSources:[...new Set(lagging.map(x=>x.source))],
+  reasons
+ };
+}
 export function reconcileLiveGames(...groups:LiveGameState[][]){
- const selected=new Map<string,LiveGameState>();
+ const observations=new Map<string,LiveGameState[]>();
  for(const game of groups.flat()){
   const key=liveGameIdentity(game);
-  const current=selected.get(key);
-  if(!current){
-   selected.set(key,game);
-   continue;
-  }
-  const candidateQuality=liveGameQuality(game);
-  const currentQuality=liveGameQuality(current);
-  const candidateObserved=Date.parse(game.observedAt)||0;
-  const currentObserved=Date.parse(current.observedAt)||0;
-  if(candidateQuality>currentQuality||(candidateQuality===currentQuality&&candidateObserved>currentObserved)){
-   selected.set(key,game);
-  }
+  const list=observations.get(key)||[];
+  list.push(game);
+  observations.set(key,list);
  }
- return [...selected.values()];
+ const selected:LiveGameState[]=[];
+ for(const rows of observations.values()){
+  const winner=[...rows].sort((a,b)=>{
+   const quality=liveGameQuality(b)-liveGameQuality(a);
+   if(quality)return quality;
+   return observationTime(b)-observationTime(a);
+  })[0];
+  selected.push({...winner,consensus:liveScoreConsensus(rows,winner)});
+ }
+ return selected;
+}
+export function summarizeLiveScoreConsensus(games:LiveGameState[]){
+ const live=games.filter(x=>x.status==='LIVE');
+ const high=live.filter(x=>x.consensus?.confidence==='HIGH').length;
+ const medium=live.filter(x=>x.consensus?.confidence==='MEDIUM').length;
+ const low=live.filter(x=>x.consensus?.confidence==='LOW').length;
+ const singleSource=live.filter(x=>x.consensus?.confidence==='SINGLE_SOURCE').length;
+ const activeConflicts=live.filter(x=>x.consensus?.activeConflict).length;
+ const corroborated=live.filter(x=>(x.consensus?.agreeingSources||0)>=2).length;
+ return {
+  liveGames:live.length,
+  high,
+  medium,
+  low,
+  singleSource,
+  activeConflicts,
+  corroborated,
+  corroborationRate:live.length?Number((corroborated/live.length).toFixed(3)):1,
+  conflictRate:live.length?Number((activeConflicts/live.length).toFixed(3)):0
+ };
 }
 export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now()){
  const live=games.filter(x=>x.status==='LIVE');
@@ -338,13 +426,19 @@ export async function fetchLiveScoreMesh(){
  const games=reconcileLiveGames(specialized,espnGames,sportScoreGames as LiveGameState[],communityGames as LiveGameState[])
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
  const freshness=evaluateLiveScoreFreshness(games);
+ const consensus=summarizeLiveScoreConsensus(games);
+ const consensusWarnings=games
+  .filter(x=>x.status==='LIVE'&&x.consensus?.activeConflict)
+  .slice(0,8)
+  .map(x=>`live score conflict ${x.away.name} @ ${x.home.name}: selected ${x.source}; ${x.consensus?.reasons.join('; ')}`);
  return {
   ok:true,
   generatedAt:new Date().toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   uiRefreshMs:freshness.recommendedUiRefreshMs,
   freshness,
-  sourceMode:'adaptive-multi-source-free-first',
+  consensus,
+  sourceMode:'adaptive-multi-source-free-first-consensus',
   coverage:sportCoverageSummary(),
   transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
   attribution:sportScore.enabled?sportScore.attribution:null,
@@ -358,6 +452,6 @@ export async function fetchLiveScoreMesh(){
   ],
   liveGames:games.filter(x=>x.status==='LIVE').length,
   games,
-  warnings:[...new Set([...warnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
+  warnings:[...new Set([...consensusWarnings,...warnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
  };
 }
