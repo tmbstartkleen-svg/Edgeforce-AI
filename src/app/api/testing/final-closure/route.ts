@@ -4,8 +4,8 @@ export const dynamic='force-dynamic';
 
 export async function GET(){
  if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return Response.json({ok:false,error:'disabled'},{status:404});
- const commit='0123456789abcdef';
- const standbyCommit='fedcba9876543210';
+ const commit:string='0123456789abcdef';
+ const standbyCommit:string='fedcba9876543210';
  const simulated={
   releaseVersion:RELEASE.appVersion,
   modelVersion:RELEASE.modelVersion,
