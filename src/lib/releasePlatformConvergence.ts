@@ -1,6 +1,16 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
 
+export type StandbyEvidence={
+ deploymentUrl:string;
+ deploymentId?:string|null;
+ commitSha?:string|null;
+ state?:string|null;
+ healthy:boolean;
+ manualOnly:boolean;
+ healthStatus?:number|null;
+};
+
 export type PlatformEvidence={
  platform:'vercel'|'cloudflare';
  deploymentUrl:string;
@@ -10,7 +20,14 @@ export type PlatformEvidence={
  commitSha:string;
  workflowRunId?:string|null;
  source?:string|null;
+ topology?:'dual-active'|'cloudflare-primary-vercel-standby';
+ standby?:StandbyEvidence|null;
+ exactMainCertified?:boolean;
+ hostedSmokePassed?:boolean;
+ platformReady?:boolean;
 };
+
+function validUrl(value:string){return /^https:\/\/\//.test(value)}
 
 export async function recordPlatformEvidence(input:PlatformEvidence){
  const blockers:string[]=[];
@@ -19,7 +36,24 @@ export async function recordPlatformEvidence(input:PlatformEvidence){
  if(input.modelVersion!==RELEASE.modelVersion)blockers.push('model version mismatch');
  if(Number(input.migrationVersion)!==RELEASE.migrationVersion)blockers.push('migration version mismatch');
  if(!input.commitSha||input.commitSha.length<7)blockers.push('commit SHA missing or invalid');
- if(!/^https:\/\//.test(input.deploymentUrl))blockers.push('deployment URL missing or invalid');
+ if(!validUrl(input.deploymentUrl))blockers.push('deployment URL missing or invalid');
+
+ const primaryStandby=input.topology==='cloudflare-primary-vercel-standby';
+ if(primaryStandby&&input.platform!=='cloudflare')blockers.push('Cloudflare must be the primary platform in primary-standby topology');
+ if(primaryStandby&&input.exactMainCertified!==true)blockers.push('exact-main certification did not pass');
+ if(primaryStandby&&input.hostedSmokePassed!==true)blockers.push('Cloudflare hosted smoke did not pass');
+ if(primaryStandby&&input.platformReady!==true)blockers.push('Cloudflare platform launch doctor did not pass');
+
+ const standby=input.standby||null;
+ if(primaryStandby){
+  if(!standby)blockers.push('Vercel standby evidence is missing');
+  else{
+   if(!validUrl(String(standby.deploymentUrl||'')))blockers.push('Vercel standby URL is missing or invalid');
+   if(standby.healthy!==true)blockers.push('Vercel standby health check failed');
+   if(standby.manualOnly!==true)blockers.push('Vercel standby is not configured as manual-only');
+   if(String(standby.state||'').toUpperCase()!=='READY')blockers.push('Vercel standby deployment is not READY');
+  }
+ }
 
  const sql=db();
  if(!sql)return {certified:false,blockers:[...blockers,'database unavailable']};
@@ -31,16 +65,48 @@ export async function recordPlatformEvidence(input:PlatformEvidence){
    limit 1
  `;
 
- const next={
+ const next=primaryStandby?{
+  vercelUrl:standby?.deploymentUrl||existing?.vercel_url||null,
+  cloudflareUrl:input.deploymentUrl,
+  vercelVerified:Boolean(standby?.healthy&&standby?.manualOnly&&String(standby?.state||'').toUpperCase()==='READY'),
+  cloudflareVerified:blockers.filter(x=>!x.startsWith('Vercel standby')).length===0
+ }:{
   vercelUrl:input.platform==='vercel'?input.deploymentUrl:(existing?.vercel_url||null),
   cloudflareUrl:input.platform==='cloudflare'?input.deploymentUrl:(existing?.cloudflare_url||null),
   vercelVerified:input.platform==='vercel'?blockers.length===0:Boolean(existing?.vercel_verified),
-  cloudflareVerified:input.platform==='cloudflare'?blockers.length===0:Boolean(existing?.cloudflare_verified),
+  cloudflareVerified:input.platform==='cloudflare'?blockers.length===0:Boolean(existing?.cloudflare_verified)
  };
 
- const commitConverged=next.vercelVerified&&next.cloudflareVerified;
- const runtimeConverged=commitConverged;
- const certified=blockers.length===0&&commitConverged&&runtimeConverged;
+ const topologyReady=next.vercelVerified&&next.cloudflareVerified;
+ const commitConverged=topologyReady;
+ const runtimeConverged=topologyReady;
+ const certified=blockers.length===0&&topologyReady;
+ const evidence={
+  topology:primaryStandby?'cloudflare-primary-vercel-standby':'dual-active',
+  topologyVersion:primaryStandby?'v145-primary-standby-1':'legacy-dual-active',
+  platform:input.platform,
+  workflowRunId:input.workflowRunId||null,
+  source:input.source||null,
+  primary:{
+   platform:input.platform,
+   commitSha:input.commitSha,
+   deploymentUrl:input.deploymentUrl,
+   exactMainCertified:Boolean(input.exactMainCertified),
+   hostedSmokePassed:Boolean(input.hostedSmokePassed),
+   platformReady:Boolean(input.platformReady)
+  },
+  standby:standby?{
+   platform:'vercel',
+   deploymentUrl:standby.deploymentUrl,
+   deploymentId:standby.deploymentId||null,
+   commitSha:standby.commitSha||null,
+   state:standby.state||null,
+   healthy:standby.healthy,
+   manualOnly:standby.manualOnly,
+   healthStatus:standby.healthStatus||null,
+   commitDrift:Boolean(standby.commitSha&&standby.commitSha!==input.commitSha)
+  }:null
+ };
 
  const [row]=await sql`
   insert into release_platform_convergence(
@@ -51,7 +117,7 @@ export async function recordPlatformEvidence(input:PlatformEvidence){
    ${RELEASE.appVersion},${RELEASE.modelVersion},${RELEASE.migrationVersion},${input.commitSha},
    ${next.vercelUrl},${next.cloudflareUrl},${next.vercelVerified},${next.cloudflareVerified},
    ${commitConverged},${runtimeConverged},${certified},${sql.json(blockers)},
-   ${sql.json({platform:input.platform,workflowRunId:input.workflowRunId||null,source:input.source||null} as any)},now()
+   ${sql.json(evidence as any)},now()
   )
   on conflict (release_version,commit_sha) do update set
    vercel_url=excluded.vercel_url,
@@ -62,7 +128,7 @@ export async function recordPlatformEvidence(input:PlatformEvidence){
    runtime_converged=excluded.runtime_converged,
    certified=excluded.certified,
    blockers=excluded.blockers,
-   evidence=coalesce(release_platform_convergence.evidence,'{}'::jsonb)||excluded.evidence,
+   evidence=excluded.evidence,
    updated_at=now()
   returning *
  `;
