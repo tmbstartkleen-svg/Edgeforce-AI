@@ -120,6 +120,19 @@ type LiveScoreGame={
   home:{name:string;score:number|null};
   away:{name:string;score:number|null};
   observedAt:string;
+  consensus?:{
+    confidence:'HIGH'|'MEDIUM'|'LOW'|'SINGLE_SOURCE';
+    sourceCount:number;
+    observationCount:number;
+    agreeingSources:number;
+    sources:string[];
+    selectedSource:string;
+    scoreConflict:boolean;
+    statusConflict:boolean;
+    activeConflict:boolean;
+    laggingSources:string[];
+    reasons:string[];
+  };
 };
 
 type LiveBoardResponse={
@@ -208,6 +221,19 @@ type LiveBoardResponse={
       selectedSourceCount:number;
       sourceCounts:Array<{source:string;count:number}>;
       recommendedUiRefreshMs:number;
+    };
+    consensus?:{
+      liveGames:number;
+      high:number;
+      medium:number;
+      low:number;
+      singleSource:number;
+      activeConflicts:number;
+      corroborated:number;
+      corroborationRate:number;
+      conflictRate:number;
+      consensusWindowMs:number;
+      lagToleranceMs:number;
     };
     games:LiveScoreGame[];
     warnings:string[];
@@ -836,12 +862,12 @@ export default function Dashboard(){
     {board.liveScores&&<section className="consoleCard">
       <div className="consoleHead">
         <div><div className="eyebrow">LIVE GAME CLOCK MESH</div><h3>{board.liveScores.liveGames} game{board.liveScores.liveGames===1?'':'s'} live now</h3></div>
-        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI</div>
+        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {board.liveScores.consensus?Math.round(board.liveScores.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
       </div>
       {(board.liveScores.games||[]).filter(g=>g.status==='LIVE').slice(0,12).map(g=><div className="consoleRow" key={g.source+'-'+g.id}>
         <span className="action action-open">{g.league}</span>
-        <div className="grow"><b>{g.away.name} {g.away.score??'—'} • {g.home.name} {g.home.score??'—'}</b><small>{[g.detail,g.clock&&('Clock '+g.clock),g.source].filter(Boolean).join(' • ')}</small></div>
-        <span className="lime">LIVE</span>
+        <div className="grow"><b>{g.away.name} {g.away.score??'—'} • {g.home.name} {g.home.score??'—'}</b><small>{[g.detail,g.clock&&('Clock '+g.clock),g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
+        <span className={g.consensus?.activeConflict?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':(g.consensus?.confidence||'LIVE')}</span>
       </div>)}
       {!board.liveScores.liveGames&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
     </section>}
