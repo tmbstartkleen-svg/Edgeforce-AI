@@ -156,15 +156,21 @@ jobs:
             exit 0
           fi
           SINCE_MS=$(( ($(date +%s) - 86400) * 1000 ))
-          curl --fail --silent --show-error --connect-timeout 10 --max-time 30             -H "Authorization: Bearer $VERCEL_TOKEN"             "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID&limit=100"             --output /tmp/edgeforce-vercel-deployments.json
+          # Vercel's free daily deployment cap is team-wide, not project-wide.
+          # Query the team without projectId so unrelated projects cannot silently
+          # consume the shared budget and surprise this release at upload time.
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?teamId=$VERCEL_ORG_ID&limit=100" \
+            --output /tmp/edgeforce-vercel-deployments.json
           COUNT=$(jq --argjson since "$SINCE_MS" '
             [(.deployments // .result.deployments.deployments // [])[]
              | select(((.created // .createdAt // 0) | tonumber) >= $since)]
             | length
           ' /tmp/edgeforce-vercel-deployments.json)
-          echo "Vercel deployments in trailing 24h: $COUNT / safety threshold $MAX"
+          echo "Vercel team deployments in trailing 24h: $COUNT / safety threshold $MAX"
           if [ "$COUNT" -ge "$MAX" ]; then
-            echo "Vercel deployment budget exhausted or near Hobby daily limit. Blocking before build/deploy to preserve remaining capacity."
+            echo "Vercel team deployment budget exhausted or near the free daily limit. Blocking before build/deploy to preserve remaining capacity."
             exit 1
           fi
 
