@@ -182,3 +182,19 @@ test('identity-critical Vercel API reads use bounded retries for transient trans
   assert.doesNotMatch(step('Promote certified candidate to production'), /--retry-all-errors/);
   assert.doesNotMatch(step('Roll back production on hosted failure'), /--retry-all-errors/);
 });
+
+
+test('healthy pre-V74 production stages the replacement as remediation without bypassing hosted gates', () => {
+  const content = step('Enforce current production SLO budget');
+  const legacyIndex = content.indexOf('SLO governor endpoint not present on pre-V74 production version');
+  const remediationIndex = content.indexOf('Pre-V74 production lacks modern SLO evidence.');
+  const failClosedIndex = content.indexOf('SLO governor is unavailable on production version');
+  assert.ok(legacyIndex >= 0);
+  assert.ok(remediationIndex > legacyIndex);
+  assert.ok(failClosedIndex > remediationIndex);
+  assert.match(content.slice(remediationIndex, failClosedIndex), /EDGEFORCE_REMEDIATION_DEPLOY=true/);
+  for (const name of ['Certify final production release', 'Refresh candidate SLO governor',
+    'Run comparative canary guard', 'Require strict V1 readiness', 'Recheck production alias before promotion']) {
+    assert.ok(workflow.includes(`      - name: ${name}\n`));
+  }
+});
