@@ -7,41 +7,61 @@ import {
   recentVercelGovernorAlerts,
   syncVercelGovernorAlerts
 } from '@/lib/vercelGovernorTelemetry';
+import {
+  getEdgeforceReleaseBacklog,
+  persistEdgeforceReleaseBacklog,
+  recentEdgeforceReleaseBacklog
+} from '@/lib/edgeforceReleaseBacklog';
 
 export const dynamic='force-dynamic';
 
 export async function GET(){
   try{
-    const live=await getLiveVercelGovernorTelemetry();
+    const [live,backlogLive]=await Promise.all([
+      getLiveVercelGovernorTelemetry(),
+      getEdgeforceReleaseBacklog()
+    ]);
     if(!live.configured||!live.telemetry){
-      const [history,decisions,alerts]=await Promise.all([
+      const [history,decisions,alerts,backlogHistory]=await Promise.all([
         recentVercelGovernorSnapshots(24),
         recentVercelGovernorDecisions(36),
-        recentVercelGovernorAlerts(24)
+        recentVercelGovernorAlerts(24),
+        recentEdgeforceReleaseBacklog(24)
       ]);
       return NextResponse.json({
         ok:false,
         configured:false,
         error:live.error,
+        backlog:backlogLive.backlog,
+        backlogError:backlogLive.error,
+        backlogHistory,
         history,
         decisions,
         alerts
       },{status:503});
     }
 
-    const persistence=await persistVercelGovernorSnapshot(live.telemetry);
-    const currentAlerts=await syncVercelGovernorAlerts(live.telemetry);
-    const [history,decisions,alerts]=await Promise.all([
+    const telemetry=live.telemetry;
+    const persistence=await persistVercelGovernorSnapshot(telemetry);
+    const backlogPersistence=backlogLive.backlog
+      ? await persistEdgeforceReleaseBacklog(backlogLive.backlog)
+      : {mode:'unavailable',id:null,stored:false};
+    const currentAlerts=await syncVercelGovernorAlerts(telemetry);
+    const [history,decisions,alerts,backlogHistory]=await Promise.all([
       recentVercelGovernorSnapshots(24),
       recentVercelGovernorDecisions(36),
-      recentVercelGovernorAlerts(24)
+      recentVercelGovernorAlerts(24),
+      recentEdgeforceReleaseBacklog(24)
     ]);
-    const telemetry=live.telemetry;
     return NextResponse.json({
       ok:true,
       configured:true,
       telemetry,
       persistence,
+      backlog:backlogLive.backlog,
+      backlogError:backlogLive.error,
+      backlogPersistence,
+      backlogHistory,
       currentAlerts,
       history,
       decisions,
@@ -60,14 +80,15 @@ export async function GET(){
     },{
       headers:{
         'cache-control':'no-store, max-age=0',
-        'x-edgeforce-governor-telemetry':'v142'
+        'x-edgeforce-governor-telemetry':'v143'
       }
     });
   }catch(error){
-    const [history,decisions,alerts]=await Promise.all([
+    const [history,decisions,alerts,backlogHistory]=await Promise.all([
       recentVercelGovernorSnapshots(24),
       recentVercelGovernorDecisions(36),
-      recentVercelGovernorAlerts(24)
+      recentVercelGovernorAlerts(24),
+      recentEdgeforceReleaseBacklog(24)
     ]);
     return NextResponse.json({
       ok:false,
@@ -75,7 +96,8 @@ export async function GET(){
       error:error instanceof Error?error.message:'Vercel governor telemetry failed',
       history,
       decisions,
-      alerts
+      alerts,
+      backlogHistory
     },{status:502});
   }
 }

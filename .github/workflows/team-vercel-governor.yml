@@ -116,6 +116,68 @@ jobs:
             mv /tmp/vercel-project-status.next /tmp/vercel-project-status.json
           done < <(jq -c '.projects[]' "$CONFIG")
 
+      - name: Capture Edgeforce certified release backlog
+        shell: bash
+        run: |
+          set -euo pipefail
+          LIVE_SHA=$(jq -r '[.[] | select(.key=="edgeforce")][0].liveSha // ""' /tmp/vercel-project-status.json)
+          HEAD_SHA="$GITHUB_SHA"
+          if [ -z "$LIVE_SHA" ]; then
+            echo "Edgeforce live SHA is unavailable; catch-up remains fail-closed."
+            jq -cn --arg liveSha "" --arg headSha "$HEAD_SHA"               '{schemaVersion:"v143-certified-backlog-1",liveSha:$liveSha,headSha:$headSha,backlogDepth:0,certifiedBacklogDepth:0,backlogAgeMinutes:0,newestCertifiedSha:null,headCertified:false,truncated:true,catchUpEligible:false,reason:"live production SHA is unavailable",commits:[]}'               > /tmp/edgeforce-release-backlog.json
+          else
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30               -H "Authorization: Bearer $GITHUB_TOKEN"               -H "Accept: application/vnd.github+json"               -H "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/$GITHUB_REPOSITORY/compare/$LIVE_SHA...$HEAD_SHA?per_page=100"               --output /tmp/edgeforce-compare-response.json
+            jq '{
+              totalCommits:(.total_commits // 0),
+              commits:[.commits[]? | {
+                sha:.sha,
+                committedAt:(.commit.committer.date // .commit.author.date // null),
+                message:(.commit.message // "")
+              }]
+            }' /tmp/edgeforce-compare-response.json > /tmp/edgeforce-compare.json
+
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30               -H "Authorization: Bearer $GITHUB_TOKEN"               -H "Accept: application/vnd.github+json"               -H "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?branch=main&per_page=100"               --output /tmp/edgeforce-main-runs-response.json
+            jq '[.workflow_runs[]? | {
+              headSha:.head_sha,
+              name:.name,
+              status:.status,
+              conclusion:.conclusion,
+              createdAt:.created_at,
+              id:.id
+            }]' /tmp/edgeforce-main-runs-response.json > /tmp/edgeforce-main-runs.json
+
+            node scripts/edgeforce-release-backlog.mjs evaluate               /tmp/edgeforce-compare.json               /tmp/edgeforce-main-runs.json               "$LIVE_SHA" "$HEAD_SHA"               > /tmp/edgeforce-release-backlog.json
+          fi
+
+          cat /tmp/edgeforce-release-backlog.json
+          HEAD_CERTIFIED=$(jq -r '.headCertified // false' /tmp/edgeforce-release-backlog.json)
+          CATCH_UP_ELIGIBLE=$(jq -r '.catchUpEligible // false' /tmp/edgeforce-release-backlog.json)
+          BACKLOG_DEPTH=$(jq -r '.backlogDepth // 0' /tmp/edgeforce-release-backlog.json)
+          CERTIFIED_DEPTH=$(jq -r '.certifiedBacklogDepth // 0' /tmp/edgeforce-release-backlog.json)
+          BACKLOG_AGE=$(jq -r '.backlogAgeMinutes // 0' /tmp/edgeforce-release-backlog.json)
+          LATEST_CERTIFIED=$(jq -r '.newestCertifiedSha // ""' /tmp/edgeforce-release-backlog.json)
+          REASON=$(jq -r '.reason // "certification state unavailable"' /tmp/edgeforce-release-backlog.json)
+
+          jq             --arg headCertified "$HEAD_CERTIFIED"             --arg catchUpEligible "$CATCH_UP_ELIGIBLE"             --argjson backlogDepth "$BACKLOG_DEPTH"             --argjson certifiedBacklogDepth "$CERTIFIED_DEPTH"             --argjson backlogAgeMinutes "$BACKLOG_AGE"             --arg latestCertifiedSha "$LATEST_CERTIFIED"             --arg backlogReason "$REASON"             'map(if .key=="edgeforce" then . + {
+              headCertified:($headCertified=="true"),
+              catchUpEligible:($catchUpEligible=="true"),
+              backlogDepth:$backlogDepth,
+              certifiedBacklogDepth:$certifiedBacklogDepth,
+              backlogAgeMinutes:$backlogAgeMinutes,
+              latestCertifiedSha:$latestCertifiedSha,
+              backlogReason:$backlogReason
+            } else . end)'             /tmp/vercel-project-status.json > /tmp/vercel-project-status.next
+          mv /tmp/vercel-project-status.next /tmp/vercel-project-status.json
+
+          {
+            echo "### Edgeforce certified release backlog"
+            jq -r '"- Production SHA: **\(.liveSha // "unknown")**"' /tmp/edgeforce-release-backlog.json
+            jq -r '"- Main SHA: **\(.headSha // "unknown")**"' /tmp/edgeforce-release-backlog.json
+            jq -r '"- Backlog: **\(.backlogDepth)** commit(s); certified **\(.certifiedBacklogDepth)**; age **\(.backlogAgeMinutes) min**"' /tmp/edgeforce-release-backlog.json
+            jq -r '"- Newest exact certified SHA: **\(.newestCertifiedSha // "none")**"' /tmp/edgeforce-release-backlog.json
+            jq -r '"- Catch-up eligible: **\(.catchUpEligible)** — \(.reason)"' /tmp/edgeforce-release-backlog.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Plan governed releases
         id: plan
         shell: bash

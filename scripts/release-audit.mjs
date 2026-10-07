@@ -8,7 +8,7 @@ const expected={
  appVersion:'119.0.0',
  packageVersion:'0.119.0',
  modelVersion:'edgeforce-v119',
- migrationVersion:117
+ migrationVersion:118
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -1108,10 +1108,21 @@ add('V142 automatic reserve isolation',read('scripts/team-vercel-governor.mjs').
 add('V142 allocation evidence metadata',read('.github/workflows/team-vercel-governor.yml').includes('governorQueueRank')&&read('.github/workflows/team-vercel-governor.yml').includes('governorFairnessScore')&&read('.github/workflows/team-vercel-governor.yml').includes('deploymentGovernor:"edgeforce-v142"'),'peer deployments carry queue and fairness evidence from the allocator');
 add('V142 durable allocation history',read('db/v117.sql').includes('queue_rank int')&&read('db/v117.sql').includes('fairness_score numeric')&&read('db/v117.sql').includes('normal_budget_share int')&&read('db/v117.sql').includes('borrowed_capacity boolean'),'v117 persists queue rank, fairness, share usage and borrowed-capacity evidence');
 add('V142 live fair-share telemetry',read('src/lib/vercelGovernorTelemetry.ts').includes("schemaVersion:'v142-governor-telemetry-2'")&&read('src/lib/vercelGovernorTelemetry.ts').includes('normalBudgetShare')&&read('src/lib/vercelGovernorTelemetry.ts').includes('queueRank')&&read('src/lib/vercelGovernorTelemetry.ts').includes('fairnessScore'),'server telemetry exposes the same fair-share state used by the allocator');
-add('V142 dashboard queue evidence',read('src/components/VercelGovernorPanel.tsx').includes('V142 VERCEL TEAM GOVERNOR')&&read('src/components/VercelGovernorPanel.tsx').includes('BORROWED')&&read('src/components/VercelGovernorPanel.tsx').includes('fairnessScore'),'dashboard shows queue rank, score, share state and borrowed capacity');
+add('V142 dashboard queue evidence',read('src/components/VercelGovernorPanel.tsx').includes('VERCEL TEAM GOVERNOR')&&read('src/components/VercelGovernorPanel.tsx').includes('BORROWED')&&read('src/components/VercelGovernorPanel.tsx').includes('fairnessScore'),'dashboard shows queue rank, score, share state and borrowed capacity');
 add('V142 health capability',read('src/app/api/health/route.ts').includes('vercelGovernorFairShareAllocation:true')&&read('scripts/smoke.mjs').includes('Vercel governor fair-share allocation flag missing'),'health and smoke contracts advertise fair-share allocation');
 add('V142 mandatory fair-share regression',exists('tests/vercel-governor-fairness.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/vercel-governor-fairness.test.mjs'),'V142 queue and allocation evidence tests are mandatory');
 add('V142 release notes',exists('EDGEFORCE_V142_RELEASE.md'),'V142 release documentation exists');
+add('V143 exact-main Cloudflare certification',read('.github/workflows/verify-cloudflare.yml').includes('push:')&&read('.github/workflows/verify-cloudflare.yml').includes('branches: [main]'),'squash-merge main SHAs receive exact Cloudflare verification instead of relying only on PR evidence');
+add('V143 certified backlog evaluator',exists('scripts/edgeforce-release-backlog.mjs')&&read('scripts/edgeforce-release-backlog.mjs').includes("'Verify Edgeforce'")&&read('scripts/edgeforce-release-backlog.mjs').includes("'Verify Edgeforce Cloudflare'")&&read('scripts/edgeforce-release-backlog.mjs').includes('headCertified'),'release backlog requires both exact-main verification workflows');
+add('V143 fail-closed truncated backlog',read('scripts/edgeforce-release-backlog.mjs').includes('truncated')&&read('scripts/edgeforce-release-backlog.mjs').includes('!truncated&&headCertified'),'catch-up cannot proceed when compare evidence is incomplete');
+add('V143 governor backlog capture',read('.github/workflows/team-vercel-governor.yml').includes('Capture Edgeforce certified release backlog')&&read('.github/workflows/team-vercel-governor.yml').includes('compare/$LIVE_SHA...$HEAD_SHA?per_page=100')&&read('.github/workflows/team-vercel-governor.yml').includes('actions/runs?branch=main&per_page=100'),'hourly governor resolves production-to-main backlog and exact-main workflow evidence');
+add('V143 allocator certification gate',read('scripts/team-vercel-governor.mjs').includes('certificationReady')&&read('scripts/team-vercel-governor.mjs').includes('current main SHA has not completed exact-main certification'),'Edgeforce cannot enter the V142 fair-share queue until exact main is certified');
+add('V143 durable backlog history',read('db/v118.sql').includes('edgeforce_release_backlog_snapshots')&&read('db/v118.sql').includes('newest_certified_sha text')&&read('db/v118.sql').includes('catch_up_eligible boolean'),'v118 stores release lag and catch-up eligibility history');
+add('V143 live backlog telemetry',exists('src/lib/edgeforceReleaseBacklog.ts')&&read('src/lib/edgeforceReleaseBacklog.ts').includes('getEdgeforceReleaseBacklog')&&read('src/lib/edgeforceReleaseBacklog.ts').includes('persistEdgeforceReleaseBacklog'),'operations API can independently verify and persist release backlog state');
+add('V143 read-only backlog dashboard',read('src/app/api/operations/vercel-governor/route.ts').includes('backlogHistory')&&!read('src/app/api/operations/vercel-governor/route.ts').includes('export async function POST')&&read('src/components/VercelGovernorPanel.tsx').includes('Certified release backlog')&&read('src/components/VercelGovernorPanel.tsx').includes('Safe catch-up'),'dashboard exposes backlog status without direct release mutation');
+add('V143 health capability',read('src/app/api/health/route.ts').includes('certifiedReleaseBacklog:true')&&read('scripts/smoke.mjs').includes('Certified release backlog flag missing'),'health and smoke contracts advertise certified backlog control');
+add('V143 mandatory backlog regression',exists('tests/edgeforce-release-backlog.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/edgeforce-release-backlog.test.mjs'),'exact-main certification and catch-up tests are mandatory');
+add('V143 release notes',exists('EDGEFORCE_V143_RELEASE.md'),'V143 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};

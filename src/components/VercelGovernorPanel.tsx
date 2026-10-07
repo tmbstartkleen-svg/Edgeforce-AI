@@ -86,6 +86,37 @@ type RecoveryPoint={
   normalAvailable:boolean;
 };
 
+type ReleaseBacklog={
+  generatedAt:string;
+  liveSha:string|null;
+  headSha:string|null;
+  requiredWorkflows:string[];
+  backlogDepth:number;
+  certifiedBacklogDepth:number;
+  backlogAgeMinutes:number;
+  oldestWaitingAt:string|null;
+  newestCertifiedSha:string|null;
+  headCertified:boolean;
+  truncated:boolean;
+  catchUpEligible:boolean;
+  reason:string;
+};
+
+type BacklogHistory={
+  id:number;
+  liveSha:string|null;
+  headSha:string|null;
+  newestCertifiedSha:string|null;
+  backlogDepth:number;
+  certifiedBacklogDepth:number;
+  backlogAgeMinutes:number;
+  headCertified:boolean;
+  catchUpEligible:boolean;
+  truncated:boolean;
+  reason:string;
+  createdAt:string;
+};
+
 type Payload={
   ok:boolean;
   configured:boolean;
@@ -111,6 +142,9 @@ type Payload={
   alerts?:Alert[];
   decisions?:Decision[];
   history?:Snapshot[];
+  backlog?:ReleaseBacklog|null;
+  backlogError?:string|null;
+  backlogHistory?:BacklogHistory[];
   manualControl?:{
     workflow:string;
     url:string;
@@ -158,8 +192,8 @@ export default function VercelGovernorPanel(){
   return <section className="v21Panel">
     <div className="v21PanelHead">
       <div>
-        <div className="eyebrow">V142 VERCEL TEAM GOVERNOR</div>
-        <h3>Priority queue, fair-share allocation, recovery controls, and release history</h3>
+        <div className="eyebrow">V143 VERCEL TEAM GOVERNOR</div>
+        <h3>Certified release backlog, fair-share allocation, and safe production catch-up</h3>
       </div>
       <div className="panelMeta">
         <span>{telemetry?.mode||'UNAVAILABLE'}</span>
@@ -178,6 +212,22 @@ export default function VercelGovernorPanel(){
         <div><small>OVER HARD CAP</small><strong>{telemetry.overHardCap}</strong><span>hard cap {telemetry.hardCap}</span></div>
         <div><small>SLOTS TO RECOVER</small><strong>{telemetry.slotsToRecover}</strong><span>before a normal release can run</span></div>
         <div><small>NEXT NORMAL SLOT</small><strong>{telemetry.nextNormalSlotAt?time(telemetry.nextNormalSlotAt):'NOW'}</strong><span>{telemetry.nextNormalSlotAt?'predicted from rolling 24h expirations':'normal capacity available'}</span></div>
+      </div>
+
+      <div className="historyGrid">
+        <div className="historyBox">
+          <h4>Certified release backlog</h4>
+          {data?.backlog?<><div className="historyRow"><span>Production → main</span><b>{data.backlog.backlogDepth}</b><small>{data.backlog.certifiedBacklogDepth} certified • {data.backlog.backlogAgeMinutes} min oldest wait</small></div>
+          <div className="historyRow"><span>Exact main certification</span><b>{data.backlog.headCertified?'CERTIFIED':'WAITING'}</b><small>head {data.backlog.headSha?.slice(0,8)||'unknown'} • live {data.backlog.liveSha?.slice(0,8)||'unknown'}</small></div>
+          <div className="historyRow"><span>Newest certified</span><b>{data.backlog.newestCertifiedSha?.slice(0,8)||'NONE'}</b><small>{data.backlog.reason}</small></div>
+          <div className="historyRow"><span>Safe catch-up</span><b>{data.backlog.catchUpEligible?'ELIGIBLE':'BLOCKED'}</b><small>{data.backlog.truncated?'compare window truncated • ':''}requires exact head certification plus a V142 normal slot</small></div></>:<div className="historyRow"><span>Backlog telemetry unavailable</span><b>BLOCKED</b><small>{data?.backlogError||'Exact certification state could not be verified.'}</small></div>}
+        </div>
+
+        <div className="historyBox">
+          <h4>Backlog history</h4>
+          {(data?.backlogHistory||[]).slice(0,8).map(row=><div className="historyRow" key={row.id}><span>{time(row.createdAt)}</span><b>{row.backlogDepth}</b><small>{row.certifiedBacklogDepth} certified • age {row.backlogAgeMinutes}m • head {row.headCertified?'certified':'waiting'} • catch-up {row.catchUpEligible?'eligible':'blocked'}</small></div>)}
+          {!data?.backlogHistory?.length&&<div className="historyRow"><span>No backlog snapshots yet</span><b>—</b><small>V143 will persist release-lag evidence every 15 minutes.</small></div>}
+        </div>
       </div>
 
       <div className="historyGrid">
