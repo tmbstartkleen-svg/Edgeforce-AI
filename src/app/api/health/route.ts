@@ -235,6 +235,7 @@ export async function GET(){
   exactCloudflareIdentityConvergence:true,
   fanDuelPulseOperationalContinuity:true,
   conditionalV1ContinuityReadiness:true,
+  vercelTeamGovernorTelemetry:true,
   releasePathConvergence:true,
   previewTargetRemediationArtifact:true,
   failSoftPredictionWarehousePrime:true,
