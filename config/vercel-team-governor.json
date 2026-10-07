@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v142-team-vercel-governor-2",
+  "schemaVersion": "v144-team-vercel-governor-3",
   "teamId": "team_XlvGJkid1lgNPLVGPJn1ScEr",
   "softCap": 84,
   "hardCap": 90,
@@ -17,7 +17,9 @@
       "mode": "workflow-dispatch",
       "workflow": "deploy-production.yml",
       "priority": 100,
-      "normalBudgetShare": 34
+      "normalBudgetShare": 34,
+      "autoRelease": false,
+      "standbyRole": "manual-disaster-recovery"
     },
     {
       "key": "safeguard",

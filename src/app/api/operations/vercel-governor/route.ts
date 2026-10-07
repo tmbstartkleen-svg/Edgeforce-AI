@@ -80,7 +80,7 @@ export async function GET(){
     },{
       headers:{
         'cache-control':'no-store, max-age=0',
-        'x-edgeforce-governor-telemetry':'v143'
+        'x-edgeforce-governor-telemetry':'v144'
       }
     });
   }catch(error){

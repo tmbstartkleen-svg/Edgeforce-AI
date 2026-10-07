@@ -1,5 +1,6 @@
 import {ESPN_SCOREBOARD_FEEDS,sportCoverageSummary} from './sportRegistry';
 import {fetchSportScoreBackup} from './providers/sportScore';
+import {fetchCommunityScoreBackups} from './providers/communityScoreBackups';
 export type LiveGameState={
  id:string;
  sport:string;
@@ -232,7 +233,10 @@ export async function fetchLiveScoreMesh(){
   nhl(),mlb(),
   ...ESPN_LEAGUES.map(([sport,league,label])=>espn(sport,league,label))
  ]);
- const sportScore=await fetchSportScoreBackup().catch(()=>({enabled:false,games:[],warnings:['SportScore request failed'],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}}));
+ const [sportScore,community]=await Promise.all([
+  fetchSportScoreBackup().catch(()=>({enabled:false,games:[],warnings:['SportScore request failed'],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}})),
+  fetchCommunityScoreBackups().catch(()=>({games:[] as LiveGameState[],warnings:['Community score backups unavailable'],sourceState:[]}))
+ ]);
  const warnings:string[]=[];
  const batches:LiveGameState[][]=[];
  settled.forEach((r,i)=>{
@@ -244,14 +248,15 @@ export async function fetchLiveScoreMesh(){
  const espnGames=batches.flat().filter(g=>g.source==='espn-public');
  const specialized=[...nhlNative,...mlbNative];
  const sportScoreGames=Array.isArray(sportScore.games)?sportScore.games:[];
- const games=merge(specialized,merge(espnGames,sportScoreGames as LiveGameState[]))
+ const communityGames=Array.isArray(community.games)?community.games:[];
+ const games=merge(specialized,merge(espnGames,merge(sportScoreGames as LiveGameState[],communityGames as LiveGameState[])))
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
  return {
   ok:true,
   generatedAt:new Date().toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   uiRefreshMs:1000,
-  sourceMode:'adaptive-multi-source-no-key',
+  sourceMode:'adaptive-multi-source-free-first',
   coverage:sportCoverageSummary(),
   transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
   attribution:sportScore.enabled?sportScore.attribution:null,
@@ -260,10 +265,11 @@ export async function fetchLiveScoreMesh(){
    {id:'mlb-statsapi',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
    {id:'espn-cdn',auth:'none',priority:'live-game-fast-path',liveRefreshMs:espnCdnLiveTtlMs(),idleRefreshMs:null},
    {id:'espn-public',auth:'none',priority:'broad-discovery-fallback',liveRefreshMs:espnLiveTtlMs(),idleRefreshMs:espnIdleTtlMs()},
-   {id:'sportscore',auth:'none',priority:'attribution-required-backup',liveRefreshMs:60000,idleRefreshMs:60000,enabled:sportScore.enabled}
+   {id:'sportscore',auth:'none',priority:'attribution-required-backup',liveRefreshMs:60000,idleRefreshMs:60000,enabled:sportScore.enabled},
+   ...community.sourceState.map(x=>({id:x.id,auth:x.id==='thesportsdb'?'shared-free-key':'optional-key',priority:'community-backup',enabled:x.ok,count:x.count}))
   ],
   liveGames:games.filter(x=>x.status==='LIVE').length,
   games,
-  warnings:[...new Set([...warnings,...((sportScore as any).warnings||[])])].slice(0,20)
+  warnings:[...new Set([...warnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
  };
 }

@@ -28,10 +28,12 @@ test('V139 partitions normal capacity from six emergency reserve slots',()=>{
 test('V139 coalesces stale projects and approves oldest pending releases first',()=>{
   const plan=evaluateTeamGovernor({config,deployments:deployments(40),statuses:status(),now});
   const approved=plan.decisions.filter(x=>x.state==='APPROVED');
-  assert.equal(approved.length,3);
+  assert.equal(approved.length,2);
+  assert.equal(plan.decisions.find(x=>x.key==='edgeforce').state,'DEFERRED');
+  assert.match(plan.decisions.find(x=>x.key==='edgeforce').reason,/manual disaster-recovery standby/);
   assert.deepEqual(
     approved.slice().sort((a,b)=>a.lastDeploymentAt-b.lastDeploymentAt).map(x=>x.key),
-    ['safeguard','edgeforce','travai']
+    ['safeguard','travai']
   );
 });
 
@@ -70,7 +72,7 @@ const namedDeployments=(counts)=>{
 };
 
 test('V142 project shares exactly partition the 84-slot normal budget',()=>{
-  assert.equal(config.schemaVersion,'v142-team-vercel-governor-2');
+  assert.equal(config.schemaVersion,'v144-team-vercel-governor-3');
   assert.equal(config.projects.reduce((sum,p)=>sum+p.normalBudgetShare,0),config.softCap);
   assert.deepEqual(
     Object.fromEntries(config.projects.map(p=>[p.key,p.normalBudgetShare])),
@@ -89,7 +91,7 @@ test('V142 under-share pending work outranks a high-volume over-share project',(
   const safe=plan.decisions.find(x=>x.key==='safeguard');
   assert.equal(edge.budgetState,'UNDER_SHARE');
   assert.equal(safe.budgetState,'OVER_SHARE');
-  assert.ok(edge.queueRank<safe.queueRank);
+  assert.equal(edge.queueRank,null);
   assert.ok(edge.fairnessScore>safe.fairnessScore);
 });
 
@@ -137,7 +139,7 @@ test('V142 queue exposes rank, fairness score, share usage, and budget state',()
     statuses:status(),
     now
   });
-  assert.ok(plan.queue.length===3);
+  assert.ok(plan.queue.length===2);
   assert.ok(plan.queue.every(row=>Number.isInteger(row.queueRank)&&Number.isFinite(row.fairnessScore)));
   assert.ok(plan.queue.every(row=>row.normalBudgetShare>0&&row.projectUsage24h===10));
 });

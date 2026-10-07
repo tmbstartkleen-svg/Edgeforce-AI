@@ -2,8 +2,8 @@ import {writeFileSync} from 'node:fs';
 import {isAbsolute,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const required=['DATABASE_URL','THE_ODDS_API_KEY','INGEST_SECRET','CRON_SECRET'];
-const optional=['SPORTS_GAME_ODDS_API_KEY'];
+const required=['DATABASE_URL','INGEST_SECRET','CRON_SECRET'];
+const optional=['THE_ODDS_API_KEY','SPORTS_GAME_ODDS_API_KEY','FOOTBALL_DATA_API_KEY','API_SPORTS_KEY','BIGBALLS_API_KEY'];
 
 export function runtimeSecrets(env){
  const secrets={};

@@ -5,11 +5,11 @@ import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {test} from 'node:test';
 import {runtimeSecrets,writeRuntimeSecrets} from '../scripts/cloudflare-runtime-secrets.mjs';
-const env={DATABASE_URL:'postgres://fixture-only',THE_ODDS_API_KEY:'fixture-odds',INGEST_SECRET:'fixture-ingest',CRON_SECRET:'fixture-cron'};
+const env={DATABASE_URL:'postgres://fixture-only',INGEST_SECRET:'fixture-ingest',CRON_SECRET:'fixture-cron'};
 
 test('atomic payload includes only required secrets and an explicitly configured optional key',()=>{
  assert.deepEqual(runtimeSecrets({...env,VERCEL_TOKEN:'must-not-export',UNKNOWN_KEY:'must-not-export'}),env);
- assert.deepEqual(runtimeSecrets({...env,SPORTS_GAME_ODDS_API_KEY:'fixture-sgo'}),{...env,SPORTS_GAME_ODDS_API_KEY:'fixture-sgo'});
+ assert.deepEqual(runtimeSecrets({...env,THE_ODDS_API_KEY:'fixture-odds',SPORTS_GAME_ODDS_API_KEY:'fixture-sgo',FOOTBALL_DATA_API_KEY:'fixture-football',API_SPORTS_KEY:'fixture-api-sports',BIGBALLS_API_KEY:'fixture-bigballs'}),{...env,THE_ODDS_API_KEY:'fixture-odds',SPORTS_GAME_ODDS_API_KEY:'fixture-sgo',FOOTBALL_DATA_API_KEY:'fixture-football',API_SPORTS_KEY:'fixture-api-sports',BIGBALLS_API_KEY:'fixture-bigballs'});
  assert.deepEqual(runtimeSecrets({...env,SPORTS_GAME_ODDS_API_KEY:''}),env);
 });
 
@@ -20,7 +20,10 @@ test('missing, placeholder and control-character values fail without reflecting 
     error.message==='Required Cloudflare runtime secret is missing or invalid');
   }
  }
- assert.throws(()=>runtimeSecrets({...env,SPORTS_GAME_ODDS_API_KEY:'[SENSITIVE]'}),/Optional/);
+ for(const key of ['THE_ODDS_API_KEY','SPORTS_GAME_ODDS_API_KEY','FOOTBALL_DATA_API_KEY','API_SPORTS_KEY','BIGBALLS_API_KEY']){
+  assert.throws(()=>runtimeSecrets({...env,[key]:'[SENSITIVE]'}),/Optional/);
+ }
+ assert.doesNotThrow(()=>runtimeSecrets(env));
 });
 
 test('JSON serialization preserves secret punctuation and private file permissions',()=>{
@@ -68,7 +71,9 @@ test('workflow deploys code and secrets once, cleans private files, and retains 
  assert.doesNotMatch(workflow,/wrangler secret (put|bulk)/);
  assert.match(workflow,/if: always\(\) && env\.EDGEFORCE_RUNTIME_SECRET_DIR/);
  assert.match(workflow,/rm -f "\$EDGEFORCE_RUNTIME_SECRET_DIR\/secrets\.json"/);
- for(const gate of ['Wait for exact Worker release identity','Certify real sportsbook provider','Verify live sportsbook data','Strict launch doctor','Hosted V119 smoke test'])assert.ok(workflow.includes(gate));
+ for(const gate of ['Require both exact-main certification workflows','Wait for exact Worker release identity','Certify recommendation data without blocking platform launch','Observe live sportsbook continuity without blocking platform launch','Strict Cloudflare platform launch doctor','Hosted V119 smoke test'])assert.ok(workflow.includes(gate));
+ assert.doesNotMatch(workflow,/missing\+=\("THE_ODDS_API_KEY"\)/);
+ assert.match(workflow,/launch-doctor\?strict=1&platform=1/);
  assert.ok(workflow.indexOf('Prepare atomic Cloudflare')<workflow.indexOf('id: deploy'));
  assert.ok(workflow.indexOf('id: deploy')<workflow.indexOf('Remove private Cloudflare'));
 });

@@ -63,7 +63,8 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
       underBudgetScore-
       overBudgetPenalty
     ).toFixed(2));
-    const eligible=stale&&!active&&cooldownReady&&certificationReady;
+    const autoRelease=project.autoRelease!==false;
+    const eligible=stale&&!active&&cooldownReady&&certificationReady&&autoRelease;
     return {
       ...project,
       stale,
@@ -75,6 +76,8 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
       liveSha:status.liveSha||null,
       repoUpdatedAt:Number(status.repoUpdatedAt||0),
       certificationReady,
+      autoRelease,
+      standbyRole:project.standbyRole||null,
       headCertified:status.headCertified===true,
       catchUpEligible:status.catchUpEligible===true,
       backlogDepth:Number(status.backlogDepth||0),
@@ -128,6 +131,9 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
     }else if(!project.cooldownReady){
       state='DEFERRED';
       reason='project cooldown is still active';
+    }else if(project.autoRelease===false){
+      state='DEFERRED';
+      reason='Vercel is manual disaster-recovery standby; Cloudflare is the automatic Edgeforce primary';
     }else if(project.mode==='workflow-dispatch'&&!project.certificationReady){
       state='DEFERRED';
       reason=project.backlogReason||'current main SHA has not completed exact-main certification';

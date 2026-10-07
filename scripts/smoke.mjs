@@ -150,6 +150,10 @@ assert(health.body?.vercelTeamGovernorTelemetry===true,'Vercel team governor tel
 assert(health.body?.vercelGovernorRecoveryControls===true,'Vercel governor recovery controls flag missing');
 assert(health.body?.vercelGovernorFairShareAllocation===true,'Vercel governor fair-share allocation flag missing');
 assert(health.body?.certifiedReleaseBacklog===true,'Certified release backlog flag missing');
+assert(health.body?.cloudflarePrimaryProduction===true,'Cloudflare primary production flag missing');
+assert(health.body?.vercelManualStandby===true,'Vercel manual standby flag missing');
+assert(health.body?.freeFirstSportsDataMesh===true,'Free-first sports data mesh flag missing');
+assert(health.body?.sportsbookQuotaDoesNotBlockPlatform===true,'Sportsbook quota isolation flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
