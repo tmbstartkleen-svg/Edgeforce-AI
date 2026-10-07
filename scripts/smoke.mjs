@@ -149,6 +149,7 @@ assert(health.body?.conditionalV1ContinuityReadiness===true,'conditional V1 cont
 assert(health.body?.vercelTeamGovernorTelemetry===true,'Vercel team governor telemetry flag missing');
 assert(health.body?.vercelGovernorRecoveryControls===true,'Vercel governor recovery controls flag missing');
 assert(health.body?.vercelGovernorFairShareAllocation===true,'Vercel governor fair-share allocation flag missing');
+assert(health.body?.certifiedReleaseBacklog===true,'Certified release backlog flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
