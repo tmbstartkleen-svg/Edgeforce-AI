@@ -69,6 +69,15 @@ export function settlementLearningFromFeatures(features:unknown):SettlementLearn
  return settlementLearningPolicy(root.settlementProvenance);
 }
 
+export function effectiveEvidenceSampleSize(rows:Array<{features?:unknown}>){
+ return rows.reduce((sum,row)=>sum+settlementLearningFromFeatures(row.features).evidenceWeight,0);
+}
+
+export function meetsEffectiveEvidenceMinimum(rows:Array<{features?:unknown}>,minimum:number){
+ const effectiveSampleSize=effectiveEvidenceSampleSize(rows);
+ return {ok:effectiveSampleSize>=minimum,effectiveSampleSize,minimum};
+}
+
 export function summarizeSettlementLearning(rows:Array<{features?:unknown}>){
  const summary={
   total:rows.length,
