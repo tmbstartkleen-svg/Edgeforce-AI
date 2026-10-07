@@ -1,0 +1,163 @@
+name: Team Vercel Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: Governed project to release
+        required: true
+        type: choice
+        options:
+          - edgeforce
+          - safeguard
+          - travai
+      tier:
+        description: Release tier
+        required: true
+        type: choice
+        default: normal
+        options:
+          - normal
+          - emergency
+      justification:
+        description: Why this manual release is required
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: team-vercel-manual-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      TEAM_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
+      NORMAL_CAP: "84"
+      HARD_CAP: "90"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Validate manual release request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN"
+          JUSTIFICATION='${{ inputs.justification }}'
+          if [ "${#JUSTIFICATION}" -lt 12 ]; then
+            echo "Manual release justification must be at least 12 characters."
+            exit 1
+          fi
+
+      - name: Capture exact trailing-24h deployment usage
+        id: budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          SINCE_MS=$(( ($(date +%s) - 86400) * 1000 ))
+          printf '[]' > /tmp/all-deployments.json
+          UNTIL=""
+          for PAGE in 1 2 3 4 5 6; do
+            URL="https://api.vercel.com/v6/deployments?teamId=$TEAM_ID&limit=100&since=$SINCE_MS"
+            if [ -n "$UNTIL" ]; then URL="$URL&until=$UNTIL"; fi
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30               -H "Authorization: Bearer $VERCEL_TOKEN"               "$URL" --output /tmp/page.json
+            jq -s '.[0] + (.[1].deployments // [])' /tmp/all-deployments.json /tmp/page.json > /tmp/all-deployments.next
+            mv /tmp/all-deployments.next /tmp/all-deployments.json
+            NEXT=$(jq -r '.pagination.next // empty' /tmp/page.json)
+            if [ -z "$NEXT" ]; then break; fi
+            UNTIL="$NEXT"
+          done
+
+          COUNT=$(jq --argjson since "$SINCE_MS" '[.[] | select(((.created // .createdAt // 0) | tonumber) >= $since)] | unique_by(.id) | length' /tmp/all-deployments.json)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Observed exact trailing-24h team usage: $COUNT deployments."
+
+          TIER='${{ inputs.tier }}'
+          if [ "$COUNT" -ge "$HARD_CAP" ]; then
+            echo "Manual release blocked: team usage $COUNT is at or above hard cap $HARD_CAP."
+            exit 1
+          fi
+          if [ "$TIER" = "normal" ] && [ "$COUNT" -ge "$NORMAL_CAP" ]; then
+            echo "Normal manual release blocked: team usage $COUNT is at or above normal cap $NORMAL_CAP."
+            exit 1
+          fi
+          if [ "$TIER" = "emergency" ] && [ "$COUNT" -lt "$NORMAL_CAP" ]; then
+            echo "Emergency tier is unnecessary while normal capacity is available; use normal tier instead."
+            exit 1
+          fi
+          echo "::notice title=Manual Vercel release authorized::Project ${{ inputs.project }} at $COUNT/$HARD_CAP using ${{ inputs.tier }} tier."
+
+      - name: Resolve project configuration
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT='${{ inputs.project }}'
+          case "$PROJECT" in
+            edgeforce)
+              echo "mode=workflow" >> "$GITHUB_OUTPUT"
+              echo "name=edgeforce-ai" >> "$GITHUB_OUTPUT"
+              ;;
+            safeguard)
+              echo "mode=vercel-git" >> "$GITHUB_OUTPUT"
+              echo "name=safeguard" >> "$GITHUB_OUTPUT"
+              echo "id=prj_g7S3xtYRz1TVpnmCmQR9ZbJ1ujY7" >> "$GITHUB_OUTPUT"
+              echo "repo=Safeguard" >> "$GITHUB_OUTPUT"
+              echo "repo_id=1373957308" >> "$GITHUB_OUTPUT"
+              ;;
+            travai)
+              echo "mode=vercel-git" >> "$GITHUB_OUTPUT"
+              echo "name=travai" >> "$GITHUB_OUTPUT"
+              echo "id=prj_hoGp45Adl6IuWxGNptfecYqB1geE" >> "$GITHUB_OUTPUT"
+              echo "repo=TravAI" >> "$GITHUB_OUTPUT"
+              echo "repo_id=1393788508" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown governed project"
+              exit 1
+              ;;
+          esac
+
+      - name: Dispatch guarded Edgeforce production workflow
+        if: steps.project.outputs.mode == 'workflow'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error -X POST             -H "Authorization: Bearer $GITHUB_TOKEN"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/dispatches"             -d '{"ref":"main"}'
+          echo "Dispatched the existing guarded Edgeforce production workflow."
+
+      - name: Deploy governed peer project from linked main
+        if: steps.project.outputs.mode == 'vercel-git'
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME='${{ steps.project.outputs.name }}'
+          PROJECT_ID='${{ steps.project.outputs.id }}'
+          REPO='${{ steps.project.outputs.repo }}'
+          REPO_ID='${{ steps.project.outputs.repo_id }}'
+          BODY=$(jq -cn             --arg name "$NAME"             --arg project "$PROJECT_ID"             --arg repo "$REPO"             --arg tier '${{ inputs.tier }}'             --arg justification '${{ inputs.justification }}'             --argjson repoId "$REPO_ID"             '{name:$name,project:$project,target:"production",gitSource:{type:"github",repoId:$repoId,ref:"main"},meta:{deploymentGovernor:"edgeforce-v141-manual",releaseTier:$tier,manualJustification:$justification}}')
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 60             -X POST             -H "Authorization: Bearer $VERCEL_TOKEN"             -H "Content-Type: application/json"             "https://api.vercel.com/v13/deployments?teamId=$TEAM_ID&forceNew=0&skipAutoDetectionConfirmation=1"             --data "$BODY"             --output /tmp/manual-deployment.json
+          DEPLOYMENT_ID=$(jq -r '.id // empty' /tmp/manual-deployment.json)
+          test -n "$DEPLOYMENT_ID"
+          echo "Started governed manual production deployment $DEPLOYMENT_ID for $NAME."
+
+      - name: Record release summary
+        shell: bash
+        run: |
+          {
+            echo "### V141 governed manual release"
+            echo "- Project: **${{ inputs.project }}**"
+            echo "- Tier: **${{ inputs.tier }}**"
+            echo "- Team usage before action: **${{ steps.budget.outputs.count }} / $HARD_CAP**"
+            echo "- Justification: ${{ inputs.justification }}"
+            echo "- Hard-cap bypass: **not permitted**"
+          } >> "$GITHUB_STEP_SUMMARY"
