@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v139-team-vercel-governor-1",
+  "schemaVersion": "v142-team-vercel-governor-2",
   "teamId": "team_XlvGJkid1lgNPLVGPJn1ScEr",
   "softCap": 84,
   "hardCap": 90,
@@ -16,7 +16,8 @@
       "repoId": 1393696808,
       "mode": "workflow-dispatch",
       "workflow": "deploy-production.yml",
-      "priority": 100
+      "priority": 100,
+      "normalBudgetShare": 34
     },
     {
       "key": "safeguard",
@@ -25,7 +26,8 @@
       "repo": "Safeguard",
       "repoId": 1373957308,
       "mode": "vercel-git",
-      "priority": 90
+      "priority": 90,
+      "normalBudgetShare": 28
     },
     {
       "key": "travai",
@@ -34,7 +36,16 @@
       "repo": "TravAI",
       "repoId": 1393788508,
       "mode": "vercel-git",
-      "priority": 80
+      "priority": 80,
+      "normalBudgetShare": 22
     }
-  ]
+  ],
+  "fairness": {
+    "agingPointsPerHour": 10,
+    "maxAgingPoints": 240,
+    "underBudgetPointsPerSlot": 12,
+    "maxUnderBudgetPoints": 300,
+    "overBudgetPenaltyPerSlot": 25,
+    "maxBorrowedActionsPerRun": 1
+  }
 }
