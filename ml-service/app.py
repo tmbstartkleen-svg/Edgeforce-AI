@@ -56,6 +56,7 @@ class TrainingRow(BaseModel):
     features: list[float]
     outcome: int
     marketProbability: float
+    evidenceWeight: float = Field(default=1.0, ge=0.05, le=1.0)
 
 
 class TrainingGroup(BaseModel):
@@ -213,11 +214,14 @@ class PyMCBayesianLogistic:
         self.beta: np.ndarray | None = None
         self.intercept = 0.0
 
-    def fit(self, x: np.ndarray, y: np.ndarray):
+    def fit(self, x: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None):
         if pm is None:
             raise RuntimeError("PyMC is not installed")
-        self.means = x.mean(axis=0)
-        self.scales = x.std(axis=0)
+        weights = np.ones(len(y), dtype=float) if sample_weight is None else np.asarray(sample_weight, dtype=float)
+        weights = np.clip(weights, 0.05, 1.0)
+        self.means = np.average(x, axis=0, weights=weights)
+        variance = np.average((x - self.means) ** 2, axis=0, weights=weights)
+        self.scales = np.sqrt(variance)
         self.scales[self.scales < 1e-8] = 1.0
         z = (x - self.means) / self.scales
         draws = max(300, int(os.getenv("PYMC_DRAWS", "500")))
@@ -226,7 +230,8 @@ class PyMCBayesianLogistic:
             alpha = pm.Normal("alpha", 0.0, 1.5)
             beta = pm.Normal("beta", 0.0, 1.0, shape=z.shape[1])
             p = pm.math.sigmoid(alpha + pm.math.dot(z, beta))
-            pm.Bernoulli("obs", p=p, observed=y)
+            logp = pm.logp(pm.Bernoulli.dist(p=p), y)
+            pm.Potential("weighted_obs", pm.math.sum(logp * weights))
             trace = pm.sample(
                 draws=draws, tune=tune, chains=2, cores=1,
                 random_seed=RANDOM_SEED, progressbar=False,
@@ -250,10 +255,18 @@ def estimator_for(name: str):
     return build_estimator(name)
 
 
-def fit_platt(probabilities: np.ndarray, y: np.ndarray):
+def fit_estimator(name: str, estimator, x: np.ndarray, y: np.ndarray, sample_weight: np.ndarray):
+    if isinstance(estimator, Pipeline):
+        estimator.fit(x, y, model__sample_weight=sample_weight)
+    else:
+        estimator.fit(x, y, sample_weight=sample_weight)
+    return estimator
+
+
+def fit_platt(probabilities: np.ndarray, y: np.ndarray, sample_weight: np.ndarray):
     logits = np.log(np.clip(probabilities, 1e-5, 1 - 1e-5) / np.clip(1 - probabilities, 1e-5, 1))
     calibrator = LogisticRegression(C=10.0, solver="lbfgs", max_iter=1000)
-    calibrator.fit(logits.reshape(-1, 1), y)
+    calibrator.fit(logits.reshape(-1, 1), y, sample_weight=sample_weight)
     return calibrator
 
 
@@ -263,27 +276,31 @@ def calibrated_probability(estimator, calibrator, x: np.ndarray) -> np.ndarray:
     return np.clip(calibrator.predict_proba(logits.reshape(-1, 1))[:, 1], 1e-4, 1 - 1e-4)
 
 
-def calibration_error(probabilities: np.ndarray, y: np.ndarray, bins: int = 10) -> float:
-    total = len(y)
-    if total == 0:
+def calibration_error(probabilities: np.ndarray, y: np.ndarray, sample_weight: np.ndarray, bins: int = 10) -> float:
+    total = float(sample_weight.sum())
+    if total <= 0:
         return 0.0
     error = 0.0
     for i in range(bins):
         low, high = i / bins, (i + 1) / bins
         mask = (probabilities >= low) & (probabilities < high if i < bins - 1 else probabilities <= high)
-        n = int(mask.sum())
-        if n:
-            error += abs(float(probabilities[mask].mean()) - float(y[mask].mean())) * n
+        if int(mask.sum()):
+            weight = sample_weight[mask]
+            weight_sum = float(weight.sum())
+            if weight_sum > 0:
+                mean_p = float(np.average(probabilities[mask], weights=weight))
+                mean_y = float(np.average(y[mask], weights=weight))
+                error += abs(mean_p - mean_y) * weight_sum
     return error / total
 
 
-def market_metrics(probabilities: np.ndarray, y: np.ndarray) -> dict[str, float]:
+def market_metrics(probabilities: np.ndarray, y: np.ndarray, sample_weight: np.ndarray) -> dict[str, float]:
     p = np.clip(probabilities, 1e-4, 1 - 1e-4)
     return {
-        "brier": float(brier_score_loss(y, p)),
-        "logLoss": float(log_loss(y, np.column_stack([1 - p, p]), labels=[0, 1])),
-        "accuracy": float(accuracy_score(y, (p >= 0.5).astype(int))),
-        "calibrationError": float(calibration_error(p, y)),
+        "brier": float(brier_score_loss(y, p, sample_weight=sample_weight)),
+        "logLoss": float(log_loss(y, np.column_stack([1 - p, p]), labels=[0, 1], sample_weight=sample_weight)),
+        "accuracy": float(accuracy_score(y, (p >= 0.5).astype(int), sample_weight=sample_weight)),
+        "calibrationError": float(calibration_error(p, y, sample_weight)),
     }
 
 
@@ -324,6 +341,7 @@ def train_candidate(name: str, group: TrainingGroup) -> tuple[dict[str, Any], An
     x = np.asarray([row.features for row in rows], dtype=float)
     y = np.asarray([row.outcome for row in rows], dtype=int)
     market = np.asarray([row.marketProbability for row in rows], dtype=float)
+    evidence_weight = np.asarray([row.evidenceWeight for row in rows], dtype=float)
     if x.ndim != 2 or x.shape[1] != len(group.featureNames):
         raise ValueError("feature shape does not match featureNames")
     if len(np.unique(y)) < 2:
@@ -332,21 +350,24 @@ def train_candidate(name: str, group: TrainingGroup) -> tuple[dict[str, Any], An
     train_end = max(1, int(len(rows) * 0.70))
     calibration_end = max(train_end + 1, int(len(rows) * 0.85))
     train_x, train_y = x[:train_end], y[:train_end]
+    train_weight = evidence_weight[:train_end]
     cal_x, cal_y = x[train_end:calibration_end], y[train_end:calibration_end]
+    cal_weight = evidence_weight[train_end:calibration_end]
     hold_x, hold_y = x[calibration_end:], y[calibration_end:]
+    hold_weight = evidence_weight[calibration_end:]
     hold_market = market[calibration_end:]
     if len(hold_y) < MIN_HOLDOUT or len(np.unique(train_y)) < 2 or len(np.unique(cal_y)) < 2:
         raise ValueError("insufficient chronological calibration/holdout diversity")
 
     estimator = estimator_for(name)
     started = time.time()
-    estimator.fit(train_x, train_y)
+    fit_estimator(name, estimator, train_x, train_y, train_weight)
     cal_raw = np.clip(estimator.predict_proba(cal_x)[:, 1], 1e-4, 1 - 1e-4)
-    calibrator = fit_platt(cal_raw, cal_y)
+    calibrator = fit_platt(cal_raw, cal_y, cal_weight)
     hold_prob = calibrated_probability(estimator, calibrator, hold_x)
 
-    hold = market_metrics(hold_prob, hold_y)
-    baseline = market_metrics(hold_market, hold_y)
+    hold = market_metrics(hold_prob, hold_y, hold_weight)
+    baseline = market_metrics(hold_market, hold_y, hold_weight)
     brier_skill = 1.0 - hold["brier"] / baseline["brier"] if baseline["brier"] > 0 else 0.0
     composite = (
         brier_skill * 2.0
@@ -378,9 +399,13 @@ def train_candidate(name: str, group: TrainingGroup) -> tuple[dict[str, Any], An
         "serviceModelId": model_id,
         "artifactUri": str(artifact_path),
         "sampleSize": len(rows),
+        "effectiveSampleSize": float(evidence_weight.sum()),
         "trainSize": len(train_y),
+        "trainEffectiveSampleSize": float(train_weight.sum()),
         "calibrationSize": len(cal_y),
+        "calibrationEffectiveSampleSize": float(cal_weight.sum()),
         "holdoutSize": len(hold_y),
+        "holdoutEffectiveSampleSize": float(hold_weight.sum()),
         "holdoutBrier": hold["brier"],
         "holdoutLogLoss": hold["logLoss"],
         "holdoutAccuracy": hold["accuracy"],
