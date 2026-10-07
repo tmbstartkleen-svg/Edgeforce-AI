@@ -6,6 +6,7 @@ const telemetry=readFileSync(new URL('../src/lib/vercelGovernorTelemetry.ts',imp
 const route=readFileSync(new URL('../src/app/api/operations/vercel-governor/route.ts',import.meta.url),'utf8');
 const panel=readFileSync(new URL('../src/components/VercelGovernorPanel.tsx',import.meta.url),'utf8');
 const manual=readFileSync(new URL('../.github/workflows/team-vercel-manual-release.yml',import.meta.url),'utf8');
+const governor=readFileSync(new URL('../.github/workflows/team-vercel-governor.yml',import.meta.url),'utf8');
 const migration=readFileSync(new URL('../db/v116.sql',import.meta.url),'utf8');
 
 test('V141 recovery timeline includes hard-cap and normal-capacity milestones',()=>{
@@ -61,4 +62,14 @@ test('V141 public dashboard stays read-only and exposes reviewed manual control 
   assert.match(panel,/Hard-cap bypass/);
   assert.match(panel,/Recovery timeline/);
   assert.match(panel,/Governor decision history/);
+});
+
+
+test('V141 scheduled governor uses exact paginated usage and publishes capacity annotations',()=>{
+  assert.match(governor,/Capture exact team deployment usage/);
+  assert.match(governor,/until=\$UNTIL/);
+  assert.match(governor,/unique_by\(\.id\)/);
+  assert.match(governor,/Vercel normal capacity available/);
+  assert.match(governor,/Vercel emergency reserve active/);
+  assert.match(governor,/Vercel hard-cap block active/);
 });
