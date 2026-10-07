@@ -21,7 +21,11 @@ type ProjectConfig = {
   mode:string;
   workflow?:string;
   priority:number;
+  autoRelease:boolean;
+  standbyRole:string|null;
   normalBudgetShare:number;
+  autoRelease?:boolean;
+  standbyRole?:string;
 };
 
 type ProjectState = {
@@ -288,6 +292,8 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
       cooldownReady,
       pending,
       priority:num(project.priority),
+      autoRelease:project.autoRelease!==false,
+      standbyRole:project.standbyRole||null,
       normalBudgetShare,
       budgetRemaining,
       overBudgetBy,
@@ -307,7 +313,7 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
     if(a.latestDeploymentAt!==b.latestDeploymentAt)return a.latestDeploymentAt-b.latestDeploymentAt;
     return a.key.localeCompare(b.key);
   };
-  const eligible=baseStates.filter(project=>project.pending&&project.active===0&&project.cooldownReady);
+  const eligible=baseStates.filter(project=>project.pending&&project.active===0&&project.cooldownReady&&project.autoRelease);
   const underShare=eligible.filter(project=>project.budgetState!=='OVER_SHARE').sort(compare);
   const overShare=eligible.filter(project=>project.budgetState==='OVER_SHARE').sort(compare);
   const ranked=[...underShare,...overShare];
@@ -332,6 +338,9 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
       reason='a deployment is already active';
     }else if(!project.pending){
       governorState='CURRENT';
+    }else if(!project.autoRelease){
+      governorState='DEFERRED';
+      reason='Vercel is manual disaster-recovery standby; Cloudflare is the automatic Edgeforce primary';
     }else if(!project.cooldownReady){
       governorState='DEFERRED';
       reason='project cooldown has not expired';
@@ -353,7 +362,7 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
   });
 
   return {
-    schemaVersion:'v142-governor-telemetry-2',
+    schemaVersion:'v144-governor-telemetry-3',
     generatedAt:new Date(now).toISOString(),
     windowHours:DAY/3_600_000,
     usage,
