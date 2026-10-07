@@ -5,9 +5,14 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: edgeforce-verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       snapshot-postgres:
         image: postgres:16
@@ -25,7 +30,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
       - name: Compile ML service
         run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
