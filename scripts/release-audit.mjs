@@ -1063,6 +1063,9 @@ add('V136 explicit legacy telemetry absence',read('.github/workflows/deploy-prod
 add('V136 bounded legacy canary handoff',read('src/lib/deploymentGuard.ts').includes('legacyCriticalContinuity')&&read('src/lib/deploymentGuard.ts').includes('legacyProtectiveContinuity')&&read('src/app/api/release/deployment-guard/route.ts').includes('legacyHandoff:body.legacyHandoff===true'),'legacy canary continuity requires an explicit workflow handoff plus current candidate readiness, certification and fresh pulse');
 add('V136 modern canary fail-closed regression',exists('tests/deployment-guard-legacy-handoff.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/deployment-guard-legacy-handoff.test.mjs'),'modern baselines retain incident, automation, observability and reliability regression gates');
 add('V136 release notes',exists('EDGEFORCE_V136_RELEASE.md'),'V136 release documentation exists');
+add('V137 team-wide Vercel deployment budget',read('.github/workflows/deploy-production.yml').includes('api.vercel.com/v6/deployments?teamId=$VERCEL_ORG_ID&limit=100')&&!read('.github/workflows/deploy-production.yml').includes('v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_ORG_ID&limit=100'),'Vercel deployment budget preflight counts shared team usage instead of only the Edgeforce project');
+add('V137 budget scope regression',read('tests/vercel-deployment-budget.test.mjs').includes('team-wide trailing 24h usage')&&read('tests/vercel-deployment-budget.test.mjs').includes('assert.doesNotMatch(guard,/projectId='),'tests prevent project-scoped budget counting from returning');
+add('V137 release notes',exists('EDGEFORCE_V137_RELEASE.md'),'V137 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
