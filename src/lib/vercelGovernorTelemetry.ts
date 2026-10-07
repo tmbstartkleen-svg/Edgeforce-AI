@@ -382,7 +382,7 @@ export async function syncVercelGovernorAlerts(telemetry:ReturnType<typeof summa
           alert_key,severity,category,project_key,message,active,detail,first_seen_at,last_seen_at,resolved_at
         ) values(
           ${alert.key},${alert.severity},${alert.category},${alert.projectKey||null},${alert.message},true,
-          ${sql.json(alert.detail)},now(),now(),null
+          ${sql.json(alert.detail as any)},now(),now(),null
         )
         on conflict (alert_key) do update set
           severity=excluded.severity,
@@ -395,7 +395,7 @@ export async function syncVercelGovernorAlerts(telemetry:ReturnType<typeof summa
           resolved_at=null
       `;
     }
-    for(const row of existing as Array<{alertKey:string}>){
+    for(const row of existing as unknown as Array<{alertKey:string}>){
       if(keys.has(String(row.alertKey)))continue;
       await sql`
         update vercel_governor_alerts
