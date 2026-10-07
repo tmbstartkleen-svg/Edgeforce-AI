@@ -156,6 +156,9 @@ assert(health.body?.freeFirstSportsDataMesh===true,'Free-first sports data mesh 
 assert(health.body?.sportsbookQuotaDoesNotBlockPlatform===true,'Sportsbook quota isolation flag missing');
 assert(health.body?.primaryStandbyProductionClosure===true,'Primary standby closure flag missing');
 assert(health.body?.standbyCommitDriftAllowed===true,'Standby commit drift policy flag missing');
+assert(health.body?.productionTopologyWatchdog===true,'Production topology watchdog flag missing');
+assert(health.body?.manualFailoverReadiness===true,'Manual failover readiness flag missing');
+assert(health.body?.automaticStandbyPromotionDisabled===true,'Automatic standby promotion policy flag missing');
 assert(health.body?.releasePathConvergence===true,'release path convergence flag missing');
 assert(health.body?.previewTargetRemediationArtifact===true,'preview-target remediation artifact flag missing');
 assert(health.body?.failSoftPredictionWarehousePrime===true,'fail-soft prediction warehouse prime flag missing');
@@ -664,6 +667,14 @@ assert(finalClosureTest.body?.assertions?.standbyDriftAllowed===true,'final clos
 assert(finalClosureTest.body?.assertions?.allClosureGatesRequired===true,'final closure gate assertion failed');
 const finalClosureStatus=await get('/api/release/final-closure');
 assert(finalClosureStatus.res.ok&&finalClosureStatus.body?.ok===true,'final production closure endpoint failed');
+
+const topologyWatchdogTest=await get('/api/testing/production-topology');
+assert(topologyWatchdogTest.res.ok&&topologyWatchdogTest.body?.ok===true,'production topology watchdog regression failed');
+assert(topologyWatchdogTest.body?.assertions?.healthyReady===true,'topology watchdog healthy readiness regressed');
+assert(topologyWatchdogTest.body?.assertions?.driftAllowed===true,'topology watchdog standby drift policy regressed');
+assert(topologyWatchdogTest.body?.assertions?.automaticPromotionDisabled===true,'topology watchdog automatic promotion policy regressed');
+assert(topologyWatchdogTest.body?.assertions?.badStandbyBlocks===true,'topology watchdog standby failure gate regressed');
+assert(topologyWatchdogTest.body?.assertions?.staleClosureBlocks===true,'topology watchdog stale closure gate regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');

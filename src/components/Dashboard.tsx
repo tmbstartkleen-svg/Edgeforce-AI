@@ -30,6 +30,7 @@ import UnifiedIntelligencePanel from './UnifiedIntelligencePanel';
 import ReliabilitySupervisorPanel from './ReliabilitySupervisorPanel';
 import DeploymentGuardPanel from './DeploymentGuardPanel';
 import VercelGovernorPanel from './VercelGovernorPanel';
+import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 
@@ -1142,6 +1143,8 @@ export default function Dashboard(){
     <DeploymentGuardPanel/>
 
     <VercelGovernorPanel/>
+
+    <ProductionTopologyWatchdogPanel/>
 
     <ReliabilitySupervisorPanel/>
 
