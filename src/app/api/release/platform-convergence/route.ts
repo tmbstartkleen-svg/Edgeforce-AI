@@ -24,7 +24,20 @@ export async function POST(req:Request){
   migrationVersion:Number(body.migrationVersion||0),
   commitSha:String(body.commitSha||''),
   workflowRunId:body.workflowRunId?String(body.workflowRunId):null,
-  source:body.source?String(body.source):null
+  source:body.source?String(body.source):null,
+  topology:body.topology==='cloudflare-primary-vercel-standby'?'cloudflare-primary-vercel-standby':'dual-active',
+  standby:body.standby&&typeof body.standby==='object'?{
+   deploymentUrl:String(body.standby.deploymentUrl||''),
+   deploymentId:body.standby.deploymentId?String(body.standby.deploymentId):null,
+   commitSha:body.standby.commitSha?String(body.standby.commitSha):null,
+   state:body.standby.state?String(body.standby.state):null,
+   healthy:body.standby.healthy===true,
+   manualOnly:body.standby.manualOnly===true,
+   healthStatus:Number(body.standby.healthStatus||0)||null
+  }:null,
+  exactMainCertified:body.exactMainCertified===true,
+  hostedSmokePassed:body.hostedSmokePassed===true,
+  platformReady:body.platformReady===true
  });
  const invalid=Array.isArray((report as any)?.blockers)&&(report as any).blockers.length>0;
  return Response.json({ok:!invalid,report},{status:invalid?422:200,headers:{'Cache-Control':'no-store'}});
