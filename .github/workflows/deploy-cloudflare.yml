@@ -334,8 +334,22 @@ jobs:
               commitSha:$runtime.deploymentCommit,workflowRunId:$workflowRunId,source:"production-cloudflare",
               topology:"cloudflare-primary-vercel-standby",standby:$standby,
               exactMainCertified:true,hostedSmokePassed:true,platformReady:true}')
-          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/release/platform-convergence"             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY"
+          set +e
+          HTTP_CODE=$(curl --silent --show-error --output /tmp/topology-evidence-response.json --write-out "%{http_code}" -X POST "$DEPLOYMENT_URL/api/release/platform-convergence"             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY")
+          CURL_CODE=$?
+          set -e
+          cat /tmp/topology-evidence-response.json || true
           echo
+          if [ "$CURL_CODE" -ne 0 ]; then
+            echo "Topology evidence transport failed with curl exit $CURL_CODE."
+            exit "$CURL_CODE"
+          fi
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Topology evidence rejected with HTTP $HTTP_CODE."
+            jq -r '.report.blockers[]? | "BLOCKER: " + .' /tmp/topology-evidence-response.json || true
+            exit 1
+          fi
+          jq -e '.ok==true and .report.certified==true and (.report.blockers|length)==0' /tmp/topology-evidence-response.json >/dev/null
 
       - name: Attempt final production closure
         env:
