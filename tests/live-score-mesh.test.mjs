@@ -104,3 +104,44 @@ test('freshness governor prefers richer fast-path rows and adapts UI cadence',()
  assert.equal(stale.state,'STALE');
  assert.ok(stale.recommendedUiRefreshMs>=1500);
 });
+
+
+test('V148 consensus distinguishes corroboration, lag, and active contradictions',()=>{
+ const base={
+  id:'game-consensus',sport:'NBA',league:'NBA',status:'LIVE',detail:'4th Quarter',clock:'02:10',period:'4',
+  startTime:'2026-10-07T11:00:00Z',
+  home:{name:'Home Team',score:84},away:{name:'Away Team',score:81}
+ };
+ const cdn={...base,source:'espn-cdn',observedAt:'2026-10-07T12:00:10.000Z'};
+ const publicSame={...base,source:'espn-public',clock:'02:12',observedAt:'2026-10-07T12:00:09.000Z'};
+ const lagging={...base,source:'thesportsdb',home:{...base.home,score:82},away:{...base.away,score:80},observedAt:'2026-10-07T12:00:04.000Z'};
+ const corroborated=runtime.reconcileLiveGames([lagging],[publicSame],[cdn]);
+ assert.equal(corroborated.length,1);
+ assert.equal(corroborated[0].source,'espn-cdn');
+ assert.equal(corroborated[0].consensus.confidence,'HIGH');
+ assert.equal(corroborated[0].consensus.agreeingSources,2);
+ assert.equal(corroborated[0].consensus.activeConflict,false);
+ assert.deepEqual(corroborated[0].consensus.laggingSources,['thesportsdb']);
+
+ const activeConflict={...base,source:'api-sports',home:{...base.home,score:83},observedAt:'2026-10-07T12:00:09.500Z'};
+ const conflicted=runtime.reconcileLiveGames([publicSame],[activeConflict],[cdn]);
+ assert.equal(conflicted[0].consensus.activeConflict,true);
+ assert.equal(conflicted[0].consensus.scoreConflict,true);
+ assert.equal(conflicted[0].consensus.confidence,'MEDIUM');
+ const summary=runtime.summarizeLiveScoreConsensus(conflicted);
+ assert.equal(summary.liveGames,1);
+ assert.equal(summary.activeConflicts,1);
+ assert.equal(summary.medium,1);
+ assert.equal(summary.conflictRate,1);
+});
+
+test('V148 consensus marks one-source live rows explicitly',()=>{
+ const row={
+  id:'solo',sport:'NHL',league:'NHL',source:'nhl-web',status:'LIVE',detail:'2nd',clock:'08:00',period:'2',
+  startTime:'2026-10-07T11:00:00Z',home:{name:'Home',score:2},away:{name:'Away',score:1},observedAt:'2026-10-07T12:00:00Z'
+ };
+ const reconciled=runtime.reconcileLiveGames([row]);
+ assert.equal(reconciled[0].consensus.confidence,'SINGLE_SOURCE');
+ assert.equal(reconciled[0].consensus.sourceCount,1);
+ assert.equal(runtime.summarizeLiveScoreConsensus(reconciled).singleSource,1);
+});
