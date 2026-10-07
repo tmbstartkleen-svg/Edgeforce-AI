@@ -604,30 +604,31 @@ export default function Dashboard(){
 
   useEffect(()=>{
     let mounted=true;
-    const load=async()=>{
-      if(busy.current)return;
-      busy.current=true;
-      try{
-        const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
-        if(!res.ok)throw new Error('Board request failed');
-        const json=await res.json() as LiveBoardResponse;
-        if(mounted){setBoard(json);setLastError('')}
-      }catch(error){
-        if(mounted)setLastError(error instanceof Error?error.message:'Unable to refresh board');
-      }finally{
-        busy.current=false;
-      }
-    };
     let timer:number|undefined;
-    const schedule=()=>{
+    let nextDelay=1000;
+    const adaptiveLoad=async()=>{
       if(!mounted)return;
-      const requested=board.liveScores?.freshness?.recommendedUiRefreshMs??board.liveScores?.uiRefreshMs??board.uiRefreshMs??1000;
-      const delay=Math.max(500,Math.min(5000,Number(requested)||1000));
-      timer=window.setTimeout(async()=>{await load();schedule()},delay);
+      if(!busy.current){
+        busy.current=true;
+        try{
+          const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
+          if(!res.ok)throw new Error('Board request failed');
+          const json=await res.json() as LiveBoardResponse;
+          const requested=json.liveScores?.freshness?.recommendedUiRefreshMs??json.liveScores?.uiRefreshMs??json.uiRefreshMs??1000;
+          nextDelay=Math.max(500,Math.min(5000,Number(requested)||1000));
+          if(mounted){setBoard(json);setLastError('')}
+        }catch(error){
+          nextDelay=Math.max(nextDelay,1500);
+          if(mounted)setLastError(error instanceof Error?error.message:'Unable to refresh board');
+        }finally{
+          busy.current=false;
+        }
+      }
+      if(mounted)timer=window.setTimeout(adaptiveLoad,nextDelay);
     };
-    void load().finally(schedule);
+    void adaptiveLoad();
     return ()=>{mounted=false;if(timer!==undefined)window.clearTimeout(timer)};
-  },[view,limit,risk,board.liveScores?.freshness?.recommendedUiRefreshMs,board.liveScores?.uiRefreshMs,board.uiRefreshMs]);
+  },[view,limit,risk]);
 
   useEffect(()=>{
     let mounted=true;
