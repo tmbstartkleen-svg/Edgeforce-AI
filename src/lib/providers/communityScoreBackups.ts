@@ -23,7 +23,9 @@ async function json(url:string,headers:Record<string,string>={}){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs());
   try{
-    const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/144 score-mesh',...headers}});
+    const apiSports=Object.keys(headers).some(key=>key.toLowerCase()==='x-apisports-key');
+    const requestHeaders=apiSports?headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/144 score-mesh',...headers};
+    const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:requestHeaders});
     if(!res.ok)throw new Error('HTTP '+res.status);
     return await res.json() as unknown;
   }finally{clearTimeout(timer)}
