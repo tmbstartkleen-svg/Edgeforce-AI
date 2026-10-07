@@ -13,7 +13,7 @@ const timeoutMs=()=>Math.max(2000,Number(process.env.COMMUNITY_SCORE_TIMEOUT_MS|
 function status(v:string):LiveGameState['status']{
   const s=v.toLowerCase();
   if(/final|finished|ended|complete|ft\b/.test(s))return 'FINAL';
-  if(/live|in[_ -]?play|in progress|playing|halftime|quarter|period|inning|set/.test(s))return 'LIVE';
+  if(/live|in[_ -]?play|in progress|playing|half(?:time)?|quarter|period|inning|set/.test(s))return 'LIVE';
   if(/delay|postpon|suspend|cancel/.test(s))return 'DELAYED';
   if(/sched|not started|timed|pre|upcoming/.test(s))return 'SCHEDULED';
   return 'UNKNOWN';
