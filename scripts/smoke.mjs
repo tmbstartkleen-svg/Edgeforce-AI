@@ -38,7 +38,7 @@ assert(health.body?.ok===true,'health payload not ok');
 assert(health.body?.version==='119.0.0','unexpected health version');
 assert(health.body?.modelVersion==='edgeforce-v119','unexpected model version');
 assert(health.body?.releaseIdentityMatch===true,'runtime/release identity mismatch');
-assert(health.body?.migrationVersion===115,'unexpected migration version');
+assert(health.body?.migrationVersion===116,'unexpected migration version');
 assert(health.body?.persistentWagerLedger===true,'persistent wager ledger flag missing');
 assert(health.body?.automaticSettlement===true,'automatic settlement flag missing');
 assert(health.body?.providerCircuitBreaker===true,'provider circuit breaker flag missing');
@@ -383,7 +383,7 @@ assert(releaseReady.body?.version==='119.0.0','release readiness version mismatc
 const deployment=await get('/api/deployment/smoke');
 assert(deployment.res.ok&&deployment.body?.smoke===true,'deployment smoke failed');
 assert(deployment.body?.version==='119.0.0','deployment smoke version mismatch');
-assert(deployment.body?.checks?.migrations==='v115','deployment migration identity mismatch');
+assert(deployment.body?.checks?.migrations==='v116','deployment migration identity mismatch');
 
 const diagnostics=await get('/api/diagnostics');
 assert(diagnostics.res.ok&&diagnostics.body?.ok===true,'diagnostics failed');
