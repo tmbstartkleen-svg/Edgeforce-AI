@@ -684,7 +684,8 @@ assert(health.body?.liveScoreConflictDetection===true,'live score conflict detec
 assert(health.body?.lagAwareScoreReconciliation===true,'lag-aware score reconciliation flag missing');
 assert(health.body?.liveScoreConsensusTelemetry===true,'live score consensus telemetry flag missing');
 assert(health.body?.ciSupersededRunCancellation===true,'CI superseded-run cancellation flag missing');
-assert(health.body?.deterministicCiInstall===true,'deterministic CI install flag missing');
+assert(health.body?.lockfileSafeCiInstall===true,'lockfile-safe CI install flag missing');
+assert(health.body?.npmInstallFallbackWithoutLockfile===true,'npm install fallback without lockfile flag missing');
 assert(health.body?.boundedCiExecution===true,'bounded CI execution flag missing');
 assert(health.body?.pinnedCiActions===true,'pinned CI actions flag missing');
 assert(health.body?.prPreviewConvergence===true,'PR preview convergence flag missing');
