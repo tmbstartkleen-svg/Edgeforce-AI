@@ -1,0 +1,163 @@
+name: Team Vercel Deployment Governor
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: team-vercel-deployment-governor
+  cancel-in-progress: true
+
+jobs:
+  govern:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      GITHUB_TOKEN: ${{ github.token }}
+      TEAM_ID: team_XlvGJkid1lgNPLVGPJn1ScEr
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Verify governor credential
+        run: test -n "$VERCEL_TOKEN"
+
+      - name: Capture team deployment usage
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?teamId=$TEAM_ID&limit=100" \
+            --output /tmp/vercel-team-response.json
+          jq '.deployments // .result.deployments.deployments // []' /tmp/vercel-team-response.json > /tmp/vercel-team-deployments.json
+
+      - name: Capture governed project state
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIG=config/vercel-team-governor.json
+          printf '[]' > /tmp/vercel-project-status.json
+          while IFS= read -r project; do
+            KEY=$(printf '%s' "$project" | jq -r '.key')
+            PROJECT_ID=$(printf '%s' "$project" | jq -r '.projectId')
+            REPO=$(printf '%s' "$project" | jq -r '.repo')
+            MODE=$(printf '%s' "$project" | jq -r '.mode')
+
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&teamId=$TEAM_ID&limit=1" \
+              --output "/tmp/$KEY-latest.json"
+            LAST_CREATED=$(jq -r '(.deployments // [])[0].created // 0' "/tmp/$KEY-latest.json")
+            LAST_STATE=$(jq -r '(.deployments // [])[0].state // "NONE"' "/tmp/$KEY-latest.json")
+            ACTIVE=false
+            case "$LAST_STATE" in
+              BUILDING|INITIALIZING|QUEUED) ACTIVE=true ;;
+            esac
+
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&teamId=$TEAM_ID&target=production&state=READY&limit=1" \
+              --output "/tmp/$KEY-production.json"
+            LIVE_SHA=$(jq -r '(.deployments // [])[0].meta.governorCommit // (.deployments // [])[0].meta.edgeforceCommit // (.deployments // [])[0].meta.githubCommitSha // ""' "/tmp/$KEY-production.json")
+
+            HEAD_SHA=""
+            REPO_UPDATED_AT=0
+            if [ "$MODE" = "workflow-dispatch" ]; then
+              HEAD_SHA="$GITHUB_SHA"
+              ACTIVE_RUNS=$(curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/runs?branch=main&per_page=20")
+              ACTIVE_COUNT=$(printf '%s' "$ACTIVE_RUNS" | jq '[.workflow_runs[]? | select(.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="pending")] | length')
+              if [ "$ACTIVE_COUNT" -gt 0 ]; then ACTIVE=true; fi
+            else
+              curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+                -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v1/integrations/search-repo?provider=github&query=$REPO&teamId=$TEAM_ID" \
+                --output "/tmp/$KEY-repo.json"
+              REPO_UPDATED_AT=$(jq --arg repo "$REPO" -r '[.repos[]? | select(.name==$repo)][0].updatedAt // 0' "/tmp/$KEY-repo.json")
+            fi
+
+            ROW=$(jq -cn \
+              --arg key "$KEY" \
+              --arg headSha "$HEAD_SHA" \
+              --arg liveSha "$LIVE_SHA" \
+              --argjson repoUpdatedAt "$REPO_UPDATED_AT" \
+              --argjson lastDeploymentAt "$LAST_CREATED" \
+              --arg active "$ACTIVE" \
+              '{key:$key,headSha:$headSha,liveSha:$liveSha,repoUpdatedAt:$repoUpdatedAt,lastDeploymentAt:$lastDeploymentAt,active:($active=="true")}')
+            jq --argjson row "$ROW" '. + [$row]' /tmp/vercel-project-status.json > /tmp/vercel-project-status.next
+            mv /tmp/vercel-project-status.next /tmp/vercel-project-status.json
+          done < <(jq -c '.projects[]' "$CONFIG")
+
+      - name: Plan governed releases
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/team-vercel-governor.mjs plan \
+            config/vercel-team-governor.json \
+            /tmp/vercel-team-deployments.json \
+            /tmp/vercel-project-status.json > /tmp/vercel-team-plan.json
+          cat /tmp/vercel-team-plan.json
+          APPROVED=$(jq '[.decisions[] | select(.state=="APPROVED")] | length' /tmp/vercel-team-plan.json)
+          echo "approved=$APPROVED" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Team Vercel governor"
+            jq -r '"Usage: **\(.usage) / \(.softCap)** normal slots; hard cap **\(.hardCap)**; emergency reserve **\(.emergencyReserve)**."' /tmp/vercel-team-plan.json
+            jq -r '.decisions[] | "- **\(.projectName)**: \(.state) — \(.reason)"' /tmp/vercel-team-plan.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Execute approved governed releases
+        if: steps.plan.outputs.approved != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r decision; do
+            MODE=$(printf '%s' "$decision" | jq -r '.mode')
+            PROJECT_ID=$(printf '%s' "$decision" | jq -r '.projectId')
+            PROJECT_NAME=$(printf '%s' "$decision" | jq -r '.projectName')
+            REPO=$(printf '%s' "$decision" | jq -r '.repo')
+            REPO_ID=$(printf '%s' "$decision" | jq -r '.repoId')
+
+            if [ "$MODE" = "workflow-dispatch" ]; then
+              curl --fail --silent --show-error -X POST \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml/dispatches" \
+                -d '{"ref":"main"}'
+              echo "Dispatched guarded Edgeforce production workflow."
+              continue
+            fi
+
+            BODY=$(jq -cn \
+              --arg name "$PROJECT_NAME" \
+              --arg project "$PROJECT_ID" \
+              --arg repo "$REPO" \
+              --argjson repoId "$REPO_ID" \
+              '{name:$name,project:$project,target:"production",gitSource:{type:"github",repoId:$repoId,ref:"main"},meta:{deploymentGovernor:"edgeforce-v139"}}')
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 60 \
+              -X POST \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://api.vercel.com/v13/deployments?teamId=$TEAM_ID&forceNew=0&skipAutoDetectionConfirmation=1" \
+              --data "$BODY" \
+              --output "/tmp/$PROJECT_NAME-governed-deployment.json"
+            DEPLOYMENT_ID=$(jq -r '.id // empty' "/tmp/$PROJECT_NAME-governed-deployment.json")
+            test -n "$DEPLOYMENT_ID"
+            echo "Started governed production deployment for $PROJECT_NAME."
+          done < <(jq -c '.decisions[] | select(.state=="APPROVED")' /tmp/vercel-team-plan.json)
