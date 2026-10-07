@@ -10,6 +10,7 @@ export type PredictionFeedbackResult={
  offeredOdds?:number;
  closingOdds?:number;
  settledAt?:string;
+ settlementProvenance?:Record<string,unknown>;
 };
 
 export async function recordPredictionFeedback(results:PredictionFeedbackResult[]){
