@@ -6,7 +6,7 @@ import {
 } from './trainedSportModels';
 import {mlServiceCircuitAllows,probeMlService,recordMlServiceFailure,recordMlServiceSuccess} from './mlServiceHealth';
 import {startShadowLeague} from './mlShadowRecovery';
-import {settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
+import {effectiveEvidenceSampleSize,settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
 
 type ServiceCandidate={
  algorithm:string;
@@ -15,8 +15,11 @@ type ServiceCandidate={
  sampleSize:number;
  effectiveSampleSize?:number;
  trainSize:number;
+ trainEffectiveSampleSize?:number;
  calibrationSize:number;
+ calibrationEffectiveSampleSize?:number;
  holdoutSize:number;
+ holdoutEffectiveSampleSize?:number;
  holdoutBrier:number;
  holdoutLogLoss:number;
  holdoutAccuracy:number;
@@ -79,7 +82,7 @@ function groupHistory(rows:TrainingHistoryRow[],minSample:number,maxRows:number)
   const marketKey=marketParts.join('|');
   const sorted=[...list].sort((a,b)=>new Date(a.occurredAt).getTime()-new Date(b.occurredAt).getTime());
   return {sport,marketKey,list:sorted.slice(Math.max(0,sorted.length-maxRows))};
- }).filter(g=>g.list.length>=(g.marketKey==='*'?minSample:Math.max(minSample,120)));
+ }).filter(g=>effectiveEvidenceSampleSize(g.list)>=(g.marketKey==='*'?minSample:Math.max(minSample,120)));
 }
 
 async function currentChampion(sport:string,marketKey:string){
