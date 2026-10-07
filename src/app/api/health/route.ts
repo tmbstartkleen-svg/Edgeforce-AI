@@ -236,6 +236,7 @@ export async function GET(){
   fanDuelPulseOperationalContinuity:true,
   conditionalV1ContinuityReadiness:true,
   vercelTeamGovernorTelemetry:true,
+  vercelGovernorRecoveryControls:true,
   releasePathConvergence:true,
   previewTargetRemediationArtifact:true,
   failSoftPredictionWarehousePrime:true,
