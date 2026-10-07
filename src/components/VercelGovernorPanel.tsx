@@ -192,8 +192,8 @@ export default function VercelGovernorPanel(){
   return <section className="v21Panel">
     <div className="v21PanelHead">
       <div>
-        <div className="eyebrow">V143 VERCEL TEAM GOVERNOR</div>
-        <h3>Certified release backlog, fair-share allocation, and safe production catch-up</h3>
+        <div className="eyebrow">V144 VERCEL STANDBY GOVERNOR</div>
+        <h3>Cloudflare primary production with Vercel manual disaster-recovery standby and shared-team capacity visibility</h3>
       </div>
       <div className="panelMeta">
         <span>{telemetry?.mode||'UNAVAILABLE'}</span>
