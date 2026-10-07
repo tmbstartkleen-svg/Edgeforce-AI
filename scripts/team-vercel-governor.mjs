@@ -44,6 +44,9 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
     const stale=project.mode==='workflow-dispatch'
       ? Boolean(status.headSha)&&status.headSha!==status.liveSha
       : Number(status.repoUpdatedAt||0)>lastDeploymentAt;
+    const certificationReady=project.mode==='workflow-dispatch'
+      ? status.headCertified===true&&status.catchUpEligible===true
+      : true;
     const projectUsage24h=recent.filter(row=>row?.name===project.projectName).length;
     const normalBudgetShare=finiteNumber(project.normalBudgetShare,project.key+' normalBudgetShare');
     const budgetRemaining=Math.max(0,normalBudgetShare-projectUsage24h);
@@ -60,7 +63,7 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
       underBudgetScore-
       overBudgetPenalty
     ).toFixed(2));
-    const eligible=stale&&!active&&cooldownReady;
+    const eligible=stale&&!active&&cooldownReady&&certificationReady;
     return {
       ...project,
       stale,
@@ -71,6 +74,14 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
       headSha:status.headSha||null,
       liveSha:status.liveSha||null,
       repoUpdatedAt:Number(status.repoUpdatedAt||0),
+      certificationReady,
+      headCertified:status.headCertified===true,
+      catchUpEligible:status.catchUpEligible===true,
+      backlogDepth:Number(status.backlogDepth||0),
+      certifiedBacklogDepth:Number(status.certifiedBacklogDepth||0),
+      backlogAgeMinutes:Number(status.backlogAgeMinutes||0),
+      latestCertifiedSha:status.latestCertifiedSha||null,
+      backlogReason:status.backlogReason||null,
       projectUsage24h,
       normalBudgetShare,
       budgetRemaining,
@@ -117,6 +128,9 @@ export function evaluateTeamGovernor({config,deployments,statuses,now=Date.now()
     }else if(!project.cooldownReady){
       state='DEFERRED';
       reason='project cooldown is still active';
+    }else if(project.mode==='workflow-dispatch'&&!project.certificationReady){
+      state='DEFERRED';
+      reason=project.backlogReason||'current main SHA has not completed exact-main certification';
     }else if(usage>=softCap){
       state='DEFERRED';
       reason='team normal deployment budget is exhausted';
