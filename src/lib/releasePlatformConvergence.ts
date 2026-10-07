@@ -27,7 +27,12 @@ export type PlatformEvidence={
  platformReady?:boolean;
 };
 
-function validUrl(value:string){return /^https:\/\/\//.test(value)}
+function validUrl(value:string){
+ try{
+  const url=new URL(String(value||''));
+  return url.protocol==='https:'&&Boolean(url.hostname);
+ }catch{return false}
+}
 
 export async function recordPlatformEvidence(input:PlatformEvidence){
  const blockers:string[]=[];
