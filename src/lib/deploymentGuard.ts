@@ -11,6 +11,7 @@ export type DeploymentGuardSnapshot={
  ready:boolean;
  productionReady:boolean;
  certified:boolean;
+ legacyTelemetryUnavailable:boolean;
  observabilityOverall:string;
  observabilityScore:number;
  criticalChecks:number;
@@ -49,6 +50,7 @@ export function normalizeDeploymentBaseline(raw:any):DeploymentGuardSnapshot{
   ready:Boolean(raw?.ready),
   productionReady:Boolean(raw?.productionReady??raw?.ready),
   certified:Boolean(raw?.certified??raw?.productionReady??raw?.ready),
+  legacyTelemetryUnavailable:Boolean(raw?.legacyTelemetryUnavailable),
   observabilityOverall:String(raw?.observabilityOverall??raw?.overall??'UNKNOWN'),
   observabilityScore:num(raw?.observabilityScore??raw?.score,.5),
   criticalChecks:Math.max(0,Math.round(num(raw?.criticalChecks??raw?.critical,0))),
@@ -83,6 +85,7 @@ export async function captureDeploymentGuardSnapshot():Promise<DeploymentGuardSn
   ready:Boolean(readiness.ready),
   productionReady:Boolean(readiness.productionReady),
   certified:currentVersion&&Boolean((cert as any)?.certified??certReport?.certified),
+  legacyTelemetryUnavailable:false,
   observabilityOverall:String(observability.overall),
   observabilityScore:num(observability.score),
   criticalChecks:num(observability.summary?.critical),
@@ -102,7 +105,7 @@ export async function captureDeploymentGuardSnapshot():Promise<DeploymentGuardSn
  };
 }
 
-export function evaluateDeploymentGuard(baselineInput:DeploymentGuardSnapshot,candidateInput:DeploymentGuardSnapshot):DeploymentGuardDecision{
+export function evaluateDeploymentGuard(baselineInput:DeploymentGuardSnapshot,candidateInput:DeploymentGuardSnapshot,options:{legacyHandoff?:boolean}={}):DeploymentGuardDecision{
  const baseline=normalizeDeploymentBaseline(baselineInput);
  const candidate=normalizeDeploymentBaseline(candidateInput);
  const blockers:string[]=[];
@@ -111,6 +114,12 @@ export function evaluateDeploymentGuard(baselineInput:DeploymentGuardSnapshot,ca
  const scoreDelta=candidate.observabilityScore-baseline.observabilityScore;
  const reliabilityDelta=candidate.reliabilityScore-baseline.reliabilityScore;
  const criticalCheckDelta=candidate.criticalChecks-baseline.criticalChecks;
+ const baselineMajor=Number.parseInt(String(baseline.releaseVersion||'').split('.')[0]||'',10);
+ const legacyBaseline=
+  options.legacyHandoff===true&&
+  baseline.legacyTelemetryUnavailable===true&&
+  Number.isFinite(baselineMajor)&&baselineMajor<74&&
+  baseline.ready&&baseline.productionReady;
 
  if(candidate.releaseVersion!==RELEASE.appVersion){
   blockers.push(`candidate release ${candidate.releaseVersion||'unknown'} does not match expected ${RELEASE.appVersion}`);
@@ -133,9 +142,14 @@ export function evaluateDeploymentGuard(baselineInput:DeploymentGuardSnapshot,ca
   candidate.automationFailed<=baseline.automationFailed&&
   candidate.automationStale<=baseline.automationStale&&
   scoreDelta>=-.05;
+ const legacyCriticalContinuity=
+  legacyBaseline&&candidate.observabilityOverall==='CRITICAL'&&candidate.pulseUsable&&
+  candidate.ready&&candidate.productionReady&&candidate.certified;
  if(candidate.observabilityOverall==='CRITICAL'){
   if(inheritedCriticalContinuity){
    warnings.push('candidate remains CRITICAL only within non-regressing inherited remediation state under fresh real pulse continuity');
+  }else if(legacyCriticalContinuity){
+   warnings.push('candidate CRITICAL telemetry cannot be compared to pre-V74 legacy production; exact strict certification and fresh pulse continuity are required before canary acceptance');
   }else{
    blockers.push('candidate observability is CRITICAL');
    hardBlock=true;
@@ -147,29 +161,35 @@ export function evaluateDeploymentGuard(baselineInput:DeploymentGuardSnapshot,ca
   baseline.reliabilityMode==='PROTECTIVE'&&
   candidate.openCircuits<=baseline.openCircuits&&
   reliabilityDelta>=-.07;
+ const legacyProtectiveContinuity=
+  legacyBaseline&&candidate.reliabilityMode==='PROTECTIVE'&&candidate.pulseUsable&&
+  candidate.ready&&candidate.productionReady&&candidate.certified;
  if(candidate.reliabilityMode==='PROTECTIVE'){
   if(inheritedProtectiveContinuity){
    warnings.push('candidate remains in inherited PROTECTIVE mode under fresh real pulse continuity');
+  }else if(legacyProtectiveContinuity){
+   warnings.push('candidate PROTECTIVE telemetry has no pre-V74 reliability baseline; protected recommendations remain suppressed during legacy handoff');
   }else{
    blockers.push('candidate reliability supervisor is in PROTECTIVE mode');
    hardBlock=true;
   }
  }
- if(candidate.actionIncidents>baseline.actionIncidents){
+ if(!legacyBaseline&&candidate.actionIncidents>baseline.actionIncidents){
   blockers.push(`ACTION incidents increased from ${baseline.actionIncidents} to ${candidate.actionIncidents}`);
   hardBlock=true;
  }
- if(candidate.criticalChecks>baseline.criticalChecks)blockers.push(`critical observability checks increased from ${baseline.criticalChecks} to ${candidate.criticalChecks}`);
- if(candidate.automationFailed>baseline.automationFailed)blockers.push(`failed automations increased from ${baseline.automationFailed} to ${candidate.automationFailed}`);
- if(candidate.automationStale>baseline.automationStale)blockers.push(`stale automations increased from ${baseline.automationStale} to ${candidate.automationStale}`);
- if(scoreDelta<=-.12&&candidate.observabilityScore<.78)blockers.push(`observability score regressed ${Math.abs(scoreDelta*100).toFixed(1)} points`);
- if(reliabilityDelta<=-.15&&candidate.reliabilityScore<.75)blockers.push(`reliability score regressed ${Math.abs(reliabilityDelta*100).toFixed(1)} points`);
+ if(!legacyBaseline&&candidate.criticalChecks>baseline.criticalChecks)blockers.push(`critical observability checks increased from ${baseline.criticalChecks} to ${candidate.criticalChecks}`);
+ if(!legacyBaseline&&candidate.automationFailed>baseline.automationFailed)blockers.push(`failed automations increased from ${baseline.automationFailed} to ${candidate.automationFailed}`);
+ if(!legacyBaseline&&candidate.automationStale>baseline.automationStale)blockers.push(`stale automations increased from ${baseline.automationStale} to ${candidate.automationStale}`);
+ if(!legacyBaseline&&scoreDelta<=-.12&&candidate.observabilityScore<.78)blockers.push(`observability score regressed ${Math.abs(scoreDelta*100).toFixed(1)} points`);
+ if(!legacyBaseline&&reliabilityDelta<=-.15&&candidate.reliabilityScore<.75)blockers.push(`reliability score regressed ${Math.abs(reliabilityDelta*100).toFixed(1)} points`);
  const marketLimit=Math.max(60,(baseline.latestMarketAgeMin??0)+30);
  if(candidate.latestMarketAgeMin!==null&&candidate.latestMarketAgeMin>marketLimit)blockers.push(`market freshness regressed to ${candidate.latestMarketAgeMin.toFixed(0)} minutes`);
- if(candidate.degradedChecks>baseline.degradedChecks)warnings.push(`degraded checks increased by ${candidate.degradedChecks-baseline.degradedChecks}`);
- if(scoreDelta<-.05&&scoreDelta>-.12)warnings.push(`observability score slipped ${Math.abs(scoreDelta*100).toFixed(1)} points`);
- if(reliabilityDelta<-.07&&reliabilityDelta>-.15)warnings.push(`reliability score slipped ${Math.abs(reliabilityDelta*100).toFixed(1)} points`);
- if(candidate.watchIncidents>baseline.watchIncidents)warnings.push(`WATCH incidents increased by ${candidate.watchIncidents-baseline.watchIncidents}`);
+ if(legacyBaseline)warnings.push('pre-V74 baseline lacks modern observability/reliability telemetry; unavailable fields are not treated as healthy zeros');
+ if(!legacyBaseline&&candidate.degradedChecks>baseline.degradedChecks)warnings.push(`degraded checks increased by ${candidate.degradedChecks-baseline.degradedChecks}`);
+ if(!legacyBaseline&&scoreDelta<-.05&&scoreDelta>-.12)warnings.push(`observability score slipped ${Math.abs(scoreDelta*100).toFixed(1)} points`);
+ if(!legacyBaseline&&reliabilityDelta<-.07&&reliabilityDelta>-.15)warnings.push(`reliability score slipped ${Math.abs(reliabilityDelta*100).toFixed(1)} points`);
+ if(!legacyBaseline&&candidate.watchIncidents>baseline.watchIncidents)warnings.push(`WATCH incidents increased by ${candidate.watchIncidents-baseline.watchIncidents}`);
  if(candidate.reliabilityMode==='DEGRADED'&&baseline.reliabilityMode==='NORMAL')warnings.push('candidate reliability moved from NORMAL to DEGRADED');
 
  return {decision:blockers.length?'BLOCK':'PASS',hardBlock,blockers,warnings,scoreDelta,reliabilityDelta,criticalCheckDelta};
