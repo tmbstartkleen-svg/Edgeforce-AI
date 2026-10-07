@@ -107,14 +107,16 @@ test('freshness governor prefers richer fast-path rows and adapts UI cadence',()
 
 
 test('V148 consensus distinguishes corroboration, lag, and active contradictions',()=>{
+ const now=Date.now();
+ const iso=(delta)=>new Date(now+delta).toISOString();
  const base={
   id:'game-consensus',sport:'NBA',league:'NBA',status:'LIVE',detail:'4th Quarter',clock:'02:10',period:'4',
-  startTime:'2026-10-07T11:00:00Z',
+  startTime:iso(-3600000),
   home:{name:'Home Team',score:84},away:{name:'Away Team',score:81}
  };
- const cdn={...base,source:'espn-cdn',observedAt:'2026-10-07T12:00:10.000Z'};
- const publicSame={...base,source:'espn-public',clock:'02:12',observedAt:'2026-10-07T12:00:09.000Z'};
- const lagging={...base,source:'thesportsdb',home:{...base.home,score:82},away:{...base.away,score:80},observedAt:'2026-10-07T12:00:04.000Z'};
+ const cdn={...base,source:'espn-cdn',observedAt:iso(0)};
+ const publicSame={...base,source:'espn-public',clock:'02:12',observedAt:iso(-1000)};
+ const lagging={...base,source:'thesportsdb',home:{...base.home,score:82},away:{...base.away,score:80},observedAt:iso(-6000)};
  const corroborated=runtime.reconcileLiveGames([lagging],[publicSame],[cdn]);
  assert.equal(corroborated.length,1);
  assert.equal(corroborated[0].source,'espn-cdn');
@@ -123,7 +125,7 @@ test('V148 consensus distinguishes corroboration, lag, and active contradictions
  assert.equal(corroborated[0].consensus.activeConflict,false);
  assert.deepEqual(corroborated[0].consensus.laggingSources,['thesportsdb']);
 
- const activeConflict={...base,source:'api-sports',home:{...base.home,score:83},observedAt:'2026-10-07T12:00:09.500Z'};
+ const activeConflict={...base,source:'api-sports',home:{...base.home,score:83},observedAt:iso(-500)};
  const conflicted=runtime.reconcileLiveGames([publicSame],[activeConflict],[cdn]);
  assert.equal(conflicted[0].consensus.activeConflict,true);
  assert.equal(conflicted[0].consensus.scoreConflict,true);
@@ -136,9 +138,10 @@ test('V148 consensus distinguishes corroboration, lag, and active contradictions
 });
 
 test('V148 consensus marks one-source live rows explicitly',()=>{
+ const now=Date.now();
  const row={
   id:'solo',sport:'NHL',league:'NHL',source:'nhl-web',status:'LIVE',detail:'2nd',clock:'08:00',period:'2',
-  startTime:'2026-10-07T11:00:00Z',home:{name:'Home',score:2},away:{name:'Away',score:1},observedAt:'2026-10-07T12:00:00Z'
+  startTime:new Date(now-3600000).toISOString(),home:{name:'Home',score:2},away:{name:'Away',score:1},observedAt:new Date(now).toISOString()
  };
  const reconciled=runtime.reconcileLiveGames([row]);
  assert.equal(reconciled[0].consensus.confidence,'SINGLE_SOURCE');
