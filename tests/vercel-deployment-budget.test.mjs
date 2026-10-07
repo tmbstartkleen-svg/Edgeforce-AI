@@ -58,9 +58,11 @@ test('V138 retry safety is preserved by the V139 team governor',()=>{
 
 test('V139 team governor avoids project-scoped counting for the shared budget',()=>{
  const sharedCapture=retryWorkflow.slice(
-   retryWorkflow.indexOf('Capture team deployment usage'),
+   retryWorkflow.indexOf('Capture exact team deployment usage'),
    retryWorkflow.indexOf('Capture governed project state')
  );
- assert.match(sharedCapture,/v6\/deployments\?teamId=\$TEAM_ID&limit=100/);
+ assert.match(sharedCapture,/v6\/deployments\?teamId=\$TEAM_ID&limit=100&since=\$SINCE_MS/);
+ assert.match(sharedCapture,/until=\$UNTIL/);
+ assert.match(sharedCapture,/unique_by\(\.id\)/);
  assert.doesNotMatch(sharedCapture,/projectId=/);
 });

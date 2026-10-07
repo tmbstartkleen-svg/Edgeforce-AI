@@ -8,7 +8,7 @@ const expected={
  appVersion:'119.0.0',
  packageVersion:'0.119.0',
  modelVersion:'edgeforce-v119',
- migrationVersion:115
+ migrationVersion:116
 };
 const checks=[];
 const add=(name,ok,detail='')=>checks.push({name,ok:Boolean(ok),detail});
@@ -1087,6 +1087,20 @@ add('V140 governor dashboard',read('src/components/Dashboard.tsx').includes('Ver
 add('V140 health capability',read('src/app/api/health/route.ts').includes('vercelTeamGovernorTelemetry:true')&&read('scripts/smoke.mjs').includes('Vercel team governor telemetry flag missing'),'health and smoke contracts advertise governor telemetry');
 add('V140 mandatory regression',exists('tests/vercel-governor-telemetry.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/vercel-governor-telemetry.test.mjs'),'governor telemetry contracts are mandatory in typecheck verification');
 add('V140 release notes',exists('EDGEFORCE_V140_RELEASE.md'),'V140 release documentation exists');
+add('V141 governor decision schema',read('db/v116.sql').includes('vercel_governor_decisions')&&read('db/v116.sql').includes('snapshot_id bigint references vercel_governor_snapshots')&&read('db/v116.sql').includes('vercel_governor_alerts'),'v116 stores per-snapshot decisions and durable recovery alerts');
+add('V141 recovery timeline',read('src/lib/vercelGovernorTelemetry.ts').includes('buildRecoveryTimeline')&&read('src/lib/vercelGovernorTelemetry.ts').includes("'HARD_CAP_CLEAR'")&&read('src/lib/vercelGovernorTelemetry.ts').includes("'NORMAL_CAPACITY'"),'telemetry exposes exact hard-cap and normal-capacity recovery milestones');
+add('V141 alert synchronization',read('src/lib/vercelGovernorTelemetry.ts').includes('syncVercelGovernorAlerts')&&read('src/lib/vercelGovernorTelemetry.ts').includes('on conflict (alert_key) do update')&&read('src/lib/vercelGovernorTelemetry.ts').includes('resolved_at=coalesce(resolved_at,now())'),'capacity and project alerts are durable, de-duplicated, and resolvable');
+add('V141 decision history',read('src/lib/vercelGovernorTelemetry.ts').includes('recordVercelGovernorDecisions')&&read('src/lib/vercelGovernorTelemetry.ts').includes('recentVercelGovernorDecisions'),'each persisted governor snapshot records per-project release decisions');
+add('V141 manual release hard cap',exists('.github/workflows/team-vercel-manual-release.yml')&&read('.github/workflows/team-vercel-manual-release.yml').includes('NORMAL_CAP: "84"')&&read('.github/workflows/team-vercel-manual-release.yml').includes('HARD_CAP: "90"')&&read('.github/workflows/team-vercel-manual-release.yml').includes('Hard-cap bypass: **not permitted**'),'manual release workflow cannot bypass the 90-deployment safety cap');
+add('V141 emergency reserve gating',read('.github/workflows/team-vercel-manual-release.yml').includes('RELEASE_TIER')&&read('.github/workflows/team-vercel-manual-release.yml').includes('Emergency tier is unnecessary while normal capacity is available'),'emergency releases are restricted to the reserve band between normal and hard caps');
+add('V141 manual input hardening',read('.github/workflows/team-vercel-manual-release.yml').includes('RELEASE_JUSTIFICATION: ${{ inputs.justification }}')&&read('.github/workflows/team-vercel-manual-release.yml').includes('--arg justification "$RELEASE_JUSTIFICATION"')&&!read('.github/workflows/team-vercel-manual-release.yml').includes("--arg justification '${{ inputs.justification }}'"),'free-text justification reaches shell commands only through an environment variable');
+add('V141 guarded Edgeforce manual path',read('.github/workflows/team-vercel-manual-release.yml').includes('actions/workflows/deploy-production.yml/dispatches')&&!read('.github/workflows/team-vercel-manual-release.yml').includes('--force'),'manual Edgeforce releases reuse the hardened production workflow and never force deployment');
+add('V141 read-only browser control',read('src/app/api/operations/vercel-governor/route.ts').includes('publicBrowserReadOnly:true')&&!read('src/app/api/operations/vercel-governor/route.ts').includes('export async function POST')&&read('src/components/VercelGovernorPanel.tsx').includes('OPEN REVIEWED MANUAL RELEASE'),'public dashboard exposes status and a reviewed workflow link, not a direct production action');
+add('V141 health capability',read('src/app/api/health/route.ts').includes('vercelGovernorRecoveryControls:true')&&read('scripts/smoke.mjs').includes('Vercel governor recovery controls flag missing'),'health and smoke contracts advertise V141 recovery controls');
+add('V141 mandatory regression',exists('tests/vercel-governor-recovery.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/vercel-governor-recovery.test.mjs'),'V141 recovery and manual-release contracts are mandatory');
+add('V141 exact scheduled budget accounting',read('.github/workflows/team-vercel-governor.yml').includes('Capture exact team deployment usage')&&read('.github/workflows/team-vercel-governor.yml').includes('until=$UNTIL')&&read('.github/workflows/team-vercel-governor.yml').includes('unique_by(.id)'),'hourly governor pages the complete trailing deployment window instead of truncating at 100');
+add('V141 scheduled capacity alerts',read('.github/workflows/team-vercel-governor.yml').includes('Vercel normal capacity available')&&read('.github/workflows/team-vercel-governor.yml').includes('Vercel emergency reserve active')&&read('.github/workflows/team-vercel-governor.yml').includes('Vercel hard-cap block active'),'hourly governor publishes capacity-state annotations from exact usage');
+add('V141 release notes',exists('EDGEFORCE_V141_RELEASE.md'),'V141 release documentation exists');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
