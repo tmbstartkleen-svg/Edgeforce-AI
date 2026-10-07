@@ -163,9 +163,7 @@ export async function getProductionTopologyStatus(){
   latestFinalProductionClosure()
  ]);
  const standbyUrl=String(
-  (convergence as any)?.evidence?.standby?.deploymentUrl
-  ||(convergence as any)?.vercelUrl
-  ||process.env.VERCEL_STANDBY_URL
+  process.env.VERCEL_STANDBY_URL
   ||'https://edgeforce-ai.vercel.app'
  ).replace(/\/$/,'');
  const standbyHealth=await probeStandbyHealth(`${standbyUrl}/api/health`);
