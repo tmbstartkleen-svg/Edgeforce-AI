@@ -59,7 +59,7 @@ export type TrainedPrediction={
  artifactVersion:string;
 };
 
-type Example={x:number[];y:0|1;marketProbability:number;occurredAt:string};
+type Example={x:number[];y:0|1;marketProbability:number;occurredAt:string;evidenceWeight:number};
 
 const BASE_FEATURES=[
  'marketImplied','consensusProbability','consensusAgreement','consensusDispersion',
@@ -179,7 +179,8 @@ function examples(rows:TrainingHistoryRow[],featureNames:string[]):Example[]{
   x:featureNames.map(name=>historicalFeatureValue(row,name)),
   y:row.outcome,
   marketProbability:implied(row.odds),
-  occurredAt:row.occurredAt
+  occurredAt:row.occurredAt,
+  evidenceWeight:settlementLearningFromFeatures(row.features).evidenceWeight
  }));
 }
 
@@ -187,10 +188,11 @@ function standardizer(rows:Example[],width:number){
  const means=Array(width).fill(0) as number[];
  const scales=Array(width).fill(1) as number[];
  if(!rows.length)return {means,scales};
- for(const row of rows)for(let j=0;j<width;j++)means[j]+=row.x[j]/rows.length;
+ const totalWeight=Math.max(.0001,rows.reduce((sum,row)=>sum+row.evidenceWeight,0));
+ for(const row of rows)for(let j=0;j<width;j++)means[j]+=row.x[j]*row.evidenceWeight/totalWeight;
  for(let j=0;j<width;j++){
   let variance=0;
-  for(const row of rows)variance+=(row.x[j]-means[j])**2/rows.length;
+  for(const row of rows)variance+=(row.x[j]-means[j])**2*row.evidenceWeight/totalWeight;
   scales[j]=Math.sqrt(variance);
   if(scales[j]<1e-6)scales[j]=1;
  }
@@ -220,10 +222,10 @@ function fitLogistic(rows:Example[],means:number[],scales:number[]){
    let score=intercept;
    for(let j=0;j<width;j++)score+=weights[j]*z[j];
    const error=sigmoid(score)-row.y;
-   gradB+=error;
-   for(let j=0;j<width;j++)grad[j]+=error*z[j];
+   gradB+=error*row.evidenceWeight;
+   for(let j=0;j<width;j++)grad[j]+=error*z[j]*row.evidenceWeight;
   }
-  const n=Math.max(1,batchSize);
+  const n=Math.max(.0001,Array.from({length:batchSize},(_,k)=>rows[(start+k)%rows.length].evidenceWeight).reduce((sum,w)=>sum+w,0));
   intercept-=lr*gradB/n;
   for(let j=0;j<width;j++)weights[j]-=lr*(grad[j]/n+l2*weights[j]);
  }
@@ -250,10 +252,10 @@ function fitCalibration(rows:Example[],predict:(x:number[])=>number){
    const score=logit(predict(row.x));
    const p=sigmoid(a*score+b);
    const e=p-row.y;
-   ga+=e*score;
-   gb+=e;
+   ga+=e*score*row.evidenceWeight;
+   gb+=e*row.evidenceWeight;
   }
-  const n=Math.max(1,batchSize);
+  const n=Math.max(.0001,Array.from({length:batchSize},(_,k)=>rows[(start+k)%rows.length].evidenceWeight).reduce((sum,w)=>sum+w,0));
   a-=lr*(ga/n+.002*(a-1));
   b-=lr*gb/n;
  }
@@ -265,19 +267,22 @@ function applyCalibration(p:number,a:number,b:number){
 }
 
 function metrics(rows:Example[],predict:(x:number[])=>number){
- if(!rows.length)return {brier:0,logLoss:0,accuracy:0,calibrationError:0};
- let brier=0,logLoss=0,correct=0;
- const bins=Array.from({length:5},()=>({p:0,y:0,n:0}));
+ if(!rows.length)return {brier:0,logLoss:0,accuracy:0,calibrationError:0,effectiveSampleSize:0};
+ let brier=0,logLoss=0,correct=0,totalWeight=0;
+ const bins=Array.from({length:5},()=>({p:0,y:0,weight:0}));
  for(const row of rows){
+  const weight=row.evidenceWeight;
   const p=clamp(predict(row.x),.001,.999);
-  brier+=(p-row.y)**2;
-  logLoss+=-(row.y*Math.log(p)+(1-row.y)*Math.log(1-p));
-  correct+=((p>=.5?1:0)===row.y)?1:0;
+  totalWeight+=weight;
+  brier+=(p-row.y)**2*weight;
+  logLoss+=-(row.y*Math.log(p)+(1-row.y)*Math.log(1-p))*weight;
+  correct+=((p>=.5?1:0)===row.y)?weight:0;
   const bin=bins[Math.min(4,Math.floor(p*5))];
-  bin.p+=p;bin.y+=row.y;bin.n++;
+  bin.p+=p*weight;bin.y+=row.y*weight;bin.weight+=weight;
  }
- const calibrationError=rows.length?bins.reduce((s,b)=>b.n?s+Math.abs(b.p/b.n-b.y/b.n)*b.n:s,0)/rows.length:0;
- return {brier:brier/rows.length,logLoss:logLoss/rows.length,accuracy:correct/rows.length,calibrationError};
+ const denominator=Math.max(.0001,totalWeight);
+ const calibrationError=totalWeight?bins.reduce((sum,b)=>b.weight?sum+Math.abs(b.p/b.weight-b.y/b.weight)*b.weight:sum,0)/denominator:0;
+ return {brier:brier/denominator,logLoss:logLoss/denominator,accuracy:correct/denominator,calibrationError,effectiveSampleSize:totalWeight};
 }
 
 function baselineMetrics(rows:Example[]){
