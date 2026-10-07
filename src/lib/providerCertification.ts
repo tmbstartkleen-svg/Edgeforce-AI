@@ -342,8 +342,10 @@ export async function latestProviderCertification(expectedCommit?:string):Promis
    from provider_certifications where run_id=${run.id} order by capability,priority desc
   `;
   const row=run as Record<string,unknown>;
+  const deploymentCommit=extractProviderCertificationCommit(row.warnings);
   return {
    id:Number(row.id),
+   deploymentCommit:deploymentCommit||undefined,
    releaseVersion:String(row.releaseVersion||''),
    modelVersion:String(row.modelVersion||''),
    status:String(row.status||'unknown'),
@@ -354,7 +356,7 @@ export async function latestProviderCertification(expectedCommit?:string):Promis
    coverageScore:Number(row.coverageScore||0),
    launchReady:Boolean(row.launchReady),
    blockers:Array.isArray(row.blockers)?row.blockers.map(String):[],
-   warnings:Array.isArray(row.warnings)?row.warnings.map(String):[],
+   warnings:visibleProviderCertificationWarnings(row.warnings),
    startedAt:row.startedAt?new Date(row.startedAt as string|Date).toISOString():'',
    completedAt:row.completedAt?new Date(row.completedAt as string|Date).toISOString():undefined,
    providers:(providers as unknown as Array<Record<string,unknown>>)
