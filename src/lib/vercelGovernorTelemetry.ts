@@ -21,6 +21,7 @@ type ProjectConfig = {
   mode:string;
   workflow?:string;
   priority:number;
+  normalBudgetShare:number;
 };
 
 type ProjectState = {
@@ -36,6 +37,16 @@ type ProjectState = {
   repoUpdatedAt:number;
   cooldownReady:boolean;
   pending:boolean;
+  priority:number;
+  normalBudgetShare:number;
+  budgetRemaining:number;
+  overBudgetBy:number;
+  budgetState:'UNDER_SHARE'|'AT_SHARE'|'OVER_SHARE';
+  waitHours:number;
+  agingScore:number;
+  fairnessScore:number;
+  queueRank:number|null;
+  borrowedCapacity:boolean;
   governorState:'CURRENT'|'ACTIVE'|'APPROVED'|'DEFERRED';
   reason:string;
 };
@@ -233,7 +244,16 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
     deploymentStates[state]=(deploymentStates[state]||0)+1;
   }
 
-  const projectStates:ProjectState[]=config.projects.map(project=>{
+  const fairness=(config as any).fairness||{};
+  const agingPointsPerHour=num(fairness.agingPointsPerHour||10);
+  const maxAgingPoints=num(fairness.maxAgingPoints||240);
+  const underBudgetPointsPerSlot=num(fairness.underBudgetPointsPerSlot||12);
+  const maxUnderBudgetPoints=num(fairness.maxUnderBudgetPoints||300);
+  const overBudgetPenaltyPerSlot=num(fairness.overBudgetPenaltyPerSlot||25);
+  const maxBorrowedActionsPerRun=Math.max(0,Math.floor(num(fairness.maxBorrowedActionsPerRun||1)));
+  const maxActionsPerRun=Math.max(0,Math.floor(num((config as any).maxActionsPerRun||3)));
+
+  const baseStates=config.projects.map(project=>{
     const rows=recent.filter(row=>row.name===project.projectName);
     const desc=[...rows].sort((a,b)=>createdAt(b)-createdAt(a));
     const latest=desc[0];
@@ -245,23 +265,15 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
     const active=rows.filter(row=>['BUILDING','INITIALIZING','QUEUED'].includes(String(row.state).toUpperCase())).length;
     const cooldownReady=!latestDeploymentAt||now-latestDeploymentAt>=Number(config.minProjectIntervalMs);
     const pending=repoTime>latestDeploymentAt;
-    let governorState:ProjectState['governorState']='CURRENT';
-    let reason='production is current with the latest repository activity';
-    if(active>0){
-      governorState='ACTIVE';
-      reason='a deployment is already active';
-    }else if(!pending){
-      governorState='CURRENT';
-    }else if(!cooldownReady){
-      governorState='DEFERRED';
-      reason='project cooldown has not expired';
-    }else if(usage>=softCap){
-      governorState='DEFERRED';
-      reason='team normal deployment budget is exhausted';
-    }else{
-      governorState='APPROVED';
-      reason='pending project is eligible for the next governed release';
-    }
+    const normalBudgetShare=num(project.normalBudgetShare);
+    const budgetRemaining=Math.max(0,normalBudgetShare-rows.length);
+    const overBudgetBy=Math.max(0,rows.length-normalBudgetShare);
+    const budgetState:ProjectState['budgetState']=rows.length<normalBudgetShare?'UNDER_SHARE':rows.length===normalBudgetShare?'AT_SHARE':'OVER_SHARE';
+    const waitHours=Math.max(0,now-(latestDeploymentAt||cutoff))/3_600_000;
+    const agingScore=Math.min(maxAgingPoints,waitHours*agingPointsPerHour);
+    const underBudgetScore=Math.min(maxUnderBudgetPoints,budgetRemaining*underBudgetPointsPerSlot);
+    const overBudgetPenalty=overBudgetBy*overBudgetPenaltyPerSlot;
+    const fairnessScore=Number((num(project.priority)*10+agingScore+underBudgetScore-overBudgetPenalty).toFixed(2));
     return {
       key:project.key,
       projectName:project.projectName,
@@ -275,13 +287,73 @@ export function summarizeVercelGovernor(deployments:Deployment[],repoUpdates:Rec
       repoUpdatedAt:repoTime,
       cooldownReady,
       pending,
-      governorState,
-      reason
+      priority:num(project.priority),
+      normalBudgetShare,
+      budgetRemaining,
+      overBudgetBy,
+      budgetState,
+      waitHours:Number(waitHours.toFixed(2)),
+      agingScore:Number(agingScore.toFixed(2)),
+      fairnessScore,
+      queueRank:null,
+      borrowedCapacity:false,
+      governorState:'CURRENT' as ProjectState['governorState'],
+      reason:'production is current with the latest repository activity'
     };
   });
 
+  const compare=(a:ProjectState,b:ProjectState)=>{
+    if(a.fairnessScore!==b.fairnessScore)return b.fairnessScore-a.fairnessScore;
+    if(a.latestDeploymentAt!==b.latestDeploymentAt)return a.latestDeploymentAt-b.latestDeploymentAt;
+    return a.key.localeCompare(b.key);
+  };
+  const eligible=baseStates.filter(project=>project.pending&&project.active===0&&project.cooldownReady);
+  const underShare=eligible.filter(project=>project.budgetState!=='OVER_SHARE').sort(compare);
+  const overShare=eligible.filter(project=>project.budgetState==='OVER_SHARE').sort(compare);
+  const ranked=[...underShare,...overShare];
+  const rankByKey=new Map(ranked.map((project,index)=>[project.key,index+1]));
+  const remainingNormal=Math.max(0,softCap-usage);
+  const slots=Math.min(maxActionsPerRun,remainingNormal);
+  const selected:ProjectState[]=[];
+  if(usage<softCap&&slots>0){
+    selected.push(...underShare.slice(0,slots));
+    const borrowedSlots=Math.min(maxBorrowedActionsPerRun,Math.max(0,slots-selected.length));
+    if(borrowedSlots>0)selected.push(...overShare.slice(0,borrowedSlots));
+  }
+  const selectedKeys=new Set(selected.map(project=>project.key));
+
+  const projectStates:ProjectState[]=baseStates.map(project=>{
+    const queueRank=rankByKey.get(project.key)||null;
+    const borrowedCapacity=selectedKeys.has(project.key)&&project.budgetState==='OVER_SHARE';
+    let governorState:ProjectState['governorState']='CURRENT';
+    let reason='production is current with the latest repository activity';
+    if(project.active>0){
+      governorState='ACTIVE';
+      reason='a deployment is already active';
+    }else if(!project.pending){
+      governorState='CURRENT';
+    }else if(!project.cooldownReady){
+      governorState='DEFERRED';
+      reason='project cooldown has not expired';
+    }else if(usage>=softCap){
+      governorState='DEFERRED';
+      reason='team normal deployment budget is exhausted';
+    }else if(!selectedKeys.has(project.key)){
+      governorState='DEFERRED';
+      reason=project.budgetState==='OVER_SHARE'
+        ? 'project is over its normal share and recovered capacity is reserved for higher-fairness pending work'
+        : 'recovered capacity is reserved for a higher-fairness pending project';
+    }else{
+      governorState='APPROVED';
+      reason=borrowedCapacity
+        ? 'borrow unused normal capacity because no under-share pending project needs this slot'
+        : 'pending project is selected by V142 fairness allocation';
+    }
+    return {...project,queueRank,borrowedCapacity,governorState,reason};
+  });
+
   return {
-    schemaVersion:'v140-governor-telemetry-1',
+    schemaVersion:'v142-governor-telemetry-2',
     generatedAt:new Date(now).toISOString(),
     windowHours:DAY/3_600_000,
     usage,
@@ -355,10 +427,12 @@ export async function recordVercelGovernorDecisions(snapshotId:number,telemetry:
     for(const project of telemetry.projectStates){
       await sql`
         insert into vercel_governor_decisions(
-          snapshot_id,project_key,project_name,decision,reason,pending,active,cooldown_ready,usage,soft_cap,hard_cap
+          snapshot_id,project_key,project_name,decision,reason,pending,active,cooldown_ready,usage,soft_cap,hard_cap,
+          queue_rank,fairness_score,normal_budget_share,project_usage_24h,budget_state,borrowed_capacity
         ) values(
           ${snapshotId},${project.key},${project.projectName},${project.governorState},${project.reason},
-          ${project.pending},${project.active},${project.cooldownReady},${telemetry.usage},${telemetry.softCap},${telemetry.hardCap}
+          ${project.pending},${project.active},${project.cooldownReady},${telemetry.usage},${telemetry.softCap},${telemetry.hardCap},
+          ${project.queueRank},${project.fairnessScore},${project.normalBudgetShare},${project.usage},${project.budgetState},${project.borrowedCapacity}
         ) on conflict (snapshot_id,project_key) do nothing
       `;
     }
@@ -414,7 +488,10 @@ export async function recentVercelGovernorDecisions(limit=36){
     return await sql`
       select id,snapshot_id as "snapshotId",project_key as "projectKey",project_name as "projectName",
         decision,reason,pending,active,cooldown_ready as "cooldownReady",usage,
-        soft_cap as "softCap",hard_cap as "hardCap",created_at as "createdAt"
+        soft_cap as "softCap",hard_cap as "hardCap",queue_rank as "queueRank",
+        fairness_score as "fairnessScore",normal_budget_share as "normalBudgetShare",
+        project_usage_24h as "projectUsage24h",budget_state as "budgetState",
+        borrowed_capacity as "borrowedCapacity",created_at as "createdAt"
       from vercel_governor_decisions
       order by created_at desc,id desc
       limit ${Math.max(1,Math.min(120,limit))}
