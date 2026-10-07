@@ -1,6 +1,6 @@
 import {db} from './db';
 import {evaluateReadiness} from './readiness';
-import {latestProviderCertification} from './providerCertification';
+import {latestProviderCertification,providerCertificationRuntimeCommit} from './providerCertification';
 import {ingestOdds} from './providers/ingest';
 import {auditMarketBatch} from './dataQuality';
 import {getAutomationHealth} from './automationHealth';
@@ -104,9 +104,10 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  const environment=process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'local';
  const strict=options.strict??(environment==='production'||process.env.REQUIRE_PRODUCTION_ENV==='true');
  const remediationMode=process.env.EDGEFORCE_REMEDIATION_DEPLOY==='true';
+ const deploymentCommit=providerCertificationRuntimeCommit();
  const [readiness,providerCertification,ingestion,automation,ops,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure]=await Promise.all([
   evaluateReadiness({strict}),
-  latestProviderCertification(),
+  latestProviderCertification(deploymentCommit||undefined),
   ingestOdds(),
   getAutomationHealth(),
   getOpsStatus(),
@@ -144,13 +145,27 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   if(strict&&!providerCertification.launchReady)blockers.push('provider certification: launchReady is false');
  }
 
- const pulseFallbackCertified=Boolean(
+ const normalizedOddsCertified=Boolean(
+  providerCertification?.launchReady===true&&
   providerCertification?.providers?.some(x=>
-   String((x as Record<string,unknown>).providerId||'')==='fanlinewire-fanduel-pulse'&&
-   String((x as Record<string,unknown>).status||'')==='CERTIFIED'
+   String((x as Record<string,unknown>).capability||'')==='ODDS'&&
+   String((x as Record<string,unknown>).status||'')==='CERTIFIED'&&
+   Number((x as Record<string,unknown>).normalizedCount||0)>0
   )
  );
- const continuityCandidate=pulseFallbackCertified&&ingestion.markets.length===0;
+ const pulseContinuityEvidence=Boolean(
+  providerCertification?.providers?.some(x=>
+   String((x as Record<string,unknown>).providerId||'')==='fanlinewire-fanduel-pulse'&&
+   ['CAUTION','CERTIFIED'].includes(String((x as Record<string,unknown>).status||''))&&
+   Number((x as Record<string,unknown>).rowCount||0)>0
+  )
+ );
+ const remediationContinuity=Boolean(
+  remediationMode&&readiness.ready&&(normalizedOddsCertified||pulseContinuityEvidence)
+ );
+ const pulseOnlyContinuity=Boolean(
+  remediationContinuity&&pulseContinuityEvidence&&ingestion.markets.length===0
+ );
 
  blockers.push(...dataQuality.blockers.map(x=>`data: ${x}`));
  warnings.push(...dataQuality.warnings.map(x=>`data: ${x}`));
@@ -167,7 +182,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  for(const blocker of automation.blockers){
   const jobName=String(blocker).split(':')[0];
   const message=`automation: ${blocker}`;
-  if(strict&&remediationMode&&continuityCandidate&&continuityAutomationFailures.has(jobName)){
+  if(strict&&remediationContinuity&&continuityAutomationFailures.has(jobName)){
    warnings.push(message+' (known quota-continuity remediation dependency)');
   }else blockers.push(message);
  }
@@ -194,18 +209,18 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
 
  if(unifiedIntelligence.state==='BLOCKED'){
   const rows=unifiedIntelligence.blockers.map(x=>`unified intelligence: ${x}`);
-  if(strict&&remediationMode&&continuityCandidate)warnings.push(...rows.map(x=>x+' (quota continuity remediation candidate)'));
+  if(strict&&remediationContinuity)warnings.push(...rows.map(x=>x+' (quota continuity remediation candidate)'));
   else blockers.push(...rows);
  }
  if(unifiedIntelligence.state==='DEGRADED')warnings.push(`unified intelligence: stack score ${(unifiedIntelligence.score*100).toFixed(1)}%, critical coverage ${(unifiedIntelligence.criticalCoverage*100).toFixed(1)}%`);
  warnings.push(...unifiedIntelligence.warnings.map(x=>`unified intelligence: ${x}`));
  if(reliability.mode==='PROTECTIVE'){
   const message=`reliability: protective mode active; open components ${reliability.openComponents.join(', ')||'required system'}`;
-  if(strict&&remediationMode&&continuityCandidate)warnings.push(message+'; recommendations remain protected during pulse-only continuity');
+  if(strict&&remediationContinuity)warnings.push(message+'; recommendations remain protected during pulse-only continuity');
   else blockers.push(message);
  }else if(reliability.mode==='DEGRADED')warnings.push(`reliability: degraded mode; open ${reliability.openComponents.join(', ')||'none'}, half-open ${reliability.halfOpenComponents.join(', ')||'none'}`);
  if(reliability.criticalOpen){
-  if(strict&&remediationMode&&continuityCandidate)warnings.push('reliability: required intelligence circuit is open; protected recommendations remain suppressed in continuity mode');
+  if(strict&&remediationContinuity)warnings.push('reliability: required intelligence circuit is open; protected recommendations remain suppressed in continuity mode');
   else blockers.push('reliability: required intelligence circuit is open');
  }
  if(sloGovernor.state==='FROZEN'||sloGovernor.freezeTriggered){
@@ -223,17 +238,25 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
    String((x as Record<string,unknown>).status||'')==='CERTIFIED'
   )
  );
- const continuityMode=continuityCandidate;
- if(strict&&ingestion.source!=='live'&&!(ingestion.source==='stored'&&quotaFallbackCertified)&&!continuityMode){
-  blockers.push(`data: strict production certification requires live odds, certified persisted real odds, or certified live pulse continuity; current source is ${ingestion.source}`);
+ const storedRemediationContinuity=Boolean(
+  strict&&remediationContinuity&&normalizedOddsCertified&&
+  ingestion.source==='stored'&&ingestion.markets.length>0&&dataQuality.grade!=='REJECT'
+ );
+ if(strict&&ingestion.source!=='live'&&
+  !(ingestion.source==='stored'&&quotaFallbackCertified)&&
+  !storedRemediationContinuity&&!pulseOnlyContinuity){
+  blockers.push(`data: strict production certification requires live odds, certified persisted real odds, current-deployment normalized provider evidence, or certified live pulse continuity; current source is ${ingestion.source}`);
  }
  if(strict&&ingestion.source==='stored'&&quotaFallbackCertified){
   warnings.push('data: launch is quota-degraded and using persisted real sportsbook odds until live provider quota recovers');
  }
- if(strict&&continuityMode){
+ if(storedRemediationContinuity){
+  warnings.push('data: remediation candidate is serving a stored slate while an exact current-deployment normalized ODDS provider is freshly certified; comparative canary must prove no regression before promotion');
+ }
+ if(strict&&pulseOnlyContinuity){
   warnings.push('data: operational continuity mode is active with a fresh real FanDuel pulse; full normalized sportsbook recommendations remain degraded until a complete odds slate returns');
  }
- if(strict&&ingestion.markets.length===0&&!continuityMode)blockers.push('data: no sportsbook markets available for strict production certification');
+ if(strict&&ingestion.markets.length===0&&!pulseOnlyContinuity)blockers.push('data: no sportsbook markets available for strict production certification');
 
  const attestations=(ops as any).attestations||[];
  const currentAttestation=attestations.find((x:any)=>String(x.version)===RELEASE.appVersion)||null;
@@ -260,7 +283,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
  if(incidents.watch>0)warnings.push(`operations: ${incidents.watch} unresolved WATCH incident(s)`);
 
  if(observability.overall==='CRITICAL'){
-  if(strict&&remediationMode&&continuityCandidate){
+  if(strict&&remediationContinuity){
    warnings.push('observability: production health remains CRITICAL during quota-continuity remediation; comparative canary must prove no regression before promotion');
   }else (strict?blockers:warnings).push('observability: production health is CRITICAL');
  }else if(observability.overall==='DEGRADED')warnings.push('observability: production health is DEGRADED');
@@ -336,7 +359,7 @@ export async function runProductionCertification(options:{strict?:boolean}={}):P
   readiness,providerCertification,dataQuality,automation,modelGovernance,modelValidation,championDrift,shadowRecovery,unifiedIntelligence,reliability,sloGovernor,observability,security,
   executionCertification,promotionProvenance,postPromotionVerification,rollbackReconciliation,platformConvergence,finalClosure,
   ingestion:{
-   source:continuityMode?'pulse':ingestion.source,mode:continuityMode?'quota-pulse-continuity':ingestion.mode,providerId:continuityMode?'fanlinewire-fanduel-pulse':ingestion.providerId||null,
+   source:pulseOnlyContinuity?'pulse':ingestion.source,mode:pulseOnlyContinuity?'quota-pulse-continuity':storedRemediationContinuity?'remediation-stored-with-live-certification':ingestion.mode,providerId:pulseOnlyContinuity?'fanlinewire-fanduel-pulse':ingestion.providerId||null,
    degraded:Boolean(ingestion.degraded),marketCount:ingestion.markets.length
   },
   releaseAttestation,incidents,time:new Date().toISOString()
