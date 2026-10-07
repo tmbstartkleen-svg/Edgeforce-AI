@@ -247,6 +247,7 @@ jobs:
               fi
               echo "Pre-V74 production lacks modern SLO evidence. Staging the replacement candidate in remediation mode; promotion still requires strict certification, SLO acceptance, comparative canary, and V1 readiness."
               echo "EDGEFORCE_REMEDIATION_DEPLOY=true" >> "$GITHUB_ENV"
+              echo "EDGEFORCE_LEGACY_REMEDIATION_HANDOFF=true" >> "$GITHUB_ENV"
             else
               echo "SLO governor is unavailable on production version $CURRENT_VERSION; fail closed."
               exit 1
@@ -557,6 +558,7 @@ jobs:
           # Retain the existing payload assertion after transport and identity validation.
           REPORT=$(cat "$RESPONSE_DIR/report.json")
           printf '%s' "$REPORT" | jq -e '.certified==true and (.blockers|length)==0' >/dev/null
+          echo "EDGEFORCE_STRICT_CERTIFIED=true" >> "$GITHUB_ENV"
 
       - name: Record strict certification launch stage
         env:
