@@ -47,3 +47,10 @@ test('launch doctor requires exact certification deployment identity',()=>{
  assert.match(doctorSource,/provider certification deployment identity mismatch/);
  assert.match(doctorSource,/certificationIdentity:/);
 });
+
+
+test('persisted certification restores deployment identity and hides internal marker warnings',()=>{
+ assert.match(providerSource,/deploymentCommit:deploymentCommit\|\|undefined/);
+ assert.match(providerSource,/extractProviderCertificationCommit\(row\.warnings\)/);
+ assert.match(providerSource,/warnings:visibleProviderCertificationWarnings\(row\.warnings\)/);
+});
