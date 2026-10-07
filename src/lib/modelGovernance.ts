@@ -23,7 +23,9 @@ export type ModelGovernanceProfile={
  role:ModelGovernanceRole;
  driftStatus:ModelDriftStatus;
  baselineSampleSize:number;
+ baselineEffectiveSampleSize:number;
  recentSampleSize:number;
+ recentEffectiveSampleSize:number;
  psi:number;
  meanProbabilityShift:number;
  brierDelta:number;
@@ -129,19 +131,23 @@ function baseProfiles(rows:HistoricalPrediction[],options:ModelGovernanceOptions
  for(const [key,group] of groups){
   const [modelName,sport,marketKey]=key.split('|');
   const {baseline,recent}=splitGroup(group,options);
-  if(recent.length<options.minRecent||baseline.length<options.minBaseline){
+  const baselineSummary=summarizeBacktest(baseline);
+  const recentSummary=summarizeBacktest(recent);
+  const baselineEffectiveSampleSize=baselineSummary.effectiveSampleSize;
+  const recentEffectiveSampleSize=recentSummary.effectiveSampleSize;
+  if(recentEffectiveSampleSize<options.minRecent||baselineEffectiveSampleSize<options.minBaseline){
    profiles.push({
     modelName,sport,marketKey,role:'MONITORED',driftStatus:'INSUFFICIENT',
-    baselineSampleSize:baseline.length,recentSampleSize:recent.length,psi:0,meanProbabilityShift:0,
+    baselineSampleSize:baseline.length,baselineEffectiveSampleSize,
+    recentSampleSize:recent.length,recentEffectiveSampleSize,psi:0,meanProbabilityShift:0,
     brierDelta:0,logLossDelta:0,calibrationDelta:0,avgClvDelta:0,
     recentBrierScore:0,recentLogLoss:0,recentCalibrationError:0,recentDecayedScore:0,
     score:0,effectiveScore:0,weightBrake:1,runtimeMultiplier:1,
-    reason:`Insufficient history: baseline ${baseline.length}/${options.minBaseline}, recent ${recent.length}/${options.minRecent}`
+    reason:`Insufficient effective history: baseline ${baselineEffectiveSampleSize.toFixed(2)}/${options.minBaseline} effective from ${baseline.length} raw; recent ${recentEffectiveSampleSize.toFixed(2)}/${options.minRecent} effective from ${recent.length} raw`
    });
    continue;
   }
 
-  const baselineSummary=summarizeBacktest(baseline);
   const baselineCalibration=calibrationSummary(baseline);
   const recentEval=scoreRecent(recent);
   const psi=populationStabilityIndex(baseline.map(x=>x.predicted),recent.map(x=>x.predicted));
@@ -156,7 +162,8 @@ function baseProfiles(rows:HistoricalPrediction[],options:ModelGovernanceOptions
 
   profiles.push({
    modelName,sport,marketKey,role:'MONITORED',driftStatus:status,
-   baselineSampleSize:baseline.length,recentSampleSize:recent.length,
+   baselineSampleSize:baseline.length,baselineEffectiveSampleSize,
+   recentSampleSize:recent.length,recentEffectiveSampleSize,
    psi,meanProbabilityShift,brierDelta,logLossDelta,calibrationDelta,avgClvDelta,
    recentBrierScore:recentEval.summary.brierScore,
    recentLogLoss:recentEval.summary.logLoss,
@@ -180,7 +187,7 @@ export function evaluateModelGovernance(
 
  for(const [g,list] of byGroup){
   const eligible=list.filter(x=>x.driftStatus!=='CRITICAL'&&x.driftStatus!=='INSUFFICIENT')
-   .sort((a,b)=>b.effectiveScore-a.effectiveScore||b.recentSampleSize-a.recentSampleSize);
+   .sort((a,b)=>b.effectiveScore-a.effectiveScore||b.recentEffectiveSampleSize-a.recentEffectiveSampleSize);
   let champion=eligible[0];
   const previousName=previousChampions[g];
   const previous=previousName?eligible.find(x=>x.modelName===previousName):undefined;
