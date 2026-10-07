@@ -280,7 +280,7 @@ function groups(rows:HistoricalPrediction[]){
   return {modelName,sport,marketKey,sampleSize:group.length,effectiveSampleSize:metrics.summary.effectiveSampleSize,holdoutSampleSize:metrics.holdout.sampleSize,holdoutEffectiveSampleSize:metrics.holdout.effectiveSampleSize,...evidence,metrics} satisfies ValidationGroup;
  }).sort((a,b)=>{
   const rank=(x:EvidenceGrade)=>x==='VERIFIED'?0:x==='QUALIFIED'?1:x==='PROVISIONAL'?2:x==='INSUFFICIENT'?3:4;
-  return rank(a.evidenceGrade)-rank(b.evidenceGrade)||b.sampleSize-a.sampleSize;
+  return rank(a.evidenceGrade)-rank(b.evidenceGrade)||b.effectiveSampleSize-a.effectiveSampleSize;
  });
 }
 
