@@ -679,6 +679,16 @@ assert(health.body?.liveScoreFreshnessGovernor===true,'live score freshness gove
 assert(health.body?.sourceAwareLiveScoreReconciliation===true,'live score reconciliation flag missing');
 assert(health.body?.espnCdnFastPathPreserved===true,'ESPN CDN fast path flag missing');
 assert(health.body?.adaptiveLiveBoardPolling===true,'adaptive live board polling flag missing');
+assert(health.body?.liveScoreCrossSourceConsensus===true,'live score cross-source consensus flag missing');
+assert(health.body?.liveScoreConflictDetection===true,'live score conflict detection flag missing');
+assert(health.body?.lagAwareScoreReconciliation===true,'lag-aware score reconciliation flag missing');
+assert(health.body?.liveScoreConsensusTelemetry===true,'live score consensus telemetry flag missing');
+
+const liveScoreConsensus=await get('/api/testing/live-score-consensus');
+assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
+assert(liveScoreConsensus.body?.assertions?.highConfidenceCorroboration===true,'live score corroboration regressed');
+assert(liveScoreConsensus.body?.assertions?.lagSeparatedFromConflict===true,'live score lag classification regressed');
+assert(liveScoreConsensus.body?.assertions?.activeConflictDetected===true,'live score conflict detection regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
