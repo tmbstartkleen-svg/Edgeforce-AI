@@ -79,6 +79,16 @@ jobs:
       - run: npm run preflight:cloudflare
       - run: npm run typecheck
       - run: npm run check:vinext
+      - name: Generate Edgeforce runtime secrets
+        shell: bash
+        run: |
+          INGEST_SECRET=$(openssl rand -hex 32)
+          CRON_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$INGEST_SECRET"
+          echo "::add-mask::$CRON_SECRET"
+          echo "INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
+          echo "CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
+
       - name: Build Cloudflare Worker
         shell: bash
         run: |
@@ -106,16 +116,6 @@ jobs:
         run: npm run migrate
         env:
           DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
-
-      - name: Generate Edgeforce runtime secrets
-        shell: bash
-        run: |
-          INGEST_SECRET=$(openssl rand -hex 32)
-          CRON_SECRET=$(openssl rand -hex 32)
-          echo "::add-mask::$INGEST_SECRET"
-          echo "::add-mask::$CRON_SECRET"
-          echo "INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
-          echo "CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
 
       - name: Prepare atomic Cloudflare runtime secrets
         shell: bash
@@ -173,13 +173,26 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         shell: bash
         run: |
-          set +e
-          HTTP_CODE=$(curl --silent --show-error -o /tmp/provider-certification.json -w "%{http_code}" \
-            -X POST "$DEPLOYMENT_URL/api/providers/certify" \
-            -H "Authorization: Bearer $INGEST_SECRET" \
-            -H "Content-Type: application/json")
-          CURL_CODE=$?
-          set -e
+          HTTP_CODE=000
+          CURL_CODE=1
+          for ATTEMPT in {1..10}; do
+            set +e
+            HTTP_CODE=$(curl --silent --show-error -o /tmp/provider-certification.json -w "%{http_code}" \
+              -X POST "$DEPLOYMENT_URL/api/providers/certify" \
+              -H "Authorization: Bearer $INGEST_SECRET" \
+              -H "Content-Type: application/json")
+            CURL_CODE=$?
+            set -e
+            if [ "$CURL_CODE" -eq 0 ] && { [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "422" ]; }; then
+              break
+            fi
+            if [ "$CURL_CODE" -eq 0 ] && [ "$HTTP_CODE" = "401" ] && [ "$ATTEMPT" -lt 10 ]; then
+              echo "Waiting for rotated Cloudflare ingest secret propagation (attempt $ATTEMPT/10)."
+              sleep 2
+              continue
+            fi
+            break
+          done
           cat /tmp/provider-certification.json || true
           echo
           if [ "$CURL_CODE" -ne 0 ]; then
