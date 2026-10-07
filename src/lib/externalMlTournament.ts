@@ -365,7 +365,7 @@ export async function runExternalMlTournament(){
     champions_promoted=${promoted},challengers_retained=${challengers},
     metrics=${sql.json({
      algorithmsAvailable:algorithmsAvailable,
-     promotionMargin,minSample,maxRows,
+     promotionMargin,minSample,maxRows,settlementLearning:learningSummary,
      serviceGroups:responseGroups.length,groupBatchSize,shadowsStarted,shadowsRetained
     })}
    where id=${run.id}
@@ -373,7 +373,7 @@ export async function runExternalMlTournament(){
 
   return {
    ok:true,mode:'service' as const,configured:true,runId:Number(run.id),
-   serviceVersion:serviceVersion,rows:history.length,groups:payload.length,
+   serviceVersion:serviceVersion,rows:history.length,rowsRead:allHistory.length,rowsExcludedByEvidence:learningSummary.excluded,settlementLearning:learningSummary,groups:payload.length,
    candidates:candidatesEvaluated,promoted,challengers,shadowsStarted,shadowsRetained,
    algorithmsAvailable:algorithmsAvailable
   };
