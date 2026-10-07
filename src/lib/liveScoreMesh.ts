@@ -85,6 +85,8 @@ const uiFastMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_FAST_MS||750),750,50
 const uiLiveMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_LIVE_MS||1000),1000,500,5000);
 const uiDegradedMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_DEGRADED_MS||1500),1500,750,5000);
 const uiIdleMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_IDLE_MS||3000),3000,1000,15000);
+const consensusWindowMs=()=>clampMs(Number(process.env.LIVE_SCORE_CONSENSUS_WINDOW_MS||8000),8000,1000,30000);
+const lagToleranceMs=()=>clampMs(Number(process.env.LIVE_SCORE_LAG_TOLERANCE_MS||3000),3000,500,15000);
 
 function normalizeTeamKey(value:string){
  return value.toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -125,12 +127,12 @@ function liveStatusConflict(a:LiveGameState,b:LiveGameState){
 export function liveScoreConsensus(observations:LiveGameState[],selected:LiveGameState,now=Date.now()):LiveScoreConsensus{
  const uniqueSources=[...new Set(observations.map(x=>x.source))];
  const selectedAt=observationTime(selected)||now;
- const contemporaneous=observations.filter(x=>Math.abs(selectedAt-(observationTime(x)||selectedAt))<=8000);
+ const contemporaneous=observations.filter(x=>Math.abs(selectedAt-(observationTime(x)||selectedAt))<=consensusWindowMs());
  const scorePeers=contemporaneous.filter(scoreKnown);
  const agreeing=scorePeers.filter(x=>sameScore(x,selected));
  const conflicting=scorePeers.filter(x=>!sameScore(x,selected));
- const lagging=conflicting.filter(x=>selectedAt-observationTime(x)>3000);
- const activeConflicts=conflicting.filter(x=>selectedAt-observationTime(x)<=3000);
+ const lagging=conflicting.filter(x=>selectedAt-observationTime(x)>lagToleranceMs());
+ const activeConflicts=conflicting.filter(x=>selectedAt-observationTime(x)<=lagToleranceMs());
  const statusConflicts=contemporaneous.filter(x=>liveStatusConflict(x,selected));
  const trusted=(SOURCE_PRIORITY[selected.source]??40)>=100;
  const selectedAge=Math.max(0,now-selectedAt);
@@ -198,7 +200,9 @@ export function summarizeLiveScoreConsensus(games:LiveGameState[]){
   activeConflicts,
   corroborated,
   corroborationRate:live.length?Number((corroborated/live.length).toFixed(3)):1,
-  conflictRate:live.length?Number((activeConflicts/live.length).toFixed(3)):0
+  conflictRate:live.length?Number((activeConflicts/live.length).toFixed(3)):0,
+  consensusWindowMs:consensusWindowMs(),
+  lagToleranceMs:lagToleranceMs()
  };
 }
 export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now()){
