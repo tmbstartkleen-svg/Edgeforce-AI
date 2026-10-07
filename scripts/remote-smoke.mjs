@@ -1,3 +1,5 @@
+import {setTimeout as delay} from 'node:timers/promises';
+import {parseSmokeJson,shouldRetryDegradedHttp} from './remote-smoke-response.mjs';
 import {createSmokeFetch} from './smoke-transport.mjs';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'119.0.0';
@@ -22,107 +24,119 @@ const protectedFetch=createSmokeFetch({
 
 for(const path of paths){
  const started=Date.now();
- const res=await protectedFetch(path);
- const body=await res.text();
- results.push({path,status:res.status,attempts:res.attempts,durationMs:Date.now()-started});
- console.error(`[remote-smoke] ${path}: HTTP ${res.status}, ${res.attempts} attempt(s)`);
+ let httpAttempt=0;
+ let res;
+ let body='';
+ while(true){
+  httpAttempt++;
+  res=await protectedFetch(path);
+  body=await res.text();
+  if(shouldRetryDegradedHttp(path,res.status,degradedAllowedPaths)&&httpAttempt<3){
+   console.error(`[remote-smoke] retry HTTP ${res.status} for ${path} (attempt ${httpAttempt}/3)`);
+   await delay(1000*httpAttempt);
+   continue;
+  }
+  break;
+ }
+ results.push({path,status:res.status,attempts:res.attempts,httpAttempts:httpAttempt,durationMs:Date.now()-started});
+ console.error(`[remote-smoke] ${path}: HTTP ${res.status}, transport ${res.attempts} attempt(s), HTTP ${httpAttempt} attempt(s)`);
  if(!res.ok&&!degradedAllowedPaths.has(path))throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v74-slo-governor-1'||!json.windows)throw new Error('SLO governor endpoint mismatch');
  }
  if(path==='/api/release/deployment-guard'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v73-deployment-guard-1'||!json.snapshot)throw new Error('deployment guard endpoint mismatch');
  }
  if(path==='/api/testing/ml-shadow-recovery'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.repeatedFreshPassPromotes!==true||json.assertions?.badShadowRejected!==true||json.assertions?.cooldownBlocks!==true||json.assertions?.clearLeagueWinnerPromotes!==true||json.assertions?.closeLeagueRaceHolds!==true||json.assertions?.minimumCompetitorsRequired!==true||json.assertions?.leagueLeaderMustConfirm!==true)throw new Error('shadow league regression mismatch');
  }
  if(path==='/api/intelligence/ml-shadow-recovery'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v61-shadow-league-1')throw new Error('shadow recovery intelligence mismatch');
  }
  if(path==='/api/testing/ml-champion-drift'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.repeatedCriticalQuarantines!==true||json.assertions?.watchDoesNotQuarantine!==true)throw new Error('champion drift regression mismatch');
  }
  if(path==='/api/intelligence/ml-drift'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v59-ml-champion-drift-1')throw new Error('champion drift intelligence mismatch');
  }
  if(path==='/api/testing/ml-first-tournament'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.ranksWinner!==true||json.assertions?.blocksMissingArtifact!==true)throw new Error('first champion tournament regression mismatch');
  }
  if(path==='/api/intelligence/ml-champions'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v61-first-champion-tournament-1')throw new Error('ML champion intelligence mismatch');
  }
  if(path==='/api/testing/ml-deployment'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.releaseIdentity!==true||json.assertions?.activeRequiresChampion!==true)throw new Error('ML deployment regression mismatch');
  }
  if(path==='/api/ml/deploy-attest'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v61-ml-deployment-attestation-1')throw new Error('ML deployment attestation mismatch');
  }
  if(path==='/api/testing/ml-activation'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.active!==true||json.assertions?.awaitingEvidence!==true)throw new Error('ML activation state mismatch');
  }
  if(path==='/api/intelligence/ml-service'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v61-ml-activation-1')throw new Error('ML activation status mismatch');
  }
  if(path==='/api/testing/ml-tournament'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.promotesClearWinner!==true||json.assertions?.retainsIncumbentInsideMargin!==true||json.assertions?.blocksIneligible!==true)throw new Error('ML tournament regression mismatch');
  }
  if(path==='/api/intelligence/ml-tournament'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v55-external-ml-tournament-1')throw new Error('ML tournament status mismatch');
  }
  if(path==='/api/testing/trained-models'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.positiveSkill!==true||json.assertions?.promoted!==true)throw new Error('trained sport ML regression mismatch');
  }
  if(path==='/api/intelligence/trained-models'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.schemaVersion!=='v54-trained-sport-ml-1')throw new Error('trained model status mismatch');
  }
  if(path==='/api/testing/expert-models'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.councilIntegrated!==true)throw new Error('expert model regression mismatch');
  }
  if(path==='/api/intelligence/expert-models'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   const degradedValid=json.ok===false&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog)&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
   const liveValid=json.ok===true&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog);
   if(!(liveValid||degradedValid))throw new Error('expert model API mismatch');
  }
  if(path==='/api/testing/live-comeback'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.assertions?.gameStateGuardrail!==true)throw new Error('live comeback regression mismatch');
  }
  if(path==='/api/live-comeback'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v52-live-comeback-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
   const liveValid=json.ok===true&&json.schemaVersion==='v52-live-comeback-1'&&json.gameStateVerified===false;
   if(!(liveValid||degradedValid))throw new Error('live comeback API mismatch');
  }
  if(path==='/api/intelligence/validation-lab'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||!json.report?.overall)throw new Error('validation laboratory mismatch');
  }
  if(path==='/api/intelligence/context'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-context-intelligence-1'&&/No live or stored markets available/i.test(String(json.error||''));
   const liveValid=json.ok===true&&Boolean(json.diagnostics?.qualitySummary)&&Boolean(json.diagnostics?.publicNetwork);
   if(!(liveValid||degradedValid))throw new Error('context intelligence mismatch');
  }
  if(path==='/api/parlays?size=2&view=today'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-prediction-validation-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
   if(degradedValid)continue;
   if(json.schemaVersion!=='v51-prediction-validation-1')throw new Error('parlay route schema mismatch');
@@ -130,19 +144,19 @@ for(const path of paths){
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
  }
  if(path==='/api/health/live'||path==='/api/health'||path==='/api/deployment/smoke'||path==='/api/ops/status'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.version!==expected)throw new Error(path+' version mismatch');
  }
  if(path==='/api/health'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ok!==true||json.productionHardened!==true)throw new Error('health hardening mismatch');
  }
  if(path==='/api/health/ready'||path==='/api/release/readiness'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.ready!==true)throw new Error(path+' not ready');
  }
  if(path==='/api/deployment/smoke'){
-  const json=JSON.parse(body);
+  const json=parseSmokeJson(path,res.status,body);
   if(json.smoke!==true)throw new Error('deployment smoke mismatch');
  }
 }
