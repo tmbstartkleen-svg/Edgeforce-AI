@@ -1,12 +1,29 @@
 import {db} from './db';
 import {fetchLiveScoreMesh} from './liveScoreMesh';
 
+export type SettlementProvenance={
+ schemaVersion:'v151-settlement-provenance-1';
+ evidenceClass:'PROVIDER_NATIVE'|'CORROBORATED_SCORE'|'TRUSTED_PRIMARY_SINGLE';
+ source:string;
+ confidence:'HIGH'|'MEDIUM'|'LOW'|'SINGLE_SOURCE'|'UNKNOWN'|'PROVIDER_NATIVE';
+ sourceCount:number;
+ agreeingSources:number;
+ reason:string;
+ observedAt:string;
+ finalScore?:{
+  homeTeam:string;
+  awayTeam:string;
+  homeScore:number;
+  awayScore:number;
+ };
+};
 export type ScoreSettlementRow={
  eventId:string;
  marketKey:string;
  selectionKey:string;
  result:'win'|'loss'|'push';
  settledAt:string;
+ settlementProvenance:SettlementProvenance;
 };
 
 export type SettlementEvidenceDecision={
@@ -186,12 +203,29 @@ export async function finalScoreSettlementRows():Promise<{
   );
   if(!result)continue;
   matchedGames++;
+  const decision=evaluateFinalScoreSettlementEvidence(g);
   rows.push({
    eventId:String(leg.eventId),
    marketKey:String(leg.marketType||''),
    selectionKey:String(leg.selection||''),
    result,
-   settledAt:String(g.observedAt||new Date().toISOString())
+   settledAt:String(g.observedAt||new Date().toISOString()),
+   settlementProvenance:{
+    schemaVersion:'v151-settlement-provenance-1',
+    evidenceClass:decision.trustedSingleSource?'TRUSTED_PRIMARY_SINGLE':'CORROBORATED_SCORE',
+    source:decision.source,
+    confidence:decision.confidence,
+    sourceCount:decision.sourceCount,
+    agreeingSources:decision.agreeingSources,
+    reason:decision.reason,
+    observedAt:String(g.observedAt||new Date().toISOString()),
+    finalScore:{
+     homeTeam:String(g.home.name),
+     awayTeam:String(g.away.name),
+     homeScore:Number(g.home.score),
+     awayScore:Number(g.away.score)
+    }
+   }
   });
  }
  return {

@@ -131,6 +131,59 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
  }
 }
 
+export async function loadSettlementEvidenceHistory(limit=100){
+ const sql=db();
+ const bounded=Math.max(1,Math.min(500,Math.floor(Number(limit)||100)));
+ if(!sql)return {mode:'dry-run' as const,rows:[],count:0,evidenceClasses:{}};
+ const rows=await sql`
+  select
+   le.id,
+   le.bet_slip_id as "betSlipId",
+   le.source,
+   le.payload,
+   le.created_at as "createdAt",
+   bl.ordinal,
+   bl.sport,
+   bl.market_type as "marketType",
+   bl.selection,
+   bl.event_id as "eventId",
+   bl.result,
+   bl.settled_at as "settledAt",
+   bl.metadata->'settlementProvenance' as "legProvenance"
+  from ledger_events le
+  left join bet_legs bl
+   on bl.bet_slip_id=le.bet_slip_id
+   and bl.ordinal=case
+    when jsonb_typeof(le.payload->'ordinal')='number' then (le.payload->>'ordinal')::int
+    else null
+   end
+  where le.event_type='RESULT_EVIDENCE_APPLIED'
+  order by le.created_at desc,le.id desc
+  limit ${bounded}
+ `;
+ const normalized=(rows as any[]).map(row=>({
+  id:Number(row.id),
+  betSlipId:row.betSlipId?String(row.betSlipId):null,
+  source:row.source?String(row.source):null,
+  createdAt:row.createdAt?new Date(row.createdAt).toISOString():null,
+  ordinal:row.ordinal==null?null:Number(row.ordinal),
+  sport:row.sport?String(row.sport):null,
+  marketType:row.marketType?String(row.marketType):null,
+  selection:row.selection?String(row.selection):null,
+  eventId:row.eventId?String(row.eventId):null,
+  result:row.result?String(row.result):null,
+  settledAt:row.settledAt?new Date(row.settledAt).toISOString():null,
+  settlementProvenance:row.legProvenance||row.payload?.settlementProvenance||null,
+  payload:row.payload||{}
+ }));
+ const evidenceClasses:Record<string,number>={};
+ for(const row of normalized){
+  const key=String(row.settlementProvenance?.evidenceClass||'UNSPECIFIED');
+  evidenceClasses[key]=(evidenceClasses[key]||0)+1;
+ }
+ return {mode:'database' as const,rows:normalized,count:normalized.length,evidenceClasses};
+}
+
 export async function recordWager(input:WagerInput){
  if(!Number.isFinite(input.stake)||input.stake<=0)throw new Error('stake must be greater than zero');
  if(!Array.isArray(input.legs)||!input.legs.length)throw new Error('at least one leg is required');
@@ -247,25 +300,73 @@ export async function settleWager(input:SettlementInput){
 }
 
 export async function reconcileLedgerResults(results:any[]){
+ const evidenceClasses:Record<string,number>={};
+ for(const result of results){
+  const evidenceClass=String(result?.settlementProvenance?.evidenceClass||'UNSPECIFIED');
+  evidenceClasses[evidenceClass]=(evidenceClasses[evidenceClass]||0)+1;
+ }
  const sql=db();
- if(!sql)return {matchedLegs:0,settledSlips:0,mode:'dry-run' as const};
+ if(!sql)return {matchedLegs:0,settledSlips:0,provenanceWritten:0,evidenceEvents:0,evidenceClasses,mode:'dry-run' as const};
  const affected=new Set<string>();
  let matchedLegs=0;
- for(const r of results){
-  if(!r?.eventId||!r?.selectionKey||!r?.result)continue;
+ let provenanceWritten=0;
+ let evidenceEvents=0;
+ for(const result of results){
+  if(!result?.eventId||!result?.selectionKey||!result?.result)continue;
   const rows=await sql`
    update bet_legs bl set
-    result=${r.result},
-    closing_odds=${r.closingOdds??null},
-    settled_at=${r.settledAt??new Date().toISOString()}
+    result=${result.result},
+    closing_odds=${result.closingOdds??null},
+    settled_at=${result.settledAt??new Date().toISOString()}
    from bet_slips bs
    where bl.bet_slip_id=bs.id and bs.result='open'
-    and bl.event_id=${r.eventId}
-    and lower(bl.selection)=lower(${r.selectionKey})
-    and (${r.marketKey??null}::text is null or lower(bl.market_type)=lower(${r.marketKey??''}))
-   returning bl.bet_slip_id as id
+    and bl.event_id=${result.eventId}
+    and lower(bl.selection)=lower(${result.selectionKey})
+    and (${result.marketKey??null}::text is null or lower(bl.market_type)=lower(${result.marketKey??''}))
+   returning bl.bet_slip_id as id,bl.ordinal
   `;
   for(const row of rows as any[]){affected.add(String(row.id));matchedLegs++}
+
+  const provenance=result.settlementProvenance&&typeof result.settlementProvenance==='object'?result.settlementProvenance:null;
+  if(provenance&&rows.length){
+   const evidenceRows=await sql`
+    update bet_legs bl set
+     metadata=jsonb_set(
+      coalesce(bl.metadata,'{}'::jsonb),
+      '{settlementProvenance}',
+      ${sql.json(provenance)}::jsonb,
+      true
+     )
+    from bet_slips bs
+    where bl.bet_slip_id=bs.id and bs.result='open'
+     and bl.event_id=${result.eventId}
+     and lower(bl.selection)=lower(${result.selectionKey})
+     and (${result.marketKey??null}::text is null or lower(bl.market_type)=lower(${result.marketKey??''}))
+     and (bl.metadata->'settlementProvenance') is distinct from ${sql.json(provenance)}::jsonb
+    returning bl.bet_slip_id as id,bl.ordinal
+   `;
+   provenanceWritten+=evidenceRows.length;
+   for(const row of evidenceRows as any[]){
+    await sql`
+     insert into ledger_events(bet_slip_id,event_type,source,payload)
+     values(
+      ${String(row.id)},
+      'RESULT_EVIDENCE_APPLIED',
+      ${String((provenance as any).source||'results-provider')},
+      ${sql.json({
+       ordinal:Number(row.ordinal),
+       eventId:String(result.eventId),
+       marketKey:String(result.marketKey||''),
+       selectionKey:String(result.selectionKey),
+       result:String(result.result),
+       settledAt:String(result.settledAt||new Date().toISOString()),
+       settlementProvenance:provenance
+      })}
+     )
+    `;
+    evidenceEvents++;
+   }
+  }
  }
  let settledSlips=0;
  for(const id of affected){
@@ -279,5 +380,5 @@ export async function reconcileLedgerResults(results:any[]){
   }
  }
  invalidateLedgerCache();
- return {matchedLegs,settledSlips,mode:'database' as const};
+ return {matchedLegs,settledSlips,provenanceWritten,evidenceEvents,evidenceClasses,mode:'database' as const};
 }

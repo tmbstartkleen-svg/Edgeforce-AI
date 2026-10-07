@@ -694,6 +694,10 @@ assert(health.body?.certifiedScoreSettlementEvidence===true,'certified score set
 assert(health.body?.settlementConflictFailClosed===true,'settlement conflict fail-closed flag missing');
 assert(health.body?.trustedPrimarySingleSourceSettlement===true,'trusted primary single-source settlement flag missing');
 assert(health.body?.settlementEvidenceTelemetry===true,'settlement evidence telemetry flag missing');
+assert(health.body?.durableSettlementProvenance===true,'durable settlement provenance flag missing');
+assert(health.body?.idempotentSettlementEvidencePersistence===true,'idempotent settlement evidence persistence flag missing');
+assert(health.body?.settlementEvidenceLedgerEvents===true,'settlement evidence ledger event flag missing');
+assert(health.body?.settlementEvidenceAuditApi===true,'settlement evidence audit API flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
@@ -706,6 +710,10 @@ assert(settlementEvidence.res.ok&&settlementEvidence.body?.ok===true,'settlement
 assert(settlementEvidence.body?.assertions?.corroboratedAccepted===true,'corroborated final settlement regressed');
 assert(settlementEvidence.body?.assertions?.activeConflictBlocked===true,'conflicting final settlement gate regressed');
 assert(settlementEvidence.body?.assertions?.untrustedSingleBlocked===true,'untrusted single-source settlement gate regressed');
+
+const settlementEvidenceHistory=await get('/api/ledger/settlement-evidence?limit=5');
+assert(settlementEvidenceHistory.res.ok&&settlementEvidenceHistory.body?.ok===true,'settlement evidence history endpoint failed');
+assert(settlementEvidenceHistory.body?.schemaVersion==='v151-durable-settlement-provenance-1','settlement evidence history schema regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
