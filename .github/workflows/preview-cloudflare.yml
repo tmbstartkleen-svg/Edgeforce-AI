@@ -26,8 +26,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Select Cloudflare preview auth mode
         id: auth
@@ -39,7 +37,7 @@ jobs:
             echo "mode=temporary" >> "$GITHUB_OUTPUT"
           fi
 
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run preflight:cloudflare
       - run: npm run typecheck
       - run: npm run check:vinext
@@ -123,9 +121,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - name: Detect permanent preview credentials
         id: auth
         shell: bash
