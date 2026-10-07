@@ -1,7 +1,7 @@
 import {db} from './db';
 import {RELEASE} from './releaseManifest';
 import type {Market} from './types';
-import {settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
+import {effectiveEvidenceSampleSize,settlementLearningFromFeatures,summarizeSettlementLearning} from './settlementLearning';
 
 export type TrainingHistoryRow={
  occurredAt:string;
@@ -323,10 +323,12 @@ export function trainSportArtifact(
  const importancePairs:[string,number][]=featureNames.map((name,i)=>[name,Math.abs(fitted.weights[i])]);
  importancePairs.sort((a,b)=>b[1]-a[1]);
  const importance=Object.fromEntries(importancePairs);
- const enough=sorted.length>=minSample&&holdout.length>=minHoldout;
+ const effectiveSampleSize=all.reduce((sum,row)=>sum+row.evidenceWeight,0);
+ const holdoutEffectiveSampleSize=holdoutMetrics.effectiveSampleSize;
+ const enough=effectiveSampleSize>=minSample&&holdoutEffectiveSampleSize>=minHoldout;
  const promoted=enough&&brierSkillScore>=.01&&holdoutMetrics.logLoss<=marketBaseline.logLoss+.005&&holdoutMetrics.calibrationError<=.12;
- let promotionReason='Promoted: chronological holdout beat market baseline with acceptable calibration';
- if(!enough)promotionReason=`Held: sample ${sorted.length}/${minSample}, holdout ${holdout.length}/${minHoldout}`;
+ let promotionReason='Promoted: effective evidence depth and chronological holdout beat market baseline with acceptable calibration';
+ if(!enough)promotionReason=`Held: effective sample ${effectiveSampleSize.toFixed(2)}/${minSample} from ${sorted.length} raw, effective holdout ${holdoutEffectiveSampleSize.toFixed(2)}/${minHoldout} from ${holdout.length} raw`;
  else if(brierSkillScore<.01)promotionReason=`Held: Brier skill ${brierSkillScore.toFixed(3)} < 0.010 versus market baseline`;
  else if(holdoutMetrics.logLoss>marketBaseline.logLoss+.005)promotionReason=`Held: holdout log loss ${holdoutMetrics.logLoss.toFixed(3)} did not beat market baseline ${marketBaseline.logLoss.toFixed(3)}`;
  else if(holdoutMetrics.calibrationError>.12)promotionReason=`Held: calibration error ${holdoutMetrics.calibrationError.toFixed(3)} > 0.120`;
@@ -336,7 +338,7 @@ export function trainSportArtifact(
   artifactVersion:`v54-${canonical.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${marketKey.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,
   featureNames,coefficients:fitted.weights,intercept:fitted.intercept,
   scalerMeans:means,scalerScales:scales,calibrationA:calibrationFit.a,calibrationB:calibrationFit.b,
-  sampleSize:all.length,effectiveSampleSize:all.reduce((sum,row)=>sum+row.evidenceWeight,0),
+  sampleSize:all.length,effectiveSampleSize,
   trainSize:train.length,trainEffectiveSampleSize:trainMetrics.effectiveSampleSize,
   calibrationSize:calibration.length,calibrationEffectiveSampleSize:calibration.reduce((sum,row)=>sum+row.evidenceWeight,0),
   holdoutSize:holdout.length,holdoutEffectiveSampleSize:holdoutMetrics.effectiveSampleSize,
