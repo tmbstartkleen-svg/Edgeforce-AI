@@ -196,8 +196,19 @@ type LiveBoardResponse={
     ok:boolean;
     generatedAt:string;
     refreshMs:number;
+    uiRefreshMs?:number;
     sourceMode:string;
     liveGames:number;
+    freshness?:{
+      state:'IDLE'|'FAST'|'HEALTHY'|'DEGRADED'|'STALE';
+      maxLiveAgeMs:number|null;
+      clockCoverage:number;
+      scoreCoverage:number;
+      staleLiveGames:number;
+      selectedSourceCount:number;
+      sourceCounts:Array<{source:string;count:number}>;
+      recommendedUiRefreshMs:number;
+    };
     games:LiveScoreGame[];
     warnings:string[];
   };
@@ -607,10 +618,16 @@ export default function Dashboard(){
         busy.current=false;
       }
     };
-    void load();
-    const timer=window.setInterval(()=>void load(),1000);
-    return ()=>{mounted=false;window.clearInterval(timer)};
-  },[view,limit,risk]);
+    let timer:number|undefined;
+    const schedule=()=>{
+      if(!mounted)return;
+      const requested=board.liveScores?.freshness?.recommendedUiRefreshMs??board.liveScores?.uiRefreshMs??board.uiRefreshMs??1000;
+      const delay=Math.max(500,Math.min(5000,Number(requested)||1000));
+      timer=window.setTimeout(async()=>{await load();schedule()},delay);
+    };
+    void load().finally(schedule);
+    return ()=>{mounted=false;if(timer!==undefined)window.clearTimeout(timer)};
+  },[view,limit,risk,board.liveScores?.freshness?.recommendedUiRefreshMs,board.liveScores?.uiRefreshMs,board.uiRefreshMs]);
 
   useEffect(()=>{
     let mounted=true;
@@ -793,7 +810,7 @@ export default function Dashboard(){
         </div>
         <div>
           <small>UI REFRESH</small>
-          <b>1 second</b>
+          <b>{Math.max(.5,(board.liveScores?.freshness?.recommendedUiRefreshMs??board.liveScores?.uiRefreshMs??board.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')} sec</b>
         </div>
         <div>
           <small>DATA PULL</small>
@@ -818,7 +835,7 @@ export default function Dashboard(){
     {board.liveScores&&<section className="consoleCard">
       <div className="consoleHead">
         <div><div className="eyebrow">LIVE GAME CLOCK MESH</div><h3>{board.liveScores.liveGames} game{board.liveScores.liveGames===1?'':'s'} live now</h3></div>
-        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • 1s UI</div>
+        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI</div>
       </div>
       {(board.liveScores.games||[]).filter(g=>g.status==='LIVE').slice(0,12).map(g=><div className="consoleRow" key={g.source+'-'+g.id}>
         <span className="action action-open">{g.league}</span>
