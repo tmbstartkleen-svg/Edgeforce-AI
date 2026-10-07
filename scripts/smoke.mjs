@@ -698,6 +698,14 @@ assert(health.body?.durableSettlementProvenance===true,'durable settlement prove
 assert(health.body?.idempotentSettlementEvidencePersistence===true,'idempotent settlement evidence persistence flag missing');
 assert(health.body?.settlementEvidenceLedgerEvents===true,'settlement evidence ledger event flag missing');
 assert(health.body?.settlementEvidenceAuditApi===true,'settlement evidence audit API flag missing');
+assert(health.body?.evidenceAwarePredictionFeedback===true,'evidence-aware prediction feedback flag missing');
+assert(health.body?.evidenceAwareRecalibration===true,'evidence-aware recalibration flag missing');
+assert(health.body?.evidenceAwareModelGovernance===true,'evidence-aware model governance flag missing');
+assert(health.body?.evidenceAwareValidationLab===true,'evidence-aware validation lab flag missing');
+assert(health.body?.evidenceAwareSportModelTraining===true,'evidence-aware sport model training flag missing');
+assert(health.body?.evidenceAwareExternalMlTraining===true,'evidence-aware external ML training flag missing');
+assert(health.body?.weakSettlementEvidenceTrainingExclusion===true,'weak settlement evidence training exclusion flag missing');
+assert(health.body?.legacyLearningCompatibility===true,'legacy learning compatibility flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
@@ -714,6 +722,13 @@ assert(settlementEvidence.body?.assertions?.untrustedSingleBlocked===true,'untru
 const settlementEvidenceHistory=await get('/api/ledger/settlement-evidence?limit=5');
 assert(settlementEvidenceHistory.res.ok&&settlementEvidenceHistory.body?.ok===true,'settlement evidence history endpoint failed');
 assert(settlementEvidenceHistory.body?.schemaVersion==='v151-durable-settlement-provenance-1','settlement evidence history schema regressed');
+
+const settlementLearning=await get('/api/testing/settlement-learning');
+assert(settlementLearning.res.ok&&settlementLearning.body?.ok===true,'settlement learning regression failed');
+assert(settlementLearning.body?.assertions?.providerEligible===true,'provider-native learning eligibility regressed');
+assert(settlementLearning.body?.assertions?.mediumReduced===true,'medium-confidence settlement learning policy regressed');
+assert(settlementLearning.body?.assertions?.trustedSingleExcluded===true,'trusted single-source training exclusion regressed');
+assert(settlementLearning.body?.assertions?.legacyRetained===true,'legacy learning compatibility regressed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
