@@ -247,10 +247,17 @@ export async function settleWager(input:SettlementInput){
 }
 
 export async function reconcileLedgerResults(results:any[]){
+ const evidenceClasses:Record<string,number>={};
+ for(const r of results){
+  const evidenceClass=String(r?.settlementProvenance?.evidenceClass||'UNSPECIFIED');
+  evidenceClasses[evidenceClass]=(evidenceClasses[evidenceClass]||0)+1;
+ }
  const sql=db();
- if(!sql)return {matchedLegs:0,settledSlips:0,mode:'dry-run' as const};
+ if(!sql)return {matchedLegs:0,settledSlips:0,provenanceWritten:0,evidenceEvents:0,evidenceClasses,mode:'dry-run' as const};
  const affected=new Set<string>();
  let matchedLegs=0;
+ let provenanceWritten=0;
+ let evidenceEvents=0;
  for(const r of results){
   if(!r?.eventId||!r?.selectionKey||!r?.result)continue;
   const rows=await sql`
@@ -263,9 +270,50 @@ export async function reconcileLedgerResults(results:any[]){
     and bl.event_id=${r.eventId}
     and lower(bl.selection)=lower(${r.selectionKey})
     and (${r.marketKey??null}::text is null or lower(bl.market_type)=lower(${r.marketKey??''}))
-   returning bl.bet_slip_id as id
+   returning bl.bet_slip_id as id,bl.ordinal
   `;
   for(const row of rows as any[]){affected.add(String(row.id));matchedLegs++}
+
+  const provenance=r?.settlementProvenance&&typeof r.settlementProvenance==='object'?r.settlementProvenance:null;
+  if(provenance&&rows.length){
+   const evidenceRows=await sql`
+    update bet_legs bl set
+     metadata=jsonb_set(
+      coalesce(bl.metadata,'{}'::jsonb),
+      '{settlementProvenance}',
+      ${sql.json(provenance)}::jsonb,
+      true
+     )
+    from bet_slips bs
+    where bl.bet_slip_id=bs.id and bs.result='open'
+     and bl.event_id=${r.eventId}
+     and lower(bl.selection)=lower(${r.selectionKey})
+     and (${r.marketKey??null}::text is null or lower(bl.market_type)=lower(${r.marketKey??''}))
+     and (bl.metadata->'settlementProvenance') is distinct from ${sql.json(provenance)}::jsonb
+    returning bl.bet_slip_id as id,bl.ordinal
+   `;
+   provenanceWritten+=evidenceRows.length;
+   for(const row of evidenceRows as any[]){
+    await sql`
+     insert into ledger_events(bet_slip_id,event_type,source,payload)
+     values(
+      ${String(row.id)},
+      'RESULT_EVIDENCE_APPLIED',
+      ${String(provenance.source||'results-provider')},
+      ${sql.json({
+       ordinal:Number(row.ordinal),
+       eventId:String(r.eventId),
+       marketKey:String(r.marketKey||''),
+       selectionKey:String(r.selectionKey),
+       result:String(r.result),
+       settledAt:String(r.settledAt||new Date().toISOString()),
+       settlementProvenance:provenance
+      })}
+     )
+    `;
+    evidenceEvents++;
+   }
+  }
  }
  let settledSlips=0;
  for(const id of affected){
@@ -279,5 +327,5 @@ export async function reconcileLedgerResults(results:any[]){
   }
  }
  invalidateLedgerCache();
- return {matchedLegs,settledSlips,mode:'database' as const};
+ return {matchedLegs,settledSlips,provenanceWritten,evidenceEvents,evidenceClasses,mode:'database' as const};
 }
