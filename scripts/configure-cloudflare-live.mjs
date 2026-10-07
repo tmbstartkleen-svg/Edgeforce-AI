@@ -29,10 +29,11 @@ const generatedSecret=(name)=>{
 console.log('Edgeforce Cloudflare live-data setup');
 console.log('This configures encrypted Worker secrets without printing their values.');
 
-promptSecret('THE_ODDS_API_KEY');
 promptSecret('DATABASE_URL');
 generatedSecret('INGEST_SECRET');
 generatedSecret('CRON_SECRET');
 
-console.log('\nCloudflare live-data secrets configured.');
+console.log('\nCloudflare core runtime secrets configured.');
+console.log('Optional free/quota provider keys can be added independently: SPORTS_GAME_ODDS_API_KEY, THE_ODDS_API_KEY, FOOTBALL_DATA_API_KEY, API_SPORTS_KEY, BIGBALLS_API_KEY.');
+console.log('Keyless ESPN, Kalshi, Polymarket, TheSportsDB and SportScore paths do not require secrets.');
 console.log('Next: npm run deploy:cloudflare');
