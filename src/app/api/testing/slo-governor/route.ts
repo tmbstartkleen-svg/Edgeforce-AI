@@ -9,7 +9,6 @@ const healthy=(count:number):SloHealthSample[]=>Array.from({length:count},(_,i)=
 }));
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
  const healthySamples=healthy(40);
  const criticalSamples=[...healthySamples.slice(0,30),...Array.from({length:10},(_,i)=>({
   observedAt:new Date(now.getTime()-i*5*60000).toISOString(),

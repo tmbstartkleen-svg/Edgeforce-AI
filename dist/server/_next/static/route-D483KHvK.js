@@ -1,0 +1,1 @@
+import{n as e}from"./db-9LtqYd6N.js";async function t(){return Response.json(await e())}export{t as GET};

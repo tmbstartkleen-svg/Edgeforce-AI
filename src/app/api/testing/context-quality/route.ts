@@ -10,8 +10,6 @@ const base:Market={
 };
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
-
  const nfl:Market={
   ...base,
   contextSources:['injuries','stats','weather'],

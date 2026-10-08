@@ -1,0 +1,15 @@
+import{t as e}from"./db-9LtqYd6N.js";import{t}from"./releaseManifest-bHjF1npa.js";var n=[{jobName:`heartbeat`,maxGapHours:30,description:`readiness heartbeat`},{jobName:`settle`,maxGapHours:30,description:`automatic wager/result settlement`},{jobName:`scan`,maxGapHours:30,description:`odds scan and model-run persistence`},{jobName:`decision`,maxGapHours:30,description:`decision journal and alerts`},{jobName:`recalibrate`,maxGapHours:30,description:`model and SGP recalibration`},{jobName:`prediction-intelligence`,maxGapHours:3,description:`Kalshi/Polymarket market, trade and trader intelligence collection`},{jobName:`injuries`,maxGapHours:1,description:`15-minute injury and availability refresh feeding all simulations`},{jobName:`slo-governor`,maxGapHours:2,description:`hourly SLO burn-rate and deployment-freeze supervisor`},{jobName:`topology-watchdog`,maxGapHours:2,description:`hourly Cloudflare-primary and Vercel-standby readiness verification`}];function r(e,t=new Date){let r=new Map;for(let t of e){let e=r.get(t.jobName);(!e||new Date(t.startedAt).getTime()>new Date(e.startedAt).getTime())&&r.set(t.jobName,t)}let i=n.map(e=>{let n=r.get(e.jobName);if(!n)return{...e,state:`PENDING`,lastRun:null,ageHours:null,status:null,releaseVersion:null,error:null};let i=Math.max(0,(t.getTime()-new Date(n.startedAt).getTime())/36e5),a=n.status===`failed`?`FAILED`:i>e.maxGapHours?`STALE`:`HEALTHY`;return{...e,state:a,lastRun:new Date(n.startedAt).toISOString(),ageHours:i,status:n.status,releaseVersion:n.releaseVersion||null,error:n.error||null}}),a=i.filter(e=>e.state===`FAILED`||e.state===`STALE`).map(e=>`${e.jobName}: ${e.state.toLowerCase()}`),o=i.filter(e=>e.state===`PENDING`).map(e=>`${e.jobName}: no durable run recorded yet`);return{healthy:a.length===0,jobs:i,blockers:a,warnings:o,healthyCount:i.filter(e=>e.state===`HEALTHY`).length,pendingCount:i.filter(e=>e.state===`PENDING`).length,failedCount:i.filter(e=>e.state===`FAILED`).length,staleCount:i.filter(e=>e.state===`STALE`).length}}async function i(n,r,i,a={},o){let s=e();if(!s)return{recorded:!1,mode:`memory`};let c=Date.now();return await s`
+  insert into automation_runs(job_name,status,release_version,started_at,completed_at,duration_ms,metadata,error_text)
+  values(
+   ${n},${r},${t.appVersion},${new Date(i).toISOString()},
+   ${new Date(c).toISOString()},${Math.max(0,c-i)},
+   ${s.json(a)},${o??null}
+  )
+ `.catch(()=>void 0),{recorded:!0,mode:`database`}}async function a(){let t=e();if(!t)return{source:`memory`,...r([])};try{return{source:`database`,...r(await t`
+   select distinct on (job_name)
+    job_name as "jobName",status,release_version as "releaseVersion",
+    started_at as "startedAt",completed_at as "completedAt",duration_ms as "durationMs",
+    metadata,error_text as error
+   from automation_runs
+   order by job_name,started_at desc
+  `)}}catch(e){return{source:`database`,...r([]),queryError:e instanceof Error?e.message:`automation health query failed`}}}export{i,r as n,a as r,n as t};

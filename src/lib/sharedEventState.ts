@@ -100,8 +100,8 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
   const paceScale=Math.exp(paceZ*(.07+.025*injuryShock+.015*scheduleFatigue*scheduleConfidence+.020*venueVolatility+.012*movementVolatility));
   const homeMean=Math.max(.01,homeMean0*paceScale*Math.exp(homeFormZ*.05));
   const awayMean=Math.max(.01,awayMean0*paceScale*Math.exp(awayFormZ*.05));
-  const homeScore=base.discrete?poisson(random,homeMean):Math.max(0,homeMean+base.sd*(.26*paceZ+.42*homeFormZ+.36*random.normal()));
-  const awayScore=base.discrete?poisson(random,awayMean):Math.max(0,awayMean+base.sd*(.26*paceZ+.42*awayFormZ+.36*random.normal()));
+  const homeScore=base.discrete?poisson(random,homeMean):Math.max(0,homeMean+base.sd*(.35*paceZ+.55*homeFormZ+.10*random.normal()));
+  const awayScore=base.discrete?poisson(random,awayMean):Math.max(0,awayMean+base.sd*(.35*paceZ+.55*awayFormZ+.10*random.normal()));
   const total=homeScore+awayScore;
   const legHits:boolean[]=[];
 
@@ -123,7 +123,7 @@ export function runSharedEventStateSimulation(legs:EventStateLeg[],runs=10000):E
     const mean=Number(p.projection)*(p.availability??1)*(p.starter===false?.72:1)*Math.max(.88,Math.min(1.08,playerScheduleScale))*Math.max(.90,Math.min(1.10,playerVenueScale))*Math.max(.95,Math.min(1.05,playerMovementScale));
     const sd=Math.max(.1,Math.abs(Number(p.stdDev??mean*.18)))*(1+Math.max(0,Number(leg.sportFeatures?.venueVolatilityEffect||0))*.12*legVenueConfidence+Math.max(0,Number(leg.sportFeatures?.marketMovementVolatility||0))*.08*legMovementConfidence);
     const teamZ=teamHome?homeFormZ:teamAway?awayFormZ:(homeFormZ+awayFormZ)/2;
-    const eventScale=Math.exp(.08*paceZ+.07*teamZ);
+    const eventScale=Math.exp(.25*paceZ+.20*teamZ);
     const value=Math.max(0,mean*eventScale+sd*.72*random.normal());
     hit=k==='UNDER'?value<Math.abs(line!):value>Math.abs(line!);
    }else if(k==='OVER')hit=line===undefined?random.next()<(leg.simProbability||.5):total>Math.abs(line);

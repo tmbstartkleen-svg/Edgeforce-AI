@@ -1,0 +1,1 @@
+import"./db-9LtqYd6N.js";import{s as e}from"./trainedSportModels-DWPIV0xx.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json({...t,build:`V54`,schemaVersion:`v54-trained-sport-ml-1`},{headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

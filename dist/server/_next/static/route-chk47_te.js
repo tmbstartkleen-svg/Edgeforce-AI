@@ -1,0 +1,1 @@
+import{t as e}from"./cashout-DAsR6BvJ.js";async function t(t){let n=await t.json();return Response.json(e(n))}export{t as POST};

@@ -13,7 +13,6 @@ const base:DeploymentGuardSnapshot={
 };
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
  const healthy=evaluateDeploymentGuard(base,{...base,observabilityScore:.90,reliabilityScore:.93,capturedAt:'2026-10-05T17:01:00Z'});
  const softBlock=evaluateDeploymentGuard(base,{...base,observabilityScore:.72,criticalChecks:0,capturedAt:'2026-10-05T17:02:00Z'});
  const hardBlock=evaluateDeploymentGuard(base,{...base,certified:false,observabilityOverall:'CRITICAL',reliabilityMode:'PROTECTIVE',actionIncidents:1,capturedAt:'2026-10-05T17:03:00Z'});

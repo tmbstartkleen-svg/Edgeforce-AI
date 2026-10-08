@@ -1,0 +1,357 @@
+{
+  "_framework-BK7bGCLi.js": {
+    "file": "_next/static/chunks/framework-BK7bGCLi.js",
+    "name": "framework",
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js"
+    ]
+  },
+  "_rolldown-runtime-hDMfyAX4.js": {
+    "file": "_next/static/chunks/rolldown-runtime-hDMfyAX4.js",
+    "name": "rolldown-runtime"
+  },
+  "_tradeSignals-Dt6k1urW.js": {
+    "file": "_next/static/chunks/tradeSignals-Dt6k1urW.js",
+    "name": "tradeSignals"
+  },
+  "_vinext-CaeHhAdA.js": {
+    "file": "_next/static/chunks/vinext-CaeHhAdA.js",
+    "name": "vinext",
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ],
+    "dynamicImports": [
+      "node_modules/vinext/dist/shims/internal/hybrid-client-route-owner.js",
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/server/app-elements.js": {
+    "file": "_next/static/chunks/app-elements-CwiBOMLt.js",
+    "name": "app-elements",
+    "src": "node_modules/vinext/dist/server/app-elements.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/server/app-rsc-cache-busting.js": {
+    "file": "_next/static/chunks/app-rsc-cache-busting-BTkBbEyi.js",
+    "name": "app-rsc-cache-busting",
+    "src": "node_modules/vinext/dist/server/app-rsc-cache-busting.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/server/app-rsc-render-mode.js": {
+    "file": "_next/static/chunks/app-rsc-render-mode-B2FUVPfG.js",
+    "name": "app-rsc-render-mode",
+    "src": "node_modules/vinext/dist/server/app-rsc-render-mode.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/server/headers.js": {
+    "file": "_next/static/chunks/headers-DotftPgt.js",
+    "name": "headers",
+    "src": "node_modules/vinext/dist/server/headers.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/app-router-scroll.js": {
+    "file": "_next/static/chunks/app-router-scroll-Dz12Xkov.js",
+    "name": "app-router-scroll",
+    "src": "node_modules/vinext/dist/shims/app-router-scroll.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/client-page-root.js": {
+    "file": "_next/static/chunks/client-page-root-BMeNlRK5.js",
+    "name": "client-page-root",
+    "src": "node_modules/vinext/dist/shims/client-page-root.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/default-global-error.js": {
+    "file": "_next/static/chunks/default-global-error-CRqrAjY5.js",
+    "name": "default-global-error",
+    "src": "node_modules/vinext/dist/shims/default-global-error.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/error-boundary.js": {
+    "file": "_next/static/chunks/error-boundary-Zk4zs5x3.js",
+    "name": "error-boundary",
+    "src": "node_modules/vinext/dist/shims/error-boundary.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/internal/app-prefetch-fetch-queue.js": {
+    "file": "_next/static/chunks/app-prefetch-fetch-queue-DxGs0XNA.js",
+    "name": "app-prefetch-fetch-queue",
+    "src": "node_modules/vinext/dist/shims/internal/app-prefetch-fetch-queue.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/internal/app-prefetch-rsc-request.js": {
+    "file": "_next/static/chunks/app-prefetch-rsc-request-DMKOcVK8.js",
+    "name": "app-prefetch-rsc-request",
+    "src": "node_modules/vinext/dist/shims/internal/app-prefetch-rsc-request.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/internal/app-route-prefetch-policy.js": {
+    "file": "_next/static/chunks/app-route-prefetch-policy-CzA7GKLC.js",
+    "name": "app-route-prefetch-policy",
+    "src": "node_modules/vinext/dist/shims/internal/app-route-prefetch-policy.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/internal/hybrid-client-route-owner.js": {
+    "file": "_next/static/chunks/hybrid-client-route-owner-BctTOPGw.js",
+    "name": "hybrid-client-route-owner",
+    "src": "node_modules/vinext/dist/shims/internal/hybrid-client-route-owner.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/layout-segment-context.js": {
+    "file": "_next/static/chunks/layout-segment-context-BIscpZZs.js",
+    "name": "layout-segment-context",
+    "src": "node_modules/vinext/dist/shims/layout-segment-context.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/link.js": {
+    "file": "_next/static/chunks/link-DysYZxlH.js",
+    "name": "link",
+    "src": "node_modules/vinext/dist/shims/link.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ],
+    "dynamicImports": [
+      "_vinext-CaeHhAdA.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/navigation.js": {
+    "file": "_next/static/chunks/navigation-DlKVZzAB.js",
+    "name": "navigation",
+    "src": "node_modules/vinext/dist/shims/navigation.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/slot.js": {
+    "file": "_next/static/chunks/slot-OTCJSX-u.js",
+    "name": "slot",
+    "src": "node_modules/vinext/dist/shims/slot.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "node_modules/vinext/dist/shims/streamed-icons.js": {
+    "file": "_next/static/chunks/streamed-icons-BIWV0ndb.js",
+    "name": "streamed-icons",
+    "src": "node_modules/vinext/dist/shims/streamed-icons.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/ChampionDriftPanel.tsx": {
+    "file": "_next/static/chunks/ChampionDriftPanel-O26UNxXF.js",
+    "name": "ChampionDriftPanel",
+    "src": "src/components/ChampionDriftPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/Dashboard.tsx": {
+    "file": "_next/static/chunks/Dashboard-TO5NmuOW.js",
+    "name": "Dashboard",
+    "src": "src/components/Dashboard.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js",
+      "src/components/ChampionDriftPanel.tsx",
+      "src/components/ExpertModelSuitePanel.tsx",
+      "src/components/ExternalMlTournamentPanel.tsx",
+      "src/components/FirstChampionTournamentPanel.tsx",
+      "src/components/MlDeploymentAutomationPanel.tsx",
+      "src/components/MlServiceActivationPanel.tsx",
+      "src/components/ShadowRecoveryPanel.tsx",
+      "src/components/TrainedSportModelsPanel.tsx",
+      "_tradeSignals-Dt6k1urW.js"
+    ]
+  },
+  "src/components/ExpertModelSuitePanel.tsx": {
+    "file": "_next/static/chunks/ExpertModelSuitePanel-C3vB9wV1.js",
+    "name": "ExpertModelSuitePanel",
+    "src": "src/components/ExpertModelSuitePanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/ExternalMlTournamentPanel.tsx": {
+    "file": "_next/static/chunks/ExternalMlTournamentPanel-DW97EMxc.js",
+    "name": "ExternalMlTournamentPanel",
+    "src": "src/components/ExternalMlTournamentPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/FirstChampionTournamentPanel.tsx": {
+    "file": "_next/static/chunks/FirstChampionTournamentPanel-BZc8RBwW.js",
+    "name": "FirstChampionTournamentPanel",
+    "src": "src/components/FirstChampionTournamentPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/ForecastResearchLabPanel.tsx": {
+    "file": "_next/static/chunks/ForecastResearchLabPanel-5FMme5ER.js",
+    "name": "ForecastResearchLabPanel",
+    "src": "src/components/ForecastResearchLabPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/MlDeploymentAutomationPanel.tsx": {
+    "file": "_next/static/chunks/MlDeploymentAutomationPanel-B3sN4u22.js",
+    "name": "MlDeploymentAutomationPanel",
+    "src": "src/components/MlDeploymentAutomationPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/MlServiceActivationPanel.tsx": {
+    "file": "_next/static/chunks/MlServiceActivationPanel-CcoZ4T6b.js",
+    "name": "MlServiceActivationPanel",
+    "src": "src/components/MlServiceActivationPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/MobilePredictionTerminal.tsx": {
+    "file": "_next/static/chunks/MobilePredictionTerminal-SYV1y7D-.js",
+    "name": "MobilePredictionTerminal",
+    "src": "src/components/MobilePredictionTerminal.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js",
+      "node_modules/vinext/dist/shims/link.js",
+      "_tradeSignals-Dt6k1urW.js"
+    ]
+  },
+  "src/components/ShadowRecoveryPanel.tsx": {
+    "file": "_next/static/chunks/ShadowRecoveryPanel-D0-wpY6_.js",
+    "name": "ShadowRecoveryPanel",
+    "src": "src/components/ShadowRecoveryPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/TrainedSportModelsPanel.tsx": {
+    "file": "_next/static/chunks/TrainedSportModelsPanel-gP407bJn.js",
+    "name": "TrainedSportModelsPanel",
+    "src": "src/components/TrainedSportModelsPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "src/components/UniversalMarketsPanel.tsx": {
+    "file": "_next/static/chunks/UniversalMarketsPanel-xcc4uZ_R.js",
+    "name": "UniversalMarketsPanel",
+    "src": "src/components/UniversalMarketsPanel.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_framework-BK7bGCLi.js"
+    ]
+  },
+  "virtual:vinext-app-browser-entry": {
+    "file": "_next/static/chunks/index-1iaOFGsw.js",
+    "name": "index",
+    "src": "virtual:vinext-app-browser-entry",
+    "isEntry": true,
+    "imports": [
+      "_rolldown-runtime-hDMfyAX4.js",
+      "_vinext-CaeHhAdA.js",
+      "_framework-BK7bGCLi.js"
+    ],
+    "dynamicImports": [
+      "_vinext-CaeHhAdA.js",
+      "src/components/ShadowRecoveryPanel.tsx",
+      "node_modules/vinext/dist/shims/layout-segment-context.js",
+      "src/components/MlDeploymentAutomationPanel.tsx",
+      "src/components/ForecastResearchLabPanel.tsx",
+      "src/components/ChampionDriftPanel.tsx",
+      "src/components/Dashboard.tsx",
+      "src/components/TrainedSportModelsPanel.tsx",
+      "src/components/ExpertModelSuitePanel.tsx",
+      "src/components/MobilePredictionTerminal.tsx",
+      "src/components/UniversalMarketsPanel.tsx",
+      "src/components/MlServiceActivationPanel.tsx",
+      "src/components/FirstChampionTournamentPanel.tsx",
+      "node_modules/vinext/dist/shims/link.js",
+      "src/components/ExternalMlTournamentPanel.tsx"
+    ]
+  }
+}

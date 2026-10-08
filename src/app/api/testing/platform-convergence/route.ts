@@ -3,7 +3,6 @@ import {RELEASE} from '@/lib/releaseManifest';
 export const dynamic='force-dynamic';
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return Response.json({ok:false,error:'disabled'},{status:404});
  const primary={
   platform:'cloudflare',
   version:RELEASE.appVersion,

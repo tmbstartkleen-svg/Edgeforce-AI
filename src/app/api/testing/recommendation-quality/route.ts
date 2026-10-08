@@ -3,8 +3,6 @@ import {assessParlayTier,DEFAULT_PARLAY_THRESHOLDS} from '@/lib/parlays';
 export const dynamic='force-dynamic';
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
-
  const base={
   id:'test',sport:'NFL',league:'NFL',event:'Away @ Home',selection:'Home',market:'h2h',
   startTime:new Date(Date.now()+3600000).toISOString(),home:'Home',away:'Away',odds:-200,

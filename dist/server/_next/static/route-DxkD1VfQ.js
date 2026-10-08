@@ -1,0 +1,1 @@
+import{t as e}from"./calibration-CHrUpZaS.js";async function t(t){let n=await t.json().catch(()=>({})),r=Array.isArray(n?.points)?n.points:[];return Response.json(e(r))}export{t as POST};

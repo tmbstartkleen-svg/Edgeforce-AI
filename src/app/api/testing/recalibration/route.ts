@@ -15,7 +15,6 @@ function makeRows(modelName:string,count:number,predicted:number,outcomes:number
 }
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
  const options:RecalibrationOptions={
   minSample:40,minHoldout:10,shrinkageSamples:60,maxAdjustment:.25,lookbackRows:1000,trainSize:40,testSize:10
  };

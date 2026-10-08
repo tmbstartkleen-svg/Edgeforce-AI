@@ -21,8 +21,6 @@ function row(i:number,good:boolean,contextRich:boolean):HistoricalPrediction{
 }
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
-
  const good=Array.from({length:400},(_,i)=>row(i,true,i%4!==0));
  const bad=Array.from({length:120},(_,i)=>row(i,false,i%3===0));
  const report=buildValidationReport([...good,...bad]);

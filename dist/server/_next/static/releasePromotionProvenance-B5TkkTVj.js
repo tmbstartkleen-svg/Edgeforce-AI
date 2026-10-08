@@ -1,0 +1,20 @@
+import{t as e}from"./db-9LtqYd6N.js";import{t}from"./releaseManifest-bHjF1npa.js";function n(e){let n=[];return e.releaseVersion!==t.appVersion&&n.push(`release version mismatch: ${e.releaseVersion} != ${t.appVersion}`),e.modelVersion!==t.modelVersion&&n.push(`model version mismatch: ${e.modelVersion} != ${t.modelVersion}`),Number(e.migrationVersion)!==t.migrationVersion&&n.push(`migration version mismatch: ${e.migrationVersion} != ${t.migrationVersion}`),(!e.commitSha||e.commitSha.length<7)&&n.push(`commit SHA is missing or invalid`),[`vercel`,`cloudflare`].includes(e.platform)||n.push(`deployment platform is unsupported`),/^https:\/\//.test(e.deploymentUrl)||n.push(`deployment URL is missing or invalid`),e.executionCertified||n.push(`release execution certification did not pass`),e.strictCertified||n.push(`strict production certification did not pass`),e.canaryPassed||n.push(`comparative canary did not pass`),e.v1Ready||n.push(`strict V1 readiness did not pass`),e.promoted||n.push(`release was not promoted`),e.rolledBack&&n.push(`release was rolled back`),{certified:n.length===0,blockers:n,evidence:e}}async function r(t){let n=e();if(!n)return{persisted:!1,id:null};let r=t.evidence,[i]=await n`
+  insert into release_promotion_provenance(
+   release_version,model_version,migration_version,commit_sha,platform,deployment_url,deployment_id,
+   source,workflow_run_id,workflow_run_attempt,execution_certified,strict_certified,canary_passed,
+   v1_ready,promoted,rolled_back,blockers,evidence
+  ) values(
+   ${r.releaseVersion},${r.modelVersion},${r.migrationVersion},${r.commitSha},${r.platform},${r.deploymentUrl},${r.deploymentId||null},
+   ${r.source},${r.workflowRunId||null},${r.workflowRunAttempt||null},${r.executionCertified},${r.strictCertified},${r.canaryPassed},
+   ${r.v1Ready},${r.promoted},${!!r.rolledBack},${n.json(t.blockers)},${n.json(r.evidence||{})}
+  ) returning id
+ `;return{persisted:!0,id:Number(i?.id||0)||null}}function i(e){return e?{id:Number(e.id),releaseVersion:String(e.releaseVersion),modelVersion:String(e.modelVersion),migrationVersion:Number(e.migrationVersion),commitSha:String(e.commitSha),platform:String(e.platform),deploymentUrl:String(e.deploymentUrl),deploymentId:e.deploymentId?String(e.deploymentId):null,source:String(e.source),workflowRunId:e.workflowRunId?String(e.workflowRunId):null,workflowRunAttempt:e.workflowRunAttempt?String(e.workflowRunAttempt):null,executionCertified:!!e.executionCertified,strictCertified:!!e.strictCertified,canaryPassed:!!e.canaryPassed,v1Ready:!!e.v1Ready,promoted:!!e.promoted,rolledBack:!!e.rolledBack,blockers:Array.isArray(e.blockers)?e.blockers.map(String):[],evidence:e.evidence&&typeof e.evidence==`object`?e.evidence:{},createdAt:new Date(e.createdAt).toISOString()}:null}var a=e=>e`
+ select id,release_version as "releaseVersion",model_version as "modelVersion",
+  migration_version as "migrationVersion",commit_sha as "commitSha",platform,
+  deployment_url as "deploymentUrl",deployment_id as "deploymentId",source,
+  workflow_run_id as "workflowRunId",workflow_run_attempt as "workflowRunAttempt",
+  execution_certified as "executionCertified",strict_certified as "strictCertified",
+  canary_passed as "canaryPassed",v1_ready as "v1Ready",promoted,
+  rolled_back as "rolledBack",blockers,evidence,created_at as "createdAt"
+ from release_promotion_provenance
+`;async function o(){let t=e();if(!t)return null;try{let e=await a(t);return e.sort((e,t)=>new Date(t.createdAt).getTime()-new Date(e.createdAt).getTime()),i(e[0])}catch{return null}}async function s(){let n=e();if(!n)return null;try{let e=(await a(n)).filter(e=>String(e.releaseVersion)===t.appVersion&&String(e.modelVersion)===t.modelVersion&&Number(e.migrationVersion)===t.migrationVersion).sort((e,t)=>new Date(t.createdAt).getTime()-new Date(e.createdAt).getTime())[0];return i(e)}catch{return null}}export{r as i,n,o as r,s as t};

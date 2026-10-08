@@ -1,0 +1,1 @@
+function e(e){return typeof e==`number`&&Number.isSafeInteger(e)&&e>=0}export{e as t};

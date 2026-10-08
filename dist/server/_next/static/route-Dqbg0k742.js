@@ -1,0 +1,1 @@
+import"./db-9LtqYd6N.js";import"./config-DeCpBpO7.js";import"./sportRegistry-DhJZkKuv.js";import"./healthStore-CIt76q0M.js";import"./readiness-1JiJmfZR.js";import{t as e}from"./opsStatus-aU-ve5Pw.js";async function t(){return Response.json(await e())}export{t as GET};

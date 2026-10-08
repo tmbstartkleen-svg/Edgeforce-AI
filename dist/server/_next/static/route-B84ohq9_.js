@@ -1,0 +1,1 @@
+import"./db-9LtqYd6N.js";import{n as e}from"./modelGovernance-DERBcsy-.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json(t,{status:t.ok?200:503,headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

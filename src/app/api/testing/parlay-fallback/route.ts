@@ -3,8 +3,6 @@ import {selectParlayPool} from '@/lib/parlays';
 export const dynamic='force-dynamic';
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
-
  const base={
   simulationRuns:10000,rawSimProbability:.62,simCi:[.60,.64] as [number,number],
   uncertainty:.1,confidenceLabel:'MEDIUM',regime:'STABLE',historicalShrinkage:0,

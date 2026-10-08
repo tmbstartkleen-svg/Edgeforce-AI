@@ -1,0 +1,1 @@
+import{Ft as e,Mt as t,Nt as n,Pt as r}from"./vinext-CaeHhAdA.js";export{t as cancelAppPrefetchFetch,n as promoteAppPrefetchFetch,r as releaseAppPrefetchFetchSlot,e as scheduleAppPrefetchFetch};

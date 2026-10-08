@@ -1,0 +1,1 @@
+import"./db-9LtqYd6N.js";import{n as e}from"./mlChampionDrift-Cp1ynfuw.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json({...t,build:`V59`,schemaVersion:`v59-ml-champion-drift-1`},{headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

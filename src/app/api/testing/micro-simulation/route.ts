@@ -11,7 +11,6 @@ function market(sport:string,id:string,home:string,away:string,features:Record<s
 }
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
  const cases=[
   market('MLB','mlb','Home MLB','Away MLB',{starter:.1,bullpen:.05,lineup:.08}),
   market('NFL','nfl','Home NFL','Away NFL',{quarterback:.1,trenches:.05,weather:0}),

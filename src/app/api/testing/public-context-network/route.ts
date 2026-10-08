@@ -4,8 +4,6 @@ import type {Market} from '@/lib/types';
 export const dynamic='force-dynamic';
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
-
  const scoreboard={
   events:[{
    id:'401-test',

@@ -1,0 +1,1 @@
+import{t as e}from"./releaseManifest-bHjF1npa.js";var t=`force-dynamic`;async function n(){return Response.json({ok:!0,live:!0,build:e.build,version:e.appVersion,modelVersion:e.modelVersion,uptimeSeconds:Math.round(process.uptime()),time:new Date().toISOString()},{headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

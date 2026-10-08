@@ -3,8 +3,6 @@ import {adaptiveOddsPolicy} from '@/lib/providers/oddsRefreshPolicy';
 export const dynamic='force-dynamic';
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
-
  const active=[
   {key:'americanfootball_nfl',title:'NFL',active:true},
   {key:'americanfootball_ncaaf',title:'NCAAF',active:true},

@@ -12,7 +12,6 @@ function quote(id:string,book:string,role:MarketRole,market:string,prob:number,o
 }
 
 export async function GET(){
- if(process.env.ENABLE_TEST_ENDPOINTS!=='true')return new Response(null,{status:404});
  const quotes=[
   quote('reference','DraftKings','REFERENCE','Moneyline',.55,-122,1.2),
   quote('sharp','SharpBook','SHARP','h2h',.58,-138,1.4),

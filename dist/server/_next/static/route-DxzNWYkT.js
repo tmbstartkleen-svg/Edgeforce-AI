@@ -1,0 +1,1 @@
+import{n as e,t}from"./backtest-C3tJhQT8.js";async function n(n){let r=await n.json().catch(()=>({})),i=Array.isArray(r?.rows)?r.rows:[],a=Math.max(25,Number(r?.trainSize)||100),o=Math.max(10,Number(r?.testSize)||25);return Response.json({summary:t(i),folds:e(i,a,o)})}export{n as POST};
