@@ -46,6 +46,13 @@ type Diagnostics={
  available?:boolean;
  status?:string;
  operatorReady?:boolean;
+ certificateChain?:{
+  valid?:boolean;
+  count?:number;
+  head?:string|null;
+  verified?:number;
+  error?:string|null;
+ };
  commitBinding?:{
   certified?:boolean;
   expected?:string|null;
