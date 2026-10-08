@@ -129,6 +129,7 @@ export function gradeScoreLeg(
 }
 
 export async function finalScoreSettlementRows():Promise<{
+ available:boolean;
  rows:ScoreSettlementRow[];
  matchedGames:number;
  candidateLegs:number;
@@ -147,7 +148,7 @@ export async function finalScoreSettlementRows():Promise<{
 }>{
  const emptyEvidence={totalFinalGames:0,acceptedFinalGames:0,blockedFinalGames:0,highConfidence:0,mediumConfidence:0,trustedSingleSource:0,blockedConflict:0,blockedLowConfidence:0,blockedSingleSource:0};
  const sql=db();
- if(!sql)return {rows:[],matchedGames:0,candidateLegs:0,warnings:['Database unavailable for final-score settlement fallback'],evidence:emptyEvidence};
+ if(!sql)return {available:false,rows:[],matchedGames:0,candidateLegs:0,warnings:['Database unavailable for final-score settlement fallback'],evidence:emptyEvidence};
 
  const legs=await sql`
   select bl.event_id as "eventId",bl.event_label as "eventLabel",bl.market_type as "marketType",bl.selection
@@ -156,7 +157,7 @@ export async function finalScoreSettlementRows():Promise<{
   where bs.result='open' and bl.result='unknown'
    and bl.event_id is not null and bl.event_label is not null
  `;
- if(!(legs as any[]).length)return {rows:[],matchedGames:0,candidateLegs:0,warnings:[],evidence:emptyEvidence};
+ if(!(legs as any[]).length)return {available:true,rows:[],matchedGames:0,candidateLegs:0,warnings:[],evidence:emptyEvidence};
 
  const mesh=await fetchLiveScoreMesh();
  const allFinals=(mesh.games||[]).filter((g:any)=>g?.status==='FINAL');
@@ -229,6 +230,7 @@ export async function finalScoreSettlementRows():Promise<{
   });
  }
  return {
+  available:true,
   rows,
   matchedGames,
   candidateLegs:(legs as any[]).length,
