@@ -89,3 +89,20 @@ test('V155 research report stays research-only and builds model scorecards',()=>
  assert.ok(!('order' in report));
  assert.ok(!('wager' in report));
 });
+
+test('V156 zero-evidence rows cannot move the temporal replay boundary',()=>{
+ const eligible=[];
+ for(let i=0;i<40;i++)eligible.push(row(i,i%2===0?.8:.2,i%2===0?1:0));
+ const excluded={settlementLearning:{...provider.settlementLearning,trainingEligible:false,evidenceWeight:0}};
+ const noise=[];
+ for(let i=0;i<60;i++)noise.push(row(100+i,.99,0,excluded));
+ const baseline=runtime.forecastTemporalReplay(eligible,.25);
+ const mixed=runtime.forecastTemporalReplay([...eligible,...noise],.25);
+ assert.deepEqual(mixed,baseline);
+});
+
+test('V156 replay is insensitive to tied-timestamp input order',()=>{
+ const rows=[];
+ for(let i=0;i<40;i++)rows.push({...row(i,i%2===0?.8:.2,i%2===0?1:0),occurredAt:'2026-10-01T00:00:00.000Z'});
+ assert.deepEqual(runtime.forecastTemporalReplay(rows),runtime.forecastTemporalReplay([...rows].reverse()));
+});
