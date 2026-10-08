@@ -52,6 +52,7 @@ export function gradeScoreLeg(
 }
 
 export async function finalScoreSettlementRows():Promise<{
+ available:boolean;
  rows:ScoreSettlementRow[];
  matchedGames:number;
  candidateLegs:number;
@@ -110,6 +111,7 @@ export async function finalScoreSettlementRows():Promise<{
   });
  }
  return {
+  available:true,
   rows,
   matchedGames,
   candidateLegs:(legs as any[]).length,
