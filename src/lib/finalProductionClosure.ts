@@ -84,11 +84,31 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
  const settlementMetadata=(settlementRun?.metadata&&typeof settlementRun.metadata==='object'?settlementRun.metadata:{}) as any;
  const settlementResult=(settlementMetadata?.result&&typeof settlementMetadata.result==='object'?settlementMetadata.result:{}) as any;
  const settlementFallbackUsed=String(settlementResult?.mode||'').includes('score-fallback');
+ const settlementMatchedLegs=Math.max(0,Number(settlementResult?.matchedLegs||0));
+ const settlementIdentity=(settlementResult?.settlementIdentityMatches&&typeof settlementResult.settlementIdentityMatches==='object'
+  ?settlementResult.settlementIdentityMatches:{}) as any;
+ const identityInternal=Math.max(0,Number(settlementIdentity?.internalEventId||0));
+ const identityFrozen=Math.max(0,Number(settlementIdentity?.frozenSourceEventId||0));
+ const identityMapped=Math.max(0,Number(settlementIdentity?.eventProviderMapping||0));
+ const identityReportedTotal=Math.max(0,Number(settlementIdentity?.total||0));
+ const identitySummedTotal=identityInternal+identityFrozen+identityMapped;
+ const settlementIdentityCertified=Boolean(
+  settlementResult?.settlementIdentityMatches
+  &&identityReportedTotal===settlementMatchedLegs
+  &&identitySummedTotal===settlementMatchedLegs
+ );
+ const settlementIdentityCoverage=settlementMatchedLegs>0
+  ?Number((identitySummedTotal/settlementMatchedLegs).toFixed(3))
+  :settlementIdentityCertified?1:0;
+ const settlementMappedIdentityShare=settlementMatchedLegs>0
+  ?Number((identityMapped/settlementMatchedLegs).toFixed(3))
+  :0;
  const settlementCertified=Boolean(
   settlementRun
   &&settlementRun.status==='success'
   &&String(settlementMetadata?.deploymentCommit||'')===commitSha
   &&settlementResult?.ok===true
+  &&settlementIdentityCertified
   &&(!settlementFallbackUsed||settlementResult?.fallbackEvidenceCertified===true)
  );
 
@@ -98,6 +118,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
  if(!postPromotionVerified)blockers.push(primaryStandby?'Cloudflare primary hosted smoke verification is missing or failed':'post-promotion live verification is missing, failed, or belongs to a different commit');
  if(!platformConverged)blockers.push(primaryStandby?'Cloudflare primary and Vercel manual standby topology is not ready':'Vercel and Cloudflare are not converged on the same production commit');
  if(!rollbackClear)blockers.push('the candidate production commit has a confirmed rollback');
+ if(!settlementIdentityCertified)blockers.push('settlement identity telemetry does not fully reconcile with matched legs for the candidate commit');
  if(!settlementCertified)blockers.push('fresh successful settlement automation evidence is missing or uncertified for the candidate commit');
 
  return {
@@ -123,7 +144,10 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
    settlementRunStartedAt:settlementRun?.startedAt?new Date(settlementRun.startedAt as any).toISOString():null,
    settlementMode:settlementResult?.mode||null,
    settlementNoop:Boolean(settlementResult?.settlementNoop),
-   settlementMatchedLegs:Number(settlementResult?.matchedLegs||0),
+   settlementMatchedLegs,
+   settlementIdentityCertified,
+   settlementIdentityCoverage,
+   settlementMappedIdentityShare,
    settlementIdentityMatches:settlementResult?.settlementIdentityMatches||null,
    settlementFallbackEvidenceCertified:settlementFallbackUsed?Boolean(settlementResult?.fallbackEvidenceCertified):null,
    evaluatedAt:new Date().toISOString()
