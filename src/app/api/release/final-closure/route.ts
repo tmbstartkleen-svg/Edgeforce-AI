@@ -1,4 +1,5 @@
 import {evaluateFinalProductionClosure,latestFinalProductionClosure,saveFinalProductionClosure} from '@/lib/finalProductionClosure';
+import {buildFinalClosureDiagnostics} from '@/lib/finalClosureDiagnostics';
 
 export const dynamic='force-dynamic';
 
@@ -9,7 +10,8 @@ function authorized(req:Request){
 }
 
 export async function GET(){
- return Response.json({ok:true,latest:await latestFinalProductionClosure()},{headers:{'Cache-Control':'no-store'}});
+ const latest=await latestFinalProductionClosure();
+ return Response.json({ok:true,latest,diagnostics:buildFinalClosureDiagnostics(latest)},{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(req:Request){
@@ -21,5 +23,5 @@ export async function POST(req:Request){
   workflowRunId:body.workflowRunId?String(body.workflowRunId):null
  });
  const persistence=await saveFinalProductionClosure(report);
- return Response.json({ok:true,closed:report.closed,report,persistence},{status:report.closed?200:202,headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok:true,closed:report.closed,report,persistence,diagnostics:buildFinalClosureDiagnostics(report)},{status:report.closed?200:202,headers:{'Cache-Control':'no-store'}});
 }

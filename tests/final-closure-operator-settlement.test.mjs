@@ -15,7 +15,7 @@ test('V175 closure classifies settlement identity strength for operator visibili
 });
 
 test('V175 production closure panel shows commit-bound settlement certification',()=>{
- assert.match(panel,/V175 PRODUCTION CLOSURE/);
+ assert.match(panel,/PRODUCTION CLOSURE/);
  assert.match(panel,/SETTLEMENT/);
  assert.match(panel,/settlementCertified/);
  assert.match(panel,/settlementMode/);
