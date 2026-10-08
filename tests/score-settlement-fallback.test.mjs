@@ -88,3 +88,25 @@ test('V150 settlement evidence fails closed for non-final or incomplete scores',
  assert.equal(incomplete.accepted,false);
  assert.match(incomplete.reason,/incomplete/i);
 });
+
+
+test('V167 score fallback reports unavailable when durable database is unavailable',async()=>{
+ const result=await runtime.finalScoreSettlementRows();
+ assert.equal(result.available,false);
+ assert.equal(result.rows.length,0);
+ assert.match(result.warnings[0],/Database unavailable/);
+});
+
+test('V167 score fallback reports healthy availability when there are no open legs',async()=>{
+ const sourceWithDb=readFileSync(new URL('../src/lib/scoreSettlementFallback.ts',import.meta.url),'utf8')
+  .replace(/import \{db\} from '.\/db';\n/,'const db=()=>async()=>[];\n')
+  .replace(/import \{fetchLiveScoreMesh\} from '.\/liveScoreMesh';\n/,'const fetchLiveScoreMesh=async()=>({games:[]});\n');
+ const compiledWithDb=ts.transpileModule(sourceWithDb,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+ assert.equal(compiledWithDb.diagnostics.length,0);
+ const rt=await import('data:text/javascript,'+encodeURIComponent(compiledWithDb.outputText));
+ const result=await rt.finalScoreSettlementRows();
+ assert.equal(result.available,true);
+ assert.equal(result.candidateLegs,0);
+ assert.equal(result.rows.length,0);
+ assert.deepEqual(result.warnings,[]);
+});
