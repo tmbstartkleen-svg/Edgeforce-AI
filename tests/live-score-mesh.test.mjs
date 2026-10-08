@@ -219,3 +219,18 @@ test('V165 games without kickoff times use source and provider id to avoid false
  assert.equal(runtime.reconcileLiveGames([base],[{...base,id:'102'}]).length,2);
  assert.equal(runtime.liveGameIdentity({...base,startTime:'2026-10-08T12:00:00Z'}),runtime.liveGameIdentity({...base,source:'thesportsdb',startTime:'2026-10-08T12:00:00Z'}));
 });
+
+
+test('V166 malformed backup-provider scores cannot count toward freshness or consensus',()=>{
+ const now=Date.now();
+ const base={id:'bad-backup',sport:'NBA',league:'NBA',status:'LIVE',detail:'Q4',clock:'01:00',period:'4',startTime:new Date(now-3600000).toISOString(),home:{name:'Home',score:90},away:{name:'Away',score:88},observedAt:new Date(now).toISOString()};
+ const good={...base,source:'espn-cdn'};
+ const bad={...base,source:'thesportsdb',home:{...base.home,score:NaN}};
+ assert.equal(runtime.evaluateLiveScoreFreshness([bad],now).scoreCoverage,0);
+ assert.equal(runtime.liveScoreConsensus([good,bad],good,now).agreeingSources,1);
+ assert.ok(runtime.liveGameQuality(good,now)>runtime.liveGameQuality({...good,home:{...good.home,score:NaN}},now));
+ for(const invalid of [undefined,NaN,Infinity,-1,'90',false]){
+  const item={...bad,away:{...bad.away,score:invalid}};
+  assert.equal(runtime.evaluateLiveScoreFreshness([item],now).scoreCoverage,0);
+ }
+});
