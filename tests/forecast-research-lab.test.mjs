@@ -15,7 +15,7 @@ assert.equal(settlementCompiled.diagnostics.length,0);
 const settlementUrl='data:text/javascript,'+encodeURIComponent(settlementCompiled.outputText);
 
 const researchSource=readFileSync(new URL('../src/lib/forecastResearchLab.ts',import.meta.url),'utf8')
- .replace("from './settlementLearning'","from '"+settlementUrl+"'");
+ .replace("from './settlementLearning'",`from ${JSON.stringify(settlementUrl)}`);
 const researchCompiled=transpile(researchSource);
 assert.equal(researchCompiled.diagnostics.length,0);
 const runtime=await import('data:text/javascript,'+encodeURIComponent(researchCompiled.outputText));
