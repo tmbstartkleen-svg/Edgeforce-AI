@@ -713,6 +713,12 @@ assert(health.body?.evidenceWeightedRecalibrationStrength===true,'evidence-weigh
 assert(health.body?.evidenceWeightedSportModelTraining===true,'evidence-weighted sport model training flag missing');
 assert(health.body?.evidenceWeightedExternalMlTraining===true,'evidence-weighted external ML training flag missing');
 assert(health.body?.effectiveEvidenceSampleTelemetry===true,'effective evidence sample telemetry flag missing');
+assert(health.body?.forecastResearchLab===true,'forecast research lab flag missing');
+assert(health.body?.researchOnlyForecastEvaluation===true,'research-only forecast evaluation flag missing');
+assert(health.body?.temporalForecastReplay===true,'temporal forecast replay flag missing');
+assert(health.body?.forecastReliabilityBands===true,'forecast reliability band flag missing');
+assert(health.body?.deterministicResearchFingerprint===true,'deterministic research fingerprint flag missing');
+assert(health.body?.researchExecutionIsolation===true,'research execution isolation flag missing');
 
 const liveScoreConsensus=await get('/api/testing/live-score-consensus');
 assert(liveScoreConsensus.res.ok&&liveScoreConsensus.body?.ok===true,'live score consensus regression failed');
@@ -743,6 +749,16 @@ assert(weightedLearning.body?.assertions?.effectiveSampleSize===true,'effective 
 assert(weightedLearning.body?.assertions?.weightedBrier===true,'evidence-weighted Brier calculation regressed');
 assert(weightedLearning.body?.assertions?.calibrationWeighted===true,'evidence-weighted calibration regressed');
 assert(weightedLearning.body?.assertions?.performanceWeighted===true,'evidence-weighted rolling performance regressed');
+
+const forecastResearch=await get('/api/testing/forecast-research');
+assert(forecastResearch.res.ok&&forecastResearch.body?.ok===true,'forecast research regression failed');
+assert(forecastResearch.body?.assertions?.researchOnly===true,'forecast research-only contract regressed');
+assert(forecastResearch.body?.assertions?.fingerprintStable===true,'forecast research fingerprint regressed');
+assert(forecastResearch.body?.assertions?.reliabilityPresent===true,'forecast reliability bands regressed');
+assert(forecastResearch.body?.assertions?.noExecutionOutput===true,'forecast research execution isolation regressed');
+
+const forecastResearchPage=await get('/research');
+assert(forecastResearchPage.res.ok,'forecast research page failed');
 
 const contextChanges=await get('/api/context-changes');
 assert(contextChanges.res.ok,'context change audit endpoint failed');
