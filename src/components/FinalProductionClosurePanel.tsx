@@ -13,6 +13,7 @@ type ClosureEvidence={
  standbyCommitDrift?:boolean;
  standbyCommitSha?:string|null;
  settlementCertified?:boolean;
+ settlementCommitSha?:string|null;
  settlementWorkflowBound?:boolean;
  settlementExpectedWorkflowRunId?:string|null;
  settlementWorkflowRunId?:string|null;
