@@ -37,6 +37,6 @@ test('V177 operator panel exposes run binding and anomaly count',()=>{
 });
 
 test('V177 operator note preserves primary standby and same workflow contract',()=>{
- assert.match(panel,/settlement is bound to the same deployment commit and workflow run/);
+ assert.match(panel,/settlement evidence is bound to the deployed commit and the same deployment workflow run/);
  assert.match(panel,/Standby commit drift is expected until failover/);
 });
