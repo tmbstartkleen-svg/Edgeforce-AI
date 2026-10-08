@@ -68,12 +68,18 @@ export async function recordAutomationRun(
  const sql=db();
  if(!sql)return {recorded:false,mode:'memory' as const};
  const completedAt=Date.now();
+ const enrichedMetadata={
+  ...metadata,
+  deploymentCommit:String(process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||'')||null,
+  deploymentPlatform:String(process.env.DEPLOYMENT_PLATFORM||process.env.VERCEL_ENV&&'vercel'||'unknown'),
+  deploymentEnv:String(process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'unknown')
+ };
  await sql`
   insert into automation_runs(job_name,status,release_version,started_at,completed_at,duration_ms,metadata,error_text)
   values(
    ${jobName},${status},${RELEASE.appVersion},${new Date(startedAt).toISOString()},
    ${new Date(completedAt).toISOString()},${Math.max(0,completedAt-startedAt)},
-   ${sql.json(metadata as any)},${errorText??null}
+   ${sql.json(enrichedMetadata as any)},${errorText??null}
   )
  `.catch(()=>undefined);
  return {recorded:true,mode:'database' as const};
@@ -98,5 +104,36 @@ export async function getAutomationHealth(){
    ...evaluateAutomationRecords([]),
    queryError:error instanceof Error?error.message:'automation health query failed'
   };
+ }
+}
+
+
+export async function latestAutomationRunForCommit(jobName:AutomationJobName,commitSha:string){
+ const sql=db();
+ if(!sql)return null;
+ const commit=String(commitSha||'');
+ if(commit.length<7)return null;
+ try{
+  const [row]=await sql`
+   select
+    job_name as "jobName",
+    status,
+    release_version as "releaseVersion",
+    started_at as "startedAt",
+    completed_at as "completedAt",
+    duration_ms as "durationMs",
+    metadata,
+    error_text as error
+   from automation_runs
+   where job_name=${jobName}
+    and status='success'
+    and release_version=${RELEASE.appVersion}
+    and metadata->>'deploymentCommit'=${commit}
+   order by started_at desc
+   limit 1
+  `;
+  return row||null;
+ }catch{
+  return null;
  }
 }
