@@ -46,6 +46,12 @@ type Diagnostics={
  available?:boolean;
  status?:string;
  operatorReady?:boolean;
+ commitBinding?:{
+  certified?:boolean;
+  expected?:string|null;
+  observed?:string|null;
+  match?:boolean;
+ };
  workflowBinding?:{
   certified?:boolean;
   expected?:string|null;
