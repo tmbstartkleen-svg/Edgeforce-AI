@@ -172,3 +172,22 @@ test('V157 only contemporaneous independent providers qualify for consensus',()=
  assert.equal(result.sourceCount,1);
  assert.equal(result.confidence,'SINGLE_SOURCE');
 });
+
+
+test('V163 distinct leagues never share a live-score identity',()=>{
+ const now=new Date().toISOString();
+ const base={id:'g1',sport:'soccer',league:'MLS',source:'espn-public',status:'LIVE',detail:'live',startTime:now,home:{name:'United',score:1},away:{name:'City',score:0},observedAt:now};
+ assert.notEqual(runtime.liveGameIdentity(base),runtime.liveGameIdentity({...base,league:'EPL'}));
+ assert.equal(runtime.reconcileLiveGames([base],[{...base,league:'EPL'}]).length,2);
+});
+
+test('V163 future-skewed live observations cannot earn FAST freshness or corroboration',()=>{
+ const now=Date.now();
+ const future=new Date(now+600000).toISOString();
+ const base={id:'future',sport:'NBA',league:'NBA',status:'LIVE',detail:'Q4',clock:'01:00',period:'4',startTime:new Date(now-3600000).toISOString(),home:{name:'Home',score:90},away:{name:'Away',score:88},observedAt:future};
+ const selected={...base,source:'espn-cdn'};
+ const other={...base,source:'espn-public'};
+ assert.equal(runtime.evaluateLiveScoreFreshness([selected],now).state,'STALE');
+ assert.equal(runtime.liveScoreConsensus([selected,other],selected,now).confidence,'SINGLE_SOURCE');
+ assert.ok(runtime.liveGameQuality({...selected,observedAt:new Date(now).toISOString()},now)>runtime.liveGameQuality(selected,now));
+});
