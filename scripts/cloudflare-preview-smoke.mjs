@@ -11,6 +11,7 @@ async function get(path){
 }
 
 let last='';
+let platform404Count=0;
 for(let i=0;i<20;i++){
  try{
   const live=await get('/api/health/live');
@@ -22,8 +23,14 @@ for(let i=0;i<20;i++){
    console.log(JSON.stringify({ok:true,preview:base,version:expected,modelVersion:health.body.modelVersion}));
    process.exit(0);
   }
-  last=`live status=${live.res.status} body=${live.text.slice(0,240)}`;
- }catch(error){last=String(error)}
+  const platform404=live.res.status===404&&/<!DOCTYPE html>|<html/i.test(live.text)&&/cloudflare/i.test(live.text);
+  platform404Count=platform404?platform404Count+1:0;
+  if(platform404Count>=3)throw new Error('Cloudflare preview hostname is not serving the deployed Worker (platform HTML 404). Check temporary deployment URL extraction and deployment activation; this is not an application health route failure. URL='+base);
+  last=`live status=${live.res.status} content-type=${live.res.headers.get('content-type')||'unknown'} body=${live.text.slice(0,240)}`;
+ }catch(error){
+  last=String(error);
+  if(last.includes('Cloudflare preview hostname is not serving'))throw error;
+ }
  await new Promise(resolve=>setTimeout(resolve,3000));
 }
 throw new Error('Cloudflare hosted preview did not become healthy: '+last);
