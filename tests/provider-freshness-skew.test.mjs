@@ -14,3 +14,13 @@ test('freshness diagnostics expose skew and uncertain timestamps',()=>{
  assert.match(source,/Ignored \$\{futureSkewCount\} future-skewed payload timestamp/);
  assert.match(source,/Payload timestamp unavailable or invalid; freshness confidence reduced/);
 });
+
+test('undated payloads cannot be scored as fresh',()=>{
+ assert.match(source,/const freshnessScore=payloadAgeMin===undefined\s*\?\.35/);
+});
+
+test('all future-dated evidence must be rejected',()=>{
+ assert.match(source,/const invalidClockOnly=timestamps\.length>0&&validTimestamps\.length===0/);
+ assert.match(source,/!invalidClockOnly/);
+ assert.match(source,/All payload timestamps are future-skewed; freshness unverified/);
+});
