@@ -38,7 +38,9 @@ test('decision cron degrades cleanly when no fresh sportsbook markets exist',()=
 test('prediction warehouse supports cron automation and authenticated deployment priming',()=>{
  assert.match(predictions,/process\.env\.CRON_SECRET,process\.env\.INGEST_SECRET/);
  assert.match(predictions,/secrets\.some\(secret=>auth===`Bearer \$\{secret\}`\)/);
- const prime=deploy.slice(deploy.indexOf('Prime prediction intelligence warehouse'));
+ const start=deploy.indexOf('Prime prediction intelligence warehouse');
+ const end=deploy.indexOf('Prime settlement automation health',start);
+ const prime=deploy.slice(start,end);
  assert.match(prime,/Authorization: Bearer \$INGEST_SECRET/);
  assert.doesNotMatch(prime,/Authorization: Bearer \$CRON_SECRET/);
 });
@@ -57,7 +59,9 @@ test('live comeback uses a bounded Worker-safe path instead of full context fan-
 
 
 test('prediction warehouse prime waits for Worker secret and route convergence',()=>{
- const prime=deploy.slice(deploy.indexOf('Prime prediction intelligence warehouse'));
+ const start=deploy.indexOf('Prime prediction intelligence warehouse');
+ const end=deploy.indexOf('Prime settlement automation health',start);
+ const prime=deploy.slice(start,end);
  assert.match(prime,/for ATTEMPT in \{1\.\.10\}/);
  assert.match(prime,/HTTP_CODE.*401/);
  assert.match(prime,/HTTP_CODE.*503/);

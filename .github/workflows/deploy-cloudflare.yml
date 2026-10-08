@@ -286,6 +286,61 @@ jobs:
           fi
           node -e "const d=require('/tmp/prediction-warehouse.json'); const p=d.executionProfile||{}; if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS'||p.cloudflareBounded!==true||Number(p.contractLimit)>300||Number(p.tradeLimit)>100) process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),executionProfile:p,contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
 
+      - name: Prime settlement automation health
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          HTTP_CODE=000
+          CURL_CODE=1
+          for ATTEMPT in 1 2 3 4 5; do
+            set +e
+            HTTP_CODE=$(curl --silent --show-error --connect-timeout 10 --max-time 90 \
+              --output /tmp/settlement-prime.json --write-out "%{http_code}" \
+              "$DEPLOYMENT_URL/api/cron/settle" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Cache-Control: no-store")
+            CURL_CODE=$?
+            set -e
+            if [ "$CURL_CODE" -eq 0 ] && [ "$HTTP_CODE" = "200" ] && jq -e '.ok==true' /tmp/settlement-prime.json >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$ATTEMPT" -lt 5 ] && { [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "504" ] || [ "$HTTP_CODE" = "000" ]; }; then
+              echo "Waiting for settlement route/secret convergence (attempt $ATTEMPT/5, HTTP $HTTP_CODE)."
+              sleep $((ATTEMPT*2))
+              continue
+            fi
+            break
+          done
+          cat /tmp/settlement-prime.json || true
+          echo
+          if [ "$CURL_CODE" -ne 0 ]; then
+            echo "Settlement prime transport failed with curl exit $CURL_CODE"
+            exit "$CURL_CODE"
+          fi
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Settlement prime returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          if ! jq -e '.ok==true' /tmp/settlement-prime.json >/dev/null; then
+            echo "Settlement automation reported unhealthy after deployment."
+            jq -r '.error // "unknown settlement error"' /tmp/settlement-prime.json || true
+            exit 1
+          fi
+          MODE=$(jq -r '.mode // "unknown"' /tmp/settlement-prime.json)
+          NOOP=$(jq -r '.settlementNoop // false' /tmp/settlement-prime.json)
+          SETTLED=$(jq -r '.settledSlips // 0' /tmp/settlement-prime.json)
+          FALLBACK=$(jq -r '.fallbackAvailable // false' /tmp/settlement-prime.json)
+          {
+            echo "### Settlement automation"
+            echo "- Healthy run: **true**"
+            echo "- Mode: **$MODE**"
+            echo "- Fallback available: **$FALLBACK**"
+            echo "- Healthy no-op: **$NOOP**"
+            echo "- Settled slips: **$SETTLED**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Strict Cloudflare platform launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
