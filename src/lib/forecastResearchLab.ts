@@ -144,7 +144,15 @@ export function forecastCalibrationError(rows:HistoricalPrediction[],bucketCount
 }
 
 export function forecastTemporalReplay(rows:HistoricalPrediction[],recentFraction=.25):ForecastReplay{
- const sorted=[...rows].sort((a,b)=>new Date(a.occurredAt).getTime()-new Date(b.occurredAt).getTime());
+ // Zero-evidence settlements must not shift temporal replay windows.
+ // Sort ties deterministically to keep replay stable when providers return rows in a different order.
+ const sorted=rows.filter(row=>weight(row)>0).sort((a,b)=>
+  new Date(a.occurredAt).getTime()-new Date(b.occurredAt).getTime()
+  ||a.modelName.localeCompare(b.modelName)
+  ||a.sport.localeCompare(b.sport)
+  ||a.marketKey.localeCompare(b.marketKey)
+  ||String(a.selectionKey||'').localeCompare(String(b.selectionKey||''))
+ );
  if(sorted.length<8){
   const empty=forecastResearchMetrics([]);
   return {prior:empty,recent:empty,brierDelta:0,logLossDelta:0,calibrationDelta:0,sharpnessDelta:0,state:'INSUFFICIENT'};

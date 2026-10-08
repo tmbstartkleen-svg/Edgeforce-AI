@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 25
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc' }}
       PREVIEW_NAME: pr-${{ github.event.number }}
       WORKER_NAME: edgeforce-ai
     steps:
@@ -56,16 +56,19 @@ jobs:
         env:
           PREVIEW_AUTH_MODE: ${{ steps.auth.outputs.mode }}
         run: |
+          node scripts/prepare-cloudflare-temporary-preview.mjs
           if [ "$PREVIEW_AUTH_MODE" = "permanent" ]; then
-            npm run preview:cloudflare -- \
+            if ! npx wrangler preview --config dist/server/wrangler.preview.json --ignore-base-config \
               --name "$PREVIEW_NAME" \
               --tag "${GITHUB_SHA:0:12}" \
               --message "Edgeforce PR #${{ github.event.number }} ${GITHUB_SHA}" \
-              --json > /tmp/cloudflare-preview.json
+              --json > /tmp/cloudflare-preview.json 2>&1; then
+              sed -E 's#(token|secret|authorization)[=:][^[:space:]]+#\\1=<redacted>#Ig' /tmp/cloudflare-preview.json | tail -n 60
+              exit 1
+            fi
             URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-preview.json)
           else
             unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
-            node scripts/prepare-cloudflare-temporary-preview.mjs
             set +e
             npx wrangler deploy --temporary --config dist/server/wrangler.temporary.json > /tmp/cloudflare-temporary-preview.txt 2>&1
             DEPLOY_CODE=$?
@@ -113,7 +116,7 @@ jobs:
     timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc' }}
       PREVIEW_NAME: pr-${{ github.event.number }}
       WORKER_NAME: edgeforce-ai
     steps:
