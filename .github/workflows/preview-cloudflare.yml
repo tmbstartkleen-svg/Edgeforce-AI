@@ -56,8 +56,9 @@ jobs:
         env:
           PREVIEW_AUTH_MODE: ${{ steps.auth.outputs.mode }}
         run: |
+          node scripts/prepare-cloudflare-temporary-preview.mjs
           if [ "$PREVIEW_AUTH_MODE" = "permanent" ]; then
-            if ! npm run preview:cloudflare -- \
+            if ! npx wrangler preview --config dist/server/wrangler.preview.json --ignore-base-config \
               --name "$PREVIEW_NAME" \
               --tag "${GITHUB_SHA:0:12}" \
               --message "Edgeforce PR #${{ github.event.number }} ${GITHUB_SHA}" \
@@ -68,7 +69,6 @@ jobs:
             URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-preview.json)
           else
             unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
-            node scripts/prepare-cloudflare-temporary-preview.mjs
             set +e
             npx wrangler deploy --temporary --config dist/server/wrangler.temporary.json > /tmp/cloudflare-temporary-preview.txt 2>&1
             DEPLOY_CODE=$?
