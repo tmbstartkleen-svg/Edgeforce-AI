@@ -57,11 +57,14 @@ jobs:
           PREVIEW_AUTH_MODE: ${{ steps.auth.outputs.mode }}
         run: |
           if [ "$PREVIEW_AUTH_MODE" = "permanent" ]; then
-            npm run preview:cloudflare -- \
+            if ! npm run preview:cloudflare -- \
               --name "$PREVIEW_NAME" \
               --tag "${GITHUB_SHA:0:12}" \
               --message "Edgeforce PR #${{ github.event.number }} ${GITHUB_SHA}" \
-              --json > /tmp/cloudflare-preview.json
+              --json > /tmp/cloudflare-preview.json 2>&1; then
+              sed -E 's#(token|secret|authorization)[=:][^[:space:]]+#\\1=<redacted>#Ig' /tmp/cloudflare-preview.json | tail -n 60
+              exit 1
+            fi
             URL=$(node scripts/extract-cloudflare-preview-url.mjs /tmp/cloudflare-preview.json)
           else
             unset CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
