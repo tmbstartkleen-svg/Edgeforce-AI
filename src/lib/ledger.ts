@@ -324,7 +324,11 @@ export async function reconcileLedgerResults(results:any[]){
   evidenceClasses[evidenceClass]=(evidenceClasses[evidenceClass]||0)+1;
  }
  const sql=db();
- if(!sql)return {matchedLegs:0,settledSlips:0,provenanceWritten:0,evidenceEvents:0,evidenceClasses,mode:'dry-run' as const};
+ if(!sql)return {
+  matchedLegs:0,settledSlips:0,
+  internalIdentityMatches:0,frozenSourceIdentityMatches:0,mappedSourceIdentityMatches:0,
+  provenanceWritten:0,evidenceEvents:0,evidenceClasses,mode:'dry-run' as const
+ };
  const affected=new Set<string>();
  let matchedLegs=0;
  let internalIdentityMatches=0;
