@@ -209,3 +209,13 @@ test('V164 missing and malformed scores remain unknown, not zero',()=>{
  assert.equal(make('0','12').home.score,0);
  assert.equal(make(0,0).away.score,0);
 });
+
+
+test('V165 games without kickoff times use source and provider id to avoid false matches',()=>{
+ const observedAt=new Date().toISOString();
+ const base={id:'101',source:'espn-public',sport:'NBA',league:'NBA',status:'LIVE',detail:'Q1',home:{name:'Home',score:8},away:{name:'Away',score:6},observedAt};
+ assert.notEqual(runtime.liveGameIdentity(base),runtime.liveGameIdentity({...base,id:'102'}));
+ assert.notEqual(runtime.liveGameIdentity(base),runtime.liveGameIdentity({...base,source:'thesportsdb'}));
+ assert.equal(runtime.reconcileLiveGames([base],[{...base,id:'102'}]).length,2);
+ assert.equal(runtime.liveGameIdentity({...base,startTime:'2026-10-08T12:00:00Z'}),runtime.liveGameIdentity({...base,source:'thesportsdb',startTime:'2026-10-08T12:00:00Z'}));
+});
