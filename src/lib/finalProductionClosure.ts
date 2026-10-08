@@ -103,6 +103,15 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
  const settlementMappedIdentityShare=settlementMatchedLegs>0
   ?Number((identityMapped/settlementMatchedLegs).toFixed(3))
   :0;
+ const settlementIdentityStrength=settlementMatchedLegs===0&&settlementIdentityCertified
+  ?'NOOP'
+  :settlementMatchedLegs>0&&identityMapped===0
+    ?'DIRECT'
+    :settlementMatchedLegs>0&&identityMapped===settlementMatchedLegs
+      ?'MAPPED'
+      :settlementMatchedLegs>0
+        ?'MIXED'
+        :'UNVERIFIED';
  const settlementCertified=Boolean(
   settlementRun
   &&settlementRun.status==='success'
@@ -148,6 +157,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
    settlementIdentityCertified,
    settlementIdentityCoverage,
    settlementMappedIdentityShare,
+   settlementIdentityStrength,
    settlementIdentityMatches:settlementResult?.settlementIdentityMatches||null,
    settlementFallbackEvidenceCertified:settlementFallbackUsed?Boolean(settlementResult?.fallbackEvidenceCertified):null,
    evaluatedAt:new Date().toISOString()
