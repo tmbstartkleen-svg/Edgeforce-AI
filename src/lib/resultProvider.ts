@@ -92,7 +92,17 @@ export async function runAutomaticSettlement(){
   fallbackMatchedGames:fallback.matchedGames,
   fallbackWarnings:fallback.warnings,
   fallbackEvidence:fallback.evidence,
-  fallbackEvidenceCertified:fallback.evidence.blockedConflict===0&&fallback.evidence.blockedLowConfidence===0,
+  fallbackEvidenceCertified:
+   fallback.evidence.blockedFinalGames===0&&
+   fallback.evidence.blockedConflict===0&&
+   fallback.evidence.blockedLowConfidence===0&&
+   fallback.evidence.blockedSingleSource===0,
+  settlementIdentityMatches:{
+   internalEventId:reconciliation.internalIdentityMatches,
+   frozenSourceEventId:reconciliation.frozenSourceIdentityMatches,
+   eventProviderMapping:reconciliation.mappedSourceIdentityMatches,
+   total:reconciliation.matchedLegs
+  },
   settlementProvenanceWritten:reconciliation.provenanceWritten,
   settlementEvidenceEvents:reconciliation.evidenceEvents,
   settlementEvidenceClasses:reconciliation.evidenceClasses,

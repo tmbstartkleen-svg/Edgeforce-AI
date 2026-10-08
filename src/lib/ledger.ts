@@ -137,7 +137,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
 export async function loadSettlementEvidenceHistory(limit=100){
  const sql=db();
  const bounded=Math.max(1,Math.min(500,Math.floor(Number(limit)||100)));
- if(!sql)return {mode:'dry-run' as const,rows:[],count:0,evidenceClasses:{}};
+ if(!sql)return {mode:'dry-run' as const,rows:[],count:0,evidenceClasses:{},identityMatches:{},identityCoverage:1};
  const rows=await sql`
   select
    le.id,
@@ -180,11 +180,25 @@ export async function loadSettlementEvidenceHistory(limit=100){
   payload:row.payload||{}
  }));
  const evidenceClasses:Record<string,number>={};
+ const identityMatches:Record<string,number>={};
+ let identityTagged=0;
  for(const row of normalized){
   const key=String(row.settlementProvenance?.evidenceClass||'UNSPECIFIED');
   evidenceClasses[key]=(evidenceClasses[key]||0)+1;
+  const identity=String(row.payload?.identityMatch||'').trim();
+  if(identity){
+   identityMatches[identity]=(identityMatches[identity]||0)+1;
+   identityTagged++;
+  }
  }
- return {mode:'database' as const,rows:normalized,count:normalized.length,evidenceClasses};
+ return {
+  mode:'database' as const,
+  rows:normalized,
+  count:normalized.length,
+  evidenceClasses,
+  identityMatches,
+  identityCoverage:normalized.length?Number((identityTagged/normalized.length).toFixed(3)):1
+ };
 }
 
 export async function recordWager(input:WagerInput){
