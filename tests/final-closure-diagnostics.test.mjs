@@ -26,8 +26,8 @@ test('V177 diagnostics validates settlement identity and fallback evidence',()=>
 
 test('V177 final closure API exposes diagnostics on reads and writes',()=>{
  assert.match(route,/buildFinalClosureDiagnostics/);
- assert.match(route,/\{ok:true,latest,diagnostics:buildFinalClosureDiagnostics\(latest\)\}/);
- assert.match(route,/diagnostics:buildFinalClosureDiagnostics\(report\)/);
+ assert.match(route,/\{ok:true,latest,diagnostics:await buildFinalClosureDiagnostics\(latest\)\}/);
+ assert.match(route,/diagnostics:await buildFinalClosureDiagnostics\(latest\|\|report\)/);
 });
 
 test('V177 operator panel exposes run binding and anomaly count',()=>{
