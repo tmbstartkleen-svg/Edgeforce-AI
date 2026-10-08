@@ -2,18 +2,13 @@ import {ingestOdds} from '@/lib/providers/ingest';
 import {scanMarkets} from '@/lib/scanner';
 import {loadLearnedWeightMultipliers} from '@/lib/learnedWeights';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
-import {enrichMarketsWithContext} from '@/lib/providers/contextFusion';
 import {loadLineMovement} from '@/lib/lineMovement';
-import {buildLiveComebackWatch} from '@/lib/liveComeback';
+import {buildLiveComebackWatch,prepareWorkerSafeLiveComebackMarkets} from '@/lib/liveComeback';
 
 export const dynamic='force-dynamic';
 
 export async function GET(){
- const [ingestion,learnedWeights,dynamicCalibration]=await Promise.all([
-  ingestOdds(),
-  loadLearnedWeightMultipliers(),
-  loadDynamicCalibrationProfiles()
- ]);
+ const ingestion=await ingestOdds();
 
  if(!ingestion.markets.length){
   return Response.json({
@@ -27,9 +22,34 @@ export async function GET(){
   },{status:503,headers:{'Cache-Control':'no-store'}});
  }
 
- const context=await enrichMarketsWithContext(ingestion.markets);
- const scanned=scanMarkets(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);
- const lineMovement=await loadLineMovement(context.markets).catch(()=>new Map());
+ const prepared=prepareWorkerSafeLiveComebackMarkets(ingestion.markets);
+ if(!prepared.markets.length){
+  return Response.json({
+   ok:true,
+   build:'V52',
+   schemaVersion:'v52-live-comeback-1',
+   source:ingestion.source,
+   providerId:ingestion.providerId||null,
+   providerName:ingestion.providerName||null,
+   targetBook:ingestion.targetBook,
+   contextDiagnostics:prepared.diagnostics,
+   ...buildLiveComebackWatch([])
+  },{headers:{'Cache-Control':'no-store, max-age=0'}});
+ }
+
+ const [learnedWeights,dynamicCalibration]=await Promise.all([
+  loadLearnedWeightMultipliers(),
+  loadDynamicCalibrationProfiles()
+ ]);
+ const scanned=scanMarkets(
+  prepared.markets,
+  'Moderate',
+  new Date(),
+  learnedWeights,
+  dynamicCalibration,
+  {simulationRunCap:1000,minDaysOut:-.25,maxDaysOut:.01}
+ );
+ const lineMovement=await loadLineMovement(prepared.markets).catch(()=>new Map());
 
  const rows=scanned.map(row=>({
   id:row.id,
@@ -61,7 +81,7 @@ export async function GET(){
   providerId:ingestion.providerId||null,
   providerName:ingestion.providerName||null,
   targetBook:ingestion.targetBook,
-  contextDiagnostics:context.diagnostics,
+  contextDiagnostics:prepared.diagnostics,
   ...watch
  },{headers:{'Cache-Control':'no-store, max-age=0'}});
 }
