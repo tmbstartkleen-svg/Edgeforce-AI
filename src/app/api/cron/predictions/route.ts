@@ -9,9 +9,14 @@ import {
 
 export const dynamic='force-dynamic';
 
-export async function GET(req:Request){
+function authorized(req:Request){
  const auth=req.headers.get('authorization');
- if(process.env.CRON_SECRET&&auth!==`Bearer ${process.env.CRON_SECRET}`){
+ const secrets=[process.env.CRON_SECRET,process.env.INGEST_SECRET].filter(Boolean);
+ return !secrets.length||secrets.some(secret=>auth===`Bearer ${secret}`);
+}
+
+export async function GET(req:Request){
+ if(!authorized(req)){
   return Response.json({ok:false,error:'unauthorized'},{status:401});
  }
 
