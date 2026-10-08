@@ -158,6 +158,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
    rollbackId:rollback?.id||null,
    settlementCertified,
    settlementWorkflowBound,
+   settlementCommitSha:settlementMetadata?.deploymentCommit||null,
    settlementExpectedWorkflowRunId:expectedWorkflowRunId||null,
    settlementWorkflowRunId:settlementMetadata?.deploymentWorkflowRunId||null,
    settlementRunStartedAt:settlementRun?.startedAt?new Date(settlementRun.startedAt as any).toISOString():null,
