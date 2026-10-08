@@ -98,7 +98,8 @@ function normalizeTeamKey(value:string){
 }
 export function liveGameIdentity(game:LiveGameState){
  const start=game.startTime?Date.parse(game.startTime):NaN;
- const bucket=Number.isFinite(start)?Math.floor(start/(3*60*60*1000)):String(game.startTime||'').slice(0,10);
+ const bucket=Number.isFinite(start)?Math.floor(start/(3*60*60*1000)):
+  game.id?`unknown-start:${game.source}:${game.id}`:'unknown-start';
  return [normalizeTeamKey(game.league),normalizeTeamKey(game.away.name),normalizeTeamKey(game.home.name),String(bucket)].join('|');
 }
 function statusRank(status:LiveGameState['status']){
