@@ -54,3 +54,13 @@ test('live comeback uses a bounded Worker-safe path instead of full context fan-
  assert.match(scanner,/simulationRunCap\?:SimulationTier/);
  assert.match(scanner,/options\.minDaysOut\?\?0/);
 });
+
+
+test('prediction warehouse prime waits for Worker secret and route convergence',()=>{
+ const prime=deploy.slice(deploy.indexOf('Prime prediction intelligence warehouse'));
+ assert.match(prime,/for ATTEMPT in \{1\.\.10\}/);
+ assert.match(prime,/HTTP_CODE.*401/);
+ assert.match(prime,/HTTP_CODE.*503/);
+ assert.match(prime,/Cache-Control: no-store/);
+ assert.match(prime,/prediction-prime route\/secret convergence/);
+});
