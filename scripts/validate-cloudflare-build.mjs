@@ -16,6 +16,12 @@ if(!fs.existsSync(configPath)){
 }
 
 if(config){
+  const MAX_CLOUDFLARE_FREE_BINDINGS=64;
+  const MAX_RUNTIME_SECRET_BINDINGS=8;
+  const configuredBindings=Object.keys(config.vars||{}).length;
+  if(configuredBindings+MAX_RUNTIME_SECRET_BINDINGS>MAX_CLOUDFLARE_FREE_BINDINGS){
+    failures.push(`Generated Worker config reserves ${configuredBindings} text variables plus up to ${MAX_RUNTIME_SECRET_BINDINGS} runtime secrets, exceeding Cloudflare Workers Free limit of ${MAX_CLOUDFLARE_FREE_BINDINGS}.`);
+  }
   const main=String(config.main||'').trim();
   if(!main){
     failures.push('Generated Wrangler config has no main entry point.');
