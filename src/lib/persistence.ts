@@ -11,8 +11,15 @@ export async function saveMarketSnapshots(markets:Market[],provider='authorized-
   for(const m of markets){
     await sql`
       insert into events(id,provider_event_id,sport,league,home_team_id,away_team_id,start_time,status)
-      values(${m.id},${m.id},${m.sport},${m.league},${m.home},${m.away},${m.startTime},'scheduled')
-      on conflict (id) do update set start_time=excluded.start_time,status='scheduled'
+      values(${m.id},${m.sourceEventId||m.id},${m.sport},${m.league},${m.home},${m.away},${m.startTime},'scheduled')
+      on conflict (id) do update set
+       provider_event_id=excluded.provider_event_id,
+       sport=excluded.sport,
+       league=excluded.league,
+       home_team_id=excluded.home_team_id,
+       away_team_id=excluded.away_team_id,
+       start_time=excluded.start_time,
+       status='scheduled'
     `;
     await sql`
       insert into market_snapshots(event_id,provider,bookmaker,market_key,selection_key,american_odds,implied_probability,no_vig_probability,source_age_seconds,raw)
@@ -41,6 +48,7 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
       ms.implied_probability::float as "rawImpliedProb",
       coalesce(ms.raw->>'sourceBook',ms.bookmaker) as "sourceBook",
       coalesce(ms.raw->>'sourceProviderId',ms.provider) as "sourceProviderId",
+      nullif(coalesce(ms.raw->>'sourceEventId',e.provider_event_id),'') as "sourceEventId",
       ms.raw->>'marketRole' as "marketRole",
       coalesce((ms.raw->>'sourceProviderWeight')::float,1)::float as "sourceProviderWeight",
       ms.raw->'consensus' as consensus,
@@ -160,6 +168,7 @@ export async function recordModelRuns(rows:any[]){
           consensus:x.consensus||null,
           sourceBook:x.sourceBook||null,
           sourceProviderId:x.sourceProviderId||null,
+          sourceEventId:x.sourceEventId||null,
           marketRole:x.marketRole||null,
           offeredOdds:x.odds,
           marketKey:x.market,

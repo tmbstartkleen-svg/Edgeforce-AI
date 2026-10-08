@@ -110,3 +110,46 @@ test('V167 score fallback reports healthy availability when there are no open le
  assert.equal(result.rows.length,0);
  assert.deepEqual(result.warnings,[]);
 });
+
+
+test('V169 exact source event identity beats ambiguous team-label matching',async()=>{
+ const legFixture=JSON.stringify([{
+  eventId:'edgeforce-market-row',
+  eventLabel:'Away @ Home',
+  sport:'NFL',
+  marketType:'Moneyline',
+  selection:'Home',
+  sourceEventId:'espn-222'
+ }]);
+ const gamesFixture=JSON.stringify([
+  {
+   id:'espn-111',sport:'NFL',league:'NFL',source:'espn-public',status:'FINAL',detail:'Final',
+   home:{name:'Home',score:17},away:{name:'Away',score:24},observedAt:'2026-10-08T10:00:00Z',
+   consensus:{confidence:'SINGLE_SOURCE',sourceCount:1,agreeingSources:1,activeConflict:false,statusConflict:false,scoreConflict:false,laggingSources:[]}
+  },
+  {
+   id:'espn-222',sport:'NFL',league:'NFL',source:'espn-public',status:'FINAL',detail:'Final',
+   home:{name:'Home',score:27},away:{name:'Away',score:20},observedAt:'2026-10-08T10:00:00Z',
+   consensus:{confidence:'SINGLE_SOURCE',sourceCount:1,agreeingSources:1,activeConflict:false,statusConflict:false,scoreConflict:false,laggingSources:[]}
+  }
+ ]);
+ const exactSource=readFileSync(new URL('../src/lib/scoreSettlementFallback.ts',import.meta.url),'utf8')
+  .replace(/import \{db\} from '.\/db';\n/,`const db=()=>async()=>${legFixture};\n`)
+  .replace(/import \{fetchLiveScoreMesh\} from '.\/liveScoreMesh';\n/,`const fetchLiveScoreMesh=async()=>({games:${gamesFixture}});\n`);
+ const exactCompiled=ts.transpileModule(exactSource,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+ assert.equal(exactCompiled.diagnostics.length,0);
+ const rt=await import('data:text/javascript,'+encodeURIComponent(exactCompiled.outputText));
+ const result=await rt.finalScoreSettlementRows();
+ assert.equal(result.available,true);
+ assert.equal(result.rows.length,1);
+ assert.equal(result.rows[0].eventId,'edgeforce-market-row');
+ assert.equal(result.rows[0].result,'win');
+ assert.match(result.rows[0].settlementProvenance.reason,/exact provider event identity matched/);
+});
+
+test('V169 settlement still falls back to unique event label when source event id is absent',()=>{
+ const body=readFileSync(new URL('../src/lib/scoreSettlementFallback.ts',import.meta.url),'utf8');
+ assert.match(body,/const matches=exact\.length===1\?exact:labelMatches/);
+ assert.match(body,/left join events e on e\.id=bl\.event_id/);
+ assert.match(body,/provider_event_id/);
+});
