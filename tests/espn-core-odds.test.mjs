@@ -63,7 +63,8 @@ test('provider is no-key and can be explicitly disabled',()=>{
 
 test('provider uses bounded cache and fan-out defaults',()=>{
  assert.match(source,/ESPN_CORE_ODDS_CACHE_MS\|\|120000/);
- assert.match(source,/ESPN_CORE_ODDS_LEAGUES_PER_BATCH\|\|5/);
+ assert.match(source,/ESPN_CORE_ODDS_LEAGUES_PER_BATCH\|\|\(process\.env\.DEPLOYMENT_PLATFORM==='cloudflare'\?2:5\)/);
+ assert.match(source,/ESPN_CORE_ODDS_MAX_REQUESTS\|\|\(process\.env\.DEPLOYMENT_PLATFORM==='cloudflare'\?8:24\)/);
  assert.match(source,/ESPN_CORE_ODDS_EVENTS_PER_LEAGUE\|\|12/);
  assert.match(source,/meta\.state&&meta\.state!=='pre'/);
 });
