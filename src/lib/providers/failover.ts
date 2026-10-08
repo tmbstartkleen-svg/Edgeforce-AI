@@ -49,6 +49,11 @@ export async function fetchWithFailover<T=unknown>(
   return (bh*1000+b.priority*2)-(ah*1000+a.priority*2);
  });
 
+ // Workers share a finite outbound-subrequest budget across each scheduled invocation.
+ // Bound provider fallback fan-out instead of exhausting the invocation on retries.
+ const workerBudget=process.env.DEPLOYMENT_PLATFORM==='cloudflare';
+ const maxAttempts=workerBudget?Math.max(1,Math.min(3,Number(process.env.WORKER_PROVIDER_MAX_ATTEMPTS)||2)):providers.length;
+ let attempted=0;
  const attempts:FailoverAttempt[]=[];
  let previous:string|null=null;
  let failureReason='No provider produced acceptable data';
@@ -67,6 +72,11 @@ export async function fetchWithFailover<T=unknown>(
    continue;
   }
 
+  if(attempted>=maxAttempts){
+   attempts.push({providerId:config.id,ok:false,latencyMs:0,skipped:true,error:'Worker provider attempt budget exhausted'});
+   continue;
+  }
+  attempted++;
   const circuitState=stored?.circuitState==='OPEN'?'HALF_OPEN':stored?.circuitState||'CLOSED';
   const raw=await fetchProviderJson<T>(config);
   let quality:PayloadQuality|undefined;
