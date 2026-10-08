@@ -439,10 +439,60 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         shell: bash
         run: |
+          set -euo pipefail
           HEALTH=$(curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health")
-          BODY=$(jq -cn --arg commitSha "$(echo "$HEALTH" | jq -r '.deploymentCommit // empty')" --arg workflowRunId "$GITHUB_RUN_ID"             '{commitSha:$commitSha,workflowRunId:$workflowRunId,source:"production-cloudflare"}')
-          curl --fail --silent --show-error -X POST "$DEPLOYMENT_URL/api/release/final-closure"             -H "Authorization: Bearer $INGEST_SECRET"             -H "Content-Type: application/json"             --data "$BODY"
+          BODY=$(jq -cn \
+            --arg commitSha "$(echo "$HEALTH" | jq -r '.deploymentCommit // empty')" \
+            --arg workflowRunId "$GITHUB_RUN_ID" \
+            '{commitSha:$commitSha,workflowRunId:$workflowRunId,source:"production-cloudflare"}')
+          HTTP_CODE=$(curl --silent --show-error --output /tmp/final-closure-response.json --write-out "%{http_code}" \
+            -X POST "$DEPLOYMENT_URL/api/release/final-closure" \
+            -H "Authorization: Bearer $INGEST_SECRET" \
+            -H "Content-Type: application/json" \
+            --data "$BODY")
+          cat /tmp/final-closure-response.json
           echo
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "202" ]; then
+            echo "Final production closure returned unexpected HTTP $HTTP_CODE"
+            exit 1
+          fi
+          jq -e '.ok==true' /tmp/final-closure-response.json >/dev/null
+          jq -e '.diagnostics.certificateChain.valid==true' /tmp/final-closure-response.json >/dev/null
+          CERT_HEAD=$(jq -r '.persistence.certificateHead // empty' /tmp/final-closure-response.json)
+          CERT_COUNT=$(jq -r '.persistence.certificateCount // 0' /tmp/final-closure-response.json)
+          test "${#CERT_HEAD}" -eq 64
+          printf '%s' "$CERT_HEAD" | grep -Eq '^[a-f0-9]{64}$'
+          jq -cn \
+            --arg releaseVersion "$(jq -r '.report.releaseVersion // empty' /tmp/final-closure-response.json)" \
+            --arg commitSha "$(jq -r '.report.commitSha // empty' /tmp/final-closure-response.json)" \
+            --arg workflowRunId "$(jq -r '.report.workflowRunId // empty' /tmp/final-closure-response.json)" \
+            --arg source "$(jq -r '.report.source // empty' /tmp/final-closure-response.json)" \
+            --arg certificateHead "$CERT_HEAD" \
+            --argjson certificateCount "$CERT_COUNT" \
+            --argjson closed "$(jq '.closed==true' /tmp/final-closure-response.json)" \
+            --argjson blockers "$(jq '.report.blockers // []' /tmp/final-closure-response.json)" \
+            --arg diagnosticsStatus "$(jq -r '.diagnostics.status // "UNKNOWN"' /tmp/final-closure-response.json)" \
+            --arg recordedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{releaseVersion:$releaseVersion,commitSha:$commitSha,workflowRunId:$workflowRunId,
+              source:$source,closed:$closed,blockers:$blockers,certificateHead:$certificateHead,
+              certificateCount:$certificateCount,certificateChainValid:true,
+              diagnosticsStatus:$diagnosticsStatus,recordedAt:$recordedAt}' \
+            > /tmp/final-closure-receipt.json
+          {
+            echo "### Final production closure receipt"
+            echo "- Closed: **$(jq -r '.closed' /tmp/final-closure-receipt.json)**"
+            echo "- Certificate count: **$CERT_COUNT**"
+            echo "- Certificate head: `$CERT_HEAD`"
+            echo "- Workflow run: **$GITHUB_RUN_ID**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload final closure receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: edgeforce-final-closure-receipt-${{ env.DEPLOY_COMMIT }}-${{ github.run_id }}
+          path: /tmp/final-closure-receipt.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Publish deployment URL
         env:
