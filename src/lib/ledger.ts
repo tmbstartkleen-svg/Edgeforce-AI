@@ -137,7 +137,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
 export async function loadSettlementEvidenceHistory(limit=100){
  const sql=db();
  const bounded=Math.max(1,Math.min(500,Math.floor(Number(limit)||100)));
- if(!sql)return {mode:'dry-run' as const,rows:[],count:0,evidenceClasses:{}};
+ if(!sql)return {mode:'dry-run' as const,rows:[],count:0,evidenceClasses:{},identityMatches:{},identityCoverage:1};
  const rows=await sql`
   select
    le.id,
