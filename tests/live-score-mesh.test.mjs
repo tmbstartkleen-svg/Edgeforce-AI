@@ -191,3 +191,21 @@ test('V163 future-skewed live observations cannot earn FAST freshness or corrobo
  assert.equal(runtime.liveScoreConsensus([selected,other],selected,now).confidence,'SINGLE_SOURCE');
  assert.ok(runtime.liveGameQuality({...selected,observedAt:new Date(now).toISOString()},now)>runtime.liveGameQuality(selected,now));
 });
+
+
+test('V164 missing and malformed scores remain unknown, not zero',()=>{
+ const make=(homeScore,awayScore)=>runtime.parseEspnLiveGames({events:[{
+  id:'score-integrity',date:'2026-10-08T20:00:00Z',status:{type:{state:'in',detail:'Q1'}},
+  competitions:[{competitors:[
+   {homeAway:'home',score:homeScore,team:{displayName:'Home'}},
+   {homeAway:'away',score:awayScore,team:{displayName:'Away'}}
+  ]}]
+ }]},'NBA')[0];
+ for(const invalid of [null,undefined,'','  ','-','N/A',false,{},-1]){
+  const row=make(invalid,8);
+  assert.equal(row.home.score,null,String(invalid));
+  assert.equal(row.away.score,8);
+ }
+ assert.equal(make('0','12').home.score,0);
+ assert.equal(make(0,0).away.score,0);
+});
