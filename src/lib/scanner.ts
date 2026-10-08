@@ -1,6 +1,6 @@
 import type {Market,Ranked,RiskProfile} from './types';
 import {rankMarkets} from './engine';
-import {simulationTier,runGameStateSimulation} from './simulation';
+import {simulationTier,runGameStateSimulation,type SimulationTier} from './simulation';
 import {runSportOutcomeSimulation} from './sportOutcomeSimulation';
 import type {LearnedWeightMap} from './learnedWeights';
 import {calibrateDynamicConfidence,calibrationProfileKey,type DynamicCalibrationMap,type DynamicConfidenceLabel,type MarketRegime} from './regimeConfidence';
@@ -31,9 +31,16 @@ export type Scanned=Ranked & {
  simProjection:{homeMean?:number;awayMean?:number;totalMean?:number;marginMean?:number;selectionMean?:number;line?:number;unit?:string;distributionFamily?:string;distributionConfidence?:number;p10?:number;p50?:number;p90?:number;microUnit?:string;microUnitCount?:number};
 };
 
-export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap,dynamicCalibration:DynamicCalibrationMap={}):Scanned[]{
+export type ScanOptions={
+ simulationRunCap?:SimulationTier;
+ minDaysOut?:number;
+ maxDaysOut?:number;
+};
+
+export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap,dynamicCalibration:DynamicCalibrationMap={},options:ScanOptions={}):Scanned[]{
  return rankMarkets(rows,risk,learnedWeights).map((r):Scanned=>{
-  const runs=simulationTier(r.edge,r.confidence);
+  const requestedRuns=simulationTier(r.edge,r.confidence);
+  const runs=(options.simulationRunCap&&requestedRuns>options.simulationRunCap?options.simulationRunCap:requestedRuns) as SimulationTier;
   const sim=runSportOutcomeSimulation(r,runs,runGameStateSimulation);
   const profile=dynamicCalibration[calibrationProfileKey(r.sport,r.market)]??dynamicCalibration[calibrationProfileKey(r.sport,'*')]??dynamicCalibration[calibrationProfileKey('*','*')];
   const calibrated=calibrateDynamicConfidence({
@@ -95,7 +102,7 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
    dynamicConfidenceComponents:{...calibrated.components,contextQuality:contextScore},
    daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection
   };
- }).filter(x=>x.daysOut>=0&&x.daysOut<=8);
+ }).filter(x=>x.daysOut>=(options.minDaysOut??0)&&x.daysOut<=(options.maxDaysOut??8));
 }
 
 export function todayTop30(rows:Market[],risk:RiskProfile='Moderate',now=new Date(),learnedWeights?:LearnedWeightMap,dynamicCalibration:DynamicCalibrationMap={}){
