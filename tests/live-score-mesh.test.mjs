@@ -148,3 +148,27 @@ test('V148 consensus marks one-source live rows explicitly',()=>{
  assert.equal(reconciled[0].consensus.sourceCount,1);
  assert.equal(runtime.summarizeLiveScoreConsensus(reconciled).singleSource,1);
 });
+
+test('V157 duplicated provider observations cannot create false independent corroboration',()=>{
+ const now='2026-10-08T12:00:00.000Z';
+ const base={id:'dup',sport:'NBA',league:'NBA',status:'LIVE',detail:'Q4',clock:'01:00',period:'4',
+  startTime:'2026-10-08T11:00:00.000Z',home:{name:'Home',score:90},away:{name:'Away',score:88}};
+ const first={...base,source:'espn-cdn',observedAt:now};
+ const second={...base,source:'espn-cdn',observedAt:now};
+ const result=runtime.liveScoreConsensus([first,second],first,Date.parse(now));
+ assert.equal(result.sourceCount,1);
+ assert.equal(result.observationCount,2);
+ assert.equal(result.agreeingSources,1);
+ assert.equal(result.confidence,'SINGLE_SOURCE');
+});
+
+test('V157 only contemporaneous independent providers qualify for consensus',()=>{
+ const now='2026-10-08T12:00:00.000Z';
+ const base={id:'stale-peer',sport:'NHL',league:'NHL',status:'LIVE',detail:'P3',
+  startTime:'2026-10-08T11:00:00.000Z',home:{name:'Home',score:3},away:{name:'Away',score:2}};
+ const selected={...base,source:'nhl-web',observedAt:now};
+ const old={...base,source:'thesportsdb',observedAt:'2026-10-08T11:59:30.000Z'};
+ const result=runtime.liveScoreConsensus([selected,old],selected,Date.parse(now));
+ assert.equal(result.sourceCount,1);
+ assert.equal(result.confidence,'SINGLE_SOURCE');
+});
