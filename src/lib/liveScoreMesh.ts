@@ -445,6 +445,9 @@ export async function fetchLiveScoreMesh(){
  const specialized=[...nhlNative,...mlbNative];
  const sportScoreGames=Array.isArray(sportScore.games)?sportScore.games:[];
  const communityGames=Array.isArray(community.games)?community.games:[];
+ const allPrimaryFailed=settled.length>0&&settled.every(result=>result.status==='rejected');
+ const totalProviderOutage=allPrimaryFailed&&sportScoreGames.length===0&&communityGames.length===0;
+ if(totalProviderOutage)warnings.push('All primary live-score requests failed and no backup scores were available');
  const games=reconcileLiveGames(specialized,espnGames,sportScoreGames as LiveGameState[],communityGames as LiveGameState[])
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
  const freshness=evaluateLiveScoreFreshness(games);
@@ -454,7 +457,7 @@ export async function fetchLiveScoreMesh(){
   .slice(0,8)
   .map(x=>`live score conflict ${x.away.name} @ ${x.home.name}: selected ${x.source}; ${x.consensus?.reasons.join('; ')}`);
  return {
-  ok:true,
+  ok:!totalProviderOutage,
   generatedAt:new Date().toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   uiRefreshMs:freshness.recommendedUiRefreshMs,
