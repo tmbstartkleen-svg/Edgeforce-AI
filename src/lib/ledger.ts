@@ -324,9 +324,16 @@ export async function reconcileLedgerResults(results:any[]){
   evidenceClasses[evidenceClass]=(evidenceClasses[evidenceClass]||0)+1;
  }
  const sql=db();
- if(!sql)return {matchedLegs:0,settledSlips:0,provenanceWritten:0,evidenceEvents:0,evidenceClasses,mode:'dry-run' as const};
+ if(!sql)return {
+  matchedLegs:0,settledSlips:0,
+  internalIdentityMatches:0,frozenSourceIdentityMatches:0,mappedSourceIdentityMatches:0,
+  provenanceWritten:0,evidenceEvents:0,evidenceClasses,mode:'dry-run' as const
+ };
  const affected=new Set<string>();
  let matchedLegs=0;
+ let internalIdentityMatches=0;
+ let frozenSourceIdentityMatches=0;
+ let mappedSourceIdentityMatches=0;
  let provenanceWritten=0;
  let evidenceEvents=0;
  for(const result of results){
@@ -338,12 +345,29 @@ export async function reconcileLedgerResults(results:any[]){
     settled_at=${result.settledAt??new Date().toISOString()}
    from bet_slips bs
    where bl.bet_slip_id=bs.id and bs.result='open'
-    and bl.event_id=${result.eventId}
+    and (
+     bl.event_id=${result.eventId}
+     or nullif(bl.metadata->>'sourceEventId','')=${result.eventId}
+     or exists(
+      select 1 from events e
+      where e.id=bl.event_id and nullif(e.provider_event_id,'')=${result.eventId}
+     )
+    )
     and lower(bl.selection)=lower(${result.selectionKey})
     and (${result.marketKey??null}::text is null or lower(bl.market_type)=lower(${result.marketKey??''}))
-   returning bl.bet_slip_id as id,bl.ordinal
+   returning
+    bl.bet_slip_id as id,
+    bl.ordinal,
+    bl.event_id as "ledgerEventId",
+    nullif(bl.metadata->>'sourceEventId','') as "sourceEventId"
   `;
-  for(const row of rows as any[]){affected.add(String(row.id));matchedLegs++}
+  for(const row of rows as any[]){
+   affected.add(String(row.id));
+   matchedLegs++;
+   if(String(row.ledgerEventId)===String(result.eventId))internalIdentityMatches++;
+   else if(row.sourceEventId&&String(row.sourceEventId)===String(result.eventId))frozenSourceIdentityMatches++;
+   else mappedSourceIdentityMatches++;
+  }
 
   const provenance=result.settlementProvenance&&typeof result.settlementProvenance==='object'?result.settlementProvenance:null;
   if(provenance&&rows.length){
@@ -357,11 +381,22 @@ export async function reconcileLedgerResults(results:any[]){
      )
     from bet_slips bs
     where bl.bet_slip_id=bs.id and bs.result='open'
-     and bl.event_id=${result.eventId}
+     and (
+      bl.event_id=${result.eventId}
+      or nullif(bl.metadata->>'sourceEventId','')=${result.eventId}
+      or exists(
+       select 1 from events e
+       where e.id=bl.event_id and nullif(e.provider_event_id,'')=${result.eventId}
+      )
+     )
      and lower(bl.selection)=lower(${result.selectionKey})
      and (${result.marketKey??null}::text is null or lower(bl.market_type)=lower(${result.marketKey??''}))
      and (bl.metadata->'settlementProvenance') is distinct from ${sql.json(provenance)}::jsonb
-    returning bl.bet_slip_id as id,bl.ordinal
+    returning
+     bl.bet_slip_id as id,
+     bl.ordinal,
+     bl.event_id as "ledgerEventId",
+     nullif(bl.metadata->>'sourceEventId','') as "sourceEventId"
    `;
    provenanceWritten+=evidenceRows.length;
    for(const row of evidenceRows as any[]){
@@ -373,7 +408,14 @@ export async function reconcileLedgerResults(results:any[]){
       ${String((provenance as any).source||'results-provider')},
       ${sql.json({
        ordinal:Number(row.ordinal),
-       eventId:String(result.eventId),
+       eventId:String(row.ledgerEventId||result.eventId),
+       resultEventId:String(result.eventId),
+       sourceEventId:row.sourceEventId?String(row.sourceEventId):null,
+       identityMatch:String(row.ledgerEventId)===String(result.eventId)
+        ?'INTERNAL_EVENT_ID'
+        :row.sourceEventId&&String(row.sourceEventId)===String(result.eventId)
+          ?'FROZEN_SOURCE_EVENT_ID'
+          :'EVENT_PROVIDER_MAPPING',
        marketKey:String(result.marketKey||''),
        selectionKey:String(result.selectionKey),
        result:String(result.result),
@@ -398,5 +440,15 @@ export async function reconcileLedgerResults(results:any[]){
   }
  }
  invalidateLedgerCache();
- return {matchedLegs,settledSlips,provenanceWritten,evidenceEvents,evidenceClasses,mode:'database' as const};
+ return {
+  matchedLegs,
+  settledSlips,
+  internalIdentityMatches,
+  frozenSourceIdentityMatches,
+  mappedSourceIdentityMatches,
+  provenanceWritten,
+  evidenceEvents,
+  evidenceClasses,
+  mode:'database' as const
+ };
 }
