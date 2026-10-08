@@ -22,6 +22,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
    status:'UNAVAILABLE' as const,
    operatorReady:false,
    commitSha:null,
+   commitBinding:{certified:false,expected:null,observed:null,match:false},
    workflowBinding:{certified:false,expected:null,observed:null,match:false},
    settlement:{certified:false,mode:null,noop:false,matchedLegs:0,identityCertified:false,identityCoverage:0,identityStrength:'UNVERIFIED',mappedIdentityShare:0,fallbackEvidenceCertified:null},
    topology:{platformConverged:false,standbyCommitDrift:false,standbyCommitSha:null},
@@ -31,6 +32,9 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
  }
  const evidence=obj(input.evidence);
  const blockers=list(input.blockers);
+ const expectedCommit=String(input.commitSha||'')||null;
+ const observedCommit=String(evidence.settlementCommitSha||'')||null;
+ const commitBound=Boolean(expectedCommit&&observedCommit&&expectedCommit===observedCommit);
  const expected=String(evidence.settlementExpectedWorkflowRunId||input.workflowRunId||'')||null;
  const observed=String(evidence.settlementWorkflowRunId||'')||null;
  const workflowBound=Boolean(evidence.settlementWorkflowBound&&expected&&observed&&expected===observed);
@@ -38,6 +42,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
  const mappedShare=Number(evidence.settlementMappedIdentityShare||0);
  const matchedLegs=Math.max(0,Number(evidence.settlementMatchedLegs||0));
  const anomalies:string[]=[];
+ if(!commitBound)anomalies.push('SETTLEMENT_COMMIT_NOT_BOUND');
  if(!workflowBound)anomalies.push('SETTLEMENT_WORKFLOW_NOT_BOUND');
  if(evidence.settlementCertified!==true)anomalies.push('SETTLEMENT_NOT_CERTIFIED');
  if(evidence.settlementIdentityCertified!==true)anomalies.push('SETTLEMENT_IDENTITY_NOT_CERTIFIED');
@@ -55,6 +60,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
   &&input.postPromotionVerified
   &&input.platformConverged
   &&input.rollbackClear
+  &&commitBound
   &&workflowBound
   &&evidence.settlementCertified===true
   &&evidence.settlementIdentityCertified===true
@@ -68,6 +74,12 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
   status:operatorReady?'CLOSED' as const:'PENDING' as const,
   operatorReady,
   commitSha:String(input.commitSha||'')||null,
+  commitBinding:{
+   certified:commitBound,
+   expected:expectedCommit,
+   observed:observedCommit,
+   match:Boolean(expectedCommit&&observedCommit&&expectedCommit===observedCommit)
+  },
   workflowBinding:{
    certified:workflowBound,
    expected,

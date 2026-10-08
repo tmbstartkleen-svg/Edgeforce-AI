@@ -157,6 +157,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
    convergenceId:convergence?.id||null,
    rollbackId:rollback?.id||null,
    settlementCertified,
+   settlementCommitSha:settlementMetadata?.deploymentCommit||null,
    settlementWorkflowBound,
    settlementExpectedWorkflowRunId:expectedWorkflowRunId||null,
    settlementWorkflowRunId:settlementMetadata?.deploymentWorkflowRunId||null,

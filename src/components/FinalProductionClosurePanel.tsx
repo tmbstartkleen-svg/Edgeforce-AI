@@ -13,6 +13,7 @@ type ClosureEvidence={
  standbyCommitDrift?:boolean;
  standbyCommitSha?:string|null;
  settlementCertified?:boolean;
+ settlementCommitSha?:string|null;
  settlementWorkflowBound?:boolean;
  settlementExpectedWorkflowRunId?:string|null;
  settlementWorkflowRunId?:string|null;
@@ -45,6 +46,12 @@ type Diagnostics={
  available?:boolean;
  status?:string;
  operatorReady?:boolean;
+ commitBinding?:{
+  certified?:boolean;
+  expected?:string|null;
+  observed?:string|null;
+  match?:boolean;
+ };
  workflowBinding?:{
   certified?:boolean;
   expected?:string|null;
@@ -89,6 +96,7 @@ export default function FinalProductionClosurePanel(){
  const settlementState=evidence.settlementCertified?'PASS':'—';
  const fallbackState=fallbackUsed?(evidence.settlementFallbackEvidenceCertified?'CERTIFIED':'BLOCKED'):'N/A';
  const identityStrength=evidence.settlementIdentityStrength||'—';
+ const commitBound=diagnostics?.commitBinding?.certified??Boolean(x?.commitSha&&evidence.settlementCommitSha===x.commitSha);
  const workflowBound=diagnostics?.workflowBinding?.certified??Boolean(evidence.settlementWorkflowBound);
  const expectedRun=diagnostics?.workflowBinding?.expected||evidence.settlementExpectedWorkflowRunId||x?.workflowRunId||null;
  const observedRun=diagnostics?.workflowBinding?.observed||evidence.settlementWorkflowRunId||null;
@@ -109,6 +117,7 @@ export default function FinalProductionClosurePanel(){
    <div><small>STANDBY</small><strong>{x?.platformConverged?'READY':'—'}</strong><span>Vercel manual DR</span></div>
    <div><small>ROLLBACK</small><strong>{x?.rollbackClear?'CLEAR':'—'}</strong><span>primary revocation integrity</span></div>
    <div><small>SETTLEMENT</small><strong>{settlementState}</strong><span>{evidence.settlementMode||'no commit-bound evidence'}</span></div>
+   <div><small>SHA BOUND</small><strong>{commitBound?'PASS':'—'}</strong><span>{short(diagnostics?.commitBinding?.observed||evidence.settlementCommitSha)} / expected {short(diagnostics?.commitBinding?.expected||x?.commitSha)}</span></div>
    <div><small>RUN BOUND</small><strong>{workflowBound?'PASS':'—'}</strong><span>{short(observedRun)} / expected {short(expectedRun)}</span></div>
    <div><small>ID COVERAGE</small><strong>{pct(evidence.settlementIdentityCoverage)}</strong><span>{identityStrength} identity path</span></div>
    <div><small>MAPPED SHARE</small><strong>{pct(evidence.settlementMappedIdentityShare)}</strong><span>{Number(identity.eventProviderMapping||0)} mapped / {Number(identity.total||0)} matched</span></div>
