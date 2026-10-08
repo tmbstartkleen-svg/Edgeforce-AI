@@ -94,14 +94,14 @@ function normalizeTeamKey(value:string){
 export function liveGameIdentity(game:LiveGameState){
  const start=game.startTime?Date.parse(game.startTime):NaN;
  const bucket=Number.isFinite(start)?Math.floor(start/(3*60*60*1000)):String(game.startTime||'').slice(0,10);
- return [normalizeTeamKey(game.away.name),normalizeTeamKey(game.home.name),String(bucket)].join('|');
+ return [normalizeTeamKey(game.league),normalizeTeamKey(game.away.name),normalizeTeamKey(game.home.name),String(bucket)].join('|');
 }
 function statusRank(status:LiveGameState['status']){
  return status==='FINAL'?16:status==='LIVE'?14:status==='DELAYED'?8:status==='SCHEDULED'?4:0;
 }
 export function liveGameQuality(game:LiveGameState,now=Date.now()){
  const observed=Date.parse(game.observedAt);
- const ageMs=Number.isFinite(observed)?Math.max(0,now-observed):60000;
+ const ageMs=Number.isFinite(observed)&&observed<=now+2000?Math.max(0,now-observed):60000;
  const source=SOURCE_PRIORITY[game.source]??40;
  const scores=(game.home.score!==null?5:0)+(game.away.score!==null?5:0);
  const clock=game.clock?8:0;
@@ -126,7 +126,8 @@ function liveStatusConflict(a:LiveGameState,b:LiveGameState){
 }
 export function liveScoreConsensus(observations:LiveGameState[],selected:LiveGameState,now=Date.now()):LiveScoreConsensus{
  const selectedAt=observationTime(selected)||now;
- const contemporaneous=observations.filter(x=>Math.abs(selectedAt-(observationTime(x)||selectedAt))<=consensusWindowMs());
+ const validObservation=(game:LiveGameState)=>{const at=observationTime(game);return at>0&&at<=now+2000&&now-at<=30000;};
+ const contemporaneous=observations.filter(x=>validObservation(x)&&Math.abs(selectedAt-observationTime(x))<=consensusWindowMs());
  // Only a single latest observation per provider counts toward independent consensus.
  const peersBySource=new Map<string,LiveGameState>();
  for(const game of contemporaneous){
@@ -142,7 +143,7 @@ export function liveScoreConsensus(observations:LiveGameState[],selected:LiveGam
  const activeConflicts=conflicting.filter(x=>selectedAt-observationTime(x)<=lagToleranceMs());
  const statusConflicts=peers.filter(x=>liveStatusConflict(x,selected));
  const trusted=(SOURCE_PRIORITY[selected.source]??40)>=100;
- const selectedAge=Math.max(0,now-selectedAt);
+ const selectedAge=validObservation(selected)?Math.max(0,now-selectedAt):Number.POSITIVE_INFINITY;
  const reasons:string[]=[];
  if(agreeing.length>=2)reasons.push('score corroborated by multiple sources');
  if(uniqueSources.length>=2)reasons.push(uniqueSources.length+' independent sources observed');
@@ -151,7 +152,8 @@ export function liveScoreConsensus(observations:LiveGameState[],selected:LiveGam
  if(statusConflicts.length)reasons.push(statusConflicts.length+' status conflict'+(statusConflicts.length===1?'':'s')+' detected');
  if(trusted)reasons.push('selected source is a high-trust league or ESPN feed');
  let confidence:LiveScoreConsensus['confidence']='SINGLE_SOURCE';
- if(uniqueSources.length>=2){
+ if(!validObservation(selected))reasons.push('Selected observation lacks a valid recent timestamp');
+ if(uniqueSources.length>=2&&validObservation(selected)){
   if(agreeing.length>=2&&!activeConflicts.length&&!statusConflicts.length)confidence='HIGH';
   else if(!activeConflicts.length&&!statusConflicts.length&&(trusted||agreeing.length>=1))confidence='MEDIUM';
   else if(trusted&&selectedAge<=5000&&activeConflicts.length<=1&&!statusConflicts.length)confidence='MEDIUM';
@@ -216,7 +218,7 @@ export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now())
  const live=games.filter(x=>x.status==='LIVE');
  const ages=live.map(x=>{
   const observed=Date.parse(x.observedAt);
-  return Number.isFinite(observed)?Math.max(0,now-observed):Number.POSITIVE_INFINITY;
+  return Number.isFinite(observed)&&observed<=now+2000?Math.max(0,now-observed):Number.POSITIVE_INFINITY;
  });
  const maxLiveAgeMs=ages.length?Math.max(...ages):0;
  const clockCoverage=live.length?live.filter(x=>Boolean(x.clock)).length/live.length:1;
