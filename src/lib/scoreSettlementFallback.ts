@@ -151,9 +151,16 @@ export async function finalScoreSettlementRows():Promise<{
  if(!sql)return {available:false,rows:[],matchedGames:0,candidateLegs:0,warnings:['Database unavailable for final-score settlement fallback'],evidence:emptyEvidence};
 
  const legs=await sql`
-  select bl.event_id as "eventId",bl.event_label as "eventLabel",bl.market_type as "marketType",bl.selection
+  select
+   bl.event_id as "eventId",
+   bl.event_label as "eventLabel",
+   bl.sport,
+   bl.market_type as "marketType",
+   bl.selection,
+   nullif(e.provider_event_id,'') as "sourceEventId"
   from bet_legs bl
   join bet_slips bs on bs.id=bl.bet_slip_id
+  left join events e on e.id=bl.event_id
   where bs.result='open' and bl.result='unknown'
    and bl.event_id is not null and bl.event_label is not null
  `;
@@ -176,8 +183,18 @@ export async function finalScoreSettlementRows():Promise<{
   blockedSingleSource:blocked.filter(x=>x.decision.confidence==='SINGLE_SOURCE'&&!x.decision.trustedSingleSource).length
  };
  const finals=accepted.map(x=>x.game);
+ const bySourceId=new Map<string,any[]>();
  const byLabel=new Map<string,any[]>();
+ const sourceKey=(sport:string,id:string)=>[canon(sport),String(id).trim().toLowerCase()].join('|');
  for(const g of finals){
+  if(g.id){
+   for(const sport of [String(g.sport||''),String(g.league||'')].filter(Boolean)){
+    const key=sourceKey(sport,String(g.id));
+    const list=bySourceId.get(key)||[];
+    list.push(g);
+    bySourceId.set(key,list);
+   }
+  }
   const label=canon(`${g.away.name} @ ${g.home.name}`);
   const list=byLabel.get(label)||[];
   list.push(g);
@@ -188,9 +205,14 @@ export async function finalScoreSettlementRows():Promise<{
  let matchedGames=0;
  const warnings:string[]=blocked.slice(0,12).map(({game,decision}:any)=>`Blocked final-score settlement for ${String(game?.away?.name||'Away')} @ ${String(game?.home?.name||'Home')}: ${decision.reason}`);
  for(const leg of legs as any[]){
-  const matches=byLabel.get(canon(String(leg.eventLabel)))||[];
+  const exact=leg.sourceEventId
+   ?bySourceId.get(sourceKey(String(leg.sport||''),String(leg.sourceEventId)))||[]
+   :[];
+  const labelMatches=byLabel.get(canon(String(leg.eventLabel)))||[];
+  const matches=exact.length===1?exact:labelMatches;
   if(matches.length!==1){
-   if(matches.length>1)warnings.push(`Ambiguous final scoreboard match for ${String(leg.eventLabel)}`);
+   if(exact.length>1)warnings.push(`Ambiguous source event id match for ${String(leg.sourceEventId)} (${String(leg.sport||'Unknown')})`);
+   else if(labelMatches.length>1)warnings.push(`Ambiguous final scoreboard match for ${String(leg.eventLabel)}`);
    continue;
   }
   const g=matches[0];
@@ -218,7 +240,7 @@ export async function finalScoreSettlementRows():Promise<{
     confidence:decision.confidence,
     sourceCount:decision.sourceCount,
     agreeingSources:decision.agreeingSources,
-    reason:decision.reason,
+    reason:exact.length===1?`${decision.reason}; exact provider event identity matched`:decision.reason,
     observedAt:String(g.observedAt||new Date().toISOString()),
     finalScore:{
      homeTeam:String(g.home.name),
