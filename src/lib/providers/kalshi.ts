@@ -22,6 +22,17 @@ type KalshiMarketsResponse={
 };
 
 const base=()=>String(process.env.KALSHI_API_BASE_URL||'https://external-api.kalshi.com/trade-api/v2').replace(/\/$/,'');
+// Per-isolate cooldown prevents repeated rejected requests within one Worker instance.
+// It is advisory across isolates; a shared distributed quota manager can complement it.
+let cooldownUntil=0;
+let lastFailureKind='';
+const failureKind=(status:number)=>status===429?'rate_limited':status===401||status===403?'unauthorized':status===400||status===404?'bad_request':status>=500?'upstream_unavailable':'http_error';
+const retryDelay=(header:string|null,now:number)=>{
+ if(!header)return 60000;
+ const seconds=Number(header);
+ const time=Number.isFinite(seconds)?now+seconds*1000:Date.parse(header);
+ return Number.isFinite(time)?Math.max(1000,Math.min(300000,time-now)):60000;
+};
 const clamp=(n:number)=>Math.max(.001,Math.min(.999,n));
 const numberValue=(value:unknown)=>{
  const n=Number(value);
@@ -48,6 +59,7 @@ function contractTitle(row:KalshiMarket,index:number){
 }
 
 async function getPage(cursor?:string){
+ if(Date.now()<cooldownUntil)return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:'Kalshi provider cooldown active',errorKind:lastFailureKind||'cooldown',retryAfterMs:cooldownUntil-Date.now()};
  const url=new URL(base()+'/markets');
  url.searchParams.set('status','open');
  const pageLimit=Math.max(50,Math.min(1000,Number(process.env.KALSHI_MARKET_PAGE_LIMIT||1000)));
@@ -59,7 +71,17 @@ async function getPage(cursor?:string){
  const timer=setTimeout(()=>controller.abort(),Math.max(3000,Number(process.env.KALSHI_TIMEOUT_MS||8000)));
  try{
   const res=await fetch(url,{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});
-  if(!res.ok)return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:`HTTP ${res.status}`};
+  if(!res.ok){
+   const kind=failureKind(res.status);
+   lastFailureKind=kind;
+   if(res.status===429||res.status===401||res.status===403||res.status>=500){
+    const delay=res.status===429?retryDelay(res.headers.get('retry-after'),Date.now()):res.status>=500?30000:300000;
+    cooldownUntil=Date.now()+delay;
+   }
+   return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:`Kalshi ${kind} (HTTP ${res.status})`,errorKind:kind,retryAfterMs:Math.max(0,cooldownUntil-Date.now())};
+  }
+  cooldownUntil=0;
+  lastFailureKind='';
   const payload=await res.json() as KalshiMarketsResponse;
   return {
    ok:true as const,
@@ -88,10 +110,12 @@ export async function fetchPublicKalshi(){
  const rows:KalshiMarket[]=[];
  let cursor='';
  let error:string|undefined;
+ let errorKind:string|undefined;
+ let retryAfterMs:number|undefined;
 
  for(let page=0;page<maxPages;page++){
   const result=await getPage(cursor||undefined);
-  if(!result.ok){error=result.error;break}
+  if(!result.ok){error=result.error;errorKind=result.errorKind;retryAfterMs=result.retryAfterMs;break}
   rows.push(...result.rows);
   if(!result.cursor||result.cursor===cursor)break;
   cursor=result.cursor;
@@ -126,6 +150,8 @@ export async function fetchPublicKalshi(){
   ok:contracts.length>0,
   source:'Kalshi',
   contracts,
-  error:contracts.length?undefined:(error||'No open Kalshi markets returned')
+  error:contracts.length?undefined:(error||'No open Kalshi markets returned'),
+  errorKind:contracts.length?undefined:errorKind,
+  retryAfterMs:contracts.length?undefined:retryAfterMs
  };
 }
