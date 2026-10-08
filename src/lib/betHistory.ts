@@ -9,6 +9,7 @@ export type HistoricalLeg={
   closingOdds?:number;
   clv?:number;
   eventId?:string;
+  sourceEventId?:string;
   event?:string;
   modelProbability?:number;
 };

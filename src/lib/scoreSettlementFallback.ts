@@ -157,7 +157,7 @@ export async function finalScoreSettlementRows():Promise<{
    bl.sport,
    bl.market_type as "marketType",
    bl.selection,
-   nullif(e.provider_event_id,'') as "sourceEventId"
+   nullif(coalesce(bl.metadata->>'sourceEventId',e.provider_event_id),'') as "sourceEventId"
   from bet_legs bl
   join bet_slips bs on bs.id=bl.bet_slip_id
   left join events e on e.id=bl.event_id
