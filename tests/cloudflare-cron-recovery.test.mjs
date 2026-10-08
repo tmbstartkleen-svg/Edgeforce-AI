@@ -64,3 +64,11 @@ test('prediction warehouse prime waits for Worker secret and route convergence',
  assert.match(prime,/Cache-Control: no-store/);
  assert.match(prime,/prediction-prime route\/secret convergence/);
 });
+
+
+test('V158 hosted preview distinguishes Cloudflare hostname 404 from application health',()=>{
+ const preview=readFileSync(new URL('../scripts/cloudflare-preview-smoke.mjs',import.meta.url),'utf8');
+ assert.match(preview,/platform404Count>=3/);
+ assert.match(preview,/Cloudflare preview hostname is not serving the deployed Worker/);
+ assert.match(preview,/content-type/);
+});
