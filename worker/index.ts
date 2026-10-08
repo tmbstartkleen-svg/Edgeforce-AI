@@ -1,5 +1,15 @@
 import handler from 'vinext/server/fetch-handler';
 import {withDatabaseScope} from '../src/lib/db';
+import {GET as runInjuryCron} from '../src/app/api/cron/injuries/route';
+import {GET as runScanCron} from '../src/app/api/cron/scan/route';
+import {GET as runDecisionCron} from '../src/app/api/cron/decision/route';
+import {GET as runSettleCron} from '../src/app/api/cron/settle/route';
+import {GET as runHeartbeatCron} from '../src/app/api/cron/heartbeat/route';
+import {GET as runPredictionCron} from '../src/app/api/cron/predictions/route';
+import {GET as runSloCron} from '../src/app/api/cron/slo-governor/route';
+import {GET as runTopologyCron} from '../src/app/api/cron/topology-watchdog/route';
+import {GET as runRecalibrateCron} from '../src/app/api/cron/recalibrate/route';
+import {POST as runProviderCertification} from '../src/app/api/providers/certify/route';
 
 type EdgeforceEnv={
  CRON_SECRET?:string;
@@ -16,47 +26,55 @@ type ExecutionContextLike={
  waitUntil(promise:Promise<unknown>):void;
 };
 
-async function callInternal(path:string,env:EdgeforceEnv,ctx:ExecutionContextLike,secretName:'CRON_SECRET'|'INGEST_SECRET'){
+type ScheduledRoute=(request:Request)=>Promise<Response>;
+
+async function callScheduledRoute(
+ path:string,
+ route:ScheduledRoute,
+ env:EdgeforceEnv,
+ secretName:'CRON_SECRET'|'INGEST_SECRET',
+ options:{method?:'GET'|'POST';allowStatuses?:number[]}={}
+){
  const secret=String(env[secretName]||'');
  const request=new Request(`https://edgeforce.internal${path}`,{
-  method:path.startsWith('/api/providers/certify')?'POST':'GET',
+  method:options.method||'GET',
   headers:secret?{authorization:`Bearer ${secret}`}:{},
  });
- // Keep every in-flight internal route in the scheduled invocation's lifetime,
- // even if a sibling fails first. All routes share only this invocation's pool.
- const task=(async()=>{
-  const response=await handler.fetch(request,env as any,ctx as any);
-  const body=await response.text();
-  if(!response.ok){
-   throw new Error(`${path} failed with ${response.status}${body?`: ${body.slice(0,240)}`:''}`);
-  }
-  return {status:response.status};
- })();
- ctx.waitUntil(task);
- return task;
+ const response=await route(request);
+ const body=await response.text();
+ const allowed=options.allowStatuses||[];
+ if(!response.ok&&!allowed.includes(response.status)){
+  throw new Error(`${path} failed with ${response.status}${body?`: ${body.slice(0,240)}`:''}`);
+ }
+ return {status:response.status};
 }
 
-async function runInjuries(env:EdgeforceEnv,ctx:ExecutionContextLike){
- await callInternal('/api/cron/injuries',env,ctx,'CRON_SECRET');
+async function runInjuries(env:EdgeforceEnv){
+ await callScheduledRoute('/api/cron/injuries',runInjuryCron,env,'CRON_SECRET');
 }
 
-async function runHourly(env:EdgeforceEnv,ctx:ExecutionContextLike){
- await callInternal('/api/cron/scan',env,ctx,'CRON_SECRET');
- await Promise.all([
-  callInternal('/api/cron/decision',env,ctx,'CRON_SECRET'),
-  callInternal('/api/cron/settle',env,ctx,'CRON_SECRET'),
-  callInternal('/api/cron/heartbeat',env,ctx,'CRON_SECRET'),
-  callInternal('/api/cron/predictions',env,ctx,'CRON_SECRET'),
-  callInternal('/api/cron/slo-governor',env,ctx,'CRON_SECRET'),
-  callInternal('/api/cron/topology-watchdog',env,ctx,'CRON_SECRET'),
- ]);
+async function runHourlyShard(controller:ScheduledControllerLike,env:EdgeforceEnv){
+ const minute=new Date(controller.scheduledTime).getUTCMinutes();
+ if(minute===3)return callScheduledRoute('/api/cron/scan',runScanCron,env,'CRON_SECRET');
+ if(minute===13)return callScheduledRoute('/api/cron/decision',runDecisionCron,env,'CRON_SECRET');
+ if(minute===23)return callScheduledRoute('/api/cron/settle',runSettleCron,env,'CRON_SECRET');
+ if(minute===33)return callScheduledRoute('/api/cron/predictions',runPredictionCron,env,'CRON_SECRET');
+ if(minute===43)return callScheduledRoute('/api/cron/heartbeat',runHeartbeatCron,env,'CRON_SECRET');
+ if(minute===53){
+  await callScheduledRoute('/api/cron/slo-governor',runSloCron,env,'CRON_SECRET');
+  return callScheduledRoute('/api/cron/topology-watchdog',runTopologyCron,env,'CRON_SECRET');
+ }
 }
 
-async function runDaily(env:EdgeforceEnv,ctx:ExecutionContextLike){
- await Promise.all([
-  callInternal('/api/cron/recalibrate',env,ctx,'CRON_SECRET'),
-  callInternal('/api/providers/certify',env,ctx,'INGEST_SECRET'),
- ]);
+async function runDailyShard(controller:ScheduledControllerLike,env:EdgeforceEnv){
+ const minute=new Date(controller.scheduledTime).getUTCMinutes();
+ if(minute===15)return callScheduledRoute('/api/cron/recalibrate',runRecalibrateCron,env,'CRON_SECRET');
+ if(minute===45){
+  return callScheduledRoute('/api/providers/certify',runProviderCertification,env,'INGEST_SECRET',{
+   method:'POST',
+   allowStatuses:[422]
+  });
+ }
 }
 
 const worker={
@@ -64,10 +82,11 @@ const worker={
   return withDatabaseScope(scoped=>handler.fetch(request,env as any,scoped as any),env,ctx);
  },
  async scheduled(controller:ScheduledControllerLike,env:EdgeforceEnv,ctx:ExecutionContextLike){
-  const task=withDatabaseScope(scoped=>
-   controller.cron==='15 6 * * *'?runDaily(env,scoped):controller.cron==='*/15 * * * *'?runInjuries(env,scoped):runHourly(env,scoped),
-   env,ctx
-  );
+  const task=withDatabaseScope(async()=>{
+   if(controller.cron==='*/15 * * * *')return runInjuries(env);
+   if(controller.cron==='3,13,23,33,43,53 * * * *')return runHourlyShard(controller,env);
+   if(controller.cron==='15,45 6 * * *')return runDailyShard(controller,env);
+  },env,ctx);
   ctx.waitUntil(task);
  },
 };

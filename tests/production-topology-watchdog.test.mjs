@@ -21,12 +21,16 @@ test('V146 requires current certified Cloudflare primary and closed production c
  assert.match(watchdog,/primary\?\.platformReady===true/);
 });
 
-test('V146 failover readiness requires a healthy manual READY Vercel standby',()=>{
+test('V146 watchdog keeps a healthy manual READY standby operational while gating failover on compatibility',()=>{
  assert.match(watchdog,/standby\?\.manualOnly===true/);
  assert.match(watchdog,/String\(standby\?\.state\|\|''\)\.toUpperCase\(\)==='READY'/);
+ assert.match(watchdog,/const standbyReachable=Boolean/);
  assert.match(watchdog,/input\.standbyHealth\.httpStatus===200/);
+ assert.match(watchdog,/const standbyReleaseCompatible=Boolean/);
  assert.match(watchdog,/input\.standbyHealth\.version===RELEASE\.appVersion/);
  assert.match(watchdog,/Number\(input\.standbyHealth\.migrationVersion\)===RELEASE\.migrationVersion/);
+ assert.match(watchdog,/const ready=blockers\.length===0&&primaryCurrent&&standbyConfigured&&standbyReachable/);
+ assert.match(watchdog,/const failoverReady=primaryCurrent&&standbyConfigured&&standbyReachable&&standbyReleaseCompatible/);
 });
 
 test('V146 never enables automatic standby promotion',()=>{
@@ -43,7 +47,8 @@ test('V146 standby probe retries transient failures but stays bounded',()=>{
 });
 
 test('V146 hourly Cloudflare cron records topology watchdog health',()=>{
- assert.match(worker,/\/api\/cron\/topology-watchdog/);
+ assert.match(worker,/runTopologyCron/);
+ assert.match(worker,/53/);
  assert.match(automation,/jobName:'topology-watchdog',maxGapHours:2/);
  assert.match(cron,/recordAutomationRun\('topology-watchdog'/);
  assert.match(cron,/status:report\.ready\?200:503/);

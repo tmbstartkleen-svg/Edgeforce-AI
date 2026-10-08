@@ -576,10 +576,10 @@ add('Cloudflare runtime environment identity',wrangler.includes('"DEPLOYMENT_ENV
 add('Cloudflare model identity',wrangler.includes(`"MODEL_VERSION": "${expected.modelVersion}"`),expected.modelVersion);
 add('Cloudflare account target',wrangler.includes('"account_id": "de9b84b39940a0b5b622ae5d27b415dc"'),'selected Cloudflare account is pinned');
 add('Cloudflare custom Worker entry',wrangler.includes('"main": "./worker/index.ts"'),'custom fetch + scheduled entrypoint');
-add('Cloudflare hourly autopilot cron',wrangler.includes('"0 * * * *"'),'hourly live-data automation');
+add('Cloudflare hourly autopilot cron',wrangler.includes('"3,13,23,33,43,53 * * * *"'),'sharded hourly live-data automation');
 add('Cloudflare 15-minute injury cron',wrangler.includes('"*/15 * * * *"')&&read('worker/index.ts').includes("/api/cron/injuries"),'intraday injury refresh every 15 minutes');
 add('Cloudflare prediction intelligence cron',read('worker/index.ts').includes("/api/cron/predictions"),'hourly prediction-market history collection runs on Workers');
-add('Cloudflare daily certification cron',wrangler.includes('"15 6 * * *"'),'daily recalibration and provider certification');
+add('Cloudflare daily certification cron',wrangler.includes('"15,45 6 * * *"'),'sharded daily recalibration and provider certification');
 add('Cloudflare production demo disabled',wrangler.includes('"ALLOW_DEMO_DATA": "false"'),'production never substitutes demo odds');
 add('production ingestion rejects demo fallback',read('src/lib/providers/ingest.ts').includes("source:'unavailable' as const")&&read('src/lib/providers/ingest.ts').includes('ALLOW_DEMO_DATA'),'production unavailable state is explicit');
 add('public scan uses live ingestion',read('src/app/api/scan/route.ts').includes("ingestOdds"),'scan is not demo-backed');

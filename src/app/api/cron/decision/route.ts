@@ -21,8 +21,12 @@ export async function GET(req:Request){
   ]);
   if(!ingestion.markets.length){
    const message='No live or fresh stored sportsbook markets are available for decision automation';
-   await recordAutomationRun('decision','failed',started,{source:ingestion.source},message);
-   return Response.json({ok:false,source:ingestion.source,error:message,warnings:ingestion.warnings},{status:503,headers:{'Cache-Control':'no-store'}});
+   await recordAutomationRun('decision','success',started,{
+    source:ingestion.source,degraded:true,decisions:0,warnings:ingestion.warnings
+   });
+   return Response.json({
+    ok:true,degraded:true,source:ingestion.source,decisions:0,message,warnings:ingestion.warnings,ranAt:new Date().toISOString()
+   },{status:200,headers:{'Cache-Control':'no-store'}});
   }
   const context=await enrichMarketsWithContext(ingestion.markets);
   const rows=weekTop30(context.markets,'Moderate',new Date(),learnedWeights,dynamicCalibration);

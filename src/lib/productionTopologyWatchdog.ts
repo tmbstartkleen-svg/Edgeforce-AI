@@ -53,9 +53,12 @@ export function evaluateProductionTopology(input:ProductionTopologyWatchdogInput
   &&standby?.deploymentUrl
  );
 
- const standbyLive=Boolean(
+ const standbyReachable=Boolean(
   input.standbyHealth.ok
   &&input.standbyHealth.httpStatus===200
+ );
+ const standbyReleaseCompatible=Boolean(
+  standbyReachable
   &&input.standbyHealth.version===RELEASE.appVersion
   &&Number(input.standbyHealth.migrationVersion)===RELEASE.migrationVersion
  );
@@ -66,12 +69,13 @@ export function evaluateProductionTopology(input:ProductionTopologyWatchdogInput
  if(currentCommit&&String(convergence?.commitSha||'')!==currentCommit)blockers.push('topology evidence does not match current Cloudflare commit');
  if(currentCommit&&String(closure?.commitSha||'')!==currentCommit)blockers.push('production closure does not match current Cloudflare commit');
  if(!standbyConfigured)blockers.push('Vercel standby is not recorded as READY manual disaster recovery');
- if(!standbyLive)blockers.push('Vercel standby public health is not release-compatible');
+ if(!standbyReachable)blockers.push('Vercel standby public health is unavailable');
+ if(standbyReachable&&!standbyReleaseCompatible)warnings.push('Vercel standby is healthy but not current-release compatible; refresh it before any manual failover');
  if(standby?.commitDrift===true)warnings.push('Vercel standby commit drift is expected until failover or standby refresh');
  if(input.standbyHealth.attempts>1)warnings.push(`Vercel standby health required ${input.standbyHealth.attempts} attempts`);
 
- const failoverReady=primaryCurrent&&standbyConfigured&&standbyLive;
- const ready=blockers.length===0&&failoverReady;
+ const failoverReady=primaryCurrent&&standbyConfigured&&standbyReachable&&standbyReleaseCompatible;
+ const ready=blockers.length===0&&primaryCurrent&&standbyConfigured&&standbyReachable;
  const state:TopologyWatchdogState=ready?'READY':primaryCurrent?'DEGRADED':'NOT_READY';
 
  return {
@@ -81,7 +85,8 @@ export function evaluateProductionTopology(input:ProductionTopologyWatchdogInput
   ready,
   primaryCurrent,
   standbyConfigured,
-  standbyLive,
+  standbyLive:standbyReachable,
+  standbyReleaseCompatible,
   failoverReady,
   currentCommit:currentCommit||null,
   primary:{
