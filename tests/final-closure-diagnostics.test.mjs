@@ -7,7 +7,10 @@ const diagnostics=read('src/lib/finalClosureDiagnostics.ts');
 const route=read('src/app/api/release/final-closure/route.ts');
 const panel=read('src/components/FinalProductionClosurePanel.tsx');
 
-test('V177 diagnostics verifies exact settlement workflow binding',()=>{
+test('V178 diagnostics verifies exact settlement commit and workflow binding',()=>{
+ assert.match(diagnostics,/SETTLEMENT_COMMIT_NOT_BOUND/);
+ assert.match(diagnostics,/commitBinding:\{/);
+ assert.match(diagnostics,/expectedCommit&&observedCommit&&expectedCommit===observedCommit/);
  assert.match(diagnostics,/SETTLEMENT_WORKFLOW_NOT_BOUND/);
  assert.match(diagnostics,/expected===observed/);
  assert.match(diagnostics,/workflowBinding:\{/);
@@ -29,6 +32,8 @@ test('V177 final closure API exposes diagnostics on reads and writes',()=>{
 
 test('V177 operator panel exposes run binding and anomaly count',()=>{
  assert.match(panel,/V177 PRODUCTION CLOSURE/);
+ assert.match(panel,/SHA BOUND/);
+ assert.match(panel,/commitBinding/);
  assert.match(panel,/RUN BOUND/);
  assert.match(panel,/expectedRun/);
  assert.match(panel,/observedRun/);
