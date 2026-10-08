@@ -257,7 +257,7 @@ jobs:
           set +e
           HTTP_CODE=$(curl --silent --show-error -o /tmp/prediction-warehouse.json -w "%{http_code}" \
             "$DEPLOYMENT_URL/api/cron/predictions" \
-            -H "Authorization: Bearer $CRON_SECRET")
+            -H "Authorization: Bearer $INGEST_SECRET")
           CURL_CODE=$?
           set -e
           cat /tmp/prediction-warehouse.json || true
