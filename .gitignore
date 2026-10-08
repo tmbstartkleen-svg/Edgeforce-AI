@@ -14,3 +14,11 @@ dist/
 # Backup files
 *.save
 
+
+# Generated builds
+dist/
+.wrangler/
+
+# Backup files
+*.save
+
