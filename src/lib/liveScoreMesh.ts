@@ -54,7 +54,12 @@ const ESPN_CDN_SLUG:Record<string,string>={
 function obj(v:unknown):Record<string,unknown>{return v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{}}
 function arr(v:unknown):unknown[]{return Array.isArray(v)?v:[]}
 function str(v:unknown){return typeof v==='string'?v:''}
-function num(v:unknown){const n=Number(v);return Number.isFinite(n)?n:null}
+function num(v:unknown){
+ if(v===null||v===undefined||typeof v==='boolean'||(typeof v==='string'&&!v.trim()))return null;
+ if(typeof v!=='string'&&typeof v!=='number')return null;
+ const n=Number(v);
+ return Number.isFinite(n)&&n>=0? n:null;
+}
 function teamName(v:unknown){const t=obj(v);return str(t.displayName)||str(t.shortDisplayName)||str(t.name)||str(t.location)||str(t.abbreviation)||'Unknown'}
 function normalizeStatus(v:string){
  const s=v.toLowerCase();
