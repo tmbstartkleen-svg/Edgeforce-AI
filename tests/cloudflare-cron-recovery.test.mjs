@@ -5,6 +5,8 @@ import {readFileSync} from 'node:fs';
 const worker=readFileSync(new URL('../worker/index.ts',import.meta.url),'utf8');
 const wrangler=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
 const decision=readFileSync(new URL('../src/app/api/cron/decision/route.ts',import.meta.url),'utf8');
+const predictions=readFileSync(new URL('../src/app/api/cron/predictions/route.ts',import.meta.url),'utf8');
+const deploy=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
 
 test('Cloudflare cron runs source handlers directly instead of routing scheduled work through Vinext',()=>{
  assert.match(worker,/import \{GET as runInjuryCron\}/);
@@ -27,4 +29,13 @@ test('decision cron degrades cleanly when no fresh sportsbook markets exist',()=
  assert.match(decision,/recordAutomationRun\('decision','success'/);
  assert.match(decision,/status:200/);
  assert.doesNotMatch(decision,/No live or fresh stored sportsbook markets[\s\S]*status:503/);
+});
+
+
+test('prediction warehouse supports cron automation and authenticated deployment priming',()=>{
+ assert.match(predictions,/process\.env\.CRON_SECRET,process\.env\.INGEST_SECRET/);
+ assert.match(predictions,/secrets\.some\(secret=>auth===`Bearer \$\{secret\}`\)/);
+ const prime=deploy.slice(deploy.indexOf('Prime prediction intelligence warehouse'));
+ assert.match(prime,/Authorization: Bearer \$INGEST_SECRET/);
+ assert.doesNotMatch(prime,/Authorization: Bearer \$CRON_SECRET/);
 });
