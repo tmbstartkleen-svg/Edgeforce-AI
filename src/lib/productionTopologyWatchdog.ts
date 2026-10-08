@@ -85,7 +85,8 @@ export function evaluateProductionTopology(input:ProductionTopologyWatchdogInput
   ready,
   primaryCurrent,
   standbyConfigured,
-  standbyLive,
+  standbyLive:standbyReachable,
+  standbyReleaseCompatible,
   failoverReady,
   currentCommit:currentCommit||null,
   primary:{
