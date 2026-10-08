@@ -3,52 +3,43 @@ import {chooseProvider,providerHealth,type ProviderState} from '@/lib/providerRe
 export const dynamic='force-dynamic';
 
 export async function GET(){
-
- const providers:ProviderState[]=[
-  {
-   id:'primary',
-   name:'Primary',
-   priority:100,
-   capabilities:['ODDS'],
-   enabled:true,
-   latencyMs:120,
-   errorRate:.01,
-   freshnessScore:.95,
-   qualityScore:.95,
-   circuitState:'OPEN',
-   quarantinedUntil:new Date(Date.now()+5*60000).toISOString()
-  },
-  {
-   id:'secondary',
-   name:'Secondary',
-   priority:80,
-   capabilities:['ODDS'],
-   enabled:true,
-   latencyMs:150,
-   errorRate:.02,
-   freshnessScore:.94,
-   qualityScore:.92,
-   circuitState:'CLOSED'
-  },
-  {
-   id:'tertiary',
-   name:'Tertiary',
-   priority:60,
-   capabilities:['ODDS'],
-   enabled:true,
-   latencyMs:800,
-   errorRate:.10,
-   freshnessScore:.80,
-   qualityScore:.78,
-   circuitState:'CLOSED'
+  if(process.env.ENABLE_TEST_ENDPOINTS!=='true'){
+    return new Response(null,{status:404});
   }
- ];
 
- const selected=chooseProvider(providers,'ODDS');
+  const providers:ProviderState[]=[
+    {
+      id:'PrimaryOdds',
+      name:'Primary Odds',
+      priority:1,
+      capabilities:['ODDS'],
+      enabled:true,
+      errorRate:.02,
+      freshnessScore:.98,
+      qualityScore:.95,
+      circuitState:'CLOSED'
+    },
+    {
+      id:'BackupOdds',
+      name:'Backup Odds',
+      priority:2,
+      capabilities:['ODDS'],
+      enabled:true,
+      errorRate:.10,
+      freshnessScore:.80,
+      qualityScore:.78,
+      circuitState:'CLOSED'
+    }
+  ];
 
- return Response.json({
-  ok:true,
-  selected:selected?.id,
-  providers:providerHealth(providers)
- });
+  const selected=chooseProvider(providers,'ODDS');
+
+  return Response.json({
+    ok:true,
+    selected:selected?.id,
+    providers:providers.map(provider=>({
+      id:provider.id,
+      health:providerHealth(provider)
+    }))
+  });
 }
