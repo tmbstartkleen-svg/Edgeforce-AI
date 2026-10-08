@@ -254,19 +254,34 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         shell: bash
         run: |
-          set +e
-          HTTP_CODE=$(curl --silent --show-error -o /tmp/prediction-warehouse.json -w "%{http_code}" \
-            "$DEPLOYMENT_URL/api/cron/predictions" \
-            -H "Authorization: Bearer $INGEST_SECRET")
-          CURL_CODE=$?
-          set -e
+          HTTP_CODE=000
+          CURL_CODE=1
+          for ATTEMPT in {1..10}; do
+            set +e
+            HTTP_CODE=$(curl --silent --show-error --connect-timeout 10 --max-time 75 \
+              -o /tmp/prediction-warehouse.json -w "%{http_code}" \
+              "$DEPLOYMENT_URL/api/cron/predictions" \
+              -H "Authorization: Bearer $INGEST_SECRET" \
+              -H "Cache-Control: no-store")
+            CURL_CODE=$?
+            set -e
+            if [ "$CURL_CODE" -eq 0 ] && [ "$HTTP_CODE" = "200" ]; then
+              break
+            fi
+            if [ "$CURL_CODE" -eq 0 ] && { [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "504" ]; } && [ "$ATTEMPT" -lt 10 ]; then
+              echo "Waiting for prediction-prime route/secret convergence (attempt $ATTEMPT/10, HTTP $HTTP_CODE)."
+              sleep $((ATTEMPT<4 ? ATTEMPT*2 : 8))
+              continue
+            fi
+            break
+          done
           cat /tmp/prediction-warehouse.json || true
           echo
           if [ "$CURL_CODE" -ne 0 ]; then
             exit "$CURL_CODE"
           fi
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Prediction warehouse prime returned HTTP $HTTP_CODE"
+            echo "Prediction warehouse prime returned HTTP $HTTP_CODE after convergence retries"
             exit 1
           fi
           node -e "const d=require('/tmp/prediction-warehouse.json'); const p=d.executionProfile||{}; if(d.ok!==true||d.scope!=='ALL_PREDICTION_MARKETS'||p.cloudflareBounded!==true||Number(p.contractLimit)>300||Number(p.tradeLimit)>100) process.exit(1); console.log(JSON.stringify({degraded:Boolean(d.degraded),executionProfile:p,contracts:d.fetched?.contracts||0,trades:(d.fetched?.kalshiTrades||0)+(d.fetched?.polymarketTrades||0),warehouse:d.warehouse,warnings:d.warnings||[]}))"
