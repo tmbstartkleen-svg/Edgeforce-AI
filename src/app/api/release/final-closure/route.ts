@@ -11,7 +11,7 @@ function authorized(req:Request){
 
 export async function GET(){
  const latest=await latestFinalProductionClosure();
- return Response.json({ok:true,latest,diagnostics:buildFinalClosureDiagnostics(latest)},{headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok:true,latest,diagnostics:await buildFinalClosureDiagnostics(latest)},{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function POST(req:Request){
@@ -23,5 +23,6 @@ export async function POST(req:Request){
   workflowRunId:body.workflowRunId?String(body.workflowRunId):null
  });
  const persistence=await saveFinalProductionClosure(report);
- return Response.json({ok:true,closed:report.closed,report,persistence,diagnostics:buildFinalClosureDiagnostics(report)},{status:report.closed?200:202,headers:{'Cache-Control':'no-store'}});
+ const latest=await latestFinalProductionClosure();
+ return Response.json({ok:true,closed:report.closed,report,persistence,diagnostics:await buildFinalClosureDiagnostics(latest||report)},{status:report.closed?200:202,headers:{'Cache-Control':'no-store'}});
 }

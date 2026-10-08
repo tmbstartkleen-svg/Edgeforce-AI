@@ -6,6 +6,7 @@ import {latestPostPromotionVerification} from './postPromotionVerification';
 import {latestReleaseRollbackReconciliation} from './releaseRollbackReconciliation';
 import {latestPlatformConvergence} from './releasePlatformConvergence';
 import {latestAutomationRunForCommit} from './automationHealth';
+import {appendClosureCertificate} from './finalClosureChain';
 
 export type FinalProductionClosure={
  releaseVersion:string;
@@ -179,33 +180,50 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
 }
 
 export async function saveFinalProductionClosure(report:FinalProductionClosure){
- const sql=db();if(!sql)return {persisted:false,id:null};
- const [row]=await sql`
-  insert into release_final_closures(
-   release_version,model_version,migration_version,commit_sha,
-   execution_certified,promotion_verified,post_promotion_verified,platform_converged,
-   rollback_clear,closed,blockers,evidence,source,workflow_run_id
-  ) values(
-   ${report.releaseVersion},${report.modelVersion},${report.migrationVersion},${report.commitSha},
-   ${report.executionCertified},${report.promotionVerified},${report.postPromotionVerified},${report.platformConverged},
-   ${report.rollbackClear},${report.closed},${sql.json(report.blockers)},${sql.json(report.evidence as any)},
-   ${report.source},${report.workflowRunId}
-  )
-  on conflict (release_version,commit_sha) do update set
-   execution_certified=excluded.execution_certified,
-   promotion_verified=excluded.promotion_verified,
-   post_promotion_verified=excluded.post_promotion_verified,
-   platform_converged=excluded.platform_converged,
-   rollback_clear=excluded.rollback_clear,
-   closed=excluded.closed,
-   blockers=excluded.blockers,
-   evidence=excluded.evidence,
-   source=excluded.source,
-   workflow_run_id=excluded.workflow_run_id,
-   created_at=now()
-  returning id
- `;
- return {persisted:true,id:Number(row?.id||0)||null};
+ const sql=db();if(!sql)return {persisted:false,id:null,certificateHead:null,certificateCount:0};
+ const lockKey=`final-closure:${report.releaseVersion}:${report.commitSha}`;
+ return sql.begin(async tx=>{
+  await tx`select pg_advisory_xact_lock(hashtext(${lockKey})::bigint)`;
+  const [existing]=await tx`
+   select evidence
+   from release_final_closures
+   where release_version=${report.releaseVersion}
+    and commit_sha=${report.commitSha}
+   for update
+  `;
+  const chained=await appendClosureCertificate(existing?.evidence||{},report);
+  const [row]=await tx`
+   insert into release_final_closures(
+    release_version,model_version,migration_version,commit_sha,
+    execution_certified,promotion_verified,post_promotion_verified,platform_converged,
+    rollback_clear,closed,blockers,evidence,source,workflow_run_id
+   ) values(
+    ${report.releaseVersion},${report.modelVersion},${report.migrationVersion},${report.commitSha},
+    ${report.executionCertified},${report.promotionVerified},${report.postPromotionVerified},${report.platformConverged},
+    ${report.rollbackClear},${report.closed},${sql.json(report.blockers)},${sql.json(chained.evidence as any)},
+    ${report.source},${report.workflowRunId}
+   )
+   on conflict (release_version,commit_sha) do update set
+    execution_certified=excluded.execution_certified,
+    promotion_verified=excluded.promotion_verified,
+    post_promotion_verified=excluded.post_promotion_verified,
+    platform_converged=excluded.platform_converged,
+    rollback_clear=excluded.rollback_clear,
+    closed=excluded.closed,
+    blockers=excluded.blockers,
+    evidence=excluded.evidence,
+    source=excluded.source,
+    workflow_run_id=excluded.workflow_run_id,
+    created_at=now()
+   returning id
+  `;
+  return {
+   persisted:true,
+   id:Number(row?.id||0)||null,
+   certificateHead:chained.head,
+   certificateCount:chained.count
+  };
+ });
 }
 
 export async function latestFinalProductionClosure(){

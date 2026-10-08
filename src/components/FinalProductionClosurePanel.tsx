@@ -46,6 +46,13 @@ type Diagnostics={
  available?:boolean;
  status?:string;
  operatorReady?:boolean;
+ certificateChain?:{
+  valid?:boolean;
+  count?:number;
+  head?:string|null;
+  verified?:number;
+  error?:string|null;
+ };
  commitBinding?:{
   certified?:boolean;
   expected?:string|null;
@@ -100,6 +107,9 @@ export default function FinalProductionClosurePanel(){
  const workflowBound=diagnostics?.workflowBinding?.certified??Boolean(evidence.settlementWorkflowBound);
  const expectedRun=diagnostics?.workflowBinding?.expected||evidence.settlementExpectedWorkflowRunId||x?.workflowRunId||null;
  const observedRun=diagnostics?.workflowBinding?.observed||evidence.settlementWorkflowRunId||null;
+ const chainValid=Boolean(diagnostics?.certificateChain?.valid);
+ const chainCount=Number(diagnostics?.certificateChain?.count||0);
+ const chainHead=diagnostics?.certificateChain?.head||null;
  const anomalyCount=diagnostics?.anomalies?.length||0;
 
  return <section className="v21Panel">
@@ -122,11 +132,12 @@ export default function FinalProductionClosurePanel(){
    <div><small>ID COVERAGE</small><strong>{pct(evidence.settlementIdentityCoverage)}</strong><span>{identityStrength} identity path</span></div>
    <div><small>MAPPED SHARE</small><strong>{pct(evidence.settlementMappedIdentityShare)}</strong><span>{Number(identity.eventProviderMapping||0)} mapped / {Number(identity.total||0)} matched</span></div>
    <div><small>FALLBACK</small><strong>{fallbackState}</strong><span>{fallbackUsed?'score evidence certification':'native/no fallback'}</span></div>
+   <div><small>CERT CHAIN</small><strong>{chainValid?'PASS':'—'}</strong><span>{chainCount} attempts / head {short(chainHead)}</span></div>
    <div><small>ANOMALIES</small><strong>{anomalyCount}</strong><span>{anomalyCount?'closure diagnostics require review':'none detected'}</span></div>
   </div>
 
   <div className="historyNote">
-   V177 exposes the exact production workflow certificate used for settlement closure. Production is operator-ready only when the Cloudflare primary is certified, the Vercel disaster-recovery standby is READY and healthy, settlement evidence is bound to the deployed commit and the same deployment workflow run, and every matched settlement leg is fully accounted for across direct or mapped event identity. Standby commit drift is expected until failover.
+   V177 exposes the exact production workflow certificate used for settlement closure. Production is operator-ready only when the Cloudflare primary is certified, the Vercel disaster-recovery standby is READY and healthy, settlement evidence is bound to the deployed commit and the same deployment workflow run, every matched settlement leg is fully accounted for across direct or mapped event identity, and the closure certificate chain verifies end to end. Standby commit drift is expected until failover.
   </div>
  </section>;
 }
