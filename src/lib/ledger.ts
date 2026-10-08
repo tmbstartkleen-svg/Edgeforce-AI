@@ -9,6 +9,7 @@ export type WagerLegInput={
  sport:string;
  marketType:string;
  eventId?:string;
+ sourceEventId?:string;
  event?:string;
  offeredOdds?:number;
  modelProbability?:number;
@@ -82,6 +83,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
   const legs=await sql`
    select bet_slip_id as "betSlipId",ordinal,sport,market_type as "marketType",
     selection as label,result,offered_odds as "offeredOdds",event_id as "eventId",
+    metadata->>'sourceEventId' as "sourceEventId",
     event_label as event,model_probability::float as "modelProbability",
     closing_odds as "closingOdds",clv_probability::float as clv
    from bet_legs
@@ -99,6 +101,7 @@ export async function loadLedgerHistory():Promise<HistoricalBet[]>{
     closingOdds:row.closingOdds??undefined,
     clv:Number.isFinite(Number(row.clv))?Number(row.clv):undefined,
     eventId:row.eventId??undefined,
+    sourceEventId:row.sourceEventId??undefined,
     event:row.event??undefined,
     modelProbability:clampProbability(row.modelProbability)
    });
@@ -212,8 +215,23 @@ export async function recordWager(input:WagerInput){
    potential_return=excluded.potential_return,model_probability=excluded.model_probability,updated_at=now()
  `;
  await sql`delete from bet_legs where bet_slip_id=${id}`;
+ const internalEventIds=[...new Set(input.legs.map(x=>x.eventId).filter((x):x is string=>Boolean(x)))];
+ const providerEventIds=new Map<string,string>();
+ if(internalEventIds.length){
+  const mapped=await sql`
+   select id,provider_event_id as "providerEventId"
+   from events
+   where id in (select value from jsonb_array_elements_text(${sql.json(internalEventIds)}::jsonb))
+  `;
+  for(const row of mapped as any[]){
+   if(row.id&&row.providerEventId)providerEventIds.set(String(row.id),String(row.providerEventId));
+  }
+ }
+ const recordedSourceEventIds:string[]=[];
  for(let i=0;i<input.legs.length;i++){
   const leg=input.legs[i];
+  const sourceEventId=leg.sourceEventId||(leg.eventId?providerEventIds.get(leg.eventId):undefined);
+  if(sourceEventId)recordedSourceEventIds.push(sourceEventId);
   await sql`
    insert into bet_legs(
     bet_slip_id,ordinal,sport,market_type,selection,result,offered_odds,event_id,event_label,
@@ -222,14 +240,14 @@ export async function recordWager(input:WagerInput){
     ${id},${leg.ordinal??i+1},${leg.sport},${leg.marketType},${leg.label},'unknown',
     ${leg.offeredOdds??null},${leg.eventId??null},${leg.event??null},${leg.modelProbability??null},
     ${leg.rawImpliedProbability??null},${leg.noVigProbability??null},
-    ${leg.predictionMarketProbability??null},'{}'::jsonb
+    ${leg.predictionMarketProbability??null},${sql.json(sourceEventId?{sourceEventId}:{})}
    )
   `;
  }
  if(!existing.length&&input.bankrollAccountId){
   await sql`update bankroll_accounts set current_bankroll=current_bankroll-${input.stake},updated_at=now() where id=${input.bankrollAccountId}`;
  }
- await sql`insert into ledger_events(bet_slip_id,event_type,source,payload) values(${id},'WAGER_RECORDED',${input.source||'manual'},${sql.json({stake:input.stake,combinedOdds:input.combinedOdds,potentialReturn,legCount:input.legs.length})})`;
+ await sql`insert into ledger_events(bet_slip_id,event_type,source,payload) values(${id},'WAGER_RECORDED',${input.source||'manual'},${sql.json({stake:input.stake,combinedOdds:input.combinedOdds,potentialReturn,legCount:input.legs.length,sourceEventIds:[...new Set(recordedSourceEventIds)]})})`;
  invalidateLedgerCache();
  return {ok:true,mode:'database' as const,id,potentialReturn};
 }
