@@ -30,3 +30,16 @@ console.log(JSON.stringify({
   name:config.name,
   variableCount:Object.keys(config.vars).length
 }));
+
+
+// Authenticated named Previews must use explicitly isolated settings. Never
+// import production variables or scheduled triggers into a PR preview.
+const preview=JSON.parse(fs.readFileSync(source,'utf8'));
+delete preview.route;
+delete preview.routes;
+delete preview.triggers;
+preview.vars={...config.vars};
+preview.previews={vars:{...config.vars}};
+const previewTarget=path.resolve('dist/server/wrangler.preview.json');
+fs.writeFileSync(previewTarget,JSON.stringify(preview,null,2)+'\n');
+console.log(JSON.stringify({ok:true,target:'dist/server/wrangler.preview.json',name:preview.name,variableCount:Object.keys(preview.vars).length}));
