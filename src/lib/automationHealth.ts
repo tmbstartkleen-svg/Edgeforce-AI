@@ -72,7 +72,8 @@ export async function recordAutomationRun(
   ...metadata,
   deploymentCommit:String(process.env.DEPLOYMENT_COMMIT||process.env.VERCEL_GIT_COMMIT_SHA||'')||null,
   deploymentPlatform:String(process.env.DEPLOYMENT_PLATFORM||process.env.VERCEL_ENV&&'vercel'||'unknown'),
-  deploymentEnv:String(process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'unknown')
+  deploymentEnv:String(process.env.DEPLOYMENT_ENV||process.env.VERCEL_ENV||'unknown'),
+  deploymentWorkflowRunId:String(process.env.DEPLOYMENT_WORKFLOW_RUN_ID||'')||null
  };
  await sql`
   insert into automation_runs(job_name,status,release_version,started_at,completed_at,duration_ms,metadata,error_text)
