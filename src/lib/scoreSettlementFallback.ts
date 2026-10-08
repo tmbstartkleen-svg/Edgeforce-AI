@@ -188,7 +188,7 @@ export async function finalScoreSettlementRows():Promise<{
  const sourceKey=(sport:string,id:string)=>[canon(sport),String(id).trim().toLowerCase()].join('|');
  for(const g of finals){
   if(g.id){
-   for(const sport of [String(g.sport||''),String(g.league||'')].filter(Boolean)){
+   for(const sport of [...new Set([String(g.sport||''),String(g.league||'')].filter(Boolean))]){
     const key=sourceKey(sport,String(g.id));
     const list=bySourceId.get(key)||[];
     list.push(g);
