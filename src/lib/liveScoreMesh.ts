@@ -33,9 +33,9 @@ export type LiveGameState={
 type Cached={at:number;games:LiveGameState[]};
 const cache=new Map<string,Cached>();
 const inFlight=new Map<string,Promise<LiveGameState[]>>();
-const nativeLiveTtlMs=()=>Math.max(500,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||750));
+const nativeLiveTtlMs=()=>Math.max(1000,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||1000));
 const nativeIdleTtlMs=()=>Math.max(nativeLiveTtlMs(),Number(process.env.LIVE_SCORE_NATIVE_IDLE_CACHE_MS||15000));
-const espnCdnLiveTtlMs=()=>Math.max(500,Number(process.env.LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS||750));
+const espnCdnLiveTtlMs=()=>Math.max(1000,Number(process.env.LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS||1000));
 const espnLiveTtlMs=()=>Math.max(1500,Number(process.env.LIVE_SCORE_ESPN_LIVE_CACHE_MS||3000));
 const espnIdleTtlMs=()=>Math.max(espnLiveTtlMs(),Number(process.env.LIVE_SCORE_ESPN_IDLE_CACHE_MS||30000));
 const staleFallbackMs=()=>Math.max(30000,Number(process.env.LIVE_SCORE_STALE_FALLBACK_MS||120000));
@@ -86,7 +86,7 @@ const clampMs=(value:number,fallback:number,min:number,max:number)=>{
  const n=Number(value);
  return Number.isFinite(n)?Math.max(min,Math.min(max,n)):fallback;
 };
-const uiFastMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_FAST_MS||750),750,500,5000);
+const uiFastMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_FAST_MS||1000),1000,1000,5000);
 const uiLiveMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_LIVE_MS||1000),1000,500,5000);
 const uiDegradedMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_DEGRADED_MS||1500),1500,750,5000);
 const uiIdleMs=()=>clampMs(Number(process.env.LIVE_SCORE_UI_IDLE_MS||3000),3000,1000,15000);
