@@ -64,3 +64,14 @@ test('prediction warehouse prime waits for Worker secret and route convergence',
  assert.match(prime,/Cache-Control: no-store/);
  assert.match(prime,/prediction-prime route\/secret convergence/);
 });
+
+
+test('preview deployment uses isolated Wrangler configuration without cron triggers',()=>{
+ const workflow=readFileSync(new URL('../.github/workflows/preview-cloudflare.yml',import.meta.url),'utf8');
+ const prepare=readFileSync(new URL('../scripts/prepare-cloudflare-temporary-preview.mjs',import.meta.url),'utf8');
+ assert.match(workflow,/wrangler preview --config dist\/server\/wrangler\.preview\.json --ignore-base-config/);
+ assert.match(workflow,/node scripts\/prepare-cloudflare-temporary-preview\.mjs/);
+ assert.match(prepare,/delete preview\.triggers/);
+ assert.match(prepare,/preview\.previews=\{vars:/);
+ assert.match(prepare,/preview\.vars=\{\.\.\.config\.vars\}/);
+});
