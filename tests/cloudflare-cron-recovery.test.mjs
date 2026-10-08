@@ -75,3 +75,10 @@ test('preview deployment uses isolated Wrangler configuration without cron trigg
  assert.match(prepare,/preview\.previews=\{vars:/);
  assert.match(prepare,/preview\.vars=\{\.\.\.config\.vars\}/);
 });
+
+test('V158 hosted preview distinguishes Cloudflare hostname 404 from application health',()=>{
+ const preview=readFileSync(new URL('../scripts/cloudflare-preview-smoke.mjs',import.meta.url),'utf8');
+ assert.match(preview,/platform404Count>=3/);
+ assert.match(preview,/Cloudflare preview hostname is not serving the deployed Worker/);
+ assert.match(preview,/content-type/);
+});
