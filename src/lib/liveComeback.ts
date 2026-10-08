@@ -1,3 +1,6 @@
+import type {Market} from './types';
+import {assessContextQuality,summarizeContextQuality} from './contextQuality';
+
 export type LiveComebackLineMovement={
  openerOdds:number;
  currentOdds:number;
@@ -66,6 +69,34 @@ export type LiveComebackCandidate={
 };
 
 const clamp=(n:number,min=0,max=1)=>Math.max(min,Math.min(max,n));
+
+export const LIVE_COMEBACK_MAX_MARKETS=24;
+
+export function prepareWorkerSafeLiveComebackMarkets(markets:Market[],now=new Date(),limit=LIVE_COMEBACK_MAX_MARKETS){
+ const nowMs=now.getTime();
+ const bounded=[...markets]
+  .filter(m=>{
+   const start=new Date(m.startTime).getTime();
+   if(!Number.isFinite(start))return false;
+   const minutesFromStart=(nowMs-start)/60000;
+   return minutesFromStart>=-2&&minutesFromStart<=360;
+  })
+  .sort((a,b)=>(Number(a.sourceAgeMin)||0)-(Number(b.sourceAgeMin)||0)||new Date(b.startTime).getTime()-new Date(a.startTime).getTime())
+  .slice(0,Math.max(1,Math.min(40,limit)))
+  .map(m=>({...m,contextQuality:m.contextQuality||assessContextQuality(m)}));
+ return {
+  markets:bounded,
+  diagnostics:{
+   profile:'WORKER_SAFE_LIVE_COMEBACK',
+   inputMarkets:markets.length,
+   liveWindowMarkets:bounded.length,
+   maxMarkets:Math.max(1,Math.min(40,limit)),
+   externalContextRequests:0,
+   reusedContextRows:bounded.filter(m=>(m.contextSources||[]).length>0).length,
+   qualitySummary:summarizeContextQuality(bounded)
+  }
+ };
+}
 
 function supportedLiveSport(row:LiveComebackMarket){
  const label=(row.sport+' '+(row.league||'')).toUpperCase();
