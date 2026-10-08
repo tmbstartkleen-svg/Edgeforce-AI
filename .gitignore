@@ -6,3 +6,11 @@ node_modules
 *.log
 .DS_Store
 .env*
+
+# Generated builds
+dist/
+.wrangler/
+
+# Backup files
+*.save
+

@@ -1,1 +1,0 @@
-var e=e=>e>0?1+e/100:1+100/Math.abs(e);function t(t){let n=t.stake*e(t.originalOdds),r=t.currentWinProbability*n,i=t.hedgeCost||0,a=Math.max(0,r-i),o=t.cashoutOffer-a,s=o>Math.max(1,t.stake*.01)?`CASH_OUT`:o<-Math.max(1,t.stake*.01)?`HOLD`:`NEUTRAL`;return{grossIfWin:n,holdValue:r,adjustedHold:a,cashoutOffer:t.cashoutOffer,cashoutEdge:o,decision:s}}export{t};

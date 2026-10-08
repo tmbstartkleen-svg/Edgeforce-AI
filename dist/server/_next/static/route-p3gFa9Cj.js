@@ -1,1 +1,0 @@
-import{t as e}from"./dynamicWeights-GAXegAoQ.js";async function t(t){let n=await t.json().catch(()=>({}));return Response.json({weights:e(Array.isArray(n?.models)?n.models:[])})}export{t as POST};

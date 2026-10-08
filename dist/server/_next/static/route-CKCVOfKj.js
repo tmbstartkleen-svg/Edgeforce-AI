@@ -1,1 +1,0 @@
-import{n as e}from"./sportModels-Y1theQYe.js";import{n as t,r as n}from"./expertModelSuite-DCqphcTY.js";async function r(){return Response.json({version:`v61`,models:e(),expertModels:t(),expertStatus:n()})}export{r as GET};

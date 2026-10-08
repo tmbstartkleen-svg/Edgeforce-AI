@@ -1,1 +1,0 @@
-import{t as e}from"./calibration-CHrUpZaS.js";async function t(t){let n=await t.json().catch(()=>({})),r=e(Array.isArray(n?.points)?n.points:[]),i=r.sampleSize<50?0:Math.max(-.03,Math.min(.03,(.5-r.brierScore)*.02-r.calibrationError*.1));return Response.json({calibration:r,suggestedProbabilityAdjustment:i,modelVersion:process.env.MODEL_VERSION||`edgeforce-v6`})}export{t as POST};

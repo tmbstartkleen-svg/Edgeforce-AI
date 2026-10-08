@@ -1,1 +1,0 @@
-import{t as e}from"./rollingFeatures-9Vc5bgPo.js";async function t(t){let n=await t.json().catch(()=>({})),r=Array.isArray(n?.rows)?n.rows:[],i=Array.isArray(n?.keys)?n.keys:[],a=Math.max(2,Number(n?.window)||5);return Response.json({features:e(r,i,a),window:a})}export{t as POST};

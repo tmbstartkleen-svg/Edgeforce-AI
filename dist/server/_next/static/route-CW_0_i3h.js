@@ -1,1 +1,0 @@
-import{t as e}from"./fanLineWire-zOGJw2ms.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json(t,{status:t.ok?200:503,headers:{"Cache-Control":`no-store, max-age=0`,"CDN-Cache-Control":`no-store`,"Cloudflare-CDN-Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

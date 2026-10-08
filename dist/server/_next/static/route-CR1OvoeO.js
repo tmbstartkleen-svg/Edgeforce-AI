@@ -1,1 +1,0 @@
-import"./db-9LtqYd6N.js";import{r as e}from"./automationHealth-BEUnKhvu.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json({ok:!0,...t},{headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

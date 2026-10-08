@@ -1,1 +1,0 @@
-import"./framework-BK7bGCLi.js";import{Ar as e,Mr as t,jr as n}from"./vinext-CaeHhAdA.js";export{e as AppRouterScrollCommitProvider,n as AppRouterScrollTarget,t as AppRouterScrollTargetInner};

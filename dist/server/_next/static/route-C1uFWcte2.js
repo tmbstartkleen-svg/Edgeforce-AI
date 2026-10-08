@@ -1,5 +1,0 @@
-import{t as e}from"./db-9LtqYd6N.js";import{i as t}from"./math-D6dV1ygj.js";async function n(n){let r=n.headers.get(`authorization`);if(process.env.INGEST_SECRET&&r!==`Bearer ${process.env.INGEST_SECRET}`)return Response.json({ok:!1,error:`unauthorized`},{status:401});let{eventId:i,marketKey:a,selectionKey:o,providerId:s,closingOdds:c}=await n.json().catch(()=>({}))||{};if(!i||!a||!o||!Number.isFinite(Number(c)))return Response.json({ok:!1,error:`missing closing line fields`},{status:400});let l=e();if(!l)return Response.json({ok:!0,mode:`dry-run`,closingProbability:t(Number(c))});let u=await l`
-  insert into closing_line_snapshots(event_id,market_key,selection_key,provider_id,closing_odds,closing_probability)
-  values(${i},${a},${o},${s??null},${Number(c)},${t(Number(c))})
-  returning id,captured_at as "capturedAt"
- `;return Response.json({ok:!0,mode:`database`,record:u[0]})}export{n as POST};

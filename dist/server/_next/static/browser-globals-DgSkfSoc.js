@@ -1,1 +1,0 @@
-var e=`vinext.navigationRuntime`;export{e as t};

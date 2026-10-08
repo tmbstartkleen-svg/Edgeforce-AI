@@ -1,1 +1,0 @@
-function e(e){return e>0?1+e/100:1+100/Math.abs(e)}function t(t){let n=t.won?t.stake*(e(t.offeredOdds)-1):-t.stake,r=1/e(t.offeredOdds),i=t.closingOdds==null?null:1/e(t.closingOdds),a=i==null?null:i-r;return{...t,pnl:n,clv:a}}async function n(e){let n=await e.json();return Response.json(t(n))}export{n as POST};

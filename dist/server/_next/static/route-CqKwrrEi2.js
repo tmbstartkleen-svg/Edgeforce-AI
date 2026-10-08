@@ -1,1 +1,0 @@
-var e=[{minutesAgo:180,odds:-145},{minutesAgo:120,odds:-152},{minutesAgo:60,odds:-160},{minutesAgo:15,odds:-167}];async function t(t){let{searchParams:n}=new URL(t.url);return Response.json({marketId:n.get(`marketId`)||`demo`,points:e})}export{t as GET};

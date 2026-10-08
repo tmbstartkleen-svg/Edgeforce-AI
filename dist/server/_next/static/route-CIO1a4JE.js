@@ -1,1 +1,0 @@
-import"./db-9LtqYd6N.js";import"./config-DeCpBpO7.js";import"./sportRegistry-DhJZkKuv.js";import"./healthStore-CIt76q0M.js";import{t as e}from"./readiness-1JiJmfZR.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json(t,{status:t.ready?200:503,headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

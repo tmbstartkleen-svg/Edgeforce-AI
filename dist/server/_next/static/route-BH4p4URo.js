@@ -1,1 +1,0 @@
-import"./db-9LtqYd6N.js";import"./skillRatings-B-Negy_W.js";import"./executionFeedback-X66L5l2l.js";import{t as e}from"./adaptiveRouter-D3y_uUk6.js";var t=`force-dynamic`;async function n(){let t=await e();return Response.json({ok:!0,...t},{headers:{"Cache-Control":`no-store`}})}export{n as GET,t as dynamic};

@@ -1,1 +1,0 @@
-function e(e){return e<0?-e/(-e+100):100/(e+100)}function t(e){return e>0?1+e/100:1+100/Math.abs(e)}function n(e){return e<=0||e>=1?0:e>=.5?Math.round(-100*e/(1-e)):Math.round(100*(1-e)/e)}function r(e,n){return e*(t(n)-1)-(1-e)}function i(e,n){let r=t(n)-1;return Math.max(0,(r*e-(1-e))/r)}export{i as a,e as i,r as n,n as r,t};
