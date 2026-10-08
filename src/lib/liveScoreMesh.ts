@@ -109,7 +109,7 @@ export function liveGameQuality(game:LiveGameState,now=Date.now()){
  const observed=Date.parse(game.observedAt);
  const ageMs=Number.isFinite(observed)&&observed<=now+2000?Math.max(0,now-observed):60000;
  const source=SOURCE_PRIORITY[game.source]??40;
- const scores=(game.home.score!==null?5:0)+(game.away.score!==null?5:0);
+ const scores=(validScore(game.home.score)?5:0)+(validScore(game.away.score)?5:0);
  const clock=game.clock?8:0;
  const period=game.period?3:0;
  const detail=game.detail?1:0;
@@ -120,8 +120,11 @@ function observationTime(game:LiveGameState){
  const value=Date.parse(game.observedAt);
  return Number.isFinite(value)?value:0;
 }
+function validScore(value:unknown):value is number{
+ return typeof value==='number'&&Number.isFinite(value)&&value>=0;
+}
 function scoreKnown(game:LiveGameState){
- return game.home.score!==null&&game.away.score!==null;
+ return validScore(game.home.score)&&validScore(game.away.score);
 }
 function sameScore(a:LiveGameState,b:LiveGameState){
  return scoreKnown(a)&&scoreKnown(b)&&a.home.score===b.home.score&&a.away.score===b.away.score;
@@ -228,7 +231,7 @@ export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now())
  });
  const maxLiveAgeMs=ages.length?Math.max(...ages):0;
  const clockCoverage=live.length?live.filter(x=>Boolean(x.clock)).length/live.length:1;
- const scoreCoverage=live.length?live.filter(x=>x.home.score!==null&&x.away.score!==null).length/live.length:1;
+ const scoreCoverage=live.length?live.filter(scoreKnown).length/live.length:1;
  const staleLiveGames=ages.filter(x=>x>15000).length;
  let state:'IDLE'|'FAST'|'HEALTHY'|'DEGRADED'|'STALE'='IDLE';
  if(live.length){
