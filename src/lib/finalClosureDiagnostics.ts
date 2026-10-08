@@ -1,3 +1,4 @@
+import {verifyClosureEvidenceChain} from './finalClosureChain';
 type ClosureLike={
  closed?:boolean;
  commitSha?:string;
@@ -15,13 +16,14 @@ type ClosureLike={
 const obj=(value:unknown):Record<string,any>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,any>:{};
 const list=(value:unknown)=>Array.isArray(value)?value.map(String):[];
 
-export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
+export async function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
  if(!input){
   return {
    available:false,
    status:'UNAVAILABLE' as const,
    operatorReady:false,
    commitSha:null,
+   certificateChain:{valid:false,count:0,head:null,verified:0,error:'final production closure evidence is unavailable'},
    commitBinding:{certified:false,expected:null,observed:null,match:false},
    workflowBinding:{certified:false,expected:null,observed:null,match:false},
    settlement:{certified:false,mode:null,noop:false,matchedLegs:0,identityCertified:false,identityCoverage:0,identityStrength:'UNVERIFIED',mappedIdentityShare:0,fallbackEvidenceCertified:null},
@@ -31,6 +33,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
   };
  }
  const evidence=obj(input.evidence);
+ const certificateChain=await verifyClosureEvidenceChain(evidence);
  const blockers=list(input.blockers);
  const expectedCommit=String(input.commitSha||'')||null;
  const observedCommit=String(evidence.settlementCommitSha||'')||null;
@@ -42,6 +45,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
  const mappedShare=Number(evidence.settlementMappedIdentityShare||0);
  const matchedLegs=Math.max(0,Number(evidence.settlementMatchedLegs||0));
  const anomalies:string[]=[];
+ if(!certificateChain.valid)anomalies.push('CLOSURE_CERTIFICATE_CHAIN_INVALID');
  if(!commitBound)anomalies.push('SETTLEMENT_COMMIT_NOT_BOUND');
  if(!workflowBound)anomalies.push('SETTLEMENT_WORKFLOW_NOT_BOUND');
  if(evidence.settlementCertified!==true)anomalies.push('SETTLEMENT_NOT_CERTIFIED');
@@ -60,6 +64,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
   &&input.postPromotionVerified
   &&input.platformConverged
   &&input.rollbackClear
+  &&certificateChain.valid
   &&commitBound
   &&workflowBound
   &&evidence.settlementCertified===true
@@ -74,6 +79,7 @@ export function buildFinalClosureDiagnostics(input:ClosureLike|null|undefined){
   status:operatorReady?'CLOSED' as const:'PENDING' as const,
   operatorReady,
   commitSha:String(input.commitSha||'')||null,
+  certificateChain,
   commitBinding:{
    certified:commitBound,
    expected:expectedCommit,
