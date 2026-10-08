@@ -7,10 +7,10 @@ const panel=readFileSync(new URL('../src/components/FinalProductionClosurePanel.
 
 test('V175 closure classifies settlement identity strength for operator visibility',()=>{
  assert.match(closure,/const settlementIdentityStrength=/);
- assert.match(closure,/?'NOOP'/);
- assert.match(closure,/?'DIRECT'/);
- assert.match(closure,/?'MAPPED'/);
- assert.match(closure,/?'MIXED'/);
+ assert.match(closure,/'NOOP'/);
+ assert.match(closure,/'DIRECT'/);
+ assert.match(closure,/'MAPPED'/);
+ assert.match(closure,/'MIXED'/);
  assert.match(closure,/settlementIdentityStrength,/);
 });
 
@@ -40,5 +40,5 @@ test('V175 production closure panel shows fallback evidence certification',()=>{
 test('V175 operator note describes exact commit settlement identity requirement',()=>{
  assert.match(panel,/settlement evidence is bound to the deployed commit/);
  assert.match(panel,/every matched settlement leg is fully accounted for/);
- assert.match(panel,/Standby commit drift remains expected until failover/);
+ assert.match(panel,/Standby commit drift is expected until failover/);
 });
