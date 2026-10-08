@@ -78,7 +78,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
   return {...live,source:'live' as const,reuseAgeMin:reuseAge,liveRefreshMs,nextLiveRefreshMs:liveRefreshMs};
  }
 
- const maxStoredAge=Math.max(1,Number(process.env.ODDS_STORED_MAX_AGE_MIN||90));
+ const maxStoredAge=Math.max(1,Number(process.env.ODDS_STORED_MAX_AGE_MIN||360));
  const usableStored=stored.filter(x=>x.sourceAgeMin<=maxStoredAge);
  if(usableStored.length){
   return {
