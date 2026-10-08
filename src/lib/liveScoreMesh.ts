@@ -125,15 +125,22 @@ function liveStatusConflict(a:LiveGameState,b:LiveGameState){
  return meaningful.has(a.status)&&meaningful.has(b.status)&&a.status!==b.status;
 }
 export function liveScoreConsensus(observations:LiveGameState[],selected:LiveGameState,now=Date.now()):LiveScoreConsensus{
- const uniqueSources=[...new Set(observations.map(x=>x.source))];
  const selectedAt=observationTime(selected)||now;
  const contemporaneous=observations.filter(x=>Math.abs(selectedAt-(observationTime(x)||selectedAt))<=consensusWindowMs());
- const scorePeers=contemporaneous.filter(scoreKnown);
+ // Only a single latest observation per provider counts toward independent consensus.
+ const peersBySource=new Map<string,LiveGameState>();
+ for(const game of contemporaneous){
+  const prior=peersBySource.get(game.source);
+  if(!prior||observationTime(game)>observationTime(prior))peersBySource.set(game.source,game);
+ }
+ const peers=[...peersBySource.values()];
+ const uniqueSources=[...peersBySource.keys()];
+ const scorePeers=peers.filter(scoreKnown);
  const agreeing=scorePeers.filter(x=>sameScore(x,selected));
  const conflicting=scorePeers.filter(x=>!sameScore(x,selected));
  const lagging=conflicting.filter(x=>selectedAt-observationTime(x)>lagToleranceMs());
  const activeConflicts=conflicting.filter(x=>selectedAt-observationTime(x)<=lagToleranceMs());
- const statusConflicts=contemporaneous.filter(x=>liveStatusConflict(x,selected));
+ const statusConflicts=peers.filter(x=>liveStatusConflict(x,selected));
  const trusted=(SOURCE_PRIORITY[selected.source]??40)>=100;
  const selectedAge=Math.max(0,now-selectedAt);
  const reasons:string[]=[];
