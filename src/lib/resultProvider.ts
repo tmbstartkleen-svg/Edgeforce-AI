@@ -42,7 +42,7 @@ export async function runAutomaticSettlement(){
  const raw=provider.ok?rows(provider.data):[];
  const providerRows=raw.map(normalizeResult).filter((x):x is NonNullable<ReturnType<typeof normalizeResult>>=>Boolean(x));
  const fallback=await finalScoreSettlementRows().catch(error=>({
-  rows:[],matchedGames:0,candidateLegs:0,
+  available:false,rows:[],matchedGames:0,candidateLegs:0,
   warnings:[error instanceof Error?error.message:'final-score fallback failed']
  }));
  const seen=new Set<string>();
@@ -52,8 +52,8 @@ export async function runAutomaticSettlement(){
   seen.add(key);
   return true;
  });
- if(!provider.ok&&!normalized.length){
-  return {ok:false,mode:provider.attempts.length?'failed':'unconfigured',provider:provider.providerName||provider.providerId||null,received:0,normalized:0,matchedLegs:0,settledSlips:0,error:provider.error,fallbackWarnings:fallback.warnings};
+ if(!provider.ok&&!fallback.available){
+  return {ok:false,mode:provider.attempts.length?'failed':'unconfigured',provider:provider.providerName||provider.providerId||null,received:0,normalized:0,matchedLegs:0,settledSlips:0,error:provider.error,fallbackAvailable:false,fallbackWarnings:fallback.warnings};
  }
  const [reconciliation,feedback,playerProps,externalMl,shadowMl]=await Promise.all([
   reconcileLedgerResults(normalized),
@@ -68,8 +68,10 @@ export async function runAutomaticSettlement(){
   provider:provider.ok?(provider.providerName||provider.providerId||'results-provider'):'no-key-final-score-mesh',
   received:raw.length,
   normalized:normalized.length,
+  fallbackAvailable:fallback.available,
   fallbackRows:fallback.rows.length,
   fallbackCandidateLegs:fallback.candidateLegs,
+  settlementNoop:normalized.length===0,
   fallbackMatchedGames:fallback.matchedGames,
   fallbackWarnings:fallback.warnings,
   matchedLegs:reconciliation.matchedLegs,
