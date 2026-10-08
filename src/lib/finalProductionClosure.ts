@@ -5,6 +5,7 @@ import {currentReleasePromotionProvenance} from './releasePromotionProvenance';
 import {latestPostPromotionVerification} from './postPromotionVerification';
 import {latestReleaseRollbackReconciliation} from './releaseRollbackReconciliation';
 import {latestPlatformConvergence} from './releasePlatformConvergence';
+import {latestAutomationRunForCommit} from './automationHealth';
 
 export type FinalProductionClosure={
  releaseVersion:string;
@@ -24,14 +25,15 @@ export type FinalProductionClosure={
 };
 
 export async function evaluateFinalProductionClosure(input:{commitSha:string;source?:string;workflowRunId?:string|null}):Promise<FinalProductionClosure>{
- const [execution,promotion,postPromotion,convergence,rollback]=await Promise.all([
+ const commitSha=String(input.commitSha||'');
+ const [execution,promotion,postPromotion,convergence,rollback,settlementRun]=await Promise.all([
   currentReleaseExecutionCertification(),
   currentReleasePromotionProvenance(),
   latestPostPromotionVerification(),
   latestPlatformConvergence(),
-  latestReleaseRollbackReconciliation()
+  latestReleaseRollbackReconciliation(),
+  latestAutomationRunForCommit('settle',commitSha)
  ]);
- const commitSha=String(input.commitSha||'');
  const blockers:string[]=[];
  const topologyEvidence=(convergence?.evidence&&typeof convergence.evidence==='object'?convergence.evidence:{}) as any;
  const primaryStandby=topologyEvidence?.topology==='cloudflare-primary-vercel-standby';
@@ -79,6 +81,16 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
   rollback?.rollbackConfirmed
   &&String(rollback?.failedCommitSha||'')===commitSha
  );
+ const settlementMetadata=(settlementRun?.metadata&&typeof settlementRun.metadata==='object'?settlementRun.metadata:{}) as any;
+ const settlementResult=(settlementMetadata?.result&&typeof settlementMetadata.result==='object'?settlementMetadata.result:{}) as any;
+ const settlementFallbackUsed=String(settlementResult?.mode||'').includes('score-fallback');
+ const settlementCertified=Boolean(
+  settlementRun
+  &&settlementRun.status==='success'
+  &&String(settlementMetadata?.deploymentCommit||'')===commitSha
+  &&settlementResult?.ok===true
+  &&(!settlementFallbackUsed||settlementResult?.fallbackEvidenceCertified===true)
+ );
 
  if(!commitSha||commitSha.length<7)blockers.push('release commit SHA is missing or invalid');
  if(!executionCertified)blockers.push(primaryStandby?'exact-main production certification is missing or failed':'execution certification is missing, failed, or belongs to a different commit');
@@ -86,6 +98,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
  if(!postPromotionVerified)blockers.push(primaryStandby?'Cloudflare primary hosted smoke verification is missing or failed':'post-promotion live verification is missing, failed, or belongs to a different commit');
  if(!platformConverged)blockers.push(primaryStandby?'Cloudflare primary and Vercel manual standby topology is not ready':'Vercel and Cloudflare are not converged on the same production commit');
  if(!rollbackClear)blockers.push('the candidate production commit has a confirmed rollback');
+ if(!settlementCertified)blockers.push('fresh successful settlement automation evidence is missing or uncertified for the candidate commit');
 
  return {
   releaseVersion:RELEASE.appVersion,
@@ -106,6 +119,13 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
    postPromotionId:postPromotion?.id||null,
    convergenceId:convergence?.id||null,
    rollbackId:rollback?.id||null,
+   settlementCertified,
+   settlementRunStartedAt:settlementRun?.startedAt?new Date(settlementRun.startedAt as any).toISOString():null,
+   settlementMode:settlementResult?.mode||null,
+   settlementNoop:Boolean(settlementResult?.settlementNoop),
+   settlementMatchedLegs:Number(settlementResult?.matchedLegs||0),
+   settlementIdentityMatches:settlementResult?.settlementIdentityMatches||null,
+   settlementFallbackEvidenceCertified:settlementFallbackUsed?Boolean(settlementResult?.fallbackEvidenceCertified):null,
    evaluatedAt:new Date().toISOString()
   },
   source:input.source||'final-production-closure',
