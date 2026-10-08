@@ -71,7 +71,7 @@ export function inspectProviderPayload(payload:unknown,capability:ProviderCapabi
  const newest=validTimestamps.length?Math.max(...validTimestamps):undefined;
  const payloadAgeMin=newest===undefined?undefined:Math.max(0,(Date.now()-newest)/60000);
  const freshnessScore=payloadAgeMin===undefined
-  ?.75
+  ?.35
   :payloadAgeMin<=maxAgeMin*.25?1
   :payloadAgeMin<=maxAgeMin?.82
   :payloadAgeMin<=maxAgeMin*2?.45
@@ -84,7 +84,10 @@ export function inspectProviderPayload(payload:unknown,capability:ProviderCapabi
  if(payloadAgeMin!==undefined&&payloadAgeMin>maxAgeMin)reasons.push(`Payload age ${payloadAgeMin.toFixed(1)}m exceeds ${maxAgeMin}m limit`);
  if(payloadAgeMin===undefined)reasons.push('Payload timestamp unavailable or invalid; freshness confidence reduced');
  if(!reasons.length)reasons.push('Payload is fresh and structurally usable');
- const ok=!(requiresRows(capability)&&rowCount===0)&&!(payloadAgeMin!==undefined&&payloadAgeMin>maxAgeMin*2);
+ // Entirely future-skewed timestamps cannot provide trustworthy freshness evidence.
+ const invalidClockOnly=timestamps.length>0&&validTimestamps.length===0;
+ if(invalidClockOnly)reasons.push('All payload timestamps are future-skewed; freshness unverified');
+ const ok=!(requiresRows(capability)&&rowCount===0)&&!invalidClockOnly&&!(payloadAgeMin!==undefined&&payloadAgeMin>maxAgeMin*2);
  const grade:PayloadQuality['grade']=!ok?'REJECT':qualityScore>=.85?'TRUSTED':qualityScore>=.68?'USABLE':'CAUTION';
  return {ok,rowCount,payloadAgeMin,freshnessScore,completenessScore,qualityScore,grade,reasons,newestTimestamp:newest?new Date(newest).toISOString():undefined};
 }
