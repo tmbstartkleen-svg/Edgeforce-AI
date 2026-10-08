@@ -86,7 +86,7 @@ export default function FinalProductionClosurePanel(){
   </div>
 
   <div className="historyNote">
-   V175 closes production only when the Cloudflare primary is exactly certified and healthy, the Vercel disaster-recovery standby is READY and healthy, settlement evidence is bound to the deployed commit, and every matched settlement leg is fully accounted for across direct or mapped event identity. Standby commit drift remains expected until failover.
+   V175 closes production only when the Cloudflare primary is exactly certified and healthy, the Vercel disaster-recovery standby is READY and healthy, settlement evidence is bound to the deployed commit, and every matched settlement leg is fully accounted for across direct or mapped event identity. Standby commit drift is expected until failover.
   </div>
  </section>;
 }
