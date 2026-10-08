@@ -117,7 +117,7 @@ export default function FinalProductionClosurePanel(){
   </div>
 
   <div className="historyNote">
-   V177 exposes the exact production workflow certificate used for settlement closure. Production is operator-ready only when the Cloudflare primary is certified, the Vercel disaster-recovery standby is READY and healthy, settlement is bound to the same deployment commit and workflow run, and every matched leg has complete identity accounting. Standby commit drift is expected until failover.
+   V177 exposes the exact production workflow certificate used for settlement closure. Production is operator-ready only when the Cloudflare primary is certified, the Vercel disaster-recovery standby is READY and healthy, settlement evidence is bound to the deployed commit and the same deployment workflow run, and every matched leg has complete identity accounting. Standby commit drift is expected until failover.
   </div>
  </section>;
 }
