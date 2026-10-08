@@ -9,7 +9,8 @@ const decision=readFileSync(new URL('../src/app/api/cron/decision/route.ts',impo
 test('Cloudflare cron runs source handlers directly instead of routing scheduled work through Vinext',()=>{
  assert.match(worker,/import \{GET as runInjuryCron\}/);
  assert.match(worker,/callScheduledRoute/);
- assert.doesNotMatch(worker,/handler\.fetch\(request.*scheduled/s);
+ const scheduledBody=worker.slice(worker.indexOf('async scheduled('));
+ assert.doesNotMatch(scheduledBody,/handler\.fetch\(/);
 });
 
 test('hourly automation is sharded across separate scheduled invocations',()=>{
