@@ -18,7 +18,10 @@ const str=(v:unknown)=>typeof v==='string'?v:'';
 const num=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const cacheMs=()=>Math.max(60000,Number(process.env.ESPN_CORE_ODDS_CACHE_MS||120000));
 const timeoutMs=()=>Math.max(2000,Number(process.env.ESPN_CORE_ODDS_TIMEOUT_MS||6000));
-const maxLeagues=()=>Math.max(1,Math.min(12,Number(process.env.ESPN_CORE_ODDS_LEAGUES_PER_BATCH||5)));
+const maxLeagues=()=>Math.max(1,Math.min(12,Number(process.env.ESPN_CORE_ODDS_LEAGUES_PER_BATCH||(process.env.DEPLOYMENT_PLATFORM==='cloudflare'?2:5))));
+// A single Worker invocation has a shared subrequest budget. Reserve capacity for
+// database work, health reporting, and other provider calls in the same cron.
+const maxRequests=()=>Math.max(1,Math.min(30,Number(process.env.ESPN_CORE_ODDS_MAX_REQUESTS||(process.env.DEPLOYMENT_PLATFORM==='cloudflare'?8:24))));
 const maxEvents=()=>Math.max(1,Math.min(40,Number(process.env.ESPN_CORE_ODDS_EVENTS_PER_LEAGUE||12)));
 const bookAllow=()=>new Set((process.env.ESPN_CORE_ODDS_BOOKS||'DraftKings,FanDuel,BetMGM,Caesars,ESPN BET').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 
@@ -128,11 +131,18 @@ function dateKey(offsetDays=0){
 
 async function load(){
  const started=Date.now(),rows:FlatRow[]=[],warnings:string[]=[];
+ let remaining=maxRequests();
+ const budgetedJson=async(url:string)=>{
+  if(remaining<=0)throw new Error('ESPN request budget exhausted');
+  remaining--;
+  return json(url);
+ };
  for(const feed of rotatingFeeds()){
   try{
+   if(remaining<=0)break;
    let events:unknown[]=[];
    for(const offset of [0,1]){
-    const board=await json(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey(offset)}`);
+    const board=await budgetedJson(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey(offset)}`);
     events=arr(obj(board).events).slice(0,maxEvents());
     if(events.some(raw=>eventMeta(raw).state==='pre'))break;
    }
@@ -147,7 +157,7 @@ async function load(){
      continue;
     }
     try{
-     const odds=await json(`https://sports.core.api.espn.com/v2/sports/${feed.sportSlug}/leagues/${feed.leagueSlug}/events/${meta.eventId}/competitions/${meta.competitionId}/odds?limit=20`);
+     const odds=await budgetedJson(`https://sports.core.api.espn.com/v2/sports/${feed.sportSlug}/leagues/${feed.leagueSlug}/events/${meta.eventId}/competitions/${meta.competitionId}/odds?limit=20`);
      rows.push(...normalizeEspnOddsItems(odds,meta,feed.label,observedAt));
     }catch(error){
      warnings.push(`${feed.label} ${meta.eventId}: ${error instanceof Error?error.message:'odds request failed'}`);
