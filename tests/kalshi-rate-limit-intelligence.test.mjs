@@ -20,3 +20,18 @@ test('Kalshi honors capped Retry-After and avoids same-isolate rejected bursts',
 test('Kalshi cooldown clears after successful upstream response',()=>{
  assert.match(source,/cooldownUntil=0;\s*lastFailureKind='';/);
 });
+
+test('Bad request and nonexistent routes back off instead of hammering Kalshi',()=>{
+ assert.match(source,/res\.status===400\|\|res\.status===404/);
+ assert.match(source,/res\.status===400\|\|res\.status===404\?60000/);
+});
+
+test('Network errors and timeouts carry a bounded cooldown classification',()=>{
+ assert.match(source,/controller\.signal\.aborted\?'timeout':'network_error'/);
+ assert.match(source,/cooldownUntil=Date\.now\(\)\+15000/);
+});
+
+test('Partially fetched pagination stays visible to consumers',()=>{
+ assert.match(source,/partial:rows\.length>0&&Boolean\(error\)/);
+ assert.match(source,/\n  errorKind,\n  retryAfterMs,/);
+});
