@@ -74,8 +74,8 @@ async function getPage(cursor?:string){
   if(!res.ok){
    const kind=failureKind(res.status);
    lastFailureKind=kind;
-   if(res.status===429||res.status===401||res.status===403||res.status>=500){
-    const delay=res.status===429?retryDelay(res.headers.get('retry-after'),Date.now()):res.status>=500?30000:300000;
+   if(res.status===429||res.status===400||res.status===404||res.status===401||res.status===403||res.status>=500){
+    const delay=res.status===429?retryDelay(res.headers.get('retry-after'),Date.now()):res.status>=500?30000:res.status===400||res.status===404?60000:300000;
     cooldownUntil=Date.now()+delay;
    }
    return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:`Kalshi ${kind} (HTTP ${res.status})`,errorKind:kind,retryAfterMs:Math.max(0,cooldownUntil-Date.now())};
@@ -90,11 +90,16 @@ async function getPage(cursor?:string){
    error:undefined
   };
  }catch(error){
+  const kind=controller.signal.aborted?'timeout':'network_error';
+  lastFailureKind=kind;
+  cooldownUntil=Date.now()+15000;
   return {
    ok:false as const,
    rows:[] as KalshiMarket[],
    cursor:'',
-   error:error instanceof Error?error.message:'Kalshi request failed'
+   error:error instanceof Error?error.message:'Kalshi request failed',
+   errorKind:kind,
+   retryAfterMs:15000
   };
  }finally{
   clearTimeout(timer);
@@ -151,7 +156,8 @@ export async function fetchPublicKalshi(){
   source:'Kalshi',
   contracts,
   error:contracts.length?undefined:(error||'No open Kalshi markets returned'),
-  errorKind:contracts.length?undefined:errorKind,
-  retryAfterMs:contracts.length?undefined:retryAfterMs
+  errorKind,
+  retryAfterMs,
+  partial:rows.length>0&&Boolean(error)
  };
 }
