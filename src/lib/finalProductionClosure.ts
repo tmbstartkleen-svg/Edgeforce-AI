@@ -81,6 +81,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
   rollback?.rollbackConfirmed
   &&String(rollback?.failedCommitSha||'')===commitSha
  );
+ const expectedWorkflowRunId=String(input.workflowRunId||topologyEvidence?.workflowRunId||'');
  const settlementMetadata=(settlementRun?.metadata&&typeof settlementRun.metadata==='object'?settlementRun.metadata:{}) as any;
  const settlementResult=(settlementMetadata?.result&&typeof settlementMetadata.result==='object'?settlementMetadata.result:{}) as any;
  const settlementFallbackUsed=String(settlementResult?.mode||'').includes('score-fallback');
@@ -112,10 +113,15 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
       :settlementMatchedLegs>0
         ?'MIXED'
         :'UNVERIFIED';
+ const settlementWorkflowBound=Boolean(
+  expectedWorkflowRunId
+  &&String(settlementMetadata?.deploymentWorkflowRunId||'')===expectedWorkflowRunId
+ );
  const settlementCertified=Boolean(
   settlementRun
   &&settlementRun.status==='success'
   &&String(settlementMetadata?.deploymentCommit||'')===commitSha
+  &&settlementWorkflowBound
   &&settlementResult?.ok===true
   &&settlementIdentityCertified
   &&(!settlementFallbackUsed||settlementResult?.fallbackEvidenceCertified===true)
@@ -127,6 +133,7 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
  if(!postPromotionVerified)blockers.push(primaryStandby?'Cloudflare primary hosted smoke verification is missing or failed':'post-promotion live verification is missing, failed, or belongs to a different commit');
  if(!platformConverged)blockers.push(primaryStandby?'Cloudflare primary and Vercel manual standby topology is not ready':'Vercel and Cloudflare are not converged on the same production commit');
  if(!rollbackClear)blockers.push('the candidate production commit has a confirmed rollback');
+ if(!settlementWorkflowBound)blockers.push('settlement automation evidence is not bound to the current production workflow run');
  if(!settlementIdentityCertified)blockers.push('settlement identity telemetry does not fully reconcile with matched legs for the candidate commit');
  if(!settlementCertified)blockers.push('fresh successful settlement automation evidence is missing or uncertified for the candidate commit');
 
@@ -150,6 +157,9 @@ export async function evaluateFinalProductionClosure(input:{commitSha:string;sou
    convergenceId:convergence?.id||null,
    rollbackId:rollback?.id||null,
    settlementCertified,
+   settlementWorkflowBound,
+   settlementExpectedWorkflowRunId:expectedWorkflowRunId||null,
+   settlementWorkflowRunId:settlementMetadata?.deploymentWorkflowRunId||null,
    settlementRunStartedAt:settlementRun?.startedAt?new Date(settlementRun.startedAt as any).toISOString():null,
    settlementMode:settlementResult?.mode||null,
    settlementNoop:Boolean(settlementResult?.settlementNoop),
