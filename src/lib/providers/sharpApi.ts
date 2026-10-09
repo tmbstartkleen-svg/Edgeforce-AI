@@ -51,17 +51,52 @@ export function normalizeSharpSnapshot(
 
   const markets=[];
 
+  const rejected=[];
+
+
   for(const row of snapshot.rows){
 
     const item=row as Record<string,unknown>;
 
+
+    const odds =
+      item.odds_american ??
+      item.oddsAmerican ??
+      item.odds ??
+      item.price;
+
+
+    const market =
+      item.market_type ??
+      item.market ??
+      item.marketName;
+
+
+    if(
+      typeof odds !== 'number' ||
+      !market
+    ){
+
+      rejected.push({
+        id:item.id,
+        keys:Object.keys(item)
+      });
+
+      continue;
+
+    }
+
+
     markets.push({
 
-      id:String(item.id ?? crypto.randomUUID()),
+      id:String(
+        item.id ??
+        crypto.randomUUID()
+      ),
 
       eventId:String(
+        item.event_id ??
         item.eventId ??
-        item.gameId ??
         ''
       ),
 
@@ -76,36 +111,43 @@ export function normalizeSharpSnapshot(
       ),
 
       home:String(
-        item.home ??
+        item.home_team ??
         item.homeTeam ??
         ''
       ),
 
       away:String(
-        item.away ??
+        item.away_team ??
         item.awayTeam ??
         ''
       ),
 
+      event:
+        `${item.away_team ?? ''} @ ${item.home_team ?? ''}`,
+
       market:String(
-        item.market ??
-        item.marketName ??
-        ''
+        market
       ),
 
       selection:String(
         item.selection ??
-        item.outcome ??
         ''
       ),
 
       odds:Number(
-        item.odds ??
-        item.price ??
-        0
+        odds
       ),
 
-      bookmaker:'SharpAPI'
+      bookmaker:String(
+        item.sportsbook ??
+        'SharpAPI'
+      ),
+
+      line:
+        item.line ?? null,
+
+      probability:
+        item.odds_probability ?? null
 
     });
 
@@ -113,11 +155,27 @@ export function normalizeSharpSnapshot(
 
 
   return {
+
     markets,
-    receivedRows:snapshot.rows.length,
-    acceptedRows:markets.length,
-    pages:snapshot.pages,
-    truncated:snapshot.truncated
+
+    receivedRows:
+      snapshot.rows.length,
+
+    acceptedRows:
+      markets.length,
+
+    rejectedRows:
+      rejected.length,
+
+    rejectedSamples:
+      rejected.slice(0,5),
+
+    pages:
+      snapshot.pages,
+
+    truncated:
+      snapshot.truncated
+
   };
 
 }
@@ -128,15 +186,18 @@ export async function fetchSharpSnapshot(
   apiKey:string
 ):Promise<SharpSnapshot>{
 
-  const response=await fetch(
-    ENDPOINT,
-    {
-      headers:{
-        'X-API-Key':apiKey,
-        'Accept':'application/json'
+
+  const response =
+    await fetch(
+      ENDPOINT,
+      {
+        method:'GET',
+        headers:{
+          'X-API-Key':apiKey,
+          'Accept':'application/json'
+        }
       }
-    }
-  );
+    );
 
 
   if(!response.ok){
@@ -152,34 +213,14 @@ export async function fetchSharpSnapshot(
     await response.json() as Record<string,unknown>;
 
 
-  console.log(
-    'SHARP KEYS',
-    Object.keys(json)
-  );
-
-
-  let rows:unknown[]=[];
-
-
-  if(Array.isArray(json.data)){
-    rows=json.data;
-  }
-  else if(Array.isArray(json.odds)){
-    rows=json.odds;
-  }
-  else if(Array.isArray(json.results)){
-    rows=json.results;
-  }
-  else if(Array.isArray(json.markets)){
-    rows=json.markets;
-  }
-  else if(Array.isArray(json.events)){
-    rows=json.events;
-  }
+  const rows =
+    Array.isArray(json.data)
+      ? json.data
+      : [];
 
 
   console.log(
-    'SHARP ROWS',
+    'SHARP ROW COUNT',
     rows.length
   );
 
@@ -190,13 +231,17 @@ export async function fetchSharpSnapshot(
 
     rows,
 
-    receivedAt:Date.now(),
+    receivedAt:
+      Date.now(),
 
-    delaySeconds:60,
+    delaySeconds:
+      60,
 
-    pages:1,
+    pages:
+      1,
 
-    truncated:false
+    truncated:
+      false
 
   };
 
@@ -210,10 +255,12 @@ export async function fetchSharpApiBoard(
 ):Promise<ProviderFetchResult<unknown>>{
 
 
-  const started=Date.now();
+  const started =
+    Date.now();
 
 
   try{
+
 
     const snapshot =
       await fetchSharpSnapshot(
@@ -223,11 +270,14 @@ export async function fetchSharpApiBoard(
 
     return {
 
-      providerId:config.id,
+      providerId:
+        config.id,
 
-      providerName:config.name,
+      providerName:
+        config.name,
 
-      capability:config.capability,
+      capability:
+        config.capability,
 
       receivedAt:
         new Date(started).toISOString(),
@@ -237,7 +287,9 @@ export async function fetchSharpApiBoard(
       status:200,
 
       data:
-        normalizeSharpSnapshot(snapshot),
+        normalizeSharpSnapshot(
+          snapshot
+        ),
 
       latencyMs:
         Date.now()-started
@@ -247,13 +299,17 @@ export async function fetchSharpApiBoard(
 
   }catch(error){
 
+
     return {
 
-      providerId:config.id,
+      providerId:
+        config.id,
 
-      providerName:config.name,
+      providerName:
+        config.name,
 
-      capability:config.capability,
+      capability:
+        config.capability,
 
       receivedAt:
         new Date(started).toISOString(),
