@@ -598,3 +598,132 @@ export async function fetchSharpSnapshot(
  }
 
 }
+export async function fetchSharpApiBoard(
+  config:ProviderConfig
+):Promise<ProviderFetchResult<unknown>>{
+
+  const started=Date.now();
+
+  const result={
+    providerId:config.id,
+    providerName:config.name,
+    capability:config.capability,
+    receivedAt:new Date(started).toISOString()
+  };
+
+
+  const fail=(
+    error:string,
+    status=503
+  )=>({
+    ...result,
+    ok:false,
+    status,
+    error,
+    latencyMs:Date.now()-started
+  });
+
+
+  if(!config.apiKey){
+    return fail('SharpAPI free account key is not configured');
+  }
+
+
+  let lease;
+
+  try{
+    lease=await acquireSharpLease(config.apiKey);
+  }
+  catch{
+    return fail(
+      'SharpAPI shared request budget unavailable; no upstream request made'
+    );
+  }
+
+
+  if(lease.kind==='hold'){
+    return fail(
+      `SharpAPI shared budget is cooling down; retry after ${Math.ceil(lease.retryAfterMs/1000)}s`,
+      429
+    );
+  }
+
+
+  let snapshot:SharpSnapshot;
+
+
+  if(lease.kind==='cached'){
+    snapshot=lease.snapshot;
+  }
+  else{
+
+    try{
+
+      snapshot=await fetchSharpSnapshot(
+        config.apiKey
+      );
+
+      await finishSharpLease(
+        lease,
+        snapshot
+      );
+
+    }
+    catch(error){
+
+      const feed=
+        error instanceof SharpFeedError
+          ?error
+          :new SharpFeedError(
+            503,
+            65000,
+            'SharpAPI shared cache could not commit the refresh'
+          );
+
+
+      try{
+        await finishSharpLease(
+          lease,
+          null,
+          feed.cooldownMs
+        );
+      }
+      catch{
+        // preserve failure
+      }
+
+
+      return fail(
+        feed.message,
+        feed.status
+      );
+    }
+  }
+
+
+  const normalized=normalizeSharpSnapshot(snapshot);
+
+
+  if(
+    lease.kind==='cached' &&
+    lease.coolingDown
+  ){
+    normalized.warnings.push(
+      'SharpAPI is cooling down; using a bounded cached snapshot with original timestamps.'
+    );
+  }
+
+
+  return {
+    ...result,
+    ok:normalized.markets.length>0,
+    status:200,
+    data:normalized,
+    latencyMs:Date.now()-started,
+    ...(normalized.markets.length
+      ?{}
+      :{
+        error:'SharpAPI returned no complete supported future main-market pairs'
+      })
+  };
+}
