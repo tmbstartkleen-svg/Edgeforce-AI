@@ -42,41 +42,39 @@ export async function fetchSharpSnapshot(
   let rows:unknown[] = [];
 
 
-  // Handle common SharpAPI response formats
-
   if(Array.isArray(json.data)){
 
-    rows = json.data;
+    rows=json.data;
 
   }
   else if(Array.isArray(json.odds)){
 
-    rows = json.odds;
+    rows=json.odds;
 
   }
   else if(Array.isArray(json.results)){
 
-    rows = json.results;
+    rows=json.results;
 
   }
   else if(Array.isArray(json.markets)){
 
-    rows = json.markets;
+    rows=json.markets;
 
   }
   else if(Array.isArray(json.events)){
 
-    rows = json.events;
+    rows=json.events;
 
   }
   else if(Array.isArray(json.response)){
 
-    rows = json.response;
+    rows=json.response;
 
   }
   else if(Array.isArray(json.items)){
 
-    rows = json.items;
+    rows=json.items;
 
   }
 
@@ -87,7 +85,7 @@ export async function fetchSharpSnapshot(
   );
 
 
-  if(rows.length){
+  if(rows.length > 0){
 
     console.log(
       'SHARP FIRST ROW:',
