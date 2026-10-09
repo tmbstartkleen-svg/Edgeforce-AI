@@ -31,13 +31,15 @@ type FlatQuote={
 };
 
 
-const safeText=(v:unknown):string =>
-  typeof v==='string' ? v : '';
+const text=(value:unknown):string =>
+  typeof value==='string'
+    ? value
+    : '';
 
-const safeNumber=(v:unknown):number =>
-  typeof v==='number' && Number.isFinite(v)
-    ? v
-    : Number(v) || 0;
+const number=(value:unknown):number =>
+  typeof value==='number' && Number.isFinite(value)
+    ? value
+    : Number(value) || 0;
 
 
 export function sharpApiProvider(
@@ -79,45 +81,147 @@ export function normalizeSharpSnapshot(
 ){
 
   const markets:FlatQuote[]=[];
+  const rejected:string[]=[];
+
 
   for(const row of snapshot.rows){
 
     const item=row as Record<string,unknown>;
 
+    const oddsValue =
+      item.odds ??
+      item.price ??
+      item.decimalOdds ??
+      item.americanOdds ??
+      item.line;
+
+
+    const marketValue =
+      item.market ??
+      item.marketName ??
+      item.type;
+
+
+    if(!oddsValue || !marketValue){
+
+      rejected.push(
+        JSON.stringify({
+          keys:Object.keys(item),
+          sample:item
+        }).slice(0,500)
+      );
+
+      continue;
+    }
+
+
     markets.push({
-      id:String(item.id ?? crypto.randomUUID()),
-      eventId:String(item.eventId ?? ''),
-      sport:safeText(item.sport),
-      league:safeText(item.league),
-      home:safeText(item.home),
-      away:safeText(item.away),
-      event:safeText(item.event),
-      market:safeText(item.market),
-      selection:safeText(item.selection),
-      odds:safeNumber(item.odds),
+
+      id:String(
+        item.id ??
+        crypto.randomUUID()
+      ),
+
+      eventId:String(
+        item.eventId ??
+        item.gameId ??
+        ''
+      ),
+
+      sport:text(
+        item.sport ??
+        item.sportName
+      ),
+
+      league:text(
+        item.league ??
+        item.leagueName
+      ),
+
+      home:text(
+        item.home ??
+        item.homeTeam
+      ),
+
+      away:text(
+        item.away ??
+        item.awayTeam
+      ),
+
+      event:text(
+        item.event
+      ),
+
+      market:text(
+        marketValue
+      ),
+
+      selection:text(
+        item.selection ??
+        item.outcome ??
+        item.team
+      ),
+
+      odds:number(
+        oddsValue
+      ),
+
       bookmaker:'SharpAPI',
-      startTime:safeText(item.startTime),
+
+      startTime:text(
+        item.startTime ??
+        item.commenceTime
+      ),
+
       pulledAt:new Date().toISOString(),
-      sourceDelaySeconds:snapshot.delaySeconds,
-      sourceTimestamp:new Date(snapshot.receivedAt).toISOString(),
+
+      sourceDelaySeconds:
+        snapshot.delaySeconds,
+
+      sourceTimestamp:
+        new Date(
+          snapshot.receivedAt
+        ).toISOString(),
+
       liveEligible:false
+
     });
 
   }
 
+
   return {
+
     markets,
-    receivedRows:snapshot.rows.length,
-    acceptedRows:markets.length,
-    pages:snapshot.pages,
-    truncated:snapshot.truncated
+
+    receivedRows:
+      snapshot.rows.length,
+
+    acceptedRows:
+      markets.length,
+
+    rejectedRows:
+      rejected.length,
+
+    rejectedSamples:
+      rejected.slice(0,5),
+
+    pages:
+      snapshot.pages,
+
+    truncated:
+      snapshot.truncated
+
   };
+
 }
+
 
 
 export async function fetchSharpSnapshot(
   apiKey:string
 ):Promise<SharpSnapshot>{
+
 
   const response=await fetch(
     ENDPOINT,
@@ -128,66 +232,126 @@ export async function fetchSharpSnapshot(
     }
   );
 
+
   if(!response.ok){
-    throw new Error(`SharpAPI HTTP ${response.status}`);
+
+    throw new Error(
+      `SharpAPI HTTP ${response.status}`
+    );
+
   }
 
-  const data=await response.json() as Record<string,unknown>;
 
-  const rows=
-    Array.isArray(data.data)
-      ? data.data
-      : [];
+  const json=
+    await response.json() as Record<string,unknown>;
+
+
+  const rows =
+    Array.isArray(json.data)
+      ? json.data
+      : Array.isArray(json.odds)
+        ? json.odds
+        : [];
+
 
   return {
+
     schema:1,
+
     rows,
-    receivedAt:Date.now(),
-    delaySeconds:60,
-    pages:1,
-    truncated:false
+
+    receivedAt:
+      Date.now(),
+
+    delaySeconds:
+      60,
+
+    pages:
+      1,
+
+    truncated:
+      false
+
   };
+
 }
+
 
 
 export async function fetchSharpApiBoard(
   config:ProviderConfig
 ):Promise<ProviderFetchResult<unknown>>{
 
+
   const started=Date.now();
 
+
   const base={
-    providerId:config.id,
-    providerName:config.name,
-    capability:config.capability,
-    receivedAt:new Date(started).toISOString()
+
+    providerId:
+      config.id,
+
+    providerName:
+      config.name,
+
+    capability:
+      config.capability,
+
+    receivedAt:
+      new Date(started).toISOString()
+
   };
+
 
   try{
 
-    const snapshot=await fetchSharpSnapshot(
-      config.apiKey ?? ''
-    );
+
+    const snapshot =
+      await fetchSharpSnapshot(
+        config.apiKey ?? ''
+      );
+
 
     return {
+
       ...base,
+
       ok:true,
+
       status:200,
-      data:normalizeSharpSnapshot(snapshot),
-      latencyMs:Date.now()-started
+
+      data:
+        normalizeSharpSnapshot(
+          snapshot
+        ),
+
+      latencyMs:
+        Date.now()-started
+
     };
+
 
   }catch(error){
 
+
     return {
+
       ...base,
+
       ok:false,
+
       status:503,
-      error:error instanceof Error
-        ? error.message
-        : 'SharpAPI failed',
-      latencyMs:Date.now()-started
+
+      error:
+        error instanceof Error
+          ? error.message
+          : 'SharpAPI failed',
+
+      latencyMs:
+        Date.now()-started
+
     };
 
   }
+
 }
