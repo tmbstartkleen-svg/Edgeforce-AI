@@ -30,7 +30,7 @@ let oddsCache:{at:number;value:{
   contextRevision:string;
 }}|null=null;
 let lastContextMarkets:Market[]=[];
-const SOURCE_TTL_MS=10000;
+const SOURCE_TTL_MS=15000;
 
 async function withTimeout<T>(promise:Promise<T>,timeoutMs:number,label:string):Promise<T>{
   let timer:ReturnType<typeof setTimeout>|undefined;
