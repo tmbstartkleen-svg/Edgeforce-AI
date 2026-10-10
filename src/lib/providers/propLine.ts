@@ -139,6 +139,13 @@ function cleanBook(book:any){
   );
 }
 
+function cleanPlayerName(value:unknown){
+  return String(value||'')
+    .replace(/\s*\([A-Z0-9 .'-]{2,8}\)\s*$/i,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
 async function load(apiKey:string):Promise<Cached>{
 
   const started=Date.now();
@@ -236,11 +243,11 @@ async function load(apiKey:string):Promise<Cached>{
                       continue;
                     }
 
-                    const player=String(
+                    const player=cleanPlayerName(
                       outcome?.description ||
                       outcome?.player_name ||
                       ''
-                    ).trim();
+                    );
 
                     const side=String(
                       outcome?.name ||
