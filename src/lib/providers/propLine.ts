@@ -407,7 +407,21 @@ export async function fetchPropLineBoard(
 
   try{
 
-    const result=await inFlight;
+    const hardTimeoutMs=Math.max(
+      3000,
+      Number(process.env.PROPLINE_HARD_TIMEOUT_MS||15000)
+    );
+
+    const result=await Promise.race([
+      inFlight,
+      new Promise<never>((_,reject)=>{
+        setTimeout(
+          ()=>reject(new Error(`PropLine hard timeout after ${hardTimeoutMs}ms`)),
+          hardTimeoutMs
+        );
+      })
+    ]);
+
     cache=result;
 
     return {
@@ -428,7 +442,10 @@ export async function fetchPropLineBoard(
       ...base,
       ok:false,
       status:503,
-      latencyMs:0,
+      latencyMs:Math.max(
+        0,
+        Number(process.env.PROPLINE_HARD_TIMEOUT_MS||15000)
+      ),
       error:
         error instanceof Error
           ? error.message
