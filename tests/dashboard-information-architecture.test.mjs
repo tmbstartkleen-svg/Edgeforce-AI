@@ -83,3 +83,14 @@ test('V191 live board scan exposes sticky action-first controls',()=>{
   assert.match(dashboard,/Action-first board/);
   assert.match(dashboard,/setRankingMode\('PRIORITY'\)/);
 });
+
+
+test('V192 live game center promotes score clock and source health',()=>{
+  assert.match(dashboard,/V192 LIVE GAME CENTER/);
+  assert.match(dashboard,/liveGameCenter/);
+  assert.match(dashboard,/featuredLiveGame/);
+  assert.match(dashboard,/liveGamePulse/);
+  assert.match(dashboard,/MULTI-SOURCE/);
+  assert.match(dashboard,/SOURCE CONFLICT/);
+  assert.match(dashboard,/compactLiveRail/);
+});
