@@ -2,6 +2,7 @@ import type {ProviderConfig,ProviderFetchResult} from './types';
 import {fetchTheOddsApiBoard} from './theOddsApi';
 import {fetchSportsGameOddsBoard} from './sportsGameOdds';
 import {fetchSharpApiBoard} from './sharpApi';
+import {fetchOddsApi2Board} from './oddsApi2';
 import {fetchTheRundownBoard} from './theRundown';
 import {fetchTheRundownResults} from './theRundownResults';
 import {fetchEspnCoreOdds} from './espnCoreOdds';
@@ -21,6 +22,9 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
  }
  if(config.url==='sharp-api://pregame-main'){
   return fetchSharpApiBoard(config) as Promise<ProviderFetchResult<T>>;
+ }
+ if(config.url==='odds-api-2://live-board'){
+  return fetchOddsApi2Board(config) as Promise<ProviderFetchResult<T>>;
  }
  if(config.url==='sports-game-odds://live-board'){
   return fetchSportsGameOddsBoard(config) as Promise<ProviderFetchResult<T>>;

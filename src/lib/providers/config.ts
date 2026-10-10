@@ -4,6 +4,7 @@ import {sharpApiProvider} from './sharpApi';
 import {theRundownProvider} from './theRundown';
 import {theRundownResultsProvider} from './theRundownResults';
 import {espnCoreOddsProvider} from './espnCoreOdds';
+import {oddsApi2Provider} from './oddsApi2';
 
 const int=(v:string|undefined,fallback:number)=>{
  const n=Number(v);
@@ -105,6 +106,7 @@ export function configuredProviders(capability?:ProviderCapability):ProviderConf
   theRundownProvider(),
   theRundownResultsProvider(),
   sharpApiProvider(),
+  oddsApi2Provider(),
   sportsGameOddsProvider(),
   theOddsApiProvider(),
   provider('ODDS_PROVIDER_PRIMARY','Odds Primary','ODDS',100),
