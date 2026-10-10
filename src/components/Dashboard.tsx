@@ -1105,7 +1105,20 @@ export default function Dashboard(){
     </section>
 
     {workspace!=='games'&&workspace!=='live'&&lastError&&<div className="v21Alert">{lastError}</div>}
-    {workspace!=='games'&&workspace!=='live'&&board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
+    {workspace!=='games'&&workspace!=='live'&&board.providerDegraded&&<div className="v21Alert" role="status">
+      <b>Provider coverage limited.</b> {board.providerQuality?.grade?`Accepted feed quality: ${board.providerQuality.grade} (not cross-book verification). `:''}
+      {(board.consensusCoverage?.acceptedFeeds??0)} accepted of {(board.consensusCoverage?.configuredFeeds??0)} configured feeds.
+      {' '}{board.warnings?.find(w=>w.includes('Only one acceptable odds provider'))||board.warnings?.[0]||'Available price sources need verification.'}
+      <details className="providerFailureDetails"><summary>Inspect provider diagnostics</summary>
+        {(board.providerAttempts||[]).map(p=><div key={p.providerId}>
+          <b>{p.providerId}</b>: {p.skipped?'quarantined':p.ok?'accepted':'failed'}
+          {p.qualityGrade?` · grade ${p.qualityGrade}`:''}
+          {p.circuitState?` · circuit ${p.circuitState}`:''}
+          {p.error?` · ${p.error.slice(0,170)}`:''}
+        </div>)}
+        {!board.providerAttempts?.length&&<div>No provider-attempt diagnostics are available in this board response.</div>}
+      </details>
+    </div>}
     {workspace!=='live'&&board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 

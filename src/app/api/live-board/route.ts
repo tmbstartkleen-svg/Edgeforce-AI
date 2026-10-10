@@ -30,7 +30,7 @@ let oddsCache:{at:number;value:{
   contextRevision:string;
 }}|null=null;
 let lastContextMarkets:Market[]=[];
-const SOURCE_TTL_MS=10000;
+const SOURCE_TTL_MS=15000;
 
 async function withTimeout<T>(promise:Promise<T>,timeoutMs:number,label:string):Promise<T>{
   let timer:ReturnType<typeof setTimeout>|undefined;
@@ -55,7 +55,7 @@ async function loadOdds(force=false){
 
   const ingestion=await withTimeout(
     ingestOdds({forceLive:force}),
-    Math.max(5000,Number(process.env.LIVE_BOARD_INGEST_TIMEOUT_MS||14000)),
+    Math.min(15000,Math.max(5000,Number(process.env.LIVE_BOARD_INGEST_TIMEOUT_MS||11000))),
     'odds ingestion'
   );
 
@@ -65,7 +65,7 @@ async function loadOdds(force=false){
       enrichMarketsWithContext(ingestion.markets),
       Math.max(
         3000,
-        Number(process.env.LIVE_BOARD_CONTEXT_TIMEOUT_MS||(process.env.NODE_ENV==='development'?12000:7000))
+        Math.min(6000,Number(process.env.LIVE_BOARD_CONTEXT_TIMEOUT_MS||(process.env.NODE_ENV==='development'?6000:3500)))
       ),
       'context enrichment'
     );
@@ -84,7 +84,7 @@ async function loadOdds(force=false){
 
   const previousStored=await withTimeout(
     loadContextMarketStates(),
-    2000,
+    900,
     'context state load'
   ).catch(()=>[]);
   const previous=previousStored.length?previousStored:lastContextMarkets;
@@ -92,8 +92,8 @@ async function loadOdds(force=false){
   const revision=contextRevision(context.markets);
 
   await Promise.all([
-    withTimeout(recordContextChanges(contextChanges),1500,'context change persistence').catch(()=>0),
-    withTimeout(saveContextMarketStates(context.markets,revision),1500,'context state persistence').catch(()=>0)
+    withTimeout(recordContextChanges(contextChanges),800,'context change persistence').catch(()=>0),
+    withTimeout(saveContextMarketStates(context.markets,revision),800,'context state persistence').catch(()=>0)
   ]);
   lastContextMarkets=context.markets;
 
@@ -136,9 +136,21 @@ async function buildBoard(req:Request){
   const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores,fanduelPulse]=await Promise.all([
     withTimeout(
       cachedOdds(forceRefresh),
-      Math.max(12000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||24000)),
+      Math.min(23000,Math.max(15000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||21000))),
       'live-board odds/context pipeline'
-    ).catch(()=>null),
+    ).catch(()=>{
+      // Warm cache recovery is limited to research data; never advertise old prices as live.
+      if(forceRefresh||!oddsCache||Date.now()-oddsCache.at>180000)return null;
+      return {
+        ...oddsCache.value,
+        ingestion:{
+          ...oddsCache.value.ingestion,
+          source:'stored' as const,
+          degraded:true,
+          warnings:[...oddsCache.value.ingestion.warnings,'Live-board pipeline failed. Recovered a bounded stored snapshot for research only.']
+        }
+      };
+    }),
     withTimeout(
       fetchPredictionMarkets(),
       Math.max(2000,Number(process.env.LIVE_BOARD_PREDICTION_TIMEOUT_MS||6000)),
@@ -168,11 +180,12 @@ async function buildBoard(req:Request){
   const ingestion=cached.ingestion;
   const [scanned,lineMovement]=await Promise.all([
     Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles,workerRuntime?{simulationRunCap:100}:{})),
-    withTimeout(loadLineMovement(ingestion.markets),4000,'line movement').catch(()=>new Map())
+    withTimeout(loadLineMovement(ingestion.markets),1600,'line movement').catch(()=>new Map())
   ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
   const resimulatedRows=scanned.filter(x=>triggeredIds.has(x.id));
-  if(resimulatedRows.length)await withTimeout(recordModelRuns(resimulatedRows),2000,'model-run persistence').catch(()=>0);
+  const providerQualified=ingestion.source==='live'&&!ingestion.degraded;
+  if(providerQualified&&resimulatedRows.length)await withTimeout(recordModelRuns(resimulatedRows),850,'model-run persistence').catch(()=>0);
   const resimulationResults=resimulatedRows.map(x=>({
     marketId:x.id,
     selection:x.selection,
@@ -183,9 +196,9 @@ async function buildBoard(req:Request){
     simEngine:x.simEngine
   }));
   const boardCandidates=view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned;
-  const qualifiedCandidates=boardCandidates.filter(qualifiesForTopBoard);
+  const qualifiedCandidates=providerQualified?boardCandidates.filter(qualifiesForTopBoard):[];
   const strictRanked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
-  const fallbackRanked=strictRanked.length?[]:scoreBoardRows(boardCandidates)
+  const fallbackRanked=providerQualified&&strictRanked.length?[]:scoreBoardRows(boardCandidates)
     .filter(x=>x.freshness!=='STALE')
     .filter(x=>x.simProbability>=.50)
     .sort((a,b)=>b.dailyScore-a.dailyScore||b.simProbability-a.simProbability||b.dynamicConfidence-a.dynamicConfidence)
@@ -199,10 +212,16 @@ async function buildBoard(req:Request){
     if(catalogueKind==='TOTALS')return !prop&&/total|over|under/i.test(row.market);
     return true;
   }).sort((a,b)=>b.simProbability-a.simProbability);
-  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*cataloguePageSize,(cataloguePage+1)*cataloguePageSize):strictRanked.length?strictRanked:fallbackRanked;
-  const boardFallbackUsed=strictRanked.length===0&&fallbackRanked.length>0;
+  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*cataloguePageSize,(cataloguePage+1)*cataloguePageSize):providerQualified&&strictRanked.length?strictRanked:fallbackRanked;
+  const boardFallbackUsed=(!providerQualified||strictRanked.length===0)&&fallbackRanked.length>0;
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
     ...row,
+    // Continue to show research/schedules without representing degraded prices as picks.
+    ...(!providerQualified?{
+      grade:ingestion.source==='live'?'WATCH' as const:'PASS' as const,
+      ...(ingestion.source!=='live'?{freshness:'STALE' as const}:{}),
+      expectedValue:0,quarterKelly:0,dynamicConfidence:0
+    }:{}),
     lineMovement:lineMovement.get(row.id)||null
   }));
   const steamAlerts=rows.map(x=>x.lineMovement?steamAlert(x.id,x.lineMovement.probabilityMove,x.lineMovement.snapshotCount,x.lineMovement.direction):null).filter(Boolean);
@@ -305,10 +324,10 @@ async function buildBoard(req:Request){
       withheld:Math.max(0,boardCandidates.length-qualifiedCandidates.length),
       forced:!catalogue&&boardFallbackUsed,
       fallbackMode:!catalogue&&boardFallbackUsed?'MARKET_SIM_VIEW':null,
-      fallbackReason:!catalogue&&boardFallbackUsed?'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.':null,
+      fallbackReason:!catalogue&&boardFallbackUsed?(!providerQualified?'Live independent provider coverage is degraded or unavailable. Rankings are research only, not actionable picks.':'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.'):null,
       minimumSimProbability:.52,
       minimumDynamicConfidence:.50,
-      allowedGrades:['ELITE','STRONG'],
+      allowedGrades:providerQualified?['ELITE','STRONG']:[],
       downgradeCounts
     },
     rows,

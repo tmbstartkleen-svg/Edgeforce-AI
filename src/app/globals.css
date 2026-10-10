@@ -1257,3 +1257,10 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 
 /* EDGEFORCE V196 MARKET TRUTH */
 .institutionalIntegrity{margin-top:14px!important;padding:12px;border:1px solid rgba(111,220,255,.20);border-radius:11px;background:rgba(111,220,255,.05);font-size:12px!important;line-height:1.7!important;color:#b7d2df!important}
+
+
+/* V197: visible, compact provider diagnostics without hiding degraded status */
+.v21 .providerFailureDetails{margin-top:10px;padding:10px 12px;border:1px solid rgba(255,185,92,.28);border-radius:10px;color:#e5cfa9;background:rgba(9,15,20,.55)}
+.v21 .providerFailureDetails summary{cursor:pointer;font-size:13px;font-weight:750}
+.v21 .providerFailureDetails div{padding:7px 0;border-top:1px solid rgba(255,255,255,.10);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.v21 .providerFailureDetails div:first-of-type{margin-top:9px}
