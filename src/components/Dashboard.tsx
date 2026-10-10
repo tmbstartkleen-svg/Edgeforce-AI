@@ -33,7 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
-import {buildBoardPriority,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRobustness} from '@/lib/boardRobustness';
+import {buildBoardPriority,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltas,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -858,6 +858,7 @@ export default function Dashboard(){
 
   const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
   const rankDeltas=useMemo(()=>buildBoardRankDeltas(filtered),[filtered]);
+  const rankDeltaSummary=useMemo(()=>summarizeBoardRankDeltas(filtered),[filtered]);
   const rankedFiltered=useMemo(()=>[...filtered].sort((a,b)=>rankingMode==='PRIORITY'
     ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
     :b.simProbability-a.simProbability),[filtered,rankingMode]);
@@ -1061,6 +1062,7 @@ export default function Dashboard(){
       <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
       <div><small>V120 ROBUSTNESS</small><strong>{rawFiltered.length?fmtPct(robustnessSummary.averageScore):'—'}</strong><span>{robustnessSummary.robust} robust • {robustnessSummary.reviewRequired} review • 0 extra calls</span></div>
+      <div><small>V127 DIVERGENCE</small><strong>{rankDeltaSummary.upgraded+rankDeltaSummary.downgraded}</strong><span>{rankDeltaSummary.upgraded} up • {rankDeltaSummary.downgraded} down • {rankDeltaSummary.stable} stable</span></div>
     </section>
 
     <section className="edgeCommand" id="edge">
