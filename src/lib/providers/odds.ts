@@ -6,7 +6,19 @@ import {loadProviderHealthStates,recordProviderResult} from './healthStore';
 import {providerHealth} from '../providerRegistry';
 import {buildConsensusMarkets} from '../marketConsensus';
 import type {Market,MarketRole} from '../types';
-import type {ProviderConfig} from './types';
+import type {ProviderConfig,ProviderFetchResult} from './types';
+
+async function withDeadline<T>(promise:Promise<T>,ms:number,label:string):Promise<T>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{
+  return await Promise.race([
+   promise,
+   new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} timeout after ${ms}ms`)),ms)})
+  ]);
+ }finally{
+  if(timer)clearTimeout(timer);
+ }
+}
 
 export type OddsAttempt={
  providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number;
@@ -78,7 +90,26 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
   };
  }
 
- const raw=await fetchProviderJson(config);
+ const providerDeadlineMs=Math.max(2500,Math.min(10000,config.timeoutMs||8000));
+ let raw:ProviderFetchResult<unknown>;
+ try{
+  raw=await withDeadline(
+   fetchProviderJson(config),
+   providerDeadlineMs,
+   `${config.id} provider`
+  );
+ }catch(error){
+  raw={
+   ok:false,
+   providerId:config.id,
+   providerName:config.name,
+   capability:config.capability,
+   latencyMs:providerDeadlineMs,
+   receivedAt:new Date().toISOString(),
+   status:504,
+   error:error instanceof Error?error.message:'provider timeout'
+  };
+ }
  let quality:PayloadQuality|undefined;
  let markets:Market[]=[];
  let rawCount=0;
@@ -97,7 +128,11 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
   else if(!markets.length)error='Odds payload produced zero normalized markets';
  }
 
- await recordProviderResult(config,{...raw,ok:accepted,error} as typeof raw,quality).catch(()=>undefined);
+ await withDeadline(
+  recordProviderResult(config,{...raw,ok:accepted,error} as typeof raw,quality),
+  1000,
+  `${config.id} provider health write`
+ ).catch(()=>undefined);
 
  const qualityWeight=quality?.qualityScore??.5;
  const latencyFactor=Math.max(.35,Math.min(1,2500/(2500+Math.max(0,raw.latencyMs))));
@@ -160,7 +195,11 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
   };
  }
 
- const states=await loadProviderHealthStates().catch(()=>new Map());
+ const states=await withDeadline(
+  loadProviderHealthStates(),
+  1500,
+  'provider health read'
+ ).catch(()=>new Map());
  const now=Date.now();
  const panel=await Promise.all(configured.map(async config=>{
   const stored=states.get(config.id);
