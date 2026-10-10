@@ -62,7 +62,7 @@ export type EdgeScannerResult={
  };
 };
 
-type MarketKind='MONEYLINE_2WAY'|'MONEYLINE_3WAY'|'TOTAL_2WAY'|'SPREAD_2WAY';
+type MarketKind='MONEYLINE_2WAY'|'MONEYLINE_3WAY'|'TOTAL_2WAY'|'SPREAD_2WAY'|'PLAYER_OU';
 
 type Quote={
  marketId:string;
@@ -93,9 +93,30 @@ function numericLine(selection:string){
  return Number.isFinite(n)?n:undefined;
 }
 
+function cleanPlayerIdentity(value:unknown){
+ return norm(value)
+  .replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'')
+  .replace(/\s+/g,' ')
+  .trim();
+}
+
+function playerIdentity(m:Market,selection:string){
+ const direct=cleanPlayerIdentity(m.playerContext?.name);
+ if(direct)return direct;
+ const match=selection.match(/^(.*?)\s+(over|under)\s+[+-]?\d+(?:\.\d+)?$/i);
+ return match?.[1]?cleanPlayerIdentity(match[1]):'';
+}
+
 function marketKind(m:Market){
  const raw=norm(m.market);
- if(raw.startsWith('player')||m.playerContext?.name)return null;
+ if(raw.startsWith('player')||raw.startsWith('pitcher')||raw.startsWith('batter')||raw.startsWith('goalie')||m.playerContext?.name){
+  const selection=text(m.selection);
+  const side=/\bover\b/i.test(selection)?'over':/\bunder\b/i.test(selection)?'under':'';
+  const line=numericLine(selection);
+  const player=playerIdentity(m,selection);
+  if(side&&line!==undefined&&player)return 'PLAYER_OU' as const;
+  return null;
+ }
 
  if(raw==='h2h'||raw==='ml'||raw.includes('moneyline')||raw.includes('money line')){
   const soccer=/soccer|\bmls\b|\bepl\b|premier league|la liga|bundesliga|serie a|ligue 1/i.test(`${m.sport} ${m.league}`);
@@ -135,7 +156,14 @@ function parseQuote(m:Market):Quote|null{
  let outcomeKey='';
  let family='';
 
- if(kind==='TOTAL_2WAY'){
+ if(kind==='PLAYER_OU'){
+  outcomeKey=/\bunder\b/i.test(selection)?'under':/\bover\b/i.test(selection)?'over':'';
+  if(!outcomeKey||line===undefined)return null;
+  const player=playerIdentity(m,selection);
+  if(!player)return null;
+  const stat=norm(m.playerContext?.statKey||m.market);
+  family=[player,stat,String(Math.abs(line))].join('|');
+ }else if(kind==='TOTAL_2WAY'){
   outcomeKey=/\bunder\b/i.test(selection)?'under':/\bover\b/i.test(selection)?'over':'';
   if(!outcomeKey||line===undefined)return null;
   family=String(Math.abs(line));
@@ -178,7 +206,7 @@ function parseQuote(m:Market):Quote|null{
 
 function expectedOutcomes(kind:MarketKind){
  if(kind==='MONEYLINE_3WAY')return ['home','draw','away'];
- if(kind==='TOTAL_2WAY')return ['over','under'];
+ if(kind==='TOTAL_2WAY'||kind==='PLAYER_OU')return ['over','under'];
  return ['home','away'];
 }
 
@@ -263,6 +291,13 @@ export function scanEdgeOpportunities(
   list.push(quote);
   groups.set(quote.groupKey,list);
  }
+ const playerPropQuoteCount=quotes.filter(x=>x.kind==='PLAYER_OU').length;
+ const playerPropGroupCount=[...groups.values()].filter(x=>x[0]?.kind==='PLAYER_OU').length;
+ const rawPlayerPropRows=panelMarkets.filter(m=>{
+  const raw=norm(m.market);
+  return raw.startsWith('player')||raw.startsWith('pitcher')||raw.startsWith('batter')||raw.startsWith('goalie')||Boolean(m.playerContext?.name);
+ }).length;
+ const excludedPlayerPropRows=Math.max(0,rawPlayerPropRows-playerPropQuoteCount);
 
  const arbitrage:ArbitrageOpportunity[]=[];
  const positiveEv:PositiveEvOpportunity[]=[];
@@ -361,15 +396,18 @@ export function scanEdgeOpportunities(
   consensusReferenceGroups,
   rejectedSuspiciousArbitrage,
   rejectedSuspiciousEv,
+  playerPropQuoteCount,
+  playerPropGroupCount,
+  excludedPlayerPropRows,
   arbitrage:arbitrage.slice(0,options.maxArbitrage??25),
   positiveEv:positiveEv.slice(0,options.maxPositiveEv??50),
   methodology:{
-   arbitrage:'validated complete team moneyline, total, and spread outcome sets only',
+   arbitrage:'validated complete team moneyline, total, spread, and exact-line player Over/Under outcome sets only',
    devig:'power-method devig with complete sharp reference when available; multi-book consensus fallback otherwise',
    expectedValue:'fair probability versus best available price with anomaly caps',
    kellyFraction,
    extraProviderRequests:0,
-   playerProps:'temporarily excluded from the edge scanner until player-side normalization is separately certified'
+   playerProps:'Over/Under player props are scanned only when event, player identity, stat key, and exact line match on both sides; one-sided props such as anytime TD remain excluded'
   }
  };
 }
