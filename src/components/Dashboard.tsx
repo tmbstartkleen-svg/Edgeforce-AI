@@ -947,6 +947,7 @@ export default function Dashboard(){
 
     <nav className="v21QuickNav" aria-label="Dashboard sections">
       <a href="#triage">Triage</a>
+      <a href="#live">Live Scores</a>
       <a href="#edge">Today&apos;s Edge</a>
       <a href="#board">Probability Board</a>
       <a href="#parlays">Parlays</a>
@@ -961,16 +962,21 @@ export default function Dashboard(){
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
-    {board.liveScores&&<section className="consoleCard">
+    {board.liveScores&&<section className="consoleCard liveScoreSurface" id="live">
       <div className="consoleHead">
         <div><div className="eyebrow">LIVE GAME CLOCK MESH</div><h3>{board.liveScores.liveGames} game{board.liveScores.liveGames===1?'':'s'} live now</h3></div>
         <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {board.liveScores.consensus?Math.round(board.liveScores.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
       </div>
-      {(board.liveScores.games||[]).filter(g=>g.status==='LIVE').slice(0,12).map(g=><div className="consoleRow" key={g.source+'-'+g.id}>
-        <span className="action action-open">{g.league}</span>
-        <div className="grow"><b>{g.away.name} {g.away.score??'—'} • {g.home.name} {g.home.score??'—'}</b><small>{[g.detail,g.clock&&('Clock '+g.clock),g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
-        <span className={g.consensus?.activeConflict?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':(g.consensus?.confidence||'LIVE')}</span>
-      </div>)}
+      <div className="liveScoreGrid">
+        {(board.liveScores.games||[]).filter(g=>g.status==='LIVE').slice(0,12).map(g=><article className="liveScoreCard" key={g.source+'-'+g.id}>
+          <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':(g.consensus?.confidence||'LIVE')}</span></div>
+          <div className="liveScoreTeams">
+            <div><b>{g.away.name}</b><strong>{g.away.score??'—'}</strong></div>
+            <div><b>{g.home.name}</b><strong>{g.home.score??'—'}</strong></div>
+          </div>
+          <div className="liveScoreMeta"><b>{[g.period,g.clock&&('Clock '+g.clock)].filter(Boolean).join(' • ')||g.detail}</b><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
+        </article>)}
+      </div>
       {!board.liveScores.liveGames&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
     </section>}
 
@@ -1240,7 +1246,21 @@ export default function Dashboard(){
           <span>{board.generatedAt?dateLabel(board.generatedAt):'loading'}</span>
         </div>
       </div>
-      <div className="tableWrap">
+      <div className="mobileBoardCards">
+        {filtered.map((x,i)=>{const r=robustnessMap.get(x.id);return <article className="mobileBoardCard" key={'mobile-'+x.id}>
+          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></div>
+          <div className="mobileBoardMain"><b>{x.selection}</b><small>{x.event} • {x.market} • {x.period}</small></div>
+          <div className="mobileBoardMetrics">
+            <div><small>SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong></div>
+            <div><small>ODDS</small><strong>{fmtOdds(x.odds)}</strong></div>
+            <div><small>CONF</small><strong>{fmtPct(x.dynamicConfidence)}</strong></div>
+            <div><small>EDGE</small><strong className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</strong></div>
+          </div>
+          <div className="mobileBoardFoot"><span className={'robustnessBadge '+(r?.classification||'FAIL').toLowerCase()}>{r?.classification||'—'}</span><span>{x.bestExecutionVenue?.venue||board.targetBook||'—'}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></div>
+        </article>})}
+        {!filtered.length&&<div className="edgeEmpty">No qualified rows match the current filters.</div>}
+      </div>
+      <div className="tableWrap desktopBoardTable">
         <table className="v21Table">
           <thead><tr>
             <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
