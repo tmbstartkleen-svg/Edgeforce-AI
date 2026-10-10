@@ -1443,12 +1443,12 @@ export default function Dashboard(){
     <section className="v21Panel" id="board">
       <div className="v21PanelHead">
         <div>
-          <div className="eyebrow">{view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
-          <h3>{view==='today'?(rankingMode==='PRIORITY'?'Robustness-aware priority first':'Highest simulation probability first'):'Probability score distributed across the week'}</h3>
+          <div className="eyebrow">{catalogue?'RECEIVED MARKET CATALOGUE':view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
+          <h3>{catalogue?'Game lines and player props':view==='today'?(rankingMode==='PRIORITY'?'Robustness-aware priority first':'Highest simulation probability first'):'Probability score distributed across the week'}</h3>
         </div>
         <div className="panelMeta">
-          <span>{rankedFiltered.length} shown • {board.topBoardQualification?.withheld??0} withheld</span>
-          <span>{board.topBoardQualification?.forced===false?'QUALITY ONLY • NOT FORCED':'loading qualification'}</span>
+          <span>{catalogue?`${rankedFiltered.length} on this page · ${board.catalogue?.total??0} matching`: `${rankedFiltered.length} shown • ${board.topBoardQualification?.withheld??0} withheld`}</span>
+          <span>{catalogue?'ALL RECEIVED GRADES':board.topBoardQualification?.forced===false?'QUALITY ONLY • NOT FORCED':'loading qualification'}</span>
           <span>{board.generatedAt?dateLabel(board.generatedAt):'loading'}</span>
         </div>
       </div>
@@ -1518,7 +1518,7 @@ export default function Dashboard(){
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>})}
-            {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.</td></tr>}
+            {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">{catalogue?'No received markets match this date range and filters. Check feed status above.':'No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.'}</td></tr>}
           </tbody>
         </table>
       </div>

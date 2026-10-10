@@ -91,11 +91,14 @@ export function normalizeEspnOddsItems(
  const allow=bookAllow();
  for(const raw of arr(obj(payload).items)){
   const item=obj(raw),provider=obj(item.provider);
-  const bookmaker=str(provider.name)||str(provider.displayName);
+  const rawBookmaker=str(provider.name)||str(provider.displayName);
+  const bookmaker=/^draft\s*kings$/i.test(rawBookmaker)?'DraftKings':/^fan\s*duel$/i.test(rawBookmaker)?'FanDuel':rawBookmaker;
   if(!bookmaker||!allow.has(bookmaker.toLowerCase()))continue;
   const homeOdds=obj(item.homeTeamOdds),awayOdds=obj(item.awayTeamOdds);
-  const homeMl=num(homeOdds.moneyLine),awayMl=num(awayOdds.moneyLine);
-  const spreadRaw=num(item.spread);
+  const quote=(market:unknown,side:string)=>obj(obj(obj(market)[side]).close);
+  const moneyline=obj(item.moneyline),pointSpread=obj(item.pointSpread),gameTotal=obj(item.total);
+  const homeMl=num(homeOdds.moneyLine??quote(moneyline,'home').odds),awayMl=num(awayOdds.moneyLine??quote(moneyline,'away').odds);
+  const spreadRaw=num(quote(pointSpread,'home').line??item.spread);
   const total=num(item.overUnder);
   const event=`${meta.away} @ ${meta.home}`;
   const base={eventId:meta.eventId,sport:sportLabel,league:sportLabel,event,home:meta.home,away:meta.away,startTime:meta.startTime,bookmaker,pulledAt:observedAt,sourceTimestamp:observedAt,liveEligible:false as const};
@@ -106,16 +109,16 @@ export function normalizeEspnOddsItems(
   }
 
   const spreadAbs=spreadRaw===null?null:Math.abs(spreadRaw);
-  const homeSpreadOdds=num(homeOdds.spreadOdds),awaySpreadOdds=num(awayOdds.spreadOdds);
+  const homeSpreadOdds=num(homeOdds.spreadOdds??quote(pointSpread,'home').odds),awaySpreadOdds=num(awayOdds.spreadOdds??quote(pointSpread,'away').odds);
   if(spreadAbs!==null&&spreadAbs>0&&americanOk(homeSpreadOdds)&&americanOk(awaySpreadOdds)){
    const homeFavorite=homeOdds.favorite===true,awayFavorite=awayOdds.favorite===true;
-   const homePoint=homeFavorite?-spreadAbs:awayFavorite?spreadAbs:spreadRaw!;
+   const homePoint=quote(pointSpread,'home').line!==undefined?spreadRaw!:homeFavorite?-spreadAbs:awayFavorite?spreadAbs:spreadRaw!;
    const awayPoint=-homePoint;
    out.push({...base,id:`espn:${meta.eventId}:spreads:home:${bookmaker}`,selection:`${meta.home} ${homePoint>0?'+':''}${homePoint}`,market:'spreads',odds:homeSpreadOdds!});
    out.push({...base,id:`espn:${meta.eventId}:spreads:away:${bookmaker}`,selection:`${meta.away} ${awayPoint>0?'+':''}${awayPoint}`,market:'spreads',odds:awaySpreadOdds!});
   }
 
-  const overOdds=num(item.overOdds),underOdds=num(item.underOdds);
+  const overOdds=num(item.overOdds??quote(gameTotal,'over').odds),underOdds=num(item.underOdds??quote(gameTotal,'under').odds);
   if(total!==null&&total>0&&americanOk(overOdds)&&americanOk(underOdds)){
    out.push({...base,id:`espn:${meta.eventId}:totals:over:${bookmaker}`,selection:`Over ${total}`,market:'totals',odds:overOdds!});
    out.push({...base,id:`espn:${meta.eventId}:totals:under:${bookmaker}`,selection:`Under ${total}`,market:'totals',odds:underOdds!});
@@ -160,7 +163,7 @@ async function load(){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),2200);
   try{
-   const res=await fetch(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey()}-${dateKey(7)}&limit=100`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+   const res=await fetch(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?${feed.id==='nfl'?'':'dates='+dateKey(['ncaaf','nhl','mlb'].includes(feed.id)?0:bucket%2)+'&'}limit=100`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
    if(!res.ok)throw new Error(`HTTP ${res.status}`);
    const payload=await res.json();
    for(const raw of arr(obj(payload).events)){
@@ -191,7 +194,7 @@ export function espnCoreOddsProvider(env:Record<string,string|undefined>=process
 
 export async function fetchEspnCoreOdds(config:ProviderConfig):Promise<ProviderFetchResult<unknown>>{
  const base={providerId:config.id,providerName:config.name,capability:config.capability,receivedAt:new Date().toISOString()};
- if(cache&&Date.now()-cache.at<cacheMs())return {...base,ok:cache.rows.length>0,latencyMs:0,status:200,data:cache.rows,error:cache.rows.length?undefined:'ESPN Core odds cache contains no complete supported markets'};
+ if(cache&&Date.now()-cache.at<cacheMs())return {...base,ok:cache.rows.length>0,latencyMs:0,status:200,data:cache.rows,error:cache.rows.length?undefined:'ESPN Core odds cache contains no complete supported markets'+(cache.warnings.length?' | '+cache.warnings.join('; '):'')};
  if(!inFlight)inFlight=load().finally(()=>{inFlight=null});
  try{
   const result=await inFlight;cache=result;

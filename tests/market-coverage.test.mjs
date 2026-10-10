@@ -51,3 +51,9 @@ test('Polymarket follows cursors, drops unpriced contracts and caches polling re
  globalThis.fetch=async url=>{urls.push(String(url));return Response.json(urls.length===1?{markets:[{id:'first',question:'First?',outcomes:['Yes','No'],outcomePrices:['0.6','0.4']},{id:'missing',question:'Missing price'}],next_cursor:'next'}:{markets:[{id:'second',question:'Second?',outcomes:['Yes','No'],outcomePrices:['0.3','0.7']}],next_cursor:null});};
  try{const result=await poly.fetchPublicPolymarket();assert.equal(result.contracts.length,2);assert.match(urls[1],/after_cursor=next/);await poly.fetchPublicPolymarket();assert.equal(urls.length,2);}finally{globalThis.fetch=original;}
 });
+
+test('ESPN current Draft Kings nested closing quotes yield all six real lines',()=>{
+ const quotes={provider:{name:'Draft Kings'},spread:-1.5,overUnder:6.5,homeTeamOdds:{favorite:true},awayTeamOdds:{favorite:false},moneyline:{home:{close:{odds:'-298'}},away:{close:{odds:'+240'}}},pointSpread:{home:{close:{line:'-1.5',odds:'-112'}},away:{close:{line:'+1.5',odds:'-108'}}},total:{over:{close:{line:'o6.5',odds:'-102'}},under:{close:{line:'u6.5',odds:'-118'}}}};
+ const rows=espn.normalizeEspnOddsItems({items:[quotes]},{eventId:'real',home:'Devils',away:'Canucks',startTime:new Date(Date.now()+3600000).toISOString()},'NHL');
+ assert.equal(rows.length,6);assert.ok(rows.every(x=>x.bookmaker==='DraftKings'));assert.ok(rows.some(x=>x.selection==='Over 6.5'&&x.odds===-102));assert.ok(rows.some(x=>x.selection==='Devils -1.5'&&x.odds===-112));
+});
