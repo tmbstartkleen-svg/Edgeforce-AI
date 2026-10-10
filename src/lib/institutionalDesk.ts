@@ -91,6 +91,7 @@ export function buildInstitutionalDesk(input:{
   const flags:string[]=[];
   if(!boardHealthy)flags.push('Board source is stale, degraded or not live');
   if(row.freshness!=='FRESH'||!Number.isFinite(row.sourceAgeMin)||row.sourceAgeMin>5)flags.push('Quote is not fresh');
+  if(!row.sourceTimestamp)flags.push('Quote lacks an independently verifiable timestamp');
   if(row.sourceTimestamp){
    const stamp=Date.parse(row.sourceTimestamp);
    if(!Number.isFinite(stamp)||now.getTime()-stamp>5*60000||stamp-now.getTime()>60000)flags.push('Quote timestamp needs verification');
@@ -124,9 +125,11 @@ export function buildInstitutionalDesk(input:{
   ));
   const eligible=flags.length===0;
   // Future games are tracked, not called immediate entries.
+  const hardBlocked=!boardHealthy||row.grade==='PASS'||row.freshness==='STALE'||
+   edge<=0||expectedValue<=0||!validProbability(price)||!validProbability(fair)||
+   row.reliabilityMode==='PROTECTIVE'||row.reliabilityCriticalOpen;
   const status:DeskStatus=eligible&&minutesToStart<=360?'ENTRY_WINDOW':
-   eligible||flags.every(x=>x==='Conservative model interval does not clear price')?'MONITOR':
-   flags.includes('Board source is stale, degraded or not live')?'PASS':'MONITOR';
+   hardBlocked?'PASS':'MONITOR';
   const reasons=[
    'Fair model '+(fair*100).toFixed(1)+'%; market '+(price*100).toFixed(1)+'%',
    'Estimated EV '+(expectedValue*100).toFixed(1)+'%; uncertainty floor '+(Number(lower)*100).toFixed(1)+'%',
