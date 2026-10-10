@@ -33,7 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
-import {buildBoardRobustness,summarizeBoardRobustness,type BoardRobustnessClass} from '@/lib/boardRobustness';
+import {buildBoardRobustness,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
   dailyScore:number;
