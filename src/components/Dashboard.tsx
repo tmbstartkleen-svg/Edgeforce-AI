@@ -863,6 +863,7 @@ export default function Dashboard(){
     .filter(x=>x.opportunity.comparableVenues>=2)
     .sort((a,b)=>b.opportunity.grossArbitrageMargin-a.opportunity.grossArbitrageMargin||b.opportunity.disagreement-a.opportunity.disagreement),[filtered]);
   const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
+  const boardLoading=board.source==='loading'&&!board.generatedAt;
 
   return <main className="v21">
     <header className="v21Top">
@@ -901,6 +902,8 @@ export default function Dashboard(){
       <a href="#board">Probability Board</a>
       <a href="#parlays">Parlays</a>
       <a href="#predictions">Prediction Markets</a>
+      <a href="#signals">Pro Signals</a>
+      <a href="#research">Research + Risk</a>
       <a href="#operator">Operator Console</a>
     </nav>
 
@@ -930,8 +933,8 @@ export default function Dashboard(){
       </div>
       <div className="v21HeroCard">
         <small>CURRENT BOARD</small>
-        <strong>{filtered.length}</strong>
-        <span>filtered legs</span>
+        <strong>{boardLoading?'—':filtered.length}</strong>
+        <span>{boardLoading?'loading live board':'filtered legs'}</span>
         <div className="v21MiniGrid">
           <div><small>AM</small><b>{amCount}</b></div>
           <div><small>PM</small><b>{pmCount}</b></div>
@@ -1036,7 +1039,7 @@ export default function Dashboard(){
         <div className="edgeCommandPulse">
           <span className={board.source==='live'?'dot liveDot':'dot'}/>
           <div><small>BOARD</small><b>{board.source==='live'?'LIVE':'WARMING'}</b></div>
-          <div><small>QUALIFIED</small><b>{filtered.length}</b></div>
+          <div><small>QUALIFIED</small><b>{boardLoading?'—':filtered.length}</b></div>
           <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
           <div><small>ARBS</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
         </div>
@@ -1163,46 +1166,6 @@ export default function Dashboard(){
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div>
-          <div className="eyebrow">V51 PREDICTION VALIDATION LAB</div>
-          <h3>Out-of-sample evidence gates now control model influence</h3>
-        </div>
-        <div className="panelMeta">
-          <span>{validationLab?.report?.sampleSize??0} settled predictions</span>
-          <span>{validationLab?.report?.overall?.walkForwardFolds??0} walk-forward folds</span>
-          <span>{validationLab?.report?.evidence?.promotionEligible??0} evidence-qualified</span>
-        </div>
-      </div>
-      <div className="v21Grid three">
-        <div className="v21Card">
-          <div className="v21CardHead"><div><div className="eyebrow">OUT-OF-SAMPLE</div><h3>{validationLab?.report?.overall?.holdout?.sampleSize??0} holdout rows</h3></div><span className="miniBadge">Brier {validationLab?.report?.sampleSize?validationLab.report.overall.holdout.brierScore.toFixed(3):'—'}</span></div>
-          <div className="historyList">
-            <div className="historyRow"><span>Calibration error</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.holdoutCalibrationError):'—'}</b><small>lower is better</small></div>
-            <div className="historyRow"><span>Market-relative Brier skill</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b><small>positive means model beats offered-price baseline</small></div>
-            <div className="historyRow"><span>Average CLV</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.summary.avgClv):'—'}</b><small>{validationLab?.report?.diagnostics?.closingLineRows??0} rows with closing prices</small></div>
-          </div>
-        </div>
-        <div className="v21Card">
-          <div className="v21CardHead"><div><div className="eyebrow">CONTEXT + SIMULATION</div><h3>Contribution audit</h3></div><span className="miniBadge">evidence, not assumption</span></div>
-          <div className="historyList">
-            <div className="historyRow"><span>Context-rich Brier delta</span><b>{validationLab?.report?.sampleSize?validationLab.report.overall.contextContribution.brierDelta.toFixed(3):'—'}</b><small>negative means context-rich rows scored better; observational only</small></div>
-            <div className="historyRow"><span>Simulation vs council delta</span><b>{validationLab?.report?.overall?.simulationComparison?.sampleSize?validationLab.report.overall.simulationComparison.brierDelta.toFixed(3):'—'}</b><small>{validationLab?.report?.overall?.simulationComparison?.better||'INSUFFICIENT'} • negative favors simulation</small></div>
-            <div className="historyRow"><span>Tagged coverage</span><b>{validationLab?.report?.diagnostics?.contextTaggedRows??0}</b><small>{validationLab?.report?.diagnostics?.simulationTaggedRows??0} simulation-tagged</small></div>
-          </div>
-        </div>
-        <div className="v21Card">
-          <div className="v21CardHead"><div><div className="eyebrow">EVIDENCE GATES</div><h3>{validationLab?.report?.evidence?.promotionEligible??0} models eligible</h3></div><span className="miniBadge">{validationLab?.latestRun?.status||'LIVE VIEW'}</span></div>
-          <div className="historyList">
-            <div className="historyRow"><span>Verified / qualified</span><b>{(validationLab?.report?.evidence?.verified??0)+(validationLab?.report?.evidence?.qualified??0)}</b><small>{validationLab?.report?.evidence?.verified??0} verified • {validationLab?.report?.evidence?.qualified??0} qualified</small></div>
-            <div className="historyRow"><span>Provisional / insufficient</span><b>{(validationLab?.report?.evidence?.provisional??0)+(validationLab?.report?.evidence?.insufficient??0)}</b><small>kept from full promotion</small></div>
-            <div className="historyRow"><span>Failed</span><b>{validationLab?.report?.evidence?.failed??0}</b><small>runtime influence is automatically braked</small></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section className="v21Panel">
-      <div className="v21PanelHead">
-        <div>
           <div className="eyebrow">V51 EVIDENCE-GATED RECOMMENDATIONS</div>
           <h3>Recommended, Value Watchlist and Hail Mary are separated by risk gates</h3>
         </div>
@@ -1237,9 +1200,52 @@ export default function Dashboard(){
       </div>
     </section>
 
+    <section className="v21Grid two" id="parlays">
+      <div className="v21Card">
+        <div className="v21CardHead">
+          <div><div className="eyebrow">PARLAY LEG FILTER</div><h3>Probability set</h3></div>
+          <select value={parlaySize} onChange={e=>setParlaySize(Number(e.target.value))}>
+            {Array.from({length:19},(_,i)=>i+2).map(n=><option value={n} key={n}>{n} legs</option>)}
+          </select>
+        </div>
+        {probabilitySet?<div className="setBody">
+          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>{probabilitySet.jointSimulationRuns.toLocaleString()} correlated sims • independent {pct(probabilitySet.independentProbability)} • {probabilitySet.learnedPairCount} learned pairs</span></div>
+          <div className="legList">{probabilitySet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
+        </div>:<p className="muted">Not enough qualified rows for this leg count under the current filters.</p>}
+      </div>
+
+      <div className="v21Card">
+        <div className="v21CardHead"><div><div className="eyebrow">MULTI-SPORT</div><h3>Cross-sport probability set</h3></div><span className="miniBadge">{parlaySize} legs</span></div>
+        {mixedSet?<div className="setBody">
+          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(mixedSet.combinedProbability)}</strong><span>{mixedSet.jointSimulationRuns.toLocaleString()} correlated sims • {mixedSet.eventCount} events • {mixedSet.learnedPairCount} learned pairs</span></div>
+          <div className="legList">{mixedSet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
+        </div>:<p className="muted">Not enough rows to form this set.</p>}
+      </div>
+    </section>
+
     <div id="predictions"><PredictionIntelligencePanel/></div>
 
     <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div><div className="eyebrow">PREDICTION MARKETS</div><h3>Liquid contracts fused into matching sportsbook rows</h3></div>
+        <span className="miniBadge">{board.predictions.mode==='live'?(board.predictions.source||'live'):'provider not connected'}</span>
+      </div>
+      {predictions.length?<div className="predictionGrid">
+        {predictions.map(x=><div className="predictionCard" key={x.id}>
+          <small>{x.category}</small>
+          <b>{x.title}</b>
+          <div><span>Market</span><strong>{pct(x.yesProbability)}</strong></div>
+          <div><span>Model</span><strong>{pct(x.modelProbability)}</strong></div>
+          <div><span>Difference</span><strong className={x.probabilityDifference>=0?'lime':'negative'}>{x.probabilityDifference>=0?'+':''}{pct(x.probabilityDifference)}</strong></div>
+          {x.volume!==undefined&&<small>Volume {Math.round(x.volume).toLocaleString()}</small>}
+        </div>)}
+      </div>:<div className="connectState">
+        <b>Prediction-market adapter is ready.</b>
+        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. Matched contracts above the configured volume threshold are eligible for model-vs-market edge.</p>
+      </div>}
+    </section>
+
+    <section className="v21Panel" id="signals">
       <div className="v21PanelHead">
         <div>
           <div className="eyebrow">V52 PRO SIGNALS • MARKET COMMAND CENTER</div>
@@ -1325,66 +1331,6 @@ export default function Dashboard(){
       <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model&apos;s present fair value for a long position.</div>
     </section>
 
-    <details className="operatorDrawer" id="operator">
-      <summary>
-        <div>
-          <span className="eyebrow">ADVANCED OPERATOR CONSOLE</span>
-          <strong>Models, reliability, deployment and deep context</strong>
-          <small>Open only when you need engineering diagnostics or model internals.</small>
-        </div>
-        <span className="operatorDrawerAction">OPEN CONSOLE</span>
-      </summary>
-      <div className="operatorDrawerBody">
-        <SloGovernorPanel/>
-        <DeploymentGuardPanel/>
-        <VercelGovernorPanel/>
-        <ProductionTopologyWatchdogPanel/>
-        <ReliabilitySupervisorPanel/>
-        <UnifiedIntelligencePanel/>
-        <CrossSportOptimizerPanel/>
-        <MarketMovementLearningPanel/>
-        <VenueConditionsPanel/>
-        <ScheduleFatiguePanel/>
-        <StartingLineupPanel/>
-        <LineupRedistributionPanel/>
-        <OpponentMatchupPanel/>
-        <PlayerCalibrationPanel/>
-        <PlayerFeatureFramesPanel/>
-        <ShadowRecoveryPanel/>
-        <ChampionDriftPanel/>
-        <FirstChampionTournamentPanel/>
-        <MlDeploymentAutomationPanel/>
-        <MlServiceActivationPanel/>
-        <ExternalMlTournamentPanel/>
-        <TrainedSportModelsPanel/>
-        <ExpertModelSuitePanel/>
-        <OperatorCommandCenter/>
-      </div>
-    </details>
-
-    <section className="v21Grid two" id="parlays">
-      <div className="v21Card">
-        <div className="v21CardHead">
-          <div><div className="eyebrow">PARLAY LEG FILTER</div><h3>Probability set</h3></div>
-          <select value={parlaySize} onChange={e=>setParlaySize(Number(e.target.value))}>
-            {Array.from({length:19},(_,i)=>i+2).map(n=><option value={n} key={n}>{n} legs</option>)}
-          </select>
-        </div>
-        {probabilitySet?<div className="setBody">
-          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(probabilitySet.combinedProbability)}</strong><span>{probabilitySet.jointSimulationRuns.toLocaleString()} correlated sims • independent {pct(probabilitySet.independentProbability)} • {probabilitySet.learnedPairCount} learned pairs</span></div>
-          <div className="legList">{probabilitySet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
-        </div>:<p className="muted">Not enough qualified rows for this leg count under the current filters.</p>}
-      </div>
-
-      <div className="v21Card">
-        <div className="v21CardHead"><div><div className="eyebrow">MULTI-SPORT</div><h3>Cross-sport probability set</h3></div><span className="miniBadge">{parlaySize} legs</span></div>
-        {mixedSet?<div className="setBody">
-          <div className="setScore"><small>JOINT MODEL %</small><strong>{pct(mixedSet.combinedProbability)}</strong><span>{mixedSet.jointSimulationRuns.toLocaleString()} correlated sims • {mixedSet.eventCount} events • {mixedSet.learnedPairCount} learned pairs</span></div>
-          <div className="legList">{mixedSet.legs.map((x,i)=><div key={x.id}><span>{i+1}</span><div><b>{x.selection}</b><small>{x.sport} • {x.market} • sim {fmtPct(x.simProbability)}</small></div></div>)}</div>
-        </div>:<p className="muted">Not enough rows to form this set.</p>}
-      </div>
-    </section>
-
     <section className="v21Grid two">
       <div className="v21Card">
         <div className="eyebrow">SIMULATION VS MARKET</div>
@@ -1411,6 +1357,55 @@ export default function Dashboard(){
       </div>
     </section>
 
+    <details className="operatorDrawer researchDrawer" id="research">
+      <summary>
+        <div>
+          <span className="eyebrow">RESEARCH + RISK LAB</span>
+          <strong>Validation, portfolio risk, model governance and performance</strong>
+          <small>Deep evidence stays available without interrupting the primary sports decision flow.</small>
+        </div>
+        <span className="operatorDrawerAction">OPEN LAB</span>
+      </summary>
+      <div className="operatorDrawerBody">
+    <section className="v21Panel">
+      <div className="v21PanelHead">
+        <div>
+          <div className="eyebrow">V51 PREDICTION VALIDATION LAB</div>
+          <h3>Out-of-sample evidence gates now control model influence</h3>
+        </div>
+        <div className="panelMeta">
+          <span>{validationLab?.report?.sampleSize??0} settled predictions</span>
+          <span>{validationLab?.report?.overall?.walkForwardFolds??0} walk-forward folds</span>
+          <span>{validationLab?.report?.evidence?.promotionEligible??0} evidence-qualified</span>
+        </div>
+      </div>
+      <div className="v21Grid three">
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">OUT-OF-SAMPLE</div><h3>{validationLab?.report?.overall?.holdout?.sampleSize??0} holdout rows</h3></div><span className="miniBadge">Brier {validationLab?.report?.sampleSize?validationLab.report.overall.holdout.brierScore.toFixed(3):'—'}</span></div>
+          <div className="historyList">
+            <div className="historyRow"><span>Calibration error</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.holdoutCalibrationError):'—'}</b><small>lower is better</small></div>
+            <div className="historyRow"><span>Market-relative Brier skill</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b><small>positive means model beats offered-price baseline</small></div>
+            <div className="historyRow"><span>Average CLV</span><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.summary.avgClv):'—'}</b><small>{validationLab?.report?.diagnostics?.closingLineRows??0} rows with closing prices</small></div>
+          </div>
+        </div>
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">CONTEXT + SIMULATION</div><h3>Contribution audit</h3></div><span className="miniBadge">evidence, not assumption</span></div>
+          <div className="historyList">
+            <div className="historyRow"><span>Context-rich Brier delta</span><b>{validationLab?.report?.sampleSize?validationLab.report.overall.contextContribution.brierDelta.toFixed(3):'—'}</b><small>negative means context-rich rows scored better; observational only</small></div>
+            <div className="historyRow"><span>Simulation vs council delta</span><b>{validationLab?.report?.overall?.simulationComparison?.sampleSize?validationLab.report.overall.simulationComparison.brierDelta.toFixed(3):'—'}</b><small>{validationLab?.report?.overall?.simulationComparison?.better||'INSUFFICIENT'} • negative favors simulation</small></div>
+            <div className="historyRow"><span>Tagged coverage</span><b>{validationLab?.report?.diagnostics?.contextTaggedRows??0}</b><small>{validationLab?.report?.diagnostics?.simulationTaggedRows??0} simulation-tagged</small></div>
+          </div>
+        </div>
+        <div className="v21Card">
+          <div className="v21CardHead"><div><div className="eyebrow">EVIDENCE GATES</div><h3>{validationLab?.report?.evidence?.promotionEligible??0} models eligible</h3></div><span className="miniBadge">{validationLab?.latestRun?.status||'LIVE VIEW'}</span></div>
+          <div className="historyList">
+            <div className="historyRow"><span>Verified / qualified</span><b>{(validationLab?.report?.evidence?.verified??0)+(validationLab?.report?.evidence?.qualified??0)}</b><small>{validationLab?.report?.evidence?.verified??0} verified • {validationLab?.report?.evidence?.qualified??0} qualified</small></div>
+            <div className="historyRow"><span>Provisional / insufficient</span><b>{(validationLab?.report?.evidence?.provisional??0)+(validationLab?.report?.evidence?.insufficient??0)}</b><small>kept from full promotion</small></div>
+            <div className="historyRow"><span>Failed</span><b>{validationLab?.report?.evidence?.failed??0}</b><small>runtime influence is automatically braked</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">V40 MODEL DIAGNOSTICS</div><h3>Fragility, concentration, disagreement, and ablation risk</h3></div>
@@ -1434,7 +1429,6 @@ export default function Dashboard(){
         </div>
       </div>
     </section>
-
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">PORTFOLIO STRESS INTELLIGENCE</div><h3>Scenario stress testing + CVaR + continuous drawdown control</h3></div>
@@ -1495,27 +1489,6 @@ export default function Dashboard(){
       </div>
       <div className="historyNote">Stress metrics are model-based estimates under defined scenarios. They reduce exposure when modeled tail risk rises, but cannot guarantee profit or bound real-world losses.</div>
     </section>
-
-    <section className="v21Panel">
-      <div className="v21PanelHead">
-        <div><div className="eyebrow">PREDICTION MARKETS</div><h3>Liquid contracts fused into matching sportsbook rows</h3></div>
-        <span className="miniBadge">{board.predictions.mode==='live'?(board.predictions.source||'live'):'provider not connected'}</span>
-      </div>
-      {predictions.length?<div className="predictionGrid">
-        {predictions.map(x=><div className="predictionCard" key={x.id}>
-          <small>{x.category}</small>
-          <b>{x.title}</b>
-          <div><span>Market</span><strong>{pct(x.yesProbability)}</strong></div>
-          <div><span>Model</span><strong>{pct(x.modelProbability)}</strong></div>
-          <div><span>Difference</span><strong className={x.probabilityDifference>=0?'lime':'negative'}>{x.probabilityDifference>=0?'+':''}{pct(x.probabilityDifference)}</strong></div>
-          {x.volume!==undefined&&<small>Volume {Math.round(x.volume).toLocaleString()}</small>}
-        </div>)}
-      </div>:<div className="connectState">
-        <b>Prediction-market adapter is ready.</b>
-        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. Matched contracts above the configured volume threshold are eligible for model-vs-market edge.</p>
-      </div>}
-    </section>
-
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">V42 MODEL GOVERNANCE</div><h3>Champion/challenger selection + live drift brakes</h3></div>
@@ -1541,7 +1514,6 @@ export default function Dashboard(){
       </div>
       <div className="historyNote">PSI detects shifts in the distribution of model probabilities. Performance deterioration and calibration drift independently tighten the runtime weight brake. Champion status is retained unless a challenger clears the promotion margin.</div>
     </section>
-
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">MODEL CALIBRATION</div><h3>Walk-forward validation + controlled weight promotion</h3></div>
@@ -1567,7 +1539,6 @@ export default function Dashboard(){
         </div>
       </div>
     </section>
-
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">BANKROLL + PERFORMANCE LEDGER</div><h3>Persistent settled-wager analytics</h3></div>
@@ -1608,7 +1579,6 @@ export default function Dashboard(){
         </div>
       </div>
     </section>
-
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div><div className="eyebrow">V41 RELEASE CERTIFICATION</div><h3>Data, automation, security, and deployment gate</h3></div>
@@ -1634,6 +1604,45 @@ export default function Dashboard(){
       </div>
       <div className="historyNote">Final certification is an operational launch gate. It confirms configured systems agree at deployment time; it does not guarantee model accuracy, winnings, or future provider availability.</div>
     </section>
+      </div>
+    </details>
+
+    <details className="operatorDrawer" id="operator">
+      <summary>
+        <div>
+          <span className="eyebrow">ADVANCED OPERATOR CONSOLE</span>
+          <strong>Models, reliability, deployment and deep context</strong>
+          <small>Open only when you need engineering diagnostics or model internals.</small>
+        </div>
+        <span className="operatorDrawerAction">OPEN CONSOLE</span>
+      </summary>
+      <div className="operatorDrawerBody">
+        <SloGovernorPanel/>
+        <DeploymentGuardPanel/>
+        <VercelGovernorPanel/>
+        <ProductionTopologyWatchdogPanel/>
+        <ReliabilitySupervisorPanel/>
+        <UnifiedIntelligencePanel/>
+        <CrossSportOptimizerPanel/>
+        <MarketMovementLearningPanel/>
+        <VenueConditionsPanel/>
+        <ScheduleFatiguePanel/>
+        <StartingLineupPanel/>
+        <LineupRedistributionPanel/>
+        <OpponentMatchupPanel/>
+        <PlayerCalibrationPanel/>
+        <PlayerFeatureFramesPanel/>
+        <ShadowRecoveryPanel/>
+        <ChampionDriftPanel/>
+        <FirstChampionTournamentPanel/>
+        <MlDeploymentAutomationPanel/>
+        <MlServiceActivationPanel/>
+        <ExternalMlTournamentPanel/>
+        <TrainedSportModelsPanel/>
+        <ExpertModelSuitePanel/>
+        <OperatorCommandCenter/>
+      </div>
+    </details>
 
     <section className="v21FooterGrid">
       <div><small>ATHLETES</small><b>{dbStats.counts?.athletes||0}</b></div>
