@@ -353,7 +353,9 @@ export function scanEdgeOpportunities(
   if(best.length===expected.length){
    const inverse=best.map(x=>1/x.decimal);
    const sum=inverse.reduce((s,x)=>s+x,0);
-   if(sum>0&&sum<.9995){
+   // Single-book apparent underround can be restricted or an invalid paired market.
+   const independentBooks=new Set(best.map(quote=>norm(quote.book)));
+   if(independentBooks.size>=2&&sum>0&&sum<.9995){
     const roi=1/sum-1;
     if(roi<=maxArbRoi){
      arbitrage.push({
