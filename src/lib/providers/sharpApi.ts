@@ -28,6 +28,8 @@ type FlatRow={
   sourceTimestamp:string;
   sourceDelaySeconds:number;
   liveEligible:false;
+  playerName?:string;
+  statKey?:string;
 };
 
 const obj=(value:unknown):Record<string,unknown>=>{
@@ -279,6 +281,22 @@ export function normalizeSharpSnapshot(
 
     const league=leagueName(item);
 
+    const playerName=text(
+      item.player_name ??
+      item.playerName ??
+      item.athlete_name ??
+      item.athleteName ??
+      item.participant_name ??
+      item.participantName
+    ).trim();
+
+    const statKey=text(
+      item.stat_key ??
+      item.statKey ??
+      item.market_type ??
+      item.market
+    ).trim();
+
     const sport=
       league ||
       text(item.sport,'Unknown');
@@ -356,7 +374,14 @@ export function normalizeSharpSnapshot(
         snapshot.delaySeconds,
 
       liveEligible:
-        false
+        false,
+
+      ...(playerName
+        ? {
+            playerName,
+            statKey:statKey||market
+          }
+        : {})
     });
   }
 
