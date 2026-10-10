@@ -280,7 +280,8 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
   providerPanel:panel.map(x=>({
    providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
    marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-   acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
+   acceptedMarkets:x.markets.length,...coverageForMarkets(x.markets),
+   qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
    latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
   }))
  };
