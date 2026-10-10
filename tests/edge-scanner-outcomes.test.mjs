@@ -4,18 +4,23 @@ import {readFileSync} from 'node:fs';
 
 const source=readFileSync(new URL('../src/lib/edgeScanner.ts',import.meta.url),'utf8');
 
-test('edge scanner rejects one-sided player props as arbitrage outcome sets',()=>{
- assert.match(source,/A one-sided price such as "Anytime TD \+2200" is NOT an arb leg by itself/);
- assert.match(source,/if\(!scanEligible\|\|!outcomeKey\)continue/);
- assert.match(source,/function completeOutcomeSet\(rows:GroupedQuote\[\]\)/);
- assert.match(source,/expectedOutcomeKeys/);
+test('edge scanner excludes player props until separately certified',()=>{
+ assert.match(source,/raw\.startsWith\('player'\)\|\|m\.playerContext\?\.name/);
+ assert.match(source,/playerProps:'temporarily excluded/);
 });
 
-test('edge scanner only allows validated complementary outcome families',()=>{
- assert.match(source,/OVER_UNDER/);
- assert.match(source,/YES_NO/);
+test('edge scanner requires complete supported outcome sets',()=>{
  assert.match(source,/MONEYLINE_2WAY/);
  assert.match(source,/MONEYLINE_3WAY/);
+ assert.match(source,/TOTAL_2WAY/);
  assert.match(source,/SPREAD_2WAY/);
- assert.match(source,/if\(!outcomes\)continue/);
+ assert.match(source,/function completeGroup\(rows:Quote\[\]\)/);
+ assert.match(source,/if\(!expected\)continue/);
+});
+
+test('edge scanner rejects implausible arb and EV outputs',()=>{
+ assert.match(source,/EDGE_SCANNER_MAX_ARB_ROI/);
+ assert.match(source,/rejectedSuspiciousArbitrage\+\+/);
+ assert.match(source,/EDGE_SCANNER_MAX_EV/);
+ assert.match(source,/rejectedSuspiciousEv\+\+/);
 });
