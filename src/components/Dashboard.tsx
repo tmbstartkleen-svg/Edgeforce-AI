@@ -814,6 +814,9 @@ export default function Dashboard(){
   },[]);
 
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
+  const sportCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.sport]=(acc[row.sport]||0)+1;return acc},{}),[board.rows]);
+  const activeFilterCount=(effectiveSport!=='ALL'?1:0)+(period!=='ALL'?1:0)+(market!=='ALL'?1:0)+(minSim>0?1:0)+(minOdds!==-1000||maxOdds!==1000?1:0)+(robustnessFilter!=='ALL'?1:0)+(rankingMode!=='SIM'?1:0)+(divergenceFilter!=='ALL'?1:0)+(reviewQueueOnly?1:0);
+  const resetBoardFilters=()=>{setSport('ALL');setPeriod('ALL');setMarket('ALL');setMinSim(0);setMinOdds(-1000);setMaxOdds(1000);setRobustnessFilter('ALL');setRankingMode('SIM');setDivergenceFilter('ALL');setReviewQueueOnly(false)};
   const fastestProviderLatency=useMemo(()=>{
     const values=(board.providerPanel||[]).map(x=>x.latencyMs).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0);
     return values.length?Math.min(...values):null;
@@ -1015,6 +1018,24 @@ export default function Dashboard(){
           <div><small>Brier skill</small><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b></div>
           <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
         </div>
+      </div>
+    </section>
+
+    <section className="sportNavigator" aria-label="Sport navigation">
+      <div className="sportNavigatorHead">
+        <div><div className="eyebrow">V188 SPORT NAVIGATOR</div><h3>Jump straight to a sport</h3></div>
+        <button className="filterReset" onClick={resetBoardFilters} disabled={activeFilterCount===0}>{activeFilterCount?`Reset ${activeFilterCount} filter${activeFilterCount===1?'':'s'}`:'No active filters'}</button>
+      </div>
+      <div className="sportChipRail">
+        <button className={effectiveSport==='ALL'?'active':''} aria-pressed={effectiveSport==='ALL'} onClick={()=>setSport('ALL')}><b>All sports</b><span>{board.rows.length}</span></button>
+        {board.sports.map(x=><button key={'sport-chip-'+x} className={effectiveSport===x?'active':''} aria-pressed={effectiveSport===x} onClick={()=>setSport(x)}><b>{x}</b><span>{sportCounts[x]||0}</span></button>)}
+      </div>
+      <div className="filterSummary" aria-live="polite">
+        <span>{effectiveSport==='ALL'?'All sports':effectiveSport}</span>
+        <span>{period==='ALL'?'All day':period}</span>
+        <span>{market==='ALL'?'All markets':market}</span>
+        <span>{rankingMode==='SIM'?'Highest simulation':'Robustness-aware'}</span>
+        {reviewQueueOnly&&<span>Review queue</span>}
       </div>
     </section>
 

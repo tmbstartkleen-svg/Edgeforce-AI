@@ -743,3 +743,79 @@
   .mobileBoardCard .ackBtn{min-height:42px;padding:8px 12px}
   .v21QuickNav a{min-height:38px;display:inline-flex;align-items:center}
 }
+
+
+/* EDGEFORCE V188 SPORT NAVIGATOR */
+.sportNavigator{
+  margin:14px 0;
+  padding:14px;
+  border:1px solid var(--ef-line);
+  border-radius:16px;
+  background:linear-gradient(160deg,#0d1218,#080b0f);
+  box-shadow:0 14px 34px rgba(0,0,0,.18);
+}
+.sportNavigatorHead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:10px}
+.sportNavigatorHead h3{margin:4px 0 0;font-size:16px}
+.filterReset{
+  min-height:38px;
+  padding:8px 12px;
+  border:1px solid rgba(224,182,90,.30);
+  border-radius:999px;
+  background:rgba(224,182,90,.06);
+  color:var(--ef-gold-soft);
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer;
+}
+.filterReset:disabled{opacity:.42;cursor:default}
+.sportChipRail{display:flex;gap:7px;overflow:auto;padding:2px 0 7px;scrollbar-width:none}
+.sportChipRail::-webkit-scrollbar{display:none}
+.sportChipRail button{
+  flex:0 0 auto;
+  min-height:44px;
+  display:grid;
+  grid-template-columns:auto auto;
+  gap:8px;
+  align-items:center;
+  padding:8px 11px;
+  border:1px solid var(--ef-line-strong);
+  border-radius:12px;
+  background:#0c1116;
+  color:var(--ef-muted);
+  cursor:pointer;
+}
+.sportChipRail button b{font-size:10px;color:inherit}
+.sportChipRail button span{
+  min-width:24px;
+  padding:3px 6px;
+  border-radius:999px;
+  background:#151b22;
+  color:var(--ef-gold-soft);
+  font-size:8px;
+  text-align:center;
+}
+.sportChipRail button.active{
+  border-color:rgba(185,255,74,.36);
+  background:rgba(185,255,74,.07);
+  color:var(--ef-lime);
+}
+.sportChipRail button:focus-visible,.filterReset:focus-visible{
+  outline:2px solid var(--ef-cyan);
+  outline-offset:2px;
+}
+.filterSummary{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.filterSummary span{
+  padding:5px 8px;
+  border:1px solid var(--ef-line);
+  border-radius:999px;
+  background:#090d11;
+  color:var(--ef-muted);
+  font-size:8px;
+}
+@media(max-width:700px){
+  .sportNavigator{padding:12px;margin:10px 0}
+  .sportNavigatorHead{align-items:flex-start}
+  .sportNavigatorHead h3{font-size:14px}
+  .sportChipRail button{min-height:48px;padding:9px 12px}
+  .filterReset{min-height:42px}
+}
