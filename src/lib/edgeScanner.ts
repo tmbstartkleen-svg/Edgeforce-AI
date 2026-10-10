@@ -50,6 +50,9 @@ export type EdgeScannerResult={
  consensusReferenceGroups:number;
  rejectedSuspiciousArbitrage:number;
  rejectedSuspiciousEv:number;
+ playerPropQuoteCount:number;
+ playerPropGroupCount:number;
+ excludedPlayerPropRows:number;
  arbitrage:ArbitrageOpportunity[];
  positiveEv:PositiveEvOpportunity[];
  methodology:{
