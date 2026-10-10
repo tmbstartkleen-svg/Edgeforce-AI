@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const dashboard=readFileSync(new URL('../src/components/Dashboard.tsx',import.meta.url),'utf8');
 const page=readFileSync(new URL('../src/app/page.tsx',import.meta.url),'utf8');
+const styles=readFileSync(new URL('../src/app/globals.css',import.meta.url),'utf8');
 
 test('sports-first dashboard order stays user-facing before research internals',()=>{
   const markers=[
@@ -103,4 +104,15 @@ test('V193 today decision flow connects action watch review and parlay',()=>{
   assert.match(dashboard,/WATCH NEXT/);
   assert.match(dashboard,/BEST PARLAY/);
   assert.match(dashboard,/reviewQueueSummary\.total/);
+});
+
+
+test('V194 launch review freezes the production UX with accessibility hardening',()=>{
+  assert.match(dashboard,/V194 LAUNCH REVIEW • DESIGN FREEZE/);
+  assert.match(dashboard,/launchFreezeBar/);
+  assert.match(dashboard,/skipLink/);
+  assert.match(dashboard,/Operator status/);
+  assert.match(styles,/EDGEFORCE V194 LAUNCH REVIEW \+ DESIGN FREEZE/);
+  assert.match(styles,/prefers-reduced-motion:reduce/);
+  assert.match(styles,/min-height:44px/);
 });
