@@ -1610,7 +1610,7 @@ export default function Dashboard(){
     </section>
 
     </div>
-    <div className="workspaceContent" hidden={workspace!=='parlays'}>
+    <div className="workspaceContent" id="parlays" hidden={workspace!=='parlays'}>
     {workspace==='parlays'&&<ParlayStudio rows={board.rows} source={board.source} degraded={Boolean(board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE')} generatedAt={board.generatedAt} learned={board.learnedSgpCorrelations} onInspect={setSelectedMarket}/>}
     <details className="efLegacyParlay"><summary>Advanced analysis · automated parlay sets and historical model comparisons</summary>
     <section className="v21Panel">
