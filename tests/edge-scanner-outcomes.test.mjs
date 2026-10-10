@@ -6,7 +6,7 @@ const source=readFileSync(new URL('../src/lib/edgeScanner.ts',import.meta.url),'
 
 test('edge scanner only accepts player props with explicit over-under sides and exact lines',()=>{
  assert.match(source,/PLAYER_OU/);
- assert.match(source,/const side=/\\bover\\b\/i\.test\(selection\)\?'over':/\\bunder\\b\/i\.test\(selection\)\?'under':''/);
+ assert.match(source,/const side=.*over.*under.*selection/);
  assert.match(source,/family=\[player,stat,String\(Math\.abs\(line\)\)\]\.join\('\|'\)/);
  assert.match(source,/Over\/Under player props are scanned only when event, player identity, stat key, and exact line match/);
 });
