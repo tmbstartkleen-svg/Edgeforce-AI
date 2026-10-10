@@ -1,36 +1,6 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "crons": [
-    {
-      "path": "/api/cron/injuries",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/slo-governor",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron/heartbeat",
-      "schedule": "5 5 * * *"
-    },
-    {
-      "path": "/api/cron/settle",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron/scan",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/decision",
-      "schedule": "10 6 * * *"
-    },
-    {
-      "path": "/api/cron/recalibrate",
-      "schedule": "20 6 * * *"
-    }
-  ],
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": false
