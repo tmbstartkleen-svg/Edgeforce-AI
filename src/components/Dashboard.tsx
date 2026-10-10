@@ -7,6 +7,7 @@ import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
+import GamesWorkspace from './GamesWorkspace';
 import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import OperatorCommandCenter from './OperatorCommandCenter';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
@@ -639,7 +640,7 @@ export default function Dashboard(){
   const [catalogue,setCatalogue]=useState(false);
   const [cataloguePage,setCataloguePage]=useState(0);
   const [catalogueKind,setCatalogueKind]=useState('ALL');
-  const [workspace,setWorkspace]=useState<'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('board');
+  const [workspace,setWorkspace]=useState<'games'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('games');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
@@ -673,6 +674,7 @@ export default function Dashboard(){
   const busy=useRef(false);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     let timer:number|undefined;
     let nextDelay=1000;
@@ -698,9 +700,10 @@ export default function Dashboard(){
     };
     void adaptiveLoad();
     return ()=>{mounted=false;if(timer!==undefined)window.clearTimeout(timer)};
-  },[view,limit,risk,catalogue,cataloguePage,catalogueKind,sport]);
+  },[workspace,view,limit,risk,catalogue,cataloguePage,catalogueKind,sport]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -713,9 +716,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[view]);
+  },[workspace,view]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -728,9 +732,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),30000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -743,9 +748,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -758,9 +764,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -773,9 +780,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -788,9 +796,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -808,9 +817,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace==='games')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -823,7 +833,7 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),15000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
   const sportCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.sport]=(acc[row.sport]||0)+1;return acc},{}),[board.rows]);
@@ -983,8 +993,8 @@ export default function Dashboard(){
     <header className="v21Top">
       <div>
         <div className="eyebrow">EDGEFORCE AI • LIVE SPORTS INTELLIGENCE</div>
-        <h1>Sports Intelligence Command Center</h1>
-        <p>Live scores, sportsbook prices, player props, simulations, prediction markets and model confidence in one fast decision surface.</p>
+        <h1>Sports. Markets. Intelligence.</h1>
+        <p>Your games and available prices, with ranked analysis in its own workspace.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -1014,6 +1024,7 @@ export default function Dashboard(){
     <nav className="v21QuickNav workspaceSidebar" aria-label="EdgeForce workspaces">
       <div className="workspaceBrand">EDGEFORCE<span>Sports intelligence</span></div>
       <small className="workspaceNavLabel">YOUR WORKSPACE</small>
+      <a href="#games" aria-current={workspace==='games'?'page':undefined} onClick={()=>setWorkspace('games')}>Games & Schedules</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(30);}}>Daily Top 30</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(50);}}>Today’s Top 50</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('week');setLimit(50);}}>This Week’s Top 50</a>
@@ -1022,7 +1033,7 @@ export default function Dashboard(){
       <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>setWorkspace('parlays')}>Parlays</a>
       <a href="#predictions" aria-current={workspace==='predictions'?'page':undefined} onClick={()=>setWorkspace('predictions')}>Prediction Markets</a>
       <a href="#signals" aria-current={workspace==='signals'?'page':undefined} onClick={()=>setWorkspace('signals')}>Pro Signals</a>
-      <a href="#triage" onClick={()=>setWorkspace('board')}>Review Queue</a>
+      <a href="#triage" onClick={()=>{setWorkspace('board');const drawer=document.querySelector<HTMLDetailsElement>('.boardContextDrawer');if(drawer)drawer.open=true;}}>Review Queue</a>
       <small className="workspaceNavLabel">ANALYSIS & OPERATIONS</small>
       <a href="#research" aria-current={workspace==='research'?'page':undefined} onClick={()=>setWorkspace('research')}>Research + Risk</a>
       <a href="#operator" aria-current={workspace==='operator'?'page':undefined} onClick={()=>setWorkspace('operator')}>Operator Console</a>
@@ -1044,11 +1055,12 @@ export default function Dashboard(){
       <a href="#operator" onClick={()=>setWorkspace('operator')} className="launchFreezeAction">Operator status</a>
     </section>
 
-    {lastError&&<div className="v21Alert">{lastError}</div>}
-    {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
+    {workspace!=='games'&&lastError&&<div className="v21Alert">{lastError}</div>}
+    {workspace!=='games'&&board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
+    {workspace==='games'&&<GamesWorkspace/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>
     {!board.liveScores&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{boardLoading?'Loading the live score feed…':'The live score feed is unavailable. Waiting for the next refresh.'}</p></div></section>}
     {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
@@ -1103,6 +1115,7 @@ export default function Dashboard(){
       <div className="coverageToolbar"><button onClick={()=>{setCatalogue(!catalogue);setCataloguePage(0);resetBoardFilters();}}>{catalogue?'Show ranked picks':'Browse all markets'}</button><button aria-pressed={view==='today'} onClick={()=>{setView('today');setCataloguePage(0);}}>Today</button><button aria-pressed={view==='week'} onClick={()=>{setView('week');setCataloguePage(0);}}>Next 7 days</button>{catalogue&&<><select aria-label="Market category" value={catalogueKind} onChange={e=>{setCatalogueKind(e.target.value);setCataloguePage(0);setMarket('ALL');}}><option value="ALL">All market types</option><option value="MONEYLINE">Moneylines</option><option value="PROPS">Player props</option><option value="SPREADS">Spreads</option><option value="TOTALS">Game totals</option></select><select aria-label="Catalogue sport" value={sport} onChange={e=>{setSport(e.target.value);setCataloguePage(0);}}><option value="ALL">All sports</option>{(board.marketCoverage?.sports||[]).map(s=><option key={s} value={s}>{s} ({board.marketCoverage?.bySport[s]??0})</option>)}</select><button disabled={cataloguePage===0} onClick={()=>setCataloguePage(p=>Math.max(0,p-1))}>Previous</button><span>Page {cataloguePage+1} · {board.catalogue?.total??0} matching</span><button disabled={!board.catalogue?.hasNext} onClick={()=>setCataloguePage(p=>p+1)}>Next</button></>}</div>
       <details className="coverageFeedDetails"><summary>Feed status and missing coverage</summary>{(board.providerPanel||[]).map(p=><div key={p.providerId}><b>{p.providerName}</b><span>{p.acceptedMarkets} markets</span></div>)}{(board.providerAttempts||[]).filter(p=>!p.ok).map(p=><p key={p.providerId}>{p.providerId}: {p.error||'No accepted markets'}</p>)}<p>A sport absent here has no received market quotes in this date range. Live scores alone do not supply odds or player props.</p></details>
     </section>
+    <details className="boardContextDrawer"><summary>Analysis overview and advanced ranking controls</summary>
     <section className="v21Hero">
       <div>
         <div className="badge">ALL SPORTS • LIVE SCORES • PLAYER PROPS • +EV • PARLAYS • PREDICTION MARKETS</div>
@@ -1440,6 +1453,7 @@ export default function Dashboard(){
       </div>
     </section>
 
+    </details>
     <section className="v21Panel" id="board">
       <div className="v21PanelHead">
         <div>
@@ -1491,7 +1505,7 @@ export default function Dashboard(){
         </article>})}
         {!rankedFiltered.length&&<div className="edgeEmpty">No qualified rows match the current ranking and review filters.</div>}
       </div>
-      <div className="tableWrap desktopBoardTable">
+      <details className="fullBoardDetails"><summary>Open full analysis table</summary><div className="tableWrap desktopBoardTable">
         <table className="v21Table">
           <thead><tr>
             <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
@@ -1521,7 +1535,7 @@ export default function Dashboard(){
             {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">{catalogue?'No received markets match this date range and filters. Check feed status above.':'No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.'}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </div></details>
     </section>
 
     </div>
