@@ -1,5 +1,5 @@
 // Share expensive public board work across pollers. Never cache auth/client errors.
-export function createBoardSnapshotCache(ttlMs=10000,staleMs=180000,maxEntries=24){
+export function createBoardSnapshotCache(ttlMs=15000,staleMs=180000,maxEntries=24){
  const cache=new Map<string,{at:number;response:Response}>();
  const inFlight=new Map<string,Promise<Response>>();
  const copy=(entry:{at:number;response:Response})=>{
