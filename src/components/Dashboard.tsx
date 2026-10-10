@@ -910,6 +910,7 @@ export default function Dashboard(){
     .filter(x=>x.opportunity.comparableVenues>=2)
     .sort((a,b)=>b.opportunity.grossArbitrageMargin-a.opportunity.grossArbitrageMargin||b.opportunity.disagreement-a.opportunity.disagreement),[filtered]);
   const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
+  const operatorRiskCount=(board.providerDegraded?1:0)+(automationHealth?.staleCount??0)+(automationHealth?.failedCount??0);
   const boardLoading=board.source==='loading'&&!board.generatedAt;
 
   return <main className="v21">
@@ -1108,6 +1109,27 @@ export default function Dashboard(){
       <div><small>V120 ROBUSTNESS</small><strong>{rawFiltered.length?fmtPct(robustnessSummary.averageScore):'—'}</strong><span>{robustnessSummary.robust} robust • {robustnessSummary.reviewRequired} review • 0 extra calls</span></div>
       <div><small>V127 DIVERGENCE</small><strong>{rankDeltaSummary.upgraded+rankDeltaSummary.downgraded}</strong><span>{rankDeltaSummary.upgraded} up • {rankDeltaSummary.downgraded} down • {rankDeltaSummary.stable} stable</span></div>
       <div><small>V182 REVIEW QUEUE</small><strong>{reviewQueueSummary.total}</strong><span>{reviewQueueSummary.fragile} fragile • {reviewQueueSummary.fail} fail • {reviewQueueSummary.downgraded} down</span></div>
+    </section>
+
+    <section className="consoleCard" id="triage">
+      <div className="consoleHead">
+        <div><div className="eyebrow">V185 OPERATOR TRIAGE</div><h3>Decision state at a glance</h3></div>
+        <div className="consoleSource">LOCAL BOARD SIGNALS • 0 EXTRA CALLS</div>
+      </div>
+      <div className="edgeCommandPulse">
+        <div><small>ROBUST</small><b>{robustnessSummary.robust}</b></div>
+        <div><small>REVIEW</small><b>{reviewQueueSummary.total}</b></div>
+        <div><small>DOWNGRADED</small><b>{rankDeltaSummary.downgraded}</b></div>
+        <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
+        <div><small>NOW SIGNALS</small><b>{nowSignals.length}</b></div>
+        <div><small>OPS FLAGS</small><b>{operatorRiskCount}</b></div>
+      </div>
+      <div className="segmented">
+        <button className={reviewQueueOnly?'active':''} onClick={()=>{setReviewQueueOnly(true);setDivergenceFilter('ALL')}}>Focus review</button>
+        <button className={robustnessFilter==='ROBUST'?'active':''} onClick={()=>{setReviewQueueOnly(false);setRobustnessFilter('ROBUST');setDivergenceFilter('ALL')}}>Robust only</button>
+        <button className={divergenceFilter==='DOWNGRADED'?'active':''} onClick={()=>{setReviewQueueOnly(false);setDivergenceFilter('DOWNGRADED')}}>Downgraded</button>
+        <button onClick={()=>{setReviewQueueOnly(false);setRobustnessFilter('ALL');setDivergenceFilter('ALL')}}>Reset triage</button>
+      </div>
     </section>
 
     <section className="edgeCommand" id="edge">
