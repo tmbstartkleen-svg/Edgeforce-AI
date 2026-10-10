@@ -58,3 +58,13 @@ test('V125 priority explainability stays local and deterministic',()=>{
  assert.doesNotMatch(engine,/fetch\s*\(/);
  assert.match(dashboard,/buildBoardPriority\(x\)\.explanation\.slice\(0,3\)/);
 });
+
+
+test('V126 ranking divergence compares priority and simulation locally',()=>{
+ assert.match(engine,/buildBoardRankDeltas/);
+ assert.match(engine,/label=delta>=3\?'UPGRADED':delta<=-3\?'DOWNGRADED':'STABLE'/);
+ assert.doesNotMatch(engine,/fetch\s*\(/);
+ assert.match(dashboard,/rankDeltas/);
+ assert.match(dashboard,/V126/);
+ assert.match(dashboard,/place/);
+});
