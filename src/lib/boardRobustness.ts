@@ -112,6 +112,7 @@ export type BoardPriority={
  robustness:number;
  confidence:number;
  reviewPenalty:number;
+ explanation:string[];
 };
 
 export function buildBoardPriority(row:Scanned):BoardPriority{
@@ -120,7 +121,13 @@ export function buildBoardPriority(row:Scanned):BoardPriority{
  const confidence=clamp(row.dynamicConfidence);
  const reviewPenalty=robustness.reviewRequired?.08:0;
  const score=clamp(sim*.45+robustness.score*.35+confidence*.20-reviewPenalty);
- return {score,sim,robustness:robustness.score,confidence,reviewPenalty};
+ const explanation:string[]=[];
+ explanation.push(`sim ${Math.round(sim*100)}%`);
+ explanation.push(`robustness ${Math.round(robustness.score*100)}%`);
+ explanation.push(`confidence ${Math.round(confidence*100)}%`);
+ if(reviewPenalty)explanation.push('review penalty');
+ for(const reason of robustness.reasons.slice(0,2))explanation.push(reason);
+ return {score,sim,robustness:robustness.score,confidence,reviewPenalty,explanation};
 }
 
 export function summarizeBoardRobustness(rows:Scanned[]){
