@@ -8,6 +8,7 @@ const config=JSON.parse(readFileSync(new URL('../config/vercel-team-governor.jso
 const planner=readFileSync(new URL('../scripts/team-vercel-governor.mjs',import.meta.url),'utf8');
 const doctor=readFileSync(new URL('../src/app/api/launch-doctor/route.ts',import.meta.url),'utf8');
 const wrangler=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+const vercelJson=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
 
 test('V144 Cloudflare requires both exact-main certification workflows',()=>{
  assert.match(cloudflare,/Require both exact-main certification workflows/);
@@ -48,4 +49,11 @@ test('V144 optional provider secrets are wired but never required',()=>{
   assert.match(cloudflare,new RegExp(name));
  }
  assert.match(cloudflare,/EDGEFORCE_DATABASE_URL or DATABASE_URL/);
+});
+
+
+test('Vercel standby config registers no cron jobs on Hobby',()=>{
+ assert.equal(vercelJson.crons,undefined);
+ assert.equal(vercelJson.git?.deploymentEnabled,false);
+ assert.match(vercel,/jq 'del\(\.crons\)' vercel\.json/);
 });
