@@ -867,9 +867,9 @@ export default function Dashboard(){
   return <main className="v21">
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • V74</div>
-        <h1>SLO Governance + Canary Deployment Protection</h1>
-        <p>Player learning, injuries, matchups, lineups, schedule, venue, market movement and optimized simulation weights now feed one fail-soft, self-auditing production stack.</p>
+        <div className="eyebrow">EDGEFORCE AI • LIVE SPORTS INTELLIGENCE</div>
+        <h1>Sports Intelligence Command Center</h1>
+        <p>Live scores, sportsbook prices, player props, simulations, prediction markets and model confidence in one fast decision surface.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -916,9 +916,9 @@ export default function Dashboard(){
 
     <section className="v21Hero">
       <div>
-        <div className="badge">TOP 30 / 50 • AM / PM • 2–20 LEG FILTER • ALL LIVE SPORTS</div>
-        <h2>One board for <em>probability, simulation and history.</em></h2>
-        <p>The list updates every second on screen. Source pulls are cached briefly so the app stays fast without hammering upstream providers.</p>
+        <div className="badge">ALL SPORTS • LIVE SCORES • PLAYER PROPS • +EV • PARLAYS • PREDICTION MARKETS</div>
+        <h2>Find the strongest <em>edges first.</em></h2>
+        <p>EdgeForce ranks every qualified market by simulation probability, confidence, price, consensus and context so the best current opportunities rise to the top.</p>
       </div>
       <div className="v21HeroCard">
         <small>CURRENT BOARD</small>
@@ -1016,6 +1016,96 @@ export default function Dashboard(){
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
+    </section>
+
+    <section className="edgeCommand">
+      <div className="edgeCommandHead">
+        <div>
+          <div className="eyebrow">TODAY&apos;S EDGE</div>
+          <h2>Highest-priority opportunities now</h2>
+          <p>Fast view only. Every item remains model-based decision support, not a guarantee.</p>
+        </div>
+        <div className="edgeCommandPulse">
+          <span className={board.source==='live'?'dot liveDot':'dot'}/>
+          <div><small>BOARD</small><b>{board.source==='live'?'LIVE':'WARMING'}</b></div>
+          <div><small>QUALIFIED</small><b>{filtered.length}</b></div>
+          <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
+          <div><small>ARBS</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
+        </div>
+      </div>
+
+      <div className="edgeCommandGrid">
+        <article className="edgeLane">
+          <div className="edgeLaneHead">
+            <div><small>TOP SIMULATIONS</small><h3>Best ranked legs</h3></div>
+            <span>{effectiveSport==='ALL'?'ALL SPORTS':effectiveSport}</span>
+          </div>
+          <div className="edgeRows">
+            {filtered.slice(0,5).map((x,i)=><button className="edgeRow" key={'fast-'+x.id} onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>
+              <span className="edgeRank">{i+1}</span>
+              <div className="edgeRowMain">
+                <b>{x.selection}</b>
+                <small>{x.sport} • {x.event} • {x.market}</small>
+              </div>
+              <div className="edgeMetric"><strong>{fmtPct(x.simProbability)}</strong><small>SIM</small></div>
+              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel}</small></div>
+            </button>)}
+            {!filtered.length&&<div className="edgeEmpty">No qualified simulation rows under the current filters.</div>}
+          </div>
+        </article>
+
+        <article className="edgeLane">
+          <div className="edgeLaneHead">
+            <div><small>LOCAL EDGE SCANNER</small><h3>+EV and arbitrage</h3></div>
+            <span>0 EXTRA CALLS</span>
+          </div>
+          <div className="edgeRows">
+            {(edgeScanner?.positiveEv||[]).slice(0,4).map((x,i)=><div className="edgeRow static" key={'ev-'+x.key+'-'+x.selection}>
+              <span className="edgeRank">+{i+1}</span>
+              <div className="edgeRowMain">
+                <b>{x.selection}</b>
+                <small>{x.sport} • {x.event} • {x.book} {fmtOdds(x.odds)}</small>
+              </div>
+              <div className="edgeMetric"><strong>+{fmtPct(x.expectedValue)}</strong><small>EV</small></div>
+              <div className="edgePrice"><strong>{fmtPct(x.fairProbability)}</strong><small>FAIR</small></div>
+            </div>)}
+            {(edgeScanner?.arbitrage||[]).slice(0,1).map(x=><div className="edgeRow static arb" key={'arb-'+x.key}>
+              <span className="edgeRank">A</span>
+              <div className="edgeRowMain">
+                <b>{x.event}</b>
+                <small>{x.market} • {x.outcomeCount} outcomes</small>
+              </div>
+              <div className="edgeMetric"><strong>+{fmtPct(x.roi)}</strong><small>ARB ROI</small></div>
+              <div className="edgePrice"><strong>{x.stakePlan.length}</strong><small>LEGS</small></div>
+            </div>)}
+            {!edgeScanner?.positiveEv?.length&&!edgeScanner?.arbitrage?.length&&<div className="edgeEmpty">Scanner is healthy. No validated +EV or arbitrage opportunity clears the current safety gates.</div>}
+          </div>
+        </article>
+
+        <article className="edgeLane">
+          <div className="edgeLaneHead">
+            <div><small>PARLAY ENGINE</small><h3>Best qualified build</h3></div>
+            <span>{parlayBoard?.recommendationStatus?.replaceAll('_',' ')||'LOADING'}</span>
+          </div>
+          {parlayBoard?.recommended?.[0]?<div className="featuredParlay">
+            <div className="featuredParlayScore">
+              <small>JOINT MODEL</small>
+              <strong>{fmtPct(parlayBoard.recommended[0].combinedProbability)}</strong>
+              <span>{fmtOdds(parlayBoard.recommended[0].combinedAmericanOdds)} combined</span>
+            </div>
+            <div className="featuredParlayLegs">
+              {parlayBoard.recommended[0].legs.slice(0,6).map((leg,i)=><div key={leg.id}>
+                <span>{i+1}</span>
+                <div><b>{leg.selection}</b><small>{leg.sport} • {fmtPct(leg.simProbability)} sim</small></div>
+              </div>)}
+            </div>
+            <div className="featuredParlayFoot">
+              <span>EV {parlayBoard.recommended[0].expectedValue>=0?'+':''}{fmtPct(parlayBoard.recommended[0].expectedValue)}</span>
+              <span>Confidence {fmtPct(parlayBoard.recommended[0].averageDynamicConfidence)}</span>
+            </div>
+          </div>:<div className="edgeEmpty large">No normal parlay currently clears every recommendation gate. EdgeForce will not promote a watchlist or longshot combination into this slot.</div>}
+        </article>
+      </div>
     </section>
 
     <section className="v21Panel">
