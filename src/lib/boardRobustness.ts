@@ -130,6 +130,18 @@ export function buildBoardPriority(row:Scanned):BoardPriority{
  return {score,sim,robustness:robustness.score,confidence,reviewPenalty,explanation};
 }
 
+export function buildBoardRankDeltas(rows:Scanned[]){
+ const simRank=new Map([...rows].sort((a,b)=>b.simProbability-a.simProbability).map((row,index)=>[row.id,index+1]));
+ const priorityRank=new Map([...rows].sort((a,b)=>buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability).map((row,index)=>[row.id,index+1]));
+ return new Map(rows.map(row=>{
+  const sim=simRank.get(row.id)??0;
+  const priority=priorityRank.get(row.id)??0;
+  const delta=sim-priority;
+  const label=delta>=3?'UPGRADED':delta<=-3?'DOWNGRADED':'STABLE';
+  return [row.id,{simRank:sim,priorityRank:priority,delta,label}] as const;
+ }));
+}
+
 export function summarizeBoardRobustness(rows:Scanned[]){
  const results=rows.map(buildBoardRobustness);
  const count=(classification:BoardRobustnessClass)=>results.filter(x=>x.classification===classification).length;
