@@ -489,7 +489,7 @@
   outline:none;
 }
 
-#edge,#board,#parlays,#predictions,#signals,#research,#operator{scroll-margin-top:145px}
+#triage,#edge,#board,#parlays,#predictions,#signals,#research,#operator{scroll-margin-top:152px}
 
 .operatorDrawer{
   margin:16px 0;
@@ -603,3 +603,107 @@
 .robustnessBadge.resilient{color:#a9eaff;border-color:rgba(111,220,255,.28);background:rgba(111,220,255,.06)}
 .robustnessBadge.fragile{color:#ffd27a;border-color:rgba(255,210,122,.28);background:rgba(255,210,122,.06)}
 .robustnessBadge.fail{color:#ff9b9b;border-color:rgba(255,120,120,.30);background:rgba(255,120,120,.07)}
+
+
+/* EDGEFORCE V186 COMMAND CENTER DESIGN */
+.operatorTriage{
+  position:relative;
+  overflow:hidden;
+  margin:14px 0 16px;
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(185,255,74,.08),transparent 30%),
+    radial-gradient(circle at 92% 0%,rgba(224,182,90,.10),transparent 26%),
+    linear-gradient(160deg,#10151b,#090c10 62%,#080a0d);
+}
+.operatorTriage::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:2px;
+  background:linear-gradient(90deg,var(--ef-lime),var(--ef-gold),transparent 72%);
+  opacity:.85;
+}
+.operatorTriage .consoleHead{
+  padding:18px 20px 14px;
+  background:rgba(255,255,255,.01);
+}
+.operatorTriage .consoleHead h3{
+  margin:5px 0 5px;
+  font-size:20px;
+}
+.operatorTriage .consoleHead p{
+  margin:0;
+  max-width:720px;
+  font-size:10px;
+  line-height:1.45;
+}
+.triageStatusStack{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:7px;
+}
+.triageStatus{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:24px;
+  padding:5px 9px;
+  border:1px solid rgba(185,255,74,.28);
+  border-radius:999px;
+  background:rgba(185,255,74,.08);
+  color:var(--ef-lime);
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.10em;
+}
+.operatorTriage .edgeCommandPulse{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:8px;
+  padding:14px 18px 10px;
+}
+.operatorTriage .edgeCommandPulse>div{
+  min-height:72px;
+  padding:12px 13px;
+  border:1px solid var(--ef-line);
+  border-radius:12px;
+  background:rgba(8,11,15,.78);
+}
+.operatorTriage .edgeCommandPulse b{
+  margin-top:6px;
+  font-size:21px;
+  color:var(--ef-gold-soft);
+}
+.operatorTriage>.segmented{
+  width:max-content;
+  max-width:calc(100% - 36px);
+  margin:0 18px 16px;
+  background:#0b0f14;
+}
+.operatorTriage>.segmented button{
+  min-height:36px;
+  padding:7px 14px;
+}
+.v21QuickNav{
+  box-shadow:0 10px 30px rgba(0,0,0,.22);
+}
+.v21QuickNav a:first-child{
+  color:var(--ef-lime);
+  border-color:rgba(185,255,74,.24);
+  background:rgba(185,255,74,.05);
+}
+@media(max-width:980px){
+  .operatorTriage .edgeCommandPulse{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .triageStatusStack{align-items:flex-start}
+}
+@media(max-width:680px){
+  .v21Top{position:relative;top:auto;grid-template-columns:1fr;padding:14px}
+  .v21Status{justify-content:flex-start}
+  .v21QuickNav{top:8px;margin-top:0}
+  .operatorTriage .consoleHead{padding:15px}
+  .operatorTriage .edgeCommandPulse{grid-template-columns:repeat(2,minmax(0,1fr));padding:12px}
+  .operatorTriage>.segmented{width:auto;max-width:none;margin:0 12px 14px;display:grid;grid-template-columns:1fr 1fr}
+  .operatorTriage>.segmented button{border-bottom:1px solid var(--ef-line-strong)}
+}

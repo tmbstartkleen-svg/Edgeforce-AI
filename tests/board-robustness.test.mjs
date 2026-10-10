@@ -128,11 +128,20 @@ test('V184 review rows explain why they need attention',()=>{
 
 
 test('V185 operator triage consolidates local decision signals',()=>{
- assert.match(dashboard,/V185 OPERATOR TRIAGE/);
+ assert.match(dashboard,/operatorTriage/);
  assert.match(dashboard,/operatorRiskCount/);
  assert.match(dashboard,/Focus review/);
  assert.match(dashboard,/Robust only/);
  assert.match(dashboard,/Downgraded/);
  assert.match(dashboard,/Reset triage/);
  assert.match(dashboard,/0 EXTRA CALLS/);
+});
+
+
+test('V186 command center design keeps triage prominent and responsive',()=>{
+ assert.match(dashboard,/href="#triage"/);
+ assert.match(dashboard,/operatorTriage/);
+ assert.match(dashboard,/V186 OPERATOR TRIAGE/);
+ assert.match(dashboard,/triageStatusStack/);
+ assert.match(dashboard,/CERTIFIED/);
 });

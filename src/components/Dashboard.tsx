@@ -946,6 +946,7 @@ export default function Dashboard(){
     </header>
 
     <nav className="v21QuickNav" aria-label="Dashboard sections">
+      <a href="#triage">Triage</a>
       <a href="#edge">Today&apos;s Edge</a>
       <a href="#board">Probability Board</a>
       <a href="#parlays">Parlays</a>
@@ -1111,10 +1112,13 @@ export default function Dashboard(){
       <div><small>V182 REVIEW QUEUE</small><strong>{reviewQueueSummary.total}</strong><span>{reviewQueueSummary.fragile} fragile • {reviewQueueSummary.fail} fail • {reviewQueueSummary.downgraded} down</span></div>
     </section>
 
-    <section className="consoleCard" id="triage">
+    <section className="consoleCard operatorTriage" id="triage">
       <div className="consoleHead">
-        <div><div className="eyebrow">V185 OPERATOR TRIAGE</div><h3>Decision state at a glance</h3></div>
-        <div className="consoleSource">LOCAL BOARD SIGNALS • 0 EXTRA CALLS</div>
+        <div><div className="eyebrow">V186 OPERATOR TRIAGE</div><h3>Decision state at a glance</h3><p>One surface for board quality, review pressure, actionable signals and operating health.</p></div>
+        <div className="triageStatusStack">
+          <span className="triageStatus">{releaseCertification?.latest?.certified?'CERTIFIED':'AWAITING CERT'}</span>
+          <span className="consoleSource">LOCAL BOARD SIGNALS • 0 EXTRA CALLS</span>
+        </div>
       </div>
       <div className="edgeCommandPulse">
         <div><small>ROBUST</small><b>{robustnessSummary.robust}</b></div>
