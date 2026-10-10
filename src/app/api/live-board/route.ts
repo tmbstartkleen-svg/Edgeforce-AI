@@ -111,6 +111,10 @@ export async function GET(req:Request){
   const {searchParams}=new URL(req.url);
   const view=searchParams.get('view')==='week'?'week':'today';
   const limit=searchParams.get('limit')==='50'?50:30;
+  const catalogue=searchParams.get('catalogue')==='1';
+  const cataloguePage=Math.max(0,Math.min(1000,Math.floor(Number(searchParams.get('page'))||0)));
+  const catalogueSport=searchParams.get('sport')||'ALL';
+  const catalogueKind=searchParams.get('kind')||'ALL';
   const requestedRisk=searchParams.get('risk')||'Moderate';
   const risk=(requestedRisk==='Conservative'||requestedRisk==='Aggressive'?requestedRisk:'Moderate') as RiskProfile;
   const minPredictionVolume=Math.max(0,Number(process.env.PREDICTION_MIN_VOLUME||1000));
@@ -176,7 +180,16 @@ export async function GET(req:Request){
     .filter(x=>x.simProbability>=.50)
     .sort((a,b)=>b.dailyScore-a.dailyScore||b.simProbability-a.simProbability||b.dynamicConfidence-a.dynamicConfidence)
     .slice(0,limit);
-  const ranked=strictRanked.length?strictRanked:fallbackRanked;
+  const catalogueCandidates=scoreBoardRows(boardCandidates).filter(row=>{
+    if(catalogueSport!=='ALL'&&row.sport!==catalogueSport)return false;
+    const prop=Boolean(row.playerContext?.name)||/^(player|pitcher|batter|goalie)[_\s-]/i.test(row.market);
+    if(catalogueKind==='PROPS')return prop;
+    if(catalogueKind==='MONEYLINE')return /^(h2h|moneyline|ml)$/i.test(row.market);
+    if(catalogueKind==='SPREADS')return /spread|handicap|run.line|puck.line/i.test(row.market);
+    if(catalogueKind==='TOTALS')return !prop&&/total|over|under/i.test(row.market);
+    return true;
+  }).sort((a,b)=>b.simProbability-a.simProbability);
+  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*250,(cataloguePage+1)*250):strictRanked.length?strictRanked:fallbackRanked;
   const boardFallbackUsed=strictRanked.length===0&&fallbackRanked.length>0;
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
     ...row,
@@ -261,15 +274,22 @@ export async function GET(req:Request){
     warnings:ingestion.warnings,
     liveScores,
     fanduelPulse,
+    catalogue:{enabled:catalogue,page:cataloguePage,pageSize:250,total:catalogueCandidates.length,hasNext:(cataloguePage+1)*250<catalogueCandidates.length},
+    marketCoverage:{
+      ingested:ingestion.markets.length,candidates:boardCandidates.length,qualified:qualifiedCandidates.length,
+      playerProps:boardCandidates.filter(x=>Boolean(x.playerContext?.name)||/^(player|pitcher|batter|goalie)[_\s-]/i.test(x.market)).length,
+      sports:[...new Set(boardCandidates.map(x=>x.sport))].sort(),
+      bySport:Object.fromEntries([...new Set(boardCandidates.map(x=>x.sport))].map(sport=>[sport,boardCandidates.filter(x=>x.sport===sport).length]))
+    },
     topBoardQualification:{
       requested:limit,
       candidates:boardCandidates.length,
       qualified:qualifiedCandidates.length,
       shown:rows.length,
       withheld:Math.max(0,boardCandidates.length-qualifiedCandidates.length),
-      forced:boardFallbackUsed,
-      fallbackMode:boardFallbackUsed?'MARKET_SIM_VIEW':null,
-      fallbackReason:boardFallbackUsed?'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.':null,
+      forced:!catalogue&&boardFallbackUsed,
+      fallbackMode:!catalogue&&boardFallbackUsed?'MARKET_SIM_VIEW':null,
+      fallbackReason:!catalogue&&boardFallbackUsed?'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.':null,
       minimumSimProbability:.52,
       minimumDynamicConfidence:.50,
       allowedGrades:['ELITE','STRONG'],

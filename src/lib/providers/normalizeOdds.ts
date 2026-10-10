@@ -75,7 +75,9 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
    for(const outcomeValue of outcomes){
     const outcome=obj(outcomeValue);
     const odds=num(outcome.price,0);
-    const baseSelection=str(outcome.name,'');
+    const playerName=str(outcome.description,'').trim();
+    const outcomeName=str(outcome.name,'');
+    const baseSelection=playerName?`${playerName} ${outcomeName}`:outcomeName;
     const point=num(outcome.point,Number.NaN);
     const selection=Number.isFinite(point)&&marketKey!=='h2h'
      ?`${baseSelection} ${point>0?'+':''}${point}`
@@ -86,7 +88,8 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
      home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
-     confidence:.6,sourceAgeMin:0,period:new Date(startTime).getHours()<12?'AM':'PM'
+     ...(playerName?{playerContext:{name:playerName,statKey:marketKey}}:{}),
+    confidence:.6,sourceAgeMin:Math.max(0,(Date.now()-new Date(str(marketObj.last_update,str(book.last_update,receivedAt))).getTime())/60000)||0,period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
   }
@@ -97,7 +100,8 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
 function deVigCompleteMarkets(markets:Market[]){
  const groups=new Map<string,Market[]>();
  for(const row of markets){
-  const key=[row.sport,row.event,row.market,row.startTime,row.sourceBook||'provider'].join('|').toLowerCase();
+  const line=row.playerContext?.name||/total/i.test(row.market)?row.selection.match(/(-?\d+(?:\.\d+)?)$/)?.[1]||'':'';
+  const key=[row.sport,row.event,row.market,row.playerContext?.name||'',line,row.startTime,row.sourceBook||'provider'].join('|').toLowerCase();
   const group=groups.get(key)||[];
   group.push(row);
   groups.set(key,group);

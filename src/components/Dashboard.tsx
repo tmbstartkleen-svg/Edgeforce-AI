@@ -137,6 +137,8 @@ type LiveScoreGame={
 };
 
 type LiveBoardResponse={
+  catalogue?:{enabled:boolean;page:number;pageSize:number;total:number;hasNext:boolean};
+  marketCoverage?:{ingested:number;candidates:number;qualified:number;playerProps:number;sports:string[];bySport:Record<string,number>};
   generatedAt:string;
   uiRefreshMs:number;
   sourceRefreshMs:number;
@@ -634,6 +636,9 @@ function dateLabel(value:string){
 }
 
 export default function Dashboard(){
+  const [catalogue,setCatalogue]=useState(false);
+  const [cataloguePage,setCataloguePage]=useState(0);
+  const [catalogueKind,setCatalogueKind]=useState('ALL');
   const [workspace,setWorkspace]=useState<'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('board');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
@@ -676,7 +681,7 @@ export default function Dashboard(){
       if(!busy.current){
         busy.current=true;
         try{
-          const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
+          const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk+(catalogue?'&catalogue=1&page='+cataloguePage+'&kind='+catalogueKind+'&sport='+encodeURIComponent(sport):''),{cache:'no-store'});
           if(!res.ok)throw new Error('Board request failed');
           const json=await res.json() as LiveBoardResponse;
           const requested=json.liveScores?.freshness?.recommendedUiRefreshMs??json.liveScores?.uiRefreshMs??json.uiRefreshMs??1000;
@@ -693,7 +698,7 @@ export default function Dashboard(){
     };
     void adaptiveLoad();
     return ()=>{mounted=false;if(timer!==undefined)window.clearTimeout(timer)};
-  },[view,limit,risk]);
+  },[view,limit,risk,catalogue,cataloguePage,catalogueKind,sport]);
 
   useEffect(()=>{
     let mounted=true;
@@ -866,9 +871,9 @@ export default function Dashboard(){
     if(period!=='ALL'&&x.period!==period)return false;
     if(market!=='ALL'&&x.market!==market)return false;
     if(x.simProbability<minSim/100)return false;
-    if(x.odds<minOdds||x.odds>maxOdds)return false;
+    if(!catalogue&&(x.odds<minOdds||x.odds>maxOdds))return false;
     return true;
-  }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds]);
+  }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds,catalogue]);
 
   const filtered=useMemo(()=>rawFiltered.filter(x=>{
     if(robustnessFilter==='ALL')return true;
@@ -1009,9 +1014,10 @@ export default function Dashboard(){
     <nav className="v21QuickNav workspaceSidebar" aria-label="EdgeForce workspaces">
       <div className="workspaceBrand">EDGEFORCE<span>Sports intelligence</span></div>
       <small className="workspaceNavLabel">YOUR WORKSPACE</small>
-      <a href="#board" aria-current={workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setView('today');setLimit(30);}}>Daily Top 30</a>
-      <a href="#board" aria-current={workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setView('today');setLimit(50);}}>Today’s Top 50</a>
-      <a href="#board" aria-current={workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setView('week');setLimit(50);}}>This Week’s Top 50</a>
+      <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(30);}}>Daily Top 30</a>
+      <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(50);}}>Today’s Top 50</a>
+      <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('week');setLimit(50);}}>This Week’s Top 50</a>
+      <a href="#board" aria-current={workspace==='board'&&catalogue?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(true);setCataloguePage(0);setView('week');resetBoardFilters();}}>All Markets & Props</a>
       <a href="#live" aria-current={workspace==='live'?'page':undefined} onClick={()=>setWorkspace('live')}>Live Scores</a>
       <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>setWorkspace('parlays')}>Parlays</a>
       <a href="#predictions" aria-current={workspace==='predictions'?'page':undefined} onClick={()=>setWorkspace('predictions')}>Prediction Markets</a>
@@ -1090,6 +1096,13 @@ export default function Dashboard(){
 
     </div>
     <div className="workspaceContent" hidden={workspace!=='board'}>
+    <section className="marketCoveragePanel" aria-label="Market coverage">
+      <div className="marketCoverageHead"><div><div className="eyebrow">MARKET COVERAGE</div><h2>{catalogue?'All Markets & Player Props':'Ranked recommendations'}</h2></div><span className={board.source==='live'?'coverageLive':'coverageWarning'}>{boardLoading?'Connecting':board.source==='demo'?'DEMO DATA':board.source==='live'?'LIVE ODDS':board.source==='stored'?'STORED ODDS':'ODDS UNAVAILABLE'}</span></div>
+      <div className="coverageNumbers"><div><b>{board.marketCoverage?.ingested??'—'}</b><span>markets received</span></div><div><b>{board.marketCoverage?.candidates??'—'}</b><span>in this date range</span></div><div><b>{board.marketCoverage?.playerProps??'—'}</b><span>player props</span></div><div><b>{board.marketCoverage?.qualified??'—'}</b><span>qualified recommendations</span></div></div>
+      <p>{catalogue?'Browse every received market in this date range. Listing a market does not make it a recommended bet.':'This is a filtered shortlist. Open All Markets & Props to browse the full received catalogue.'}</p>
+      <div className="coverageToolbar"><button onClick={()=>{setCatalogue(!catalogue);setCataloguePage(0);resetBoardFilters();}}>{catalogue?'Show ranked picks':'Browse all markets'}</button><button aria-pressed={view==='today'} onClick={()=>{setView('today');setCataloguePage(0);}}>Today</button><button aria-pressed={view==='week'} onClick={()=>{setView('week');setCataloguePage(0);}}>Next 7 days</button>{catalogue&&<><select aria-label="Market category" value={catalogueKind} onChange={e=>{setCatalogueKind(e.target.value);setCataloguePage(0);setMarket('ALL');}}><option value="ALL">All market types</option><option value="MONEYLINE">Moneylines</option><option value="PROPS">Player props</option><option value="SPREADS">Spreads</option><option value="TOTALS">Game totals</option></select><select aria-label="Catalogue sport" value={sport} onChange={e=>{setSport(e.target.value);setCataloguePage(0);}}><option value="ALL">All sports</option>{(board.marketCoverage?.sports||[]).map(s=><option key={s} value={s}>{s} ({board.marketCoverage?.bySport[s]??0})</option>)}</select><button disabled={cataloguePage===0} onClick={()=>setCataloguePage(p=>Math.max(0,p-1))}>Previous</button><span>Page {cataloguePage+1} · {board.catalogue?.total??0} matching</span><button disabled={!board.catalogue?.hasNext} onClick={()=>setCataloguePage(p=>p+1)}>Next</button></>}</div>
+      <details className="coverageFeedDetails"><summary>Feed status and missing coverage</summary>{(board.providerPanel||[]).map(p=><div key={p.providerId}><b>{p.providerName}</b><span>{p.acceptedMarkets} markets</span></div>)}{(board.providerAttempts||[]).filter(p=>!p.ok).map(p=><p key={p.providerId}>{p.providerId}: {p.error||'No accepted markets'}</p>)}<p>A sport absent here has no received market quotes in this date range. Live scores alone do not supply odds or player props.</p></details>
+    </section>
     <section className="v21Hero">
       <div>
         <div className="badge">ALL SPORTS • LIVE SCORES • PLAYER PROPS • +EV • PARLAYS • PREDICTION MARKETS</div>

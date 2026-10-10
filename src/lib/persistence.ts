@@ -52,6 +52,7 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
       ms.raw->>'marketRole' as "marketRole",
       coalesce((ms.raw->>'sourceProviderWeight')::float,1)::float as "sourceProviderWeight",
       ms.raw->'consensus' as consensus,
+      ms.raw->'playerContext' as "playerContext",
       coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float as "marketProb",
       coalesce((ms.raw->>'modelProb')::float,coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float) as "modelProb",
       coalesce((ms.raw->>'confidence')::float,0.6) as confidence,

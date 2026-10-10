@@ -63,9 +63,7 @@ test('provider is no-key and can be explicitly disabled',()=>{
 
 test('provider uses bounded cache and fan-out defaults',()=>{
  assert.match(source,/ESPN_CORE_ODDS_CACHE_MS\|\|120000/);
- assert.match(source,/ESPN_CORE_ODDS_LEAGUES_PER_BATCH\|\|\(process\.env\.DEPLOYMENT_PLATFORM==='cloudflare'\?2:5\)/);
  assert.match(source,/ESPN_CORE_ODDS_MAX_REQUESTS\|\|\(process\.env\.DEPLOYMENT_PLATFORM==='cloudflare'\?8:24\)/);
- assert.match(source,/ESPN_CORE_ODDS_EVENTS_PER_LEAGUE\|\|12/);
  assert.match(source,/meta\.state&&meta\.state!=='pre'/);
 });
 
@@ -116,9 +114,9 @@ test('embedded odds reject events that are already live',()=>{
 
 test('provider prefers embedded scoreboard odds and only falls back to Core',()=>{
  assert.match(source,/embeddedOdds:arr\(competition\.odds\)/);
- assert.match(source,/const embeddedRows=normalizeEspnOddsItems/);
- assert.match(source,/if\(embeddedRows\.length\)/);
- assert.match(source,/for\(const offset of \[0,1\]\)/);
+ assert.match(source,/const embedded=normalizeEspnEmbeddedOdds/);
+ assert.match(source,/embedded.length/);
+ assert.match(source,/detailRequests/);
 });
 
 
@@ -134,5 +132,5 @@ test('prioritizes non-PropLine coverage gaps before supplemental leagues',()=>{
  assert.match(source,/'nfl'/);
  assert.match(source,/'nhl'/);
  assert.match(source,/'mlb'/);
- assert.match(source,/width===1\?1:width-1/);
+ assert.match(source,/mergeEspnCoverage/);
 });

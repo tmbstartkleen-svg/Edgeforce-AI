@@ -77,3 +77,10 @@
 .workspaceShell .boardDataDetails summary:before{content:'+';font-size:20px;color:var(--ef-lime)}
 .workspaceShell .boardDataDetails[open] summary:before{content:'−'}
 @media(max-width:800px){.workspaceShell .v21HeroCard .v21MiniGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.marketCoveragePanel{padding:24px;margin:24px 0;background:linear-gradient(135deg,#102330,#0b1119);border:1px solid #294051;border-radius:18px}
+.marketCoverageHead{display:flex;align-items:center;justify-content:space-between;gap:16px}.marketCoverageHead h2{font-size:26px;margin:8px 0}
+.coverageLive,.coverageWarning{padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;background:#162b20;color:#b9ff4a}.coverageWarning{background:#362912;color:#f4d88e}
+.coverageNumbers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:20px 0}.coverageNumbers>div{background:#0b131d;border:1px solid #263849;border-radius:12px;padding:18px}.coverageNumbers b{display:block;font-size:30px}.coverageNumbers span{color:#abb7c7;font-size:14px}
+.coverageToolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.coverageToolbar button,.coverageToolbar select{padding:10px 14px;border:1px solid #364f65;border-radius:9px;background:#101d2b;color:#eef5ff;cursor:pointer}.coverageToolbar button:disabled{opacity:.4;cursor:default}.coverageToolbar button[aria-pressed="true"]{border-color:#b9ff4a;color:#b9ff4a}
+.coverageFeedDetails{margin-top:20px;color:#abb7c7}.coverageFeedDetails summary{padding:12px 0;cursor:pointer}.coverageFeedDetails>div{display:flex;justify-content:space-between;border-top:1px solid #263849;padding:12px 0;gap:12px}.coverageFeedDetails p{overflow-wrap:anywhere}
+@media(max-width:800px){.marketCoverageHead{align-items:flex-start;flex-direction:column}.coverageNumbers{grid-template-columns:repeat(2,minmax(0,1fr))}.marketCoveragePanel{padding:18px}.coverageToolbar select{max-width:100%}}

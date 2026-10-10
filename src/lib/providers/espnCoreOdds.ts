@@ -17,16 +17,16 @@ const arr=(v:unknown)=>Array.isArray(v)?v:[];
 const str=(v:unknown)=>typeof v==='string'?v:'';
 const num=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const cacheMs=()=>Math.max(60000,Number(process.env.ESPN_CORE_ODDS_CACHE_MS||120000));
-const timeoutMs=()=>Math.max(2000,Number(process.env.ESPN_CORE_ODDS_TIMEOUT_MS||6000));
-const maxLeagues=()=>Math.max(1,Math.min(12,Number(process.env.ESPN_CORE_ODDS_LEAGUES_PER_BATCH||(process.env.DEPLOYMENT_PLATFORM==='cloudflare'?2:5))));
 // A single Worker invocation has a shared subrequest budget. Reserve capacity for
 // database work, health reporting, and other provider calls in the same cron.
 const maxRequests=()=>Math.max(1,Math.min(30,Number(process.env.ESPN_CORE_ODDS_MAX_REQUESTS||(process.env.DEPLOYMENT_PLATFORM==='cloudflare'?8:24))));
-const maxEvents=()=>Math.max(1,Math.min(40,Number(process.env.ESPN_CORE_ODDS_EVENTS_PER_LEAGUE||12)));
 const bookAllow=()=>new Set((process.env.ESPN_CORE_ODDS_BOOKS||'DraftKings,FanDuel,BetMGM,Caesars,ESPN BET').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 
 const GAP_PRIORITY_IDS=[
  'ncaaf',
+ 'nfl',
+ 'nhl',
+ 'mlb',
  'nba',
  'wnba',
  'ncaam-basketball',
@@ -49,50 +49,11 @@ const SUPPLEMENTAL_IDS=[
 ];
 
 function orderedFeeds(){
- const preferred=[...GAP_PRIORITY_IDS,...SUPPLEMENTAL_IDS];
+ const preferred=[...new Set([...GAP_PRIORITY_IDS,...SUPPLEMENTAL_IDS])];
  return [
   ...preferred.map(id=>ESPN_SCOREBOARD_FEEDS.find(x=>x.id===id)).filter(Boolean),
   ...ESPN_SCOREBOARD_FEEDS.filter(x=>!preferred.includes(x.id))
  ].filter((x):x is NonNullable<typeof x>=>Boolean(x?.sportSlug&&x?.leagueSlug));
-}
-
-function rotatingFeeds(){
- const all=orderedFeeds();
- const width=Math.min(maxLeagues(),all.length);
- if(all.length<=width)return all;
-
- const gapFeeds=all.filter(x=>GAP_PRIORITY_IDS.includes(x.id));
- const otherFeeds=all.filter(x=>!GAP_PRIORITY_IDS.includes(x.id));
-
- // Spend most of each constrained batch on sports not covered by the
- // PropLine free-tier default. Keep one slot rotating through the rest
- // so NFL/NHL/MLB and long-tail leagues still get periodic coverage.
- const gapSlots=Math.max(1,Math.min(width,gapFeeds.length,width===1?1:width-1));
- const otherSlots=Math.max(0,width-gapSlots);
- const bucket=Math.floor(Date.now()/cacheMs());
-
- const take=(rows:typeof all,count:number,offset:number)=>{
-  if(!count||!rows.length)return [] as typeof all;
-  return Array.from({length:Math.min(count,rows.length)},(_,i)=>rows[(offset+i)%rows.length]);
- };
-
- const gapStart=(bucket*gapSlots)%Math.max(1,gapFeeds.length);
- const otherStart=(bucket*Math.max(1,otherSlots))%Math.max(1,otherFeeds.length);
-
- return [
-  ...take(gapFeeds,gapSlots,gapStart),
-  ...take(otherFeeds,otherSlots,otherStart)
- ];
-}
-
-async function json(url:string){
- const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),timeoutMs());
- try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/128 ESPN-Odds-Mesh'}});
-  if(!res.ok)throw new Error(`HTTP ${res.status}`);
-  return await res.json();
- }finally{clearTimeout(timer)}
 }
 
 function eventMeta(raw:unknown){
@@ -175,45 +136,48 @@ function dateKey(offsetDays=0){
  return new Date(Date.now()+offsetDays*86400000).toISOString().slice(0,10).replace(/-/g,'');
 }
 
+export function mergeEspnCoverage(previous:FlatRow[],incoming:FlatRow[],now=Date.now()){
+ const rows=new Map<string,FlatRow>();
+ for(const row of [...previous,...incoming]){
+  if(new Date(row.startTime).getTime()<=now)continue;
+  if(now-new Date(row.pulledAt).getTime()>240000)continue;
+  rows.set(row.id,row);
+ }
+ return [...rows.values()];
+}
 async function load(){
  const started=Date.now(),rows:FlatRow[]=[],warnings:string[]=[];
- let remaining=maxRequests();
- const budgetedJson=async(url:string)=>{
-  if(remaining<=0)throw new Error('ESPN request budget exhausted');
-  remaining--;
-  return json(url);
- };
- for(const feed of rotatingFeeds()){
+ const all=orderedFeeds();
+ let detailRequests=Math.min(2,Math.max(0,maxRequests()-1));
+ const width=Math.min(all.length,Math.max(1,maxRequests()-detailRequests));
+ const bucket=Math.floor(Date.now()/cacheMs());
+ const selected=all.slice(0,Math.min(4,width));
+ const tail=all.slice(selected.length);
+ for(let i=0;i<width-selected.length&&tail.length;i++)selected.push(tail[(bucket*(width-4)+i)%tail.length]);
+ // One scoreboard request per league, concurrent and inside the provider deadline.
+ // Embedded prices are used only when complete; missing prices are never invented.
+ await Promise.all(selected.map(async feed=>{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),2200);
   try{
-   if(remaining<=0)break;
-   let events:unknown[]=[];
-   for(const offset of [0,1]){
-    const board=await budgetedJson(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey(offset)}`);
-    events=arr(obj(board).events).slice(0,maxEvents());
-    if(events.some(raw=>eventMeta(raw).state==='pre'))break;
-   }
-   for(const raw of events){
+   const res=await fetch(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey()}-${dateKey(7)}&limit=100`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+   if(!res.ok)throw new Error(`HTTP ${res.status}`);
+   const payload=await res.json();
+   for(const raw of arr(obj(payload).events)){
     const meta=eventMeta(raw);
-    if(!meta.eventId||!meta.competitionId||!meta.startTime||!meta.home||!meta.away)continue;
     if(meta.state&&meta.state!=='pre')continue;
-    const observedAt=new Date().toISOString();
-    const embeddedRows=normalizeEspnOddsItems({items:meta.embeddedOdds},meta,feed.label,observedAt);
-    if(embeddedRows.length){
-     rows.push(...embeddedRows);
-     continue;
-    }
-    try{
-     const odds=await budgetedJson(`https://sports.core.api.espn.com/v2/sports/${feed.sportSlug}/leagues/${feed.leagueSlug}/events/${meta.eventId}/competitions/${meta.competitionId}/odds?limit=20`);
-     rows.push(...normalizeEspnOddsItems(odds,meta,feed.label,observedAt));
-    }catch(error){
-     warnings.push(`${feed.label} ${meta.eventId}: ${error instanceof Error?error.message:'odds request failed'}`);
+    const embedded=normalizeEspnEmbeddedOdds(raw,feed.label);
+    rows.push(...embedded);
+    if(!embedded.length&&detailRequests>0&&meta.eventId&&meta.home&&meta.away){
+     detailRequests--;
+     const oddsRes=await fetch(`https://sports.core.api.espn.com/v2/sports/${feed.sportSlug}/leagues/${feed.leagueSlug}/events/${meta.eventId}/competitions/${meta.competitionId}/odds?limit=20`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+     if(oddsRes.ok)rows.push(...normalizeEspnOddsItems(await oddsRes.json(),meta,feed.label));
     }
    }
-  }catch(error){
-   warnings.push(`${feed.label}: ${error instanceof Error?error.message:'scoreboard request failed'}`);
-  }
- }
- return {at:Date.now(),rows,latencyMs:Date.now()-started,warnings:[...new Set(warnings)].slice(0,20)};
+  }catch(error){warnings.push(`${feed.label}: ${error instanceof Error?error.message:'scoreboard failed'}`)}
+  finally{clearTimeout(timer)}
+ }));
+ return {at:Date.now(),rows:mergeEspnCoverage(cache?.rows||[],rows),latencyMs:Date.now()-started,warnings};
 }
 
 export function espnCoreOddsProvider(env:Record<string,string|undefined>=process.env):ProviderConfig|null{

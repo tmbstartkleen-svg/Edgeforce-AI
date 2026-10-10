@@ -13,6 +13,8 @@ type Row={
  odds:number;
  bookmaker:string;
  pulledAt:string;
+ playerName?:string;
+ statKey?:string;
 };
 
 type Cached={at:number;rows:Row[];rawCount:number;status:number;latencyMs:number};
@@ -24,7 +26,7 @@ const arr=(v:unknown)=>Array.isArray(v)?v:[];
 const str=(v:unknown)=>typeof v==='string'?v:'';
 const entries=(v:unknown)=>Object.entries(obj(v));
 const cacheMs=()=>Math.max(60000,Number(process.env.SPORTS_GAME_ODDS_CACHE_MS||300000));
-const timeoutMs=()=>Math.max(2500,Number(process.env.SPORTS_GAME_ODDS_TIMEOUT_MS||7000));
+const timeoutMs=()=>Math.max(1000,Math.min(5500,Number(process.env.SPORTS_GAME_ODDS_TIMEOUT_MS||5500)));
 
 function teamName(v:unknown){
  const t=obj(v),names=obj(t.names);
@@ -53,14 +55,15 @@ function selectionName(
  if(sideId&&sideId===awayId)return teamName(away);
  if(/^home$/i.test(sideId))return teamName(home);
  if(/^away$/i.test(sideId))return teamName(away);
- if(/over/i.test(sideId))return 'Over';
- if(/under/i.test(sideId))return 'Under';
+
  const playerId=String(odd.playerID||'');
  if(playerId){
   const p=obj(players[playerId]);
   const name=str(p.name)||[str(p.firstName),str(p.lastName)].filter(Boolean).join(' ');
-  if(name)return name;
+  if(name)return `${name}${/over|under/i.test(sideId)?' '+sideId:''}`;
  }
+ if(/over/i.test(sideId))return 'Over';
+ if(/under/i.test(sideId))return 'Under';
  return sideId||str(odd.marketName)||str(odd.oddID)||'Selection';
 }
 function appendPoint(selection:string,market:string,book:Record<string,unknown>){
@@ -68,12 +71,12 @@ function appendPoint(selection:string,market:string,book:Record<string,unknown>)
  if(Number.isFinite(spread)&&/spread|handicap|run line|puck line/i.test(market)){
   return `${selection} ${spread>0?'+':''}${spread}`;
  }
- if(Number.isFinite(total)&&/total|over|under/i.test(market)){
+ if(Number.isFinite(total)&&/total|over|under|^player_/i.test(market)){
   return `${selection} ${total}`;
  }
  return selection;
 }
-function flatten(payload:unknown){
+export function flattenSportsGameOdds(payload:unknown){
  const root=obj(payload);
  const events=arr(root.data??root.events??payload).map(obj);
  const rows:Row[]=[];
@@ -81,7 +84,7 @@ function flatten(payload:unknown){
  for(const event of events){
   const eventId=String(event.eventID||event.id||'');
   const league=str(event.leagueID)||str(event.league)||'Unknown';
-  const sport=str(event.sportID)||str(event.sport)||league;
+ 
   const status=obj(event.status);
   const startTime=str(status.startsAt)||str(event.startsAt)||str(event.startTime);
   const teams=obj(event.teams),home=obj(teams.home),away=obj(teams.away),players=obj(event.players);
@@ -89,9 +92,13 @@ function flatten(payload:unknown){
   if(!eventId||!startTime||homeName==='Unknown'||awayName==='Unknown')continue;
   for(const [oddKey,oddValue] of entries(event.odds)){
    const odd=obj(oddValue);
-   const market=str(odd.marketName)||str(odd.betTypeID)||'Market';
+   const playerId=str(odd.playerID)||oddKey.split('-')[1];
+   const player=obj(players[playerId]);
+   const playerName=str(player.name)||[str(player.firstName),str(player.lastName)].filter(Boolean).join(' ');
+   const statKey=str(odd.statID)||oddKey.split('-')[0];
+   const market=playerName?'player_'+statKey:str(odd.marketName)||str(odd.betTypeID)||'Market';
    const sideId=str(odd.sideID);
-   const baseSelection=selectionName(sideId,odd,home,away,players);
+   const baseSelection=selectionName(sideId,{...odd,playerID:playerName?playerId:odd.playerID},home,away,players);
    const books=entries(odd.byBookmaker);
    if(books.length){
     for(const [bookKey,bookValue] of books){
@@ -102,7 +109,8 @@ function flatten(payload:unknown){
      const bookmaker=str(book.bookmakerID)||bookKey||'SportsGameOdds';
      rows.push({
       id:`sgo:${eventId}:${oddKey}:${bookmaker}`,
-      sport,league,event:`${awayName} @ ${homeName}`,home:homeName,away:awayName,
+      sport:league,league,event:`${awayName} @ ${homeName}`,home:homeName,away:awayName,
+      ...(playerName?{playerName,statKey}:{}),
       selection:appendPoint(baseSelection,market,book),market,startTime,odds:price,bookmaker,
       pulledAt:str(book.lastUpdatedAt)||pulledAt
      });
@@ -112,7 +120,8 @@ function flatten(payload:unknown){
     if(price!==null){
      rows.push({
       id:`sgo:${eventId}:${oddKey}:consensus`,
-      sport,league,event:`${awayName} @ ${homeName}`,home:homeName,away:awayName,
+      sport:league,league,event:`${awayName} @ ${homeName}`,home:homeName,away:awayName,
+      ...(playerName?{playerName,statKey}:{}),
       selection:appendPoint(baseSelection,market,odd),market,startTime,odds:price,bookmaker:'SportsGameOdds',
       pulledAt
      });
@@ -124,10 +133,10 @@ function flatten(payload:unknown){
 }
 
 async function load(apiKey:string){
- const leagues=(process.env.SPORTS_GAME_ODDS_LEAGUES||'NFL,NCAAF,MLB,NBA,NHL,WNBA,NCAAB').split(',').map(x=>x.trim()).filter(Boolean).join(',');
+ const leagues=(process.env.SPORTS_GAME_ODDS_LEAGUES||'').split(',').map(x=>x.trim()).filter(Boolean).join(',');
  const limit=Math.max(10,Math.min(250,Number(process.env.SPORTS_GAME_ODDS_EVENT_LIMIT||100)));
  const url=new URL((process.env.SPORTS_GAME_ODDS_BASE_URL||'https://api.sportsgameodds.com/v2').replace(/\/$/,'')+'/events/');
- url.searchParams.set('leagueID',leagues);
+ if(leagues)url.searchParams.set('leagueID',leagues);
  url.searchParams.set('finalized','false');
  url.searchParams.set('oddsAvailable','true');
  url.searchParams.set('includeAltLines','false');
@@ -139,7 +148,20 @@ async function load(apiKey:string){
   const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','x-api-key':apiKey,'User-Agent':'Edgeforce-AI/114 provider-mesh'}});
   const latencyMs=Date.now()-started;
   if(!res.ok)throw new Error(`SportsGameOdds HTTP ${res.status}`);
-  const parsed=flatten(await res.json());
+  const first=await res.json();
+  const parsed=flattenSportsGameOdds(first);
+  let cursor=String(obj(first).nextCursor||'');
+  for(let page=1;cursor&&page<3;page++){
+   url.searchParams.set('cursor',cursor);
+   try{
+   const next=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','x-api-key':apiKey}});
+   if(!next.ok)break;
+   const payload=await next.json();
+   const more=flattenSportsGameOdds(payload);
+   parsed.rows.push(...more.rows);parsed.rawCount+=more.rawCount;
+   cursor=String(obj(payload).nextCursor||'');
+   }catch{break;} // Keep successful pages when a later page times out.
+  }
   return {at:Date.now(),...parsed,status:res.status,latencyMs};
  }finally{clearTimeout(timer)}
 }
