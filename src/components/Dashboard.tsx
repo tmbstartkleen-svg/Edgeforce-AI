@@ -893,6 +893,13 @@ export default function Dashboard(){
     .sort((a,b)=>rankingMode==='PRIORITY'
       ?(priorityMap.get(b.id)?.score??0)-(priorityMap.get(a.id)?.score??0)||b.simProbability-a.simProbability
       :b.simProbability-a.simProbability),[filtered,rankingMode,divergenceFilter,reviewQueueOnly,rankDeltas,priorityMap]);
+  const boardDecisionSummary=useMemo(()=>({
+    visible:rankedFiltered.length,
+    robust:rankedFiltered.filter(row=>robustnessMap.get(row.id)?.classification==='ROBUST').length,
+    review:rankedFiltered.filter(row=>buildBoardRobustness(row).reviewRequired||rankDeltas.get(row.id)?.label==='DOWNGRADED').length,
+    upgraded:rankedFiltered.filter(row=>rankDeltas.get(row.id)?.label==='UPGRADED').length,
+    positiveEdge:rankedFiltered.filter(row=>row.sportsbookEdge>0).length
+  }),[rankedFiltered,robustnessMap,rankDeltas]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
@@ -1259,17 +1266,25 @@ export default function Dashboard(){
       <div className="v21PanelHead">
         <div>
           <div className="eyebrow">{view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
-          <h3>{view==='today'?'Highest simulation probability first':'Probability score distributed across the week'}</h3>
+          <h3>{view==='today'?(rankingMode==='PRIORITY'?'Robustness-aware priority first':'Highest simulation probability first'):'Probability score distributed across the week'}</h3>
         </div>
         <div className="panelMeta">
-          <span>{filtered.length} shown • {board.topBoardQualification?.withheld??0} withheld</span>
+          <span>{rankedFiltered.length} shown • {board.topBoardQualification?.withheld??0} withheld</span>
           <span>{board.topBoardQualification?.forced===false?'QUALITY ONLY • NOT FORCED':'loading qualification'}</span>
           <span>{board.generatedAt?dateLabel(board.generatedAt):'loading'}</span>
         </div>
       </div>
+      <div className="boardDecisionStrip" aria-label="Probability board decision summary">
+        <div><small>VISIBLE</small><b>{boardDecisionSummary.visible}</b></div>
+        <div><small>ROBUST</small><b>{boardDecisionSummary.robust}</b></div>
+        <div><small>REVIEW</small><b>{boardDecisionSummary.review}</b></div>
+        <div><small>UPGRADED</small><b>{boardDecisionSummary.upgraded}</b></div>
+        <div><small>+ EDGE</small><b>{boardDecisionSummary.positiveEdge}</b></div>
+        <div><small>ORDER</small><b>{rankingMode==='PRIORITY'?'PRIORITY':'SIM'}</b></div>
+      </div>
       <div className="mobileBoardCards">
-        {filtered.map((x,i)=>{const r=robustnessMap.get(x.id);return <article className="mobileBoardCard" key={'mobile-'+x.id}>
-          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></div>
+        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
+          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></div>
           <div className="mobileBoardMain"><b>{x.selection}</b><small>{x.event} • {x.market} • {x.period}</small></div>
           <div className="mobileBoardMetrics">
             <div><small>SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong></div>
@@ -1279,7 +1294,7 @@ export default function Dashboard(){
           </div>
           <div className="mobileBoardFoot"><span className={'robustnessBadge '+(r?.classification||'FAIL').toLowerCase()}>{r?.classification||'—'}</span><span>{x.bestExecutionVenue?.venue||board.targetBook||'—'}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></div>
         </article>})}
-        {!filtered.length&&<div className="edgeEmpty">No qualified rows match the current filters.</div>}
+        {!rankedFiltered.length&&<div className="edgeEmpty">No qualified rows match the current ranking and review filters.</div>}
       </div>
       <div className="tableWrap desktopBoardTable">
         <table className="v21Table">
@@ -1287,7 +1302,7 @@ export default function Dashboard(){
             <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
-            {filtered.map((x,i)=><tr key={x.id}>
+            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
               <td className="rankCell">{i+1}</td>
               <td><span className="sportPill">{x.sport}</span></td>
               <td><b>{x.event}</b><small>{x.selection}</small></td>
@@ -1306,9 +1321,9 @@ export default function Dashboard(){
               <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
-              <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
-            </tr>)}
-            {!filtered.length&&<tr><td colSpan={19} className="emptyRow">No qualified rows match the current filters. Edgeforce will not pad the Top 30 with lower-grade plays.</td></tr>}
+              <td><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
+            </tr>})}
+            {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.</td></tr>}
           </tbody>
         </table>
       </div>
