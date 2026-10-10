@@ -942,6 +942,15 @@ export default function Dashboard(){
   const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
   const operatorRiskCount=(board.providerDegraded?1:0)+(automationHealth?.staleCount??0)+(automationHealth?.failedCount??0);
   const boardLoading=board.source==='loading'&&!board.generatedAt;
+  const liveGameCenter=useMemo(()=>{
+    const games=(board.liveScores?.games||[]).filter(g=>g.status==='LIVE');
+    const trusted=games.filter(g=>!g.consensus?.activeConflict);
+    const featured=trusted.find(g=>(g.consensus?.sourceCount??0)>1)||trusted[0]||games[0]||null;
+    const conflicts=games.filter(g=>g.consensus?.activeConflict).length;
+    const multiSource=games.filter(g=>(g.consensus?.sourceCount??0)>1).length;
+    const leagues=new Set(games.map(g=>g.league).filter(Boolean)).size;
+    return {games,featured,conflicts,multiSource,leagues};
+  },[board.liveScores]);
 
   return <main className="v21">
     <header className="v21Top">
@@ -992,22 +1001,47 @@ export default function Dashboard(){
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
-    {board.liveScores&&<section className="consoleCard liveScoreSurface" id="live">
+    {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
       <div className="consoleHead">
-        <div><div className="eyebrow">LIVE GAME CLOCK MESH</div><h3>{board.liveScores.liveGames} game{board.liveScores.liveGames===1?'':'s'} live now</h3></div>
+        <div><div className="eyebrow">V192 LIVE GAME CENTER</div><h3>{liveGameCenter.games.length} game{liveGameCenter.games.length===1?'':'s'} live now</h3></div>
         <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {board.liveScores.consensus?Math.round(board.liveScores.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
       </div>
-      <div className="liveScoreGrid">
-        {(board.liveScores.games||[]).filter(g=>g.status==='LIVE').slice(0,12).map(g=><article className="liveScoreCard" key={g.source+'-'+g.id}>
+      <div className="liveGamePulse" aria-label="Live game center summary">
+        <div><small>LIVE</small><b>{liveGameCenter.games.length}</b></div>
+        <div><small>MULTI-SOURCE</small><b>{liveGameCenter.multiSource}</b></div>
+        <div><small>CONFLICTS</small><b className={liveGameCenter.conflicts?'orange':''}>{liveGameCenter.conflicts}</b></div>
+        <div><small>LEAGUES</small><b>{liveGameCenter.leagues}</b></div>
+        <div><small>FEED</small><b>{board.liveScores.freshness?.state||'ACTIVE'}</b></div>
+      </div>
+      {liveGameCenter.featured&&<article className={'featuredLiveGame '+(liveGameCenter.featured.consensus?.activeConflict?'conflict':'trusted')}>
+        <div className="featuredLiveHead">
+          <div><span className="liveBeacon"/> <b>LIVE</b><span>{liveGameCenter.featured.league}</span></div>
+          <div><b>{liveGameCenter.featured.period||'IN PLAY'}</b><span>{liveGameCenter.featured.clock||liveGameCenter.featured.detail||'Live'}</span></div>
+        </div>
+        <div className="featuredLiveScore">
+          <div><small>AWAY</small><b>{liveGameCenter.featured.away.name}</b><strong>{liveGameCenter.featured.away.score??'—'}</strong></div>
+          <span className="scoreDivider">:</span>
+          <div><small>HOME</small><b>{liveGameCenter.featured.home.name}</b><strong>{liveGameCenter.featured.home.score??'—'}</strong></div>
+        </div>
+        <div className="featuredLiveFoot">
+          <span className={liveGameCenter.featured.consensus?.activeConflict?'orange':'lime'}>{liveGameCenter.featured.consensus?.activeConflict?'SOURCE CONFLICT':(liveGameCenter.featured.consensus?.confidence||'LIVE')}</span>
+          <span>{liveGameCenter.featured.consensus?.sourceCount?liveGameCenter.featured.consensus.sourceCount+' sources':'1 source'}</span>
+          <span>{liveGameCenter.featured.source}</span>
+          {liveGameCenter.featured.consensus?.laggingSources?.length?<span className="orange">lagging {liveGameCenter.featured.consensus.laggingSources.join(', ')}</span>:<span>sync healthy</span>}
+        </div>
+      </article>}
+      <div className="liveScoreGrid compactLiveRail">
+        {liveGameCenter.games.filter(g=>g.id!==liveGameCenter.featured?.id||g.source!==liveGameCenter.featured?.source).slice(0,11).map(g=><article className={'liveScoreCard '+(g.consensus?.activeConflict?'hasConflict':'')} key={g.source+'-'+g.id}>
           <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':(g.consensus?.confidence||'LIVE')}</span></div>
+          <div className="liveScoreClock"><b>{g.period||'LIVE'}</b><strong>{g.clock||'—'}</strong></div>
           <div className="liveScoreTeams">
             <div><b>{g.away.name}</b><strong>{g.away.score??'—'}</strong></div>
             <div><b>{g.home.name}</b><strong>{g.home.score??'—'}</strong></div>
           </div>
-          <div className="liveScoreMeta"><b>{[g.period,g.clock&&('Clock '+g.clock)].filter(Boolean).join(' • ')||g.detail}</b><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
+          <div className="liveScoreMeta"><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
         </article>)}
       </div>
-      {!board.liveScores.liveGames&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
+      {!liveGameCenter.games.length&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
     </section>}
 
     <section className="v21Hero">
