@@ -1,6 +1,6 @@
 import {ingestOdds} from '@/lib/providers/ingest';
 import {scanMarkets} from '@/lib/scanner';
-import {qualifiesForTopBoard,rankDaily,rankWeekly} from '@/lib/boardScoring';
+import {qualifiesForTopBoard,rankDaily,rankWeekly,scoreBoardRows} from '@/lib/boardScoring';
 import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
 import {loadLedgerHistory} from '@/lib/ledger';
 import {analyzeHistory} from '@/lib/historyAnalytics';
@@ -167,7 +167,14 @@ export async function GET(req:Request){
   }));
   const boardCandidates=view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned;
   const qualifiedCandidates=boardCandidates.filter(qualifiesForTopBoard);
-  const ranked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
+  const strictRanked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
+  const fallbackRanked=strictRanked.length?[]:scoreBoardRows(boardCandidates)
+    .filter(x=>x.freshness!=='STALE')
+    .filter(x=>x.simProbability>=.50)
+    .sort((a,b)=>b.dailyScore-a.dailyScore||b.simProbability-a.simProbability||b.dynamicConfidence-a.dynamicConfidence)
+    .slice(0,limit);
+  const ranked=strictRanked.length?strictRanked:fallbackRanked;
+  const boardFallbackUsed=strictRanked.length===0&&fallbackRanked.length>0;
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
     ...row,
     lineMovement:lineMovement.get(row.id)||null
@@ -252,7 +259,9 @@ export async function GET(req:Request){
       qualified:qualifiedCandidates.length,
       shown:rows.length,
       withheld:Math.max(0,boardCandidates.length-qualifiedCandidates.length),
-      forced:false,
+      forced:boardFallbackUsed,
+      fallbackMode:boardFallbackUsed?'MARKET_SIM_VIEW':null,
+      fallbackReason:boardFallbackUsed?'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.':null,
       minimumSimProbability:.52,
       minimumDynamicConfidence:.50,
       allowedGrades:['ELITE','STRONG']
