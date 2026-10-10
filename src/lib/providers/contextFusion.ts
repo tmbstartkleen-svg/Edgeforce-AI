@@ -15,6 +15,7 @@ import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
 import {enrichMarketsWithUnifiedIntelligence} from '../unifiedIntelligence';
 import {applyReliabilityGuards,loadFreshIntelligenceReliabilityState,reliabilityOpen} from '../intelligenceReliability';
+import {bootstrapPublicPlayerHistory} from '../publicPlayerBootstrap';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -155,6 +156,11 @@ function sourceNames(row:PublicContextRow){
 
 export async function enrichMarketsWithContext(markets:Market[]){
  const reliability=await loadFreshIntelligenceReliabilityState();
+ const playerBootstrapPromise=bootstrapPublicPlayerHistory(markets).catch(error=>({
+  enabled:false,requested:0,alreadyKnown:0,searched:0,resolved:0,playersWithGames:0,
+  gameRows:0,gamesWritten:0,athletesTouched:0,featureSnapshotsWritten:0,
+  warnings:[error instanceof Error?error.message:'public player bootstrap failed']
+ }));
  const [weather,injuries,stats,publicNetwork]=await Promise.all([
   fetchWeatherContext(),
   fetchTrackedInjuryContext(),
@@ -223,6 +229,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
   return {...enrichedMarket,contextQuality:assessContextQuality(enrichedMarket,sourceQuality)};
  });
  const premium=await enrichMarketsWithPremiumData(enriched);
+ const publicPlayerBootstrap=await playerBootstrapPromise;
  const historical=await enrichMarketsWithPlayerWarehouse(premium.markets).catch(()=>({markets:premium.markets,matched:0,players:0}));
  const playerFrames=reliabilityOpen(reliability,'player-frames')
   ?{markets:historical.markets,matched:0,players:0,frames:[]}
@@ -269,6 +276,7 @@ export async function enrichMarketsWithContext(markets:Market[]){
    playerAvailabilityRows:finalMarkets.filter(x=>x.playerContext?.availability!==undefined||Boolean(x.playerContext?.status)).length,
    qualitySummary,
    premiumData:premium.diagnostics,
+   publicPlayerBootstrap,
    playerWarehouse:{matchedRows:historical.matched,players:historical.players},
    playerFeatureFrames:{matchedRows:playerFrames.matched,players:playerFrames.players,frames:playerFrames.frames.length},
    playerCalibration:{matchedRows:playerCalibration.matched,profiles:playerCalibration.profiles},
