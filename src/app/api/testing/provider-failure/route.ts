@@ -7,22 +7,25 @@ export async function GET(){
     return new Response(null,{status:404});
   }
 
+  const now=Date.now();
   const providers:ProviderState[]=[
     {
-      id:'PrimaryOdds',
+      id:'primary',
       name:'Primary Odds',
-      priority:1,
+      priority:100,
       capabilities:['ODDS'],
       enabled:true,
       errorRate:.02,
       freshnessScore:.98,
       qualityScore:.95,
-      circuitState:'CLOSED'
+      circuitState:'OPEN',
+      quarantinedUntil:new Date(now+5*60*1000).toISOString(),
+      consecutiveFailures:3
     },
     {
-      id:'BackupOdds',
-      name:'Backup Odds',
-      priority:2,
+      id:'secondary',
+      name:'Secondary Odds',
+      priority:80,
       capabilities:['ODDS'],
       enabled:true,
       errorRate:.10,
@@ -32,14 +35,18 @@ export async function GET(){
     }
   ];
 
-  const selected=chooseProvider(providers,'ODDS');
+  const selected=chooseProvider(providers,'ODDS',now);
 
   return Response.json({
     ok:true,
     selected:selected?.id,
+    assertions:{
+      primaryQuarantined:providerHealth(providers[0],now).quarantined,
+      secondarySelected:selected?.id==='secondary'
+    },
     providers:providers.map(provider=>({
       id:provider.id,
-      health:providerHealth(provider)
+      health:providerHealth(provider,now)
     }))
   });
 }
