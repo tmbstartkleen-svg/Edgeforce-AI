@@ -53,3 +53,12 @@ test('V188 sport navigator exposes one-tap sports and resettable filters',()=>{
   assert.match(dashboard,/resetBoardFilters/);
   assert.match(dashboard,/sportCounts/);
 });
+
+
+test('V189 probability board renders the ranked filtered decision surface',()=>{
+  assert.match(dashboard,/boardDecisionSummary/);
+  assert.match(dashboard,/rankedFiltered\.map/);
+  assert.match(dashboard,/decisionBadge/);
+  assert.match(dashboard,/decisionRow/);
+  assert.match(dashboard,/No qualified rows match the current ranking and review filters/);
+});
