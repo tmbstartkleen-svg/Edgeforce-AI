@@ -33,6 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
+import InstitutionalTradeDesk from './InstitutionalTradeDesk';
 import {buildBoardPriority,buildBoardPriorityMap,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltaMap,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
@@ -1000,6 +1001,7 @@ export default function Dashboard(){
     </header>
 
     <nav className="v21QuickNav" aria-label="Dashboard sections">
+      <a href="#trade-desk">Trade Desk</a>
       <a href="#triage">Triage</a>
       <a href="#live">Live Scores</a>
       <a href="#edge">Today&apos;s Edge</a>
@@ -1314,6 +1316,8 @@ export default function Dashboard(){
         <button onClick={()=>{setReviewQueueOnly(false);setRobustnessFilter('ALL');setDivergenceFilter('ALL')}}>Reset triage</button>
       </div>
     </section>
+
+    <InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded} generatedAt={board.generatedAt} scanner={edgeScanner} onInspect={setSelectedMarket}/>
 
     <section className="edgeCommand" id="edge">
       <div className="edgeCommandHead">
