@@ -104,3 +104,14 @@ test('V193 today decision flow connects action watch review and parlay',()=>{
   assert.match(dashboard,/BEST PARLAY/);
   assert.match(dashboard,/reviewQueueSummary\.total/);
 });
+
+
+test('V194 launch review freezes the production UX with accessibility hardening',()=>{
+  assert.match(dashboard,/V194 LAUNCH REVIEW • DESIGN FREEZE/);
+  assert.match(dashboard,/launchFreezeBar/);
+  assert.match(dashboard,/skipLink/);
+  assert.match(dashboard,/Operator status/);
+  assert.match(styles,/EDGEFORCE V194 LAUNCH REVIEW \+ DESIGN FREEZE/);
+  assert.match(styles,/prefers-reduced-motion:reduce/);
+  assert.match(styles,/min-height:44px/);
+});
