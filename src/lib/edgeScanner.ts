@@ -84,12 +84,12 @@ type GroupedQuote=EdgeScannerQuote&{
  scanEligible:boolean;
 };
 
-const norm=(value:string)=>normalizeConsensusText(value);
+const norm=(value:unknown)=>normalizeConsensusText(typeof value==='string'?value:String(value??''));
 const clamp=(x:number,min=0,max=1)=>Math.max(min,Math.min(max,x));
 const SHARP_BOOKS=['pinnacle','circa','bookmaker','bookmaker.eu'];
 
-function cleanSelection(selection:string){
- return canonicalConsensusSelection(selection)
+function cleanSelection(selection:unknown){
+ return canonicalConsensusSelection(typeof selection==='string'?selection:String(selection??''))
   .replace(/\s+/g,' ')
   .trim();
 }
@@ -128,7 +128,14 @@ function quoteGrouping(m:Market){
  const sport=norm(m.sport);
  const home=norm(m.home);
  const away=norm(m.away);
- const start=new Date(m.startTime).toISOString();
+ const startDate=new Date(m.startTime);
+ if(!Number.isFinite(startDate.getTime()))return {
+  groupKey:'',
+  outcomeKey:'',
+  setKind:'UNSUPPORTED' as OutcomeSetKind,
+  scanEligible:false
+ };
+ const start=startDate.toISOString();
 
  let family='';
  let outcome='';
@@ -210,8 +217,10 @@ function completeOutcomeSet(rows:GroupedQuote[]){
 function asQuotes(markets:Market[]):GroupedQuote[]{
  const out:GroupedQuote[]=[];
  for(const m of markets){
-  if(!Number.isFinite(m.odds)||m.odds===0)continue;
-  const book=(m.sourceBook||m.sourceProviderId||'unknown').trim();
+  if(!m||typeof m!=='object')continue;
+  if(!Number.isFinite(Number(m.odds))||Number(m.odds)===0)continue;
+  if(!m.market||!m.selection||!m.sport||!m.startTime)continue;
+  const book=String(m.sourceBook||m.sourceProviderId||'unknown').trim();
   if(!book)continue;
   const {groupKey,outcomeKey,setKind,scanEligible}=quoteGrouping(m);
   if(!scanEligible||!outcomeKey)continue;
