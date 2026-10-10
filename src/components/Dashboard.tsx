@@ -1529,7 +1529,7 @@ export default function Dashboard(){
           <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision==='REVIEW'?'Review only':decision}</span><span className={'grade '+x.grade.toLowerCase()}>Model: {x.grade}</span></div>
           <div className="mobileBoardMain"><b>{x.selection}</b><small>{x.event} • {x.market} • {x.period}</small></div>
           <div className="mobileBoardMetrics">
-            <div><small>SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong></div>
+            <div><small>ADJUSTED SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong><small>Raw {fmtPct(x.rawSimProbability)} · {x.simulationRuns.toLocaleString()} runs</small></div>
             <div><small>ODDS</small><strong>{fmtOdds(x.odds)}</strong></div>
             <div><small>CONF</small><strong>{fmtPct(x.dynamicConfidence)}</strong></div>
             <div><small>EDGE</small><strong className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</strong></div>

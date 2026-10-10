@@ -167,7 +167,7 @@ async function buildBoard(req:Request){
 
   const ingestion=cached.ingestion;
   const [scanned,lineMovement]=await Promise.all([
-    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles,workerRuntime?{simulationRunCap:1000}:{})),
+    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles,workerRuntime?{simulationRunCap:100}:{})),
     withTimeout(loadLineMovement(ingestion.markets),4000,'line movement').catch(()=>new Map())
   ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
@@ -292,7 +292,7 @@ async function buildBoard(req:Request){
       outsidePreviousOddsWindow:boardCandidates.filter(x=>x.odds<-1000||x.odds>1000).length,
       highestRawSimulation:boardCandidates.length?Math.max(...boardCandidates.map(x=>x.rawSimProbability)):null,
       highestCalibratedSimulation:boardCandidates.length?Math.max(...boardCandidates.map(x=>x.simProbability)):null,
-      simulationRunCap:workerRuntime?1000:null,
+      simulationRunCap:workerRuntime?100:null,
       playerProps:boardCandidates.filter(x=>Boolean(x.playerContext?.name)||/^(player|pitcher|batter|goalie)[_\s-]/i.test(x.market)).length,
       sports:[...new Set(boardCandidates.map(x=>x.sport))].sort(),
       bySport:Object.fromEntries([...new Set(boardCandidates.map(x=>x.sport))].map(sport=>[sport,boardCandidates.filter(x=>x.sport===sport).length]))
