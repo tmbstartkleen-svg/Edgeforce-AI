@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
+
+const odds=readFileSync(new URL('../src/lib/providers/odds.ts',import.meta.url),'utf8');
+const status=readFileSync(new URL('../src/app/api/live-data/status/route.ts',import.meta.url),'utf8');
+const espn=readFileSync(new URL('../src/lib/providers/espnCoreOdds.ts',import.meta.url),'utf8');
+const propLine=readFileSync(new URL('../src/lib/providers/propLine.ts',import.meta.url),'utf8');
+
+test('provider coverage telemetry includes sports and market mix',()=>{
+ assert.match(odds,/sports:string\[\]/);
+ assert.match(odds,/sportCounts:Record<string,number>/);
+ assert.match(odds,/playerPropRows:number/);
+ assert.match(odds,/teamMarketRows:number/);
+ assert.match(status,/providerCoverage:/);
+ assert.match(status,/sportCounts:x\.sportCounts/);
+});
+
+test('PropLine defaults to observed free-tier candidate sports',()=>{
+ assert.match(propLine,/'baseball_mlb,football_nfl,hockey_nhl'/);
+ assert.doesNotMatch(propLine,/'football_nfl,football_ncaaf,basketball_nba,hockey_nhl,baseball_mlb,tennis'/);
+ assert.match(propLine,/PROPLINE_EMPTY_SPORT_RETRY_MS/);
+});
+
+test('ESPN odds rotation prioritizes sports outside PropLine free coverage',()=>{
+ assert.match(espn,/const GAP_PRIORITY_IDS=\[/);
+ assert.match(espn,/'ncaaf'/);
+ assert.match(espn,/'nba'/);
+ assert.match(espn,/'ncaam-basketball'/);
+ assert.match(espn,/'mls'/);
+ assert.match(espn,/const SUPPLEMENTAL_IDS=\[/);
+ assert.match(espn,/'nfl'/);
+ assert.match(espn,/'nhl'/);
+ assert.match(espn,/'mlb'/);
+});
