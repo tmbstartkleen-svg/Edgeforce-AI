@@ -23,6 +23,8 @@ export type Scanned=Ranked & {
  reliabilityMode?:'NORMAL'|'DEGRADED'|'PROTECTIVE';
  reliabilityScore?:number;
  reliabilityCriticalOpen?:boolean;
+ downgradeReasons:string[];
+ preGuardGrade:'ELITE'|'STRONG'|'WATCH'|'PASS';
  dynamicConfidenceComponents:ReturnType<typeof calibrateDynamicConfidence>['components'] & {contextQuality?:number};
  daysOut:number;
  bucket:'TODAY'|'WEEK';
@@ -70,6 +72,16 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
   const contextDowngrade=Boolean(r.contextQuality&&!r.contextQuality.recommendationReady);
   const intelligenceDowngrade=!intelligenceStackReady||intelligenceStackScore<.45||intelligenceCriticalCoverage<.42;
   const reliabilityDowngrade=reliabilityMode!=='NORMAL';
+  const downgradeReasons:string[]=[];
+  if(confidenceDowngrade)downgradeReasons.push(calibrated.regime==='DISLOCATED'?'DISLOCATED_REGIME':'LOW_CONFIDENCE');
+  if(contextDowngrade)downgradeReasons.push('CONTEXT_NOT_READY');
+  if(!intelligenceStackReady)downgradeReasons.push('INTELLIGENCE_NOT_READY');
+  if(intelligenceStackScore<.45)downgradeReasons.push('LOW_INTELLIGENCE_SCORE');
+  if(intelligenceCriticalCoverage<.42)downgradeReasons.push('LOW_CRITICAL_COVERAGE');
+  if(reliabilityMode==='DEGRADED')downgradeReasons.push('RELIABILITY_DEGRADED');
+  if(reliabilityMode==='PROTECTIVE')downgradeReasons.push('RELIABILITY_PROTECTIVE');
+  if(reliabilityCriticalOpen)downgradeReasons.push('RELIABILITY_CRITICAL_OPEN');
+  const preGuardGrade=r.grade;
   let grade=r.grade;
   if(confidenceDowngrade||contextDowngrade||intelligenceDowngrade||reliabilityDowngrade)grade=grade==='ELITE'?'STRONG':grade==='STRONG'?'WATCH':grade;
   if((r.contextQuality?.criticalCoverage??1)<.34&&grade==='STRONG')grade='WATCH';
@@ -99,6 +111,8 @@ export function scanMarkets(rows:Market[],risk:RiskProfile='Moderate',now=new Da
    reliabilityMode,
    reliabilityScore,
    reliabilityCriticalOpen,
+   downgradeReasons,
+   preGuardGrade,
    dynamicConfidenceComponents:{...calibrated.components,contextQuality:contextScore},
    daysOut,bucket,freshness,simEngine:sim.engine,simProjection:sim.projection
   };
