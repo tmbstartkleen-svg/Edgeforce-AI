@@ -78,7 +78,7 @@ async function cachedOdds(force=false){
         matchedRows:0,
         totalRows:ingestion.markets.length
       }
-    } as Awaited<ReturnType<typeof enrichMarketsWithContext>>;
+    } as unknown as Awaited<ReturnType<typeof enrichMarketsWithContext>>;
   }
 
   const previousStored=await withTimeout(
@@ -129,12 +129,12 @@ export async function GET(req:Request){
       fetchPredictionMarkets(),
       Math.max(2000,Number(process.env.LIVE_BOARD_PREDICTION_TIMEOUT_MS||6000)),
       'prediction markets'
-    ).catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider timed out'} as Awaited<ReturnType<typeof fetchPredictionMarkets>>)),
+    ).catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],sources:[],warnings:['prediction provider timed out'],error:'prediction provider timed out'} as unknown as Awaited<ReturnType<typeof fetchPredictionMarkets>>)),
     withTimeout(loadLearnedWeightMultipliers(),4000,'learned weights').catch(()=>({} as Awaited<ReturnType<typeof loadLearnedWeightMultipliers>>)),
     withTimeout(loadLedgerHistory(),4000,'ledger history').catch(()=>([] as Awaited<ReturnType<typeof loadLedgerHistory>>)),
     withTimeout(loadLearnedSgpCorrelations(),4000,'SGP correlations').catch(()=>({} as Awaited<ReturnType<typeof loadLearnedSgpCorrelations>>)),
     withTimeout(loadDynamicCalibrationProfiles(),4000,'dynamic calibration').catch(()=>({} as Awaited<ReturnType<typeof loadDynamicCalibrationProfiles>>)),
-    withTimeout(fetchLiveScoreMesh(),6000,'live score mesh').catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh timed out']} as Awaited<ReturnType<typeof fetchLiveScoreMesh>>)),
+    withTimeout(fetchLiveScoreMesh(),6000,'live score mesh').catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh timed out']} as unknown as Awaited<ReturnType<typeof fetchLiveScoreMesh>>)),
     withTimeout(fetchFanDuelOddsPulse(),6000,'FanDuel pulse').catch(()=>({ok:false,source:'fanlinewire',mode:'keyless-public-snapshot',generatedAt:null,sequence:null,liveTotal:0,prematchTotal:0,rows:[],drops:[],latencyMs:0,fresh:false,ageMs:null,warning:'FanDuel pulse timed out'} as Awaited<ReturnType<typeof fetchFanDuelOddsPulse>>))
   ]);
 
