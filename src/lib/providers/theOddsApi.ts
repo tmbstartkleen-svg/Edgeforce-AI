@@ -66,15 +66,6 @@ async function jsonRequest<T>(url:string,timeoutMs=10000):Promise<{ok:boolean;st
  }finally{clearTimeout(timer)}
 }
 
-async function jsonRequestWith429Retry<T>(url:string,timeoutMs=10000){
- let result=await jsonRequest<T>(url,timeoutMs);
- if(result.status===429){
-  await sleep(2500);
-  result=await jsonRequest<T>(url,timeoutMs);
- }
- return result;
-}
-
 function withKey(path:string,key:string,params:Record<string,string>={}){
  const url=new URL(base()+path);
  url.searchParams.set('apiKey',key);
@@ -82,18 +73,30 @@ function withKey(path:string,key:string,params:Record<string,string>={}){
  return url.toString();
 }
 
-function uniqueEvents(rows:unknown[]){
- const seen=new Set<string>();
- const out:unknown[]=[];
+export function uniqueEvents(rows:unknown[]){
+ const events=new Map<string,OddsEventRow>();
  for(const raw of rows){
-  const row=raw as OddsEventRow;
-  const key=String(row.id||JSON.stringify(raw));
-  if(seen.has(key))continue;
-  seen.add(key);
-  out.push(raw);
+  const row=raw as OddsEventRow,key=String(row.id||JSON.stringify(raw));
+  const prior=events.get(key);
+  if(!prior){events.set(key,row);continue;}
+  const books=new Map<string,Record<string,unknown>>();
+  for(const value of [...(Array.isArray(prior.bookmakers)?prior.bookmakers:[]),...(Array.isArray(row.bookmakers)?row.bookmakers:[])]){
+   const book=value as Record<string,unknown>,bookKey=String(book.key||book.title||'');
+   const existing=books.get(bookKey);
+   const markets=new Map<string,unknown>();
+   for(const market of [...(Array.isArray(existing?.markets)?existing.markets:[]),...(Array.isArray(book.markets)?book.markets:[])])markets.set(String((market as Record<string,unknown>).key),market);
+   books.set(bookKey,{...existing,...book,markets:[...markets.values()]});
+  }
+  events.set(key,{...prior,...row,bookmakers:[...books.values()]});
  }
- return out;
+ return [...events.values()];
 }
+
+const defaultProps:Record<string,string>={
+ basketball_nba:'player_points,player_rebounds,player_assists',basketball_wnba:'player_points,player_rebounds,player_assists',
+ americanfootball_ncaaf:'player_pass_yds,player_rush_yds,player_reception_yds',
+ americanfootball_nfl:'player_pass_yds,player_rush_yds,player_reception_yds',baseball_mlb:'batter_hits,pitcher_strikeouts',icehockey_nhl:'player_shots_on_goal'
+};
 
 function nearestStartMinutes(rows:unknown[]){
  const now=Date.now();
@@ -109,7 +112,9 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const key=config.apiKey||process.env.THE_ODDS_API_KEY;
  if(!key)return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{},error:'THE_ODDS_API_KEY is not configured'};
 
- const timeoutMs=Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000));
+ const started=Date.now();
+ const deadlineMs=5500;
+ const timeoutMs=Math.max(500,Math.min(1800,int(process.env.THE_ODDS_API_TIMEOUT_MS,1800)));
  const configuredCacheMs=Math.max(60000,int(process.env.THE_ODDS_API_CACHE_MS,600000));
  const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
  const configuredMaxSports=Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
@@ -124,7 +129,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const bootstrapUrl=withKey('/sports/upcoming/odds',key,{
   regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso'
  });
- let bootstrap=await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
+ let bootstrap=await jsonRequest<unknown[]>(bootstrapUrl,timeoutMs);
  let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
  let bootstrapError=bootstrap.error;
  attempts.push({
@@ -137,7 +142,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   const fallbackUrl=withKey('/sports/upcoming/odds',key,{
    regions:'us',markets:'h2h',oddsFormat:'american',dateFormat:'iso'
   });
-  const fallback=await jsonRequestWith429Retry<unknown[]>(fallbackUrl,timeoutMs);
+  const fallback=await jsonRequest<unknown[]>(fallbackUrl,timeoutMs);
   const fallbackData=Array.isArray(fallback.data)?fallback.data:[];
   attempts.push({
    sportKey:'upcoming-us-h2h',events:fallbackData.length,oddsEvents:fallbackData.length,ok:fallback.ok,
@@ -170,7 +175,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const covered=new Set(bootstrapData.map(x=>String((x as OddsEventRow).sport_key||'')).filter(Boolean));
 
  // /sports is free. If it fails, the verified upcoming feed still remains usable.
- const sportsResponse=await jsonRequestWith429Retry<ActiveSport[]>(withKey('/sports/',key),timeoutMs);
+ const sportsResponse=await jsonRequest<ActiveSport[]>(withKey('/sports/',key),timeoutMs);
  const activeSports=Array.isArray(sportsResponse.data)
   ?sportsResponse.data.filter(x=>x.active!==false&&!x.has_outrights)
   :[];
@@ -187,9 +192,25 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  });
 
  const expanded:unknown[]=[];
+ // Props require the event endpoint; a sport-level odds call cannot return them.
+ const propEvents=bootstrapData.filter(x=>defaultProps[String((x as OddsEventRow).sport_key)]);
+ const propLimit=Math.max(0,Math.min(3,int(process.env.THE_ODDS_API_PROP_EVENTS,1)));
+ for(let i=0;i<Math.min(propLimit,propEvents.length);i++){
+  if(Date.now()-started>deadlineMs-timeoutMs||remaining!==undefined&&remaining<=reserve)break;
+  const event=propEvents[(Math.floor(Date.now()/configuredCacheMs)+i)%propEvents.length] as OddsEventRow;
+  if(!event.id||!event.sport_key)continue;
+  const prop=await jsonRequest<OddsEventRow>(withKey(`/sports/${encodeURIComponent(event.sport_key)}/events/${encodeURIComponent(event.id)}/odds`,key,{regions,bookmakers,markets:process.env.THE_ODDS_API_PROP_MARKETS||defaultProps[event.sport_key],oddsFormat:'american',dateFormat:'iso'}),timeoutMs);
+  attempts.push({sportKey:event.sport_key+':props',events:1,oddsEvents:prop.ok?1:0,ok:prop.ok,status:prop.status,error:prop.error,cost:prop.last,remaining:prop.remaining});
+  if(prop.remaining!==undefined)remaining=prop.remaining;
+  if(prop.used!==undefined)used=prop.used;
+  if(prop.ok&&prop.data)expanded.push(prop.data);
+  if(prop.status===429)break;
+ }
+
  if(!sportsResponse.ok)warnings.push(`Free active-sports discovery failed: ${sportsResponse.error||sportsResponse.status}`);
 
  for(const sportKey of policy.selectedSports){
+  if(Date.now()-started>deadlineMs-timeoutMs){warnings.push('Returning partial real coverage before the provider deadline');break;}
   if(remaining!==undefined&&remaining<=reserve){
    warnings.push(`Expansion stopped at the configured reserve of ${reserve} credits`);
    break;
@@ -198,7 +219,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
   const url=withKey(`/sports/${encodeURIComponent(sportKey)}/odds`,key,{
    regions,bookmakers,markets:expansionMarkets,oddsFormat:'american',dateFormat:'iso'
   });
-  const result=await jsonRequestWith429Retry<unknown[]>(url,timeoutMs);
+  const result=await jsonRequest<unknown[]>(url,timeoutMs);
   const data=Array.isArray(result.data)?result.data:[];
 
   attempts.push({
@@ -212,12 +233,12 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
 
   if(result.ok&&data.length)expanded.push(...data);
   if(result.status===429){
-   warnings.push(`Expansion paused after ${sportKey} remained rate limited after retry`);
+   warnings.push(`Expansion paused after ${sportKey} was rate limited`);
    break;
   }
 
   // Paid expansion is deliberately serialized to avoid provider bursts.
-  await sleep(650);
+  if(Date.now()-started<deadlineMs-timeoutMs)await sleep(100);
  }
 
  const data=uniqueEvents([...bootstrapData,...expanded]);

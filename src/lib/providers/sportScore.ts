@@ -58,7 +58,7 @@ export function parseSportScoreMatches(payload:unknown,sport:string):SportScoreG
  }).filter(x=>x.id&&x.home.name!=='Home'&&x.away.name!=='Away');
 }
 
-async function fetchOne(sport:string){
+async function fetchOne(sport:string,budget?:()=>boolean){
  const hit=cache.get(sport);
  if(hit&&Date.now()-hit.at<cacheMs())return hit.games;
  const existing=inFlight.get(sport);
@@ -70,6 +70,7 @@ async function fetchOne(sport:string){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs());
   try{
+   if(budget&&!budget())throw new Error('Live score request budget reached');
    const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/121 score-backup'}});
    if(!res.ok)throw new Error(`SportScore HTTP ${res.status}`);
    const games=parseSportScoreMatches(await res.json(),sport);
@@ -84,7 +85,7 @@ async function fetchOne(sport:string){
  return request;
 }
 
-export async function fetchSportScoreBackup(){
+export async function fetchSportScoreBackup(budget?:()=>boolean){
  if(process.env.SPORTSCORE_ENABLED!=='true'){
   return {
    enabled:false,
@@ -92,7 +93,7 @@ export async function fetchSportScoreBackup(){
    attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}
   };
  }
- const settled=await Promise.allSettled(SPORTS.map(fetchOne));
+ const settled=await Promise.allSettled(SPORTS.map(sport=>fetchOne(sport,budget)));
  const games:SportScoreGame[]=[];
  const warnings:string[]=[];
  settled.forEach((r,i)=>{

@@ -19,7 +19,8 @@ function status(v:string):LiveGameState['status']{
   return 'UNKNOWN';
 }
 
-async function json(url:string,headers:Record<string,string>={}){
+async function json(url:string,headers:Record<string,string>={},budget?:()=>boolean){
+  if(budget&&!budget())throw new Error('Live score request budget reached');
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs());
   try{
@@ -115,29 +116,30 @@ export function parseApiSports(payload:unknown,source='api-sports'):LiveGameStat
   }).filter(x=>!x.id.endsWith(':')&&x.home.name!=='Home'&&x.away.name!=='Away');
 }
 
-async function theSportsDb(){
+async function theSportsDb(budget?:()=>boolean){
   if(process.env.THESPORTSDB_ENABLED==='false')return [];
   const sports=(process.env.THESPORTSDB_SPORTS||'Soccer,Basketball,American Football,Baseball,Ice Hockey').split(',').map(x=>x.trim()).filter(Boolean);
   const date=isoDate();
-  const batches=await Promise.allSettled(sports.map(sport=>json('https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d='+date+'&s='+encodeURIComponent(sport))));
+  const batches=await Promise.allSettled(sports.map(sport=>json('https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d='+date+'&s='+encodeURIComponent(sport),{},budget)));
+  if(batches.length&&!batches.some(r=>r.status==='fulfilled'))throw new Error('All score backup requests failed or reached the request budget');
   return batches.flatMap((r,i)=>r.status==='fulfilled'?parseTheSportsDb(r.value,sports[i]):[]);
 }
 
-async function footballData(){
+async function footballData(budget?:()=>boolean){
   const key=process.env.FOOTBALL_DATA_API_KEY;
   if(!key)return [];
   const url='https://api.football-data.org/v4/matches?dateFrom='+isoDate(-1)+'&dateTo='+isoDate(1);
-  return parseFootballData(await json(url,{'X-Auth-Token':key}));
+  return parseFootballData(await json(url,{'X-Auth-Token':key},budget));
 }
 
-async function bigBalls(){
+async function bigBalls(budget?:()=>boolean){
   const key=process.env.BIGBALLS_API_KEY;
   if(!key)return [];
   const base=String(process.env.BIGBALLS_API_BASE_URL||'https://api.bigballsdata.com/v1').replace(/\/$/,'');
-  return parseBigBalls(await json(base+'/matches?status=live',{Authorization:'Bearer '+key}));
+  return parseBigBalls(await json(base+'/matches?status=live',{Authorization:'Bearer '+key},budget));
 }
 
-async function apiSports(){
+async function apiSports(budget?:()=>boolean){
   const key=process.env.API_SPORTS_KEY;
   if(!key)return [];
   let endpoints:unknown=[];
@@ -146,17 +148,18 @@ async function apiSports(){
   const batches=await Promise.allSettled(endpoints.slice(0,8).map(async raw=>{
     const row=obj(raw),url=str(row.url).replaceAll('{date}',isoDate());
     if(!/^https:\/\//.test(url))return [];
-    return parseApiSports(await json(url,{'x-apisports-key':key}),str(row.id)||'api-sports');
+    return parseApiSports(await json(url,{'x-apisports-key':key},budget),str(row.id)||'api-sports');
   }));
+  if(batches.length&&!batches.some(r=>r.status==='fulfilled'))throw new Error('All score backup requests failed or reached the request budget');
   return batches.flatMap(r=>r.status==='fulfilled'?r.value:[]);
 }
 
-export async function fetchCommunityScoreBackups(){
+export async function fetchCommunityScoreBackups(budget?:()=>boolean){
   const sources=await Promise.allSettled([
-    cached('thesportsdb',10*60_000,theSportsDb),
-    cached('football-data',60_000,footballData),
-    cached('bigballs',6*60_000,bigBalls),
-    cached('api-sports',15*60_000,apiSports)
+    cached('thesportsdb',10*60_000,()=>theSportsDb(budget)),
+    cached('football-data',60_000,()=>footballData(budget)),
+    cached('bigballs',6*60_000,()=>bigBalls(budget)),
+    cached('api-sports',15*60_000,()=>apiSports(budget))
   ]);
   const ids=['thesportsdb','football-data.org','bigballsdata','api-sports'];
   const games:LiveGameState[]=[];

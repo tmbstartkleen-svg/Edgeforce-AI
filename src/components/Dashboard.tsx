@@ -1,12 +1,14 @@
 'use client';
 
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {buildMixedSportProbabilitySet,buildProbabilitySet,type Parlay} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
+import GamesWorkspace from './GamesWorkspace';
+import {qualifiesForTopBoard} from '@/lib/boardScoring';
 import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import OperatorCommandCenter from './OperatorCommandCenter';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
@@ -137,6 +139,9 @@ type LiveScoreGame={
 };
 
 type LiveBoardResponse={
+  catalogue?:{enabled:boolean;page:number;pageSize:number;total:number;hasNext:boolean};
+  marketCoverage?:{ingested:number;candidates:number;qualified:number;playerProps:number;sports:string[];bySport:Record<string,number>};
+  refreshStatus?:{mode:string;error?:string;lastSuccessfulAt?:string};
   generatedAt:string;
   uiRefreshMs:number;
   sourceRefreshMs:number;
@@ -186,7 +191,7 @@ type LiveBoardResponse={
   };
   warnings?:string[];
   topBoardQualification?:{
-    requested:number;candidates:number;qualified:number;shown:number;withheld:number;forced:boolean;
+    requested:number;candidates:number;qualified:number;shown:number;withheld:number;forced:boolean;fallbackMode?:string|null;fallbackReason?:string|null;
     minimumSimProbability:number;minimumDynamicConfidence:number;allowedGrades:string[];
   };
   contextRevision?:string;
@@ -621,6 +626,12 @@ function sourceLabel(source:string,mode:string){
   if(source==='demo')return 'DEMO FALLBACK';
   return source.toUpperCase();
 }
+function scoreConfidenceLabel(game:LiveScoreGame){
+  const confidence=game.consensus?.confidence;
+  if(confidence==='SINGLE_SOURCE')return 'One provider · unconfirmed';
+  if(!confidence)return 'Verification pending';
+  return confidence.charAt(0)+confidence.slice(1).toLowerCase()+' confidence';
+}
 function dateLabel(value:string){
   if(!value)return '—';
   const d=new Date(value);
@@ -628,6 +639,10 @@ function dateLabel(value:string){
 }
 
 export default function Dashboard(){
+  const [catalogue,setCatalogue]=useState(false);
+  const [cataloguePage,setCataloguePage]=useState(0);
+  const [catalogueKind,setCatalogueKind]=useState('ALL');
+  const [workspace,setWorkspace]=useState<'games'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('games');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
@@ -649,46 +664,76 @@ export default function Dashboard(){
   const [divergenceFilter,setDivergenceFilter]=useState<'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE'>('ALL');
   const [reviewQueueOnly,setReviewQueueOnly]=useState(false);
   const [minSim,setMinSim]=useState(0);
-  const [minOdds,setMinOdds]=useState(-1000);
-  const [maxOdds,setMaxOdds]=useState(1000);
+  const [minOdds,setMinOdds]=useState(-Infinity);
+  const [maxOdds,setMaxOdds]=useState(Infinity);
   const [parlaySize,setParlaySize]=useState(2);
   const [parlayBoard,setParlayBoard]=useState<ParlayBoardResponse|null>(null);
   const [lastError,setLastError]=useState('');
+  const [liveFeed,setLiveFeed]=useState<NonNullable<LiveBoardResponse['liveScores']>|null>(null);
+  const [liveFeedError,setLiveFeedError]=useState('');
   const [bankroll,setBankroll]=useState(1000);
   const [drawdownPct,setDrawdownPct]=useState(0);
   const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
   const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
-  const busy=useRef(false);
 
   useEffect(()=>{
+    if(workspace==='games'||workspace==='live')return;
     let mounted=true;
     let timer:number|undefined;
-    let nextDelay=1000;
+    let failures=0;
+    let controller:AbortController|undefined;
     const adaptiveLoad=async()=>{
-      if(!mounted)return;
-      if(!busy.current){
-        busy.current=true;
-        try{
-          const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
-          if(!res.ok)throw new Error('Board request failed');
-          const json=await res.json() as LiveBoardResponse;
-          const requested=json.liveScores?.freshness?.recommendedUiRefreshMs??json.liveScores?.uiRefreshMs??json.uiRefreshMs??1000;
-          nextDelay=Math.max(500,Math.min(5000,Number(requested)||1000));
-          if(mounted){setBoard(json);setLastError('')}
-        }catch(error){
-          nextDelay=Math.max(nextDelay,1500);
-          if(mounted)setLastError(error instanceof Error?error.message:'Unable to refresh board');
-        }finally{
-          busy.current=false;
+      controller=new AbortController();
+      const deadline=window.setTimeout(()=>controller?.abort(),35000);
+      let nextDelay=10000;
+      try{
+        const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk+(catalogue?'&catalogue=1&page='+cataloguePage+'&kind='+catalogueKind+'&sport='+encodeURIComponent(sport):''),{cache:'no-store',signal:controller.signal});
+        if(!res.ok){
+          const detail=await res.json().catch(()=>({}));
+          const retrySeconds=Number(res.headers.get('Retry-After'))||0;
+          nextDelay=Math.max(10000,Math.min(120000,retrySeconds*1000));
+          throw new Error(`Board refresh: HTTP ${res.status}${detail.error?' · '+detail.error:''}. Retrying automatically.`);
         }
+        const json=await res.json() as LiveBoardResponse;
+        failures=0;
+        if(mounted){setBoard(json);setLastError(json.refreshStatus?.mode==='STALE_CACHE'?'Refresh delayed. Showing the last successful board; retrying automatically.':'');}
+      }catch(error){
+        failures++;
+        nextDelay=Math.max(nextDelay,Math.min(60000,10000*2**Math.min(3,failures-1)));
+        if(mounted)setLastError(error instanceof Error&&error.name!=='AbortError'?error.message:'Board refresh timed out. Retrying automatically; previous results remain visible.');
+      }finally{
+        window.clearTimeout(deadline);
+        if(mounted)timer=window.setTimeout(adaptiveLoad,nextDelay);
       }
-      if(mounted)timer=window.setTimeout(adaptiveLoad,nextDelay);
     };
     void adaptiveLoad();
-    return ()=>{mounted=false;if(timer!==undefined)window.clearTimeout(timer)};
-  },[view,limit,risk]);
+    return ()=>{mounted=false;controller?.abort();if(timer!==undefined)window.clearTimeout(timer)};
+  },[workspace,view,limit,risk,catalogue,cataloguePage,catalogueKind,sport]);
 
   useEffect(()=>{
+    if(workspace!=='live')return;
+    let mounted=true;let timer:number|undefined;let controller:AbortController|undefined;
+    const load=async()=>{
+      controller=new AbortController();
+      const deadline=window.setTimeout(()=>controller?.abort(),15000);
+      let nextDelay=5000;
+      try{
+        const res=await fetch('/api/live-scores',{cache:'no-store',signal:controller.signal});
+        if(!res.ok)throw new Error(`Live scores: HTTP ${res.status}. Retrying automatically.`);
+        {
+          const liveScores=await res.json() as NonNullable<LiveBoardResponse['liveScores']>;
+          if(!liveScores.ok||!Array.isArray(liveScores.games)||liveScores.sourceMode==='separate-live-score-feed')throw new Error('Live score feed is unavailable. Retrying automatically.');
+          nextDelay=Math.max(500,Math.min(5000,liveScores.freshness?.recommendedUiRefreshMs??liveScores.uiRefreshMs??2000));
+          if(mounted){setLiveFeed(liveScores);setLiveFeedError('');}
+        }
+      }catch(error){if(mounted)setLiveFeedError(error instanceof Error&&error.name!=='AbortError'?error.message:'Live score refresh timed out. Retrying automatically.');}finally{window.clearTimeout(deadline);}
+      if(mounted)timer=window.setTimeout(load,nextDelay);
+    };
+    void load();return ()=>{mounted=false;controller?.abort();if(timer!==undefined)window.clearTimeout(timer);};
+  },[workspace]);
+
+  useEffect(()=>{
+    if(workspace!=='parlays')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -701,9 +746,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[view]);
+  },[workspace,view]);
 
   useEffect(()=>{
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -716,9 +762,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),30000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -731,9 +778,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -746,9 +794,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -761,9 +810,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -776,9 +826,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -796,9 +847,10 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),60000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   useEffect(()=>{
+    if(workspace!=='board'&&workspace!=='signals')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -811,18 +863,19 @@ export default function Dashboard(){
     void load();
     const timer=window.setInterval(()=>void load(),15000);
     return ()=>{mounted=false;window.clearInterval(timer)};
-  },[]);
+  },[workspace]);
 
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
   const sportCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.sport]=(acc[row.sport]||0)+1;return acc},{}),[board.rows]);
-  const activeFilterCount=(effectiveSport!=='ALL'?1:0)+(period!=='ALL'?1:0)+(market!=='ALL'?1:0)+(minSim>0?1:0)+(minOdds!==-1000||maxOdds!==1000?1:0)+(robustnessFilter!=='ALL'?1:0)+(rankingMode!=='SIM'?1:0)+(divergenceFilter!=='ALL'?1:0)+(reviewQueueOnly?1:0);
-  const resetBoardFilters=()=>{setSport('ALL');setPeriod('ALL');setMarket('ALL');setMinSim(0);setMinOdds(-1000);setMaxOdds(1000);setRobustnessFilter('ALL');setRankingMode('SIM');setDivergenceFilter('ALL');setReviewQueueOnly(false)};
+  const activeFilterCount=(effectiveSport!=='ALL'?1:0)+(period!=='ALL'?1:0)+(market!=='ALL'?1:0)+(minSim>0?1:0)+(Number.isFinite(minOdds)||Number.isFinite(maxOdds)?1:0)+(robustnessFilter!=='ALL'?1:0)+(rankingMode!=='SIM'?1:0)+(divergenceFilter!=='ALL'?1:0)+(reviewQueueOnly?1:0);
+  const resetBoardFilters=()=>{setSport('ALL');setPeriod('ALL');setMarket('ALL');setMinSim(0);setMinOdds(-Infinity);setMaxOdds(Infinity);setRobustnessFilter('ALL');setRankingMode('SIM');setDivergenceFilter('ALL');setReviewQueueOnly(false)};
   const fastestProviderLatency=useMemo(()=>{
     const values=(board.providerPanel||[]).map(x=>x.latencyMs).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0);
     return values.length?Math.min(...values):null;
   },[board.providerPanel]);
 
   useEffect(()=>{
+    if(workspace!=='research')return;
     let cancelled=false;
     const load=async()=>{
       if(!board.rows.length){setPortfolio(null);return;}
@@ -839,7 +892,7 @@ export default function Dashboard(){
     };
     void load();
     return ()=>{cancelled=true};
-  },[board.rows,bankroll,drawdownPct,risk]);
+  },[workspace,board.rows,bankroll,drawdownPct,risk]);
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
   const marketCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.market]=(acc[row.market]||0)+1;return acc},{}),[board.rows]);
@@ -859,9 +912,9 @@ export default function Dashboard(){
     if(period!=='ALL'&&x.period!==period)return false;
     if(market!=='ALL'&&x.market!==market)return false;
     if(x.simProbability<minSim/100)return false;
-    if(x.odds<minOdds||x.odds>maxOdds)return false;
+    if(!catalogue&&(x.odds<minOdds||x.odds>maxOdds))return false;
     return true;
-  }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds]);
+  }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds,catalogue]);
 
   const filtered=useMemo(()=>rawFiltered.filter(x=>{
     if(robustnessFilter==='ALL')return true;
@@ -957,22 +1010,22 @@ export default function Dashboard(){
     return {action,watch,review,parlay};
   },[boardScanLanes,rankedFiltered,parlayBoard]);
   const liveGameCenter=useMemo(()=>{
-    const games=(board.liveScores?.games||[]).filter(g=>g.status==='LIVE');
+    const games=(liveFeed?.games||[]).filter(g=>g.status==='LIVE');
     const trusted=games.filter(g=>!g.consensus?.activeConflict);
     const featured=trusted.find(g=>(g.consensus?.sourceCount??0)>1)||trusted[0]||games[0]||null;
     const conflicts=games.filter(g=>g.consensus?.activeConflict).length;
     const multiSource=games.filter(g=>(g.consensus?.sourceCount??0)>1).length;
     const leagues=new Set(games.map(g=>g.league).filter(Boolean)).size;
     return {games,featured,conflicts,multiSource,leagues};
-  },[board.liveScores]);
+  },[liveFeed]);
 
-  return <main className="v21">
-    <a className="skipLink" href="#edge">Skip to today&apos;s edge</a>
+  return <main className="v21 workspaceShell">
+    <a className="skipLink" href="#edge" onClick={()=>setWorkspace('board')}>Skip to today&apos;s edge</a>
     <header className="v21Top">
       <div>
         <div className="eyebrow">EDGEFORCE AI • LIVE SPORTS INTELLIGENCE</div>
-        <h1>Sports Intelligence Command Center</h1>
-        <p>Live scores, sportsbook prices, player props, simulations, prediction markets and model confidence in one fast decision surface.</p>
+        <h1>Sports. Markets. Intelligence.</h1>
+        <p>Your games and available prices, with ranked analysis in its own workspace.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -999,22 +1052,29 @@ export default function Dashboard(){
       </div>
     </header>
 
-    <nav className="v21QuickNav" aria-label="Dashboard sections">
-      <a href="#triage">Triage</a>
-      <a href="#live">Live Scores</a>
-      <a href="#edge">Today&apos;s Edge</a>
-      <a href="#board">Probability Board</a>
-      <a href="#parlays">Parlays</a>
-      <a href="#predictions">Prediction Markets</a>
-      <a href="#signals">Pro Signals</a>
-      <a href="#research">Research + Risk</a>
-      <a href="#operator">Operator Console</a>
+    <nav className="v21QuickNav workspaceSidebar" aria-label="EdgeForce workspaces">
+      <div className="workspaceBrand">EDGEFORCE<span>Sports intelligence</span></div>
+      <small className="workspaceNavLabel">YOUR WORKSPACE</small>
+      <a href="#games" aria-current={workspace==='games'?'page':undefined} onClick={()=>setWorkspace('games')}>Games & Schedules</a>
+      <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(30);}}>Daily Top 30</a>
+      <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(50);}}>Today’s Top 50</a>
+      <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('week');setLimit(50);}}>This Week’s Top 50</a>
+      <a href="#board" aria-current={workspace==='board'&&catalogue?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(true);setCataloguePage(0);setView('week');resetBoardFilters();}}>All Markets & Props</a>
+      <a href="#live" aria-current={workspace==='live'?'page':undefined} onClick={()=>setWorkspace('live')}>Live Scores</a>
+      <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>setWorkspace('parlays')}>Parlays</a>
+      <a href="#predictions" aria-current={workspace==='predictions'?'page':undefined} onClick={()=>setWorkspace('predictions')}>Prediction Markets</a>
+      <a href="#signals" aria-current={workspace==='signals'?'page':undefined} onClick={()=>setWorkspace('signals')}>Pro Signals</a>
+      <a href="#triage" onClick={()=>{setWorkspace('board');const drawer=document.querySelector<HTMLDetailsElement>('.boardContextDrawer');if(drawer)drawer.open=true;}}>Review Queue</a>
+      <small className="workspaceNavLabel">ANALYSIS & OPERATIONS</small>
+      <a href="#research" aria-current={workspace==='research'?'page':undefined} onClick={()=>setWorkspace('research')}>Research + Risk</a>
+      <a href="#operator" aria-current={workspace==='operator'?'page':undefined} onClick={()=>setWorkspace('operator')}>Operator Console</a>
+      <div className="workspaceSidebarNote">Live data refreshes while you explore.</div>
     </nav>
 
     <section className="launchFreezeBar" aria-label="V194 launch review">
       <div className="launchFreezeTitle">
         <div className="eyebrow">V194 LAUNCH REVIEW • DESIGN FREEZE</div>
-        <b>Production surface locked for launch review</b>
+        <b>Live data and system status</b>
       </div>
       <div className="launchFreezeChecks" role="list">
         <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Live data</b><small>{launchReview.liveData?'connected':'warming'}</small></span>
@@ -1023,25 +1083,29 @@ export default function Dashboard(){
         <span role="listitem" className={launchReview.reviewClear?'pass':'warn'}><i aria-hidden="true"/><b>Review</b><small>{launchReview.reviewClear?'clear':reviewQueueSummary.total+' queued'}</small></span>
         <span role="listitem" className="pass"><i aria-hidden="true"/><b>Mobile</b><small>ready</small></span>
       </div>
-      <a href="#operator" className="launchFreezeAction">Operator status</a>
+      <a href="#operator" onClick={()=>setWorkspace('operator')} className="launchFreezeAction">Operator status</a>
     </section>
 
-    {lastError&&<div className="v21Alert">{lastError}</div>}
-    {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
-    {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
-    {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
+    {workspace!=='games'&&workspace!=='live'&&lastError&&<div className="v21Alert">{lastError}</div>}
+    {workspace!=='games'&&workspace!=='live'&&board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
+    {workspace!=='live'&&board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
+    {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
-    {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
+    {workspace==='games'&&<GamesWorkspace/>}
+    <div className="workspaceContent" hidden={workspace!=='live'}>
+    {liveFeedError&&<div className="v21Alert" role="alert">{liveFeedError}{liveFeed?' Showing the last received scores; they may be stale.':''}</div>}
+    {!liveFeed&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{liveFeedError?'Waiting for a successful score refresh.':'Loading the live score feed…'}</p></div></section>}
+    {liveFeed&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
       <div className="consoleHead">
-        <div><div className="eyebrow">V192 LIVE GAME CENTER</div><h3>{liveGameCenter.games.length} game{liveGameCenter.games.length===1?'':'s'} live now</h3></div>
-        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {board.liveScores.consensus?Math.round(board.liveScores.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
+        <div><div className="eyebrow">V192 LIVE GAME CENTER</div><h3>{liveFeedError?'Last received scores':`${liveGameCenter.games.length} game${liveGameCenter.games.length===1?'':'s'} live now`}</h3></div>
+        <div className="consoleSource">{Math.round(liveFeed.refreshMs/1000)}s source cache • {liveFeedError?'STALE':liveFeed.freshness?.state||'UNKNOWN'} • {Math.max(.5,(liveFeed.freshness?.recommendedUiRefreshMs??liveFeed.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {liveFeed.consensus?Math.round(liveFeed.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
       </div>
       <div className="liveGamePulse" aria-label="Live game center summary">
         <div><small>LIVE</small><b>{liveGameCenter.games.length}</b></div>
         <div><small>MULTI-SOURCE</small><b>{liveGameCenter.multiSource}</b></div>
         <div><small>CONFLICTS</small><b className={liveGameCenter.conflicts?'orange':''}>{liveGameCenter.conflicts}</b></div>
         <div><small>LEAGUES</small><b>{liveGameCenter.leagues}</b></div>
-        <div><small>FEED</small><b>{board.liveScores.freshness?.state||'ACTIVE'}</b></div>
+        <div><small>FEED</small><b>{liveFeedError?'STALE':liveFeed.freshness?.state||'UNKNOWN'}</b></div>
       </div>
       {liveGameCenter.featured&&<article className={'featuredLiveGame '+(liveGameCenter.featured.consensus?.activeConflict?'conflict':'trusted')}>
         <div className="featuredLiveHead">
@@ -1054,26 +1118,37 @@ export default function Dashboard(){
           <div><small>HOME</small><b>{liveGameCenter.featured.home.name}</b><strong>{liveGameCenter.featured.home.score??'—'}</strong></div>
         </div>
         <div className="featuredLiveFoot">
-          <span className={liveGameCenter.featured.consensus?.activeConflict?'orange':'lime'}>{liveGameCenter.featured.consensus?.activeConflict?'SOURCE CONFLICT':(liveGameCenter.featured.consensus?.confidence||'LIVE')}</span>
+          <span className={liveGameCenter.featured.consensus?.activeConflict||liveGameCenter.featured.consensus?.confidence==='SINGLE_SOURCE'?'orange':'lime'}>{liveGameCenter.featured.consensus?.activeConflict?'SOURCE CONFLICT':scoreConfidenceLabel(liveGameCenter.featured)}</span>
           <span>{liveGameCenter.featured.consensus?.sourceCount?liveGameCenter.featured.consensus.sourceCount+' sources':'1 source'}</span>
           <span>{liveGameCenter.featured.source}</span>
           {liveGameCenter.featured.consensus?.laggingSources?.length?<span className="orange">lagging {liveGameCenter.featured.consensus.laggingSources.join(', ')}</span>:<span>sync healthy</span>}
         </div>
       </article>}
       <div className="liveScoreGrid compactLiveRail">
-        {liveGameCenter.games.filter(g=>g.id!==liveGameCenter.featured?.id||g.source!==liveGameCenter.featured?.source).slice(0,11).map(g=><article className={'liveScoreCard '+(g.consensus?.activeConflict?'hasConflict':'')} key={g.source+'-'+g.id}>
-          <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':(g.consensus?.confidence||'LIVE')}</span></div>
+        {liveGameCenter.games.filter(g=>g.id!==liveGameCenter.featured?.id||g.source!==liveGameCenter.featured?.source).map(g=><article className={'liveScoreCard '+(g.consensus?.activeConflict?'hasConflict':'')} key={g.source+'-'+g.id}>
+          <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict||g.consensus?.confidence==='SINGLE_SOURCE'?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':scoreConfidenceLabel(g)}</span></div>
           <div className="liveScoreClock"><b>{g.period||'LIVE'}</b><strong>{g.clock||'—'}</strong></div>
           <div className="liveScoreTeams">
             <div><b>{g.away.name}</b><strong>{g.away.score??'—'}</strong></div>
             <div><b>{g.home.name}</b><strong>{g.home.score??'—'}</strong></div>
           </div>
-          <div className="liveScoreMeta"><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
+          <div className="liveScoreMeta"><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+scoreConfidenceLabel(g)),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
         </article>)}
       </div>
-      {!liveGameCenter.games.length&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
+      {!liveGameCenter.games.length&&!liveFeedError&&<p className="emptyState">The latest score feed reports no live games. It received {liveFeed.games.length} scheduled or completed games. Last updated {new Date(liveFeed.generatedAt).toLocaleTimeString()}.</p>}
     </section>}
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='board'}>
+    <section className="marketCoveragePanel" aria-label="Market coverage">
+      {board.topBoardQualification?.forced&&!catalogue&&<p className="boardReviewNotice">No picks passed the recommendation gate. These simulations are for review only. {board.topBoardQualification.fallbackReason}</p>}
+      <div className="marketCoverageHead"><div><div className="eyebrow">MARKET COVERAGE</div><h2>{catalogue?'All Markets & Player Props':board.topBoardQualification?.forced?'Market review · no qualified picks':'Ranked recommendations'}</h2></div><span className={board.source==='live'?'coverageLive':'coverageWarning'}>{boardLoading?'Connecting':board.source==='demo'?'DEMO DATA':board.source==='live'?'LIVE ODDS':board.source==='stored'?'STORED ODDS':'ODDS UNAVAILABLE'}</span></div>
+      <div className="coverageNumbers"><div><b>{board.marketCoverage?.ingested??'—'}</b><span>markets received</span></div><div><b>{board.marketCoverage?.candidates??'—'}</b><span>in this date range</span></div><div><b>{board.marketCoverage?.playerProps??'—'}</b><span>player props</span></div><div><b>{board.marketCoverage?.qualified??'—'}</b><span>qualified recommendations</span></div></div>
+      <p>{catalogue?'Browse every received market in this date range. Listing a market does not make it a recommended bet.':'This is a filtered shortlist. Open All Markets & Props to browse the full received catalogue.'}</p>
+      <div className="coverageToolbar"><button onClick={()=>{setCatalogue(!catalogue);setCataloguePage(0);resetBoardFilters();}}>{catalogue?'Show ranked picks':'Browse all markets'}</button><button aria-pressed={view==='today'} onClick={()=>{setView('today');setCataloguePage(0);}}>Today</button><button aria-pressed={view==='week'} onClick={()=>{setView('week');setCataloguePage(0);}}>Next 7 days</button>{catalogue&&<><select aria-label="Market category" value={catalogueKind} onChange={e=>{setCatalogueKind(e.target.value);setCataloguePage(0);setMarket('ALL');}}><option value="ALL">All market types</option><option value="MONEYLINE">Moneylines</option><option value="PROPS">Player props</option><option value="SPREADS">Spreads</option><option value="TOTALS">Game totals</option></select><select aria-label="Catalogue sport" value={sport} onChange={e=>{setSport(e.target.value);setCataloguePage(0);}}><option value="ALL">All sports</option>{(board.marketCoverage?.sports||[]).map(s=><option key={s} value={s}>{s} ({board.marketCoverage?.bySport[s]??0})</option>)}</select><button disabled={cataloguePage===0} onClick={()=>setCataloguePage(p=>Math.max(0,p-1))}>Previous</button><span>Page {cataloguePage+1} · {board.catalogue?.total??0} matching</span><button disabled={!board.catalogue?.hasNext} onClick={()=>setCataloguePage(p=>p+1)}>Next</button></>}</div>
+      <details className="coverageFeedDetails"><summary>Feed status and missing coverage</summary>{(board.providerPanel||[]).map(p=><div key={p.providerId}><b>{p.providerName}</b><span>{p.acceptedMarkets} markets</span></div>)}{(board.providerAttempts||[]).filter(p=>!p.ok).map(p=><p key={p.providerId}>{p.providerId}: {p.error||'No accepted markets'}</p>)}<p>A sport absent here has no received market quotes in this date range. Live scores alone do not supply odds or player props.</p></details>
+    </section>
+    <details className="boardContextDrawer"><summary>Analysis overview and advanced ranking controls</summary>
     <section className="v21Hero">
       <div>
         <div className="badge">ALL SPORTS • LIVE SCORES • PLAYER PROPS • +EV • PARLAYS • PREDICTION MARKETS</div>
@@ -1089,6 +1164,9 @@ export default function Dashboard(){
           <div><small>PM</small><b>{pmCount}</b></div>
           <div><small>Sports</small><b>{board.sports.length}</b></div>
           <div><small>History</small><b>{board.history.sampleSize}</b></div>
+        </div>
+        <details className="boardDataDetails"><summary>Board data details</summary>
+        <div className="v21MiniGrid">
           <div><small>Feed</small><b>{board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'READY'}</b></div>
           <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
           <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
@@ -1109,6 +1187,7 @@ export default function Dashboard(){
           <div><small>Brier skill</small><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b></div>
           <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
         </div>
+        </details>
       </div>
     </section>
 
@@ -1117,7 +1196,7 @@ export default function Dashboard(){
         <div><div className="eyebrow">V193 TODAY DECISION FLOW</div><h3>What deserves attention first</h3></div>
         <div className="todayDecisionFlowMeta">
           <span>{board.source==='live'?'LIVE BOARD':'BOARD WARMING'}</span>
-          <span>{rankedFiltered.length} qualified</span>
+          <span>{(board.refreshStatus?.mode==='STALE_CACHE'?0:rankedFiltered.filter(qualifiesForTopBoard).length)} model-qualified</span>
           <span>{reviewQueueSummary.total} review</span>
         </div>
       </div>
@@ -1137,7 +1216,7 @@ export default function Dashboard(){
           <div><small>REVIEW</small><b>{todayDecisionFlow.review?.selection||'No flagged row'}</b><span>{todayDecisionFlow.review?reviewReasonMap.get(todayDecisionFlow.review.id)?.slice(0,2).join(' • ')||'Manual review required':'Review queue is clear'}</span></div>
           <strong>{reviewQueueSummary.total}</strong>
         </button>
-        <a className={'todayDecisionCard parlay '+(todayDecisionFlow.parlay?'ready':'empty')} href="#parlays">
+        <a className={'todayDecisionCard parlay '+(todayDecisionFlow.parlay?'ready':'empty')} href="#parlays" onClick={()=>setWorkspace('parlays')}>
           <span className="todayDecisionStep">4</span>
           <div><small>BEST PARLAY</small><b>{todayDecisionFlow.parlay?todayDecisionFlow.parlay.legs.length+' qualified legs':'No promoted build'}</b><span>{todayDecisionFlow.parlay?fmtOdds(todayDecisionFlow.parlay.combinedAmericanOdds)+' • '+fmtPct(todayDecisionFlow.parlay.averageDynamicConfidence)+' confidence':'Safety gates are holding the slot'}</span></div>
           <strong>{todayDecisionFlow.parlay?fmtPct(todayDecisionFlow.parlay.combinedProbability):'—'}</strong>
@@ -1273,9 +1352,9 @@ export default function Dashboard(){
         <div className="controlGroup double">
           <label>American odds range</label>
           <div className="rangePair">
-            <input type="number" value={minOdds} onChange={e=>setMinOdds(Number(e.target.value)||-1000)}/>
+            <input type="number" value={Number.isFinite(minOdds)?minOdds:''} placeholder="Any" onChange={e=>setMinOdds(e.target.value===''?-Infinity:Number(e.target.value))}/>
             <span>to</span>
-            <input type="number" value={maxOdds} onChange={e=>setMaxOdds(Number(e.target.value)||1000)}/>
+            <input type="number" value={Number.isFinite(maxOdds)?maxOdds:''} placeholder="Any" onChange={e=>setMaxOdds(e.target.value===''?Infinity:Number(e.target.value))}/>
           </div>
         </div>
       </section>
@@ -1325,7 +1404,7 @@ export default function Dashboard(){
         <div className="edgeCommandPulse">
           <span className={board.source==='live'?'dot liveDot':'dot'}/>
           <div><small>BOARD</small><b>{board.source==='live'?'LIVE':'WARMING'}</b></div>
-          <div><small>QUALIFIED</small><b>{boardLoading?'—':filtered.length}</b></div>
+          <div><small>MODEL-QUALIFIED</small><b>{boardLoading?'—':(board.refreshStatus?.mode==='STALE_CACHE'?0:filtered.filter(qualifiesForTopBoard).length)}</b></div>
           <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
           <div><small>ARBS</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
           <div><small>ROBUST</small><b>{robustnessSummary.robust}</b></div>
@@ -1407,15 +1486,16 @@ export default function Dashboard(){
       </div>
     </section>
 
+    </details>
     <section className="v21Panel" id="board">
       <div className="v21PanelHead">
         <div>
-          <div className="eyebrow">{view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
-          <h3>{view==='today'?(rankingMode==='PRIORITY'?'Robustness-aware priority first':'Highest simulation probability first'):'Probability score distributed across the week'}</h3>
+          <div className="eyebrow">{catalogue?'RECEIVED MARKET CATALOGUE':view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
+          <h3>{catalogue?'Game lines and player props':view==='today'?(rankingMode==='PRIORITY'?'Robustness-aware priority first':'Highest simulation probability first'):'Probability score distributed across the week'}</h3>
         </div>
         <div className="panelMeta">
-          <span>{rankedFiltered.length} shown • {board.topBoardQualification?.withheld??0} withheld</span>
-          <span>{board.topBoardQualification?.forced===false?'QUALITY ONLY • NOT FORCED':'loading qualification'}</span>
+          <span>{catalogue?`${rankedFiltered.length} on this page · ${board.catalogue?.total??0} matching`: `${rankedFiltered.length} shown • ${board.topBoardQualification?.withheld??0} withheld`}</span>
+          <span>{catalogue?'ALL RECEIVED GRADES':boardLoading?'Loading board':board.topBoardQualification?.forced?'REVIEW ONLY • NOT RECOMMENDATIONS':'QUALIFIED MODEL ROWS'}</span>
           <span>{board.generatedAt?dateLabel(board.generatedAt):'loading'}</span>
         </div>
       </div>
@@ -1445,26 +1525,26 @@ export default function Dashboard(){
         </div>
       </div>
       <div className="mobileBoardCards">
-        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
-          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></div>
+        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=catalogue||board.refreshStatus?.mode==='STALE_CACHE'||!qualifiesForTopBoard(x)||r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
+          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision==='REVIEW'?'Review only':decision}</span><span className={'grade '+x.grade.toLowerCase()}>Model: {x.grade}</span></div>
           <div className="mobileBoardMain"><b>{x.selection}</b><small>{x.event} • {x.market} • {x.period}</small></div>
           <div className="mobileBoardMetrics">
-            <div><small>SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong></div>
+            <div><small>ADJUSTED SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong><small>Raw {fmtPct(x.rawSimProbability)} · {x.simulationRuns.toLocaleString()} runs</small></div>
             <div><small>ODDS</small><strong>{fmtOdds(x.odds)}</strong></div>
             <div><small>CONF</small><strong>{fmtPct(x.dynamicConfidence)}</strong></div>
             <div><small>EDGE</small><strong className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</strong></div>
           </div>
-          <div className="mobileBoardFoot"><span className={'robustnessBadge '+(r?.classification||'FAIL').toLowerCase()}>{r?.classification||'—'}</span><span>{x.bestExecutionVenue?.venue||board.targetBook||'—'}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></div>
+          <div className="mobileBoardFoot"><span className={'robustnessBadge '+(r?.classification||'FAIL').toLowerCase()}>Quality: {r?.classification==='FAIL'?'Insufficient':r?.classification||'—'}</span><span>{x.bestExecutionVenue?.venue||board.targetBook||'—'}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></div>
         </article>})}
         {!rankedFiltered.length&&<div className="edgeEmpty">No qualified rows match the current ranking and review filters.</div>}
       </div>
-      <div className="tableWrap desktopBoardTable">
+      <details className="fullBoardDetails"><summary>Open full analysis table</summary><div className="tableWrap desktopBoardTable">
         <table className="v21Table">
           <thead><tr>
             <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
-            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
+            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=catalogue||board.refreshStatus?.mode==='STALE_CACHE'||!qualifiesForTopBoard(x)||r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
               <td className="rankCell">{i+1}</td>
               <td><span className="sportPill">{x.sport}</span></td>
               <td><b>{x.event}</b><small>{x.selection}</small></td>
@@ -1483,14 +1563,16 @@ export default function Dashboard(){
               <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
-              <td><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
+              <td><span className={'decisionBadge '+decision.toLowerCase()}>{decision==='REVIEW'?'Review only':decision}</span><span className={'grade '+x.grade.toLowerCase()}>Model: {x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>})}
-            {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.</td></tr>}
+            {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">{catalogue?'No received markets match this date range and filters. Check feed status above.':'No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.'}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </div></details>
     </section>
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='parlays'}>
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div>
@@ -1551,6 +1633,8 @@ export default function Dashboard(){
       </div>
     </section>
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='predictions'}>
     <div id="predictions"><PredictionIntelligencePanel/></div>
 
     <section className="v21Panel">
@@ -1573,6 +1657,8 @@ export default function Dashboard(){
       </div>}
     </section>
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='signals'}>
     <section className="v21Panel" id="signals">
       <div className="v21PanelHead">
         <div>
@@ -1685,7 +1771,9 @@ export default function Dashboard(){
       </div>
     </section>
 
-    <details className="operatorDrawer researchDrawer" id="research">
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='research'}>
+    <details className="operatorDrawer researchDrawer" id="research" open={workspace==='research'}>
       <summary>
         <div>
           <span className="eyebrow">RESEARCH + RISK LAB</span>
@@ -1935,7 +2023,9 @@ export default function Dashboard(){
       </div>
     </details>
 
-    <details className="operatorDrawer" id="operator">
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='operator'}>
+    <details className="operatorDrawer" id="operator" open={workspace==='operator'}>
       <summary>
         <div>
           <span className="eyebrow">ADVANCED OPERATOR CONSOLE</span>
@@ -1984,6 +2074,7 @@ export default function Dashboard(){
       <div><small>GOVERNANCE RUNS</small><b>{dbStats.counts?.model_governance_runs||0}</b></div>
       <div><small>GOVERNANCE SNAPSHOTS</small><b>{dbStats.counts?.model_governance_snapshots||0}</b></div>
     </section>
+    </div>
     {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
 }

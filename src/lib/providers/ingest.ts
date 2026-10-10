@@ -117,7 +117,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
   };
  }
  const production=(process.env.DEPLOYMENT_ENV==='production'||process.env.VERCEL_ENV==='production');
- const allowDemo=process.env.ALLOW_DEMO_DATA==='true'||!production;
+ const allowDemo=process.env.ALLOW_DEMO_DATA==='true'||(!production&&process.env.ALLOW_DEMO_DATA!=='false');
  if(!allowDemo){
   return {
    ...live,

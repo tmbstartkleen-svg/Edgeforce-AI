@@ -104,11 +104,13 @@ const timeoutMs=()=>Math.max(
  1500,
  Number(process.env.PUBLIC_CONTEXT_TIMEOUT_MS)||(process.env.NODE_ENV==='development'?2500:5000)
 );
-async function fetchJson(url:string,ttlMs:number):Promise<Cached>{
+type RequestBudget={reserve:()=>boolean;remainingMs:()=>number};
+async function fetchJson(url:string,ttlMs:number,budget?:RequestBudget):Promise<Cached>{
  const cached=requestCache.get(url);
  if(cached&&Date.now()-cached.at<ttlMs)return cached;
+ if(budget&&!budget.reserve())return {at:Date.now(),value:null,ok:false,error:'Public context request budget or deadline reached'};
  const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),timeoutMs());
+ const timer=setTimeout(()=>controller.abort(),Math.max(1,Math.min(timeoutMs(),budget?.remainingMs()??timeoutMs())));
  try{
   const res=await fetch(url,{
    cache:'no-store',
@@ -332,7 +334,7 @@ export function deriveRestDays(payload:unknown,targetIso:string){
  return Math.max(0,(target-Math.max(...prior))/86400000);
 }
 
-async function geocode(city:string,state?:string,country?:string){
+async function geocode(city:string,state?:string,country?:string,budget?:RequestBudget){
  const query=[city,state,country].filter(Boolean).join(', ');
  if(!query)return null;
  const url=new URL('https://geocoding-api.open-meteo.com/v1/search');
@@ -340,7 +342,7 @@ async function geocode(city:string,state?:string,country?:string){
  url.searchParams.set('count','3');
  url.searchParams.set('language','en');
  url.searchParams.set('format','json');
- const res=await fetchJson(url.toString(),24*3600000);
+ const res=await fetchJson(url.toString(),24*3600000,budget);
  if(!res.ok)return null;
  const results=arr(obj(res.value).results).map(obj);
  const best=results[0];
@@ -350,7 +352,7 @@ async function geocode(city:string,state?:string,country?:string){
  return {latitude,longitude,name:str(best.name),admin1:str(best.admin1),country:str(best.country),timezone:str(best.timezone)||undefined,elevation:Number.isFinite(elevation)?elevation:undefined};
 }
 
-async function weatherAt(latitude:number,longitude:number,startTime:string){
+async function weatherAt(latitude:number,longitude:number,startTime:string,budget?:RequestBudget){
  const url=new URL('https://api.open-meteo.com/v1/forecast');
  url.searchParams.set('latitude',String(latitude));
  url.searchParams.set('longitude',String(longitude));
@@ -360,7 +362,7 @@ async function weatherAt(latitude:number,longitude:number,startTime:string){
  url.searchParams.set('precipitation_unit','inch');
  url.searchParams.set('timezone','UTC');
  url.searchParams.set('forecast_days','16');
- const res=await fetchJson(url.toString(),10*60000);
+ const res=await fetchJson(url.toString(),10*60000,budget);
  if(!res.ok)return null;
  const hourly=obj(obj(res.value).hourly);
  const times=arr(hourly.time).map(String);
@@ -416,6 +418,13 @@ export async function fetchPublicSportsContext(markets:Market[]){
 
  const warnings:string[]=[];
  let requests=0;
+ let actualRequests=0;
+ const requestLimit=12;
+ const deadline=Date.now()+6000;
+ const budget:RequestBudget={remainingMs:()=>deadline-Date.now(),reserve:()=>{
+  if(actualRequests>=requestLimit||Date.now()>=deadline){warnings.push('Public context coverage is partial: request budget or deadline reached');return false;}
+  actualRequests++;return true;
+ }};
  const unique=new Map<string,Market>();
  for(const m of markets){
   const spec=leagueSpec(m);
@@ -439,7 +448,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
   let events=scoreboardCache.get(boardKey);
   if(!events){
    const url=`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/scoreboard?dates=${date}`;
-   const res=await fetchJson(url,5*60000);requests++;
+   const res=await fetchJson(url,5*60000,budget);requests++;
    events=res.ok?parseEspnScoreboard(res.value):[];
    scoreboardCache.set(boardKey,events);
    if(!res.ok)warnings.push(`ESPN scoreboard ${spec.key} failed: ${res.error||res.status}`);
@@ -450,7 +459,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
   let injuries=injuryCache.get(spec.key);
   if(!injuries){
    const url=`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/injuries`;
-   const res=await fetchJson(url,3*60000);requests++;
+   const res=await fetchJson(url,3*60000,budget);requests++;
    injuries=res.ok?parseEspnInjuries(res.value):[];
    injuryCache.set(spec.key,injuries);
    if(!res.ok)warnings.push(`ESPN injuries ${spec.key} unavailable: ${res.error||res.status}`);
@@ -482,7 +491,7 @@ export async function fetchPublicSportsContext(markets:Market[]){
 
   if(index<summaryMaxEvents()){
    const url=`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/summary?event=${encodeURIComponent(event.id)}`;
-   const res=await fetchJson(url,5*60000);requests++;
+   const res=await fetchJson(url,5*60000,budget);requests++;
    if(res.ok){
     summaryRows++;
     if(spec.key==='mlb'&&hasStarterSignals(res.value,/P|SP|PITCHER/i)>=2){
@@ -502,18 +511,18 @@ export async function fetchPublicSportsContext(markets:Market[]){
 
   if(index<scheduleMaxEvents()&&event.homeId&&event.awayId){
    const [homeSchedule,awaySchedule]=await Promise.all([
-    fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/teams/${event.homeId}/schedule`,30*60000),
-    fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/teams/${event.awayId}/schedule`,30*60000)
+    fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/teams/${event.homeId}/schedule`,30*60000,budget),
+    fetchJson(`https://site.api.espn.com/apis/site/v2/sports/${spec.sport}/${spec.league}/teams/${event.awayId}/schedule`,30*60000,budget)
    ]);
    requests+=2;
    if(homeSchedule.ok&&awaySchedule.ok){
     const homeLoad=deriveScheduleLoad(homeSchedule.value,market.startTime,event.homeId,'home');
     const awayLoad=deriveScheduleLoad(awaySchedule.value,market.startTime,event.awayId,'away');
-    const currentGeo=event.venue?.city?await geocode(event.venue.city,event.venue.state,event.venue.country):null;
+    const currentGeo=event.venue?.city?await geocode(event.venue.city,event.venue.state,event.venue.country,budget):null;
     if(event.venue?.city)requests++;
     const [homePriorGeo,awayPriorGeo]=await Promise.all([
-     homeLoad.priorVenue?.city?geocode(homeLoad.priorVenue.city,homeLoad.priorVenue.state,homeLoad.priorVenue.country):Promise.resolve(null),
-     awayLoad.priorVenue?.city?geocode(awayLoad.priorVenue.city,awayLoad.priorVenue.state,awayLoad.priorVenue.country):Promise.resolve(null)
+     homeLoad.priorVenue?.city?geocode(homeLoad.priorVenue.city,homeLoad.priorVenue.state,homeLoad.priorVenue.country,budget):Promise.resolve(null),
+     awayLoad.priorVenue?.city?geocode(awayLoad.priorVenue.city,awayLoad.priorVenue.state,awayLoad.priorVenue.country,budget):Promise.resolve(null)
     ]);
     if(homeLoad.priorVenue?.city)requests++;
     if(awayLoad.priorVenue?.city)requests++;
@@ -540,11 +549,11 @@ export async function fetchPublicSportsContext(markets:Market[]){
 
   if(event.venue){
    const indoor=event.venue.indoor===true||(event.venue.indoor===undefined&&!spec.outdoor);
-   const geo=event.venue.city?await geocode(event.venue.city,event.venue.state,event.venue.country):null;
+   const geo=event.venue.city?await geocode(event.venue.city,event.venue.state,event.venue.country,budget):null;
    if(event.venue.city)requests++;
    let wx:null|Awaited<ReturnType<typeof weatherAt>>=null;
    if(geo&&!indoor){
-    wx=await weatherAt(geo.latitude,geo.longitude,market.startTime);requests++;
+    wx=await weatherAt(geo.latitude,geo.longitude,market.startTime,budget);requests++;
    }
    if(indoor||(geo&&wx)){
     const condition=deriveVenueConditionSignals({
@@ -606,6 +615,8 @@ export async function fetchPublicSportsContext(markets:Market[]){
    scheduleFatigueRows,
    playerRows,
    requests,
+   actualRequests,
+   requestLimit,
    cacheEntries:requestCache.size,
    warnings:[...new Set(warnings)].slice(0,20)
   }

@@ -1,0 +1,131 @@
+/* Readable workspace shell. Loaded after the legacy terminal styles. */
+.workspaceShell{padding:28px 32px 72px 292px;max-width:1920px;font-size:16px;line-height:1.5;--ef-muted:#abb7c7}
+.workspaceShell .workspaceContent[hidden]{display:none}
+.workspaceShell .workspaceContent{min-width:0}
+.workspaceShell .workspaceSidebar{position:fixed;inset:0 auto 0 0;width:252px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;margin:0;padding:28px 18px;border:0;border-right:1px solid var(--ef-line);border-radius:0;background:#090e14;z-index:35;box-shadow:none}
+.workspaceBrand{padding:0 12px 24px;font-size:24px;font-weight:900;letter-spacing:.04em;color:var(--ef-text)}
+.workspaceBrand span{display:block;margin-top:5px;font-size:14px;letter-spacing:0;font-weight:500;color:var(--ef-muted)}
+.workspaceNavLabel{padding:16px 12px 6px;font-size:12px;letter-spacing:.1em;color:var(--ef-muted)}
+.workspaceShell .workspaceSidebar a{display:flex;align-items:center;min-height:48px;padding:12px 14px;border:1px solid transparent;border-radius:10px;font-size:15px;font-weight:650;color:var(--ef-muted);text-decoration:none;white-space:normal;background:transparent;transition:background .15s,color .15s,border-color .15s}
+.workspaceShell .workspaceSidebar a:hover{background:#17212c;color:#fff;border-color:#35404d}
+.workspaceShell .workspaceSidebar a[aria-current="page"]{background:rgba(185,255,74,.09);border-color:rgba(185,255,74,.3);color:var(--ef-lime)}
+.workspaceSidebarNote{margin-top:auto;padding:24px 12px 8px;color:var(--ef-muted);font-size:13px}
+.workspaceShell .v21Top{position:relative;top:auto;padding:24px;margin-bottom:24px;grid-template-columns:1fr;gap:20px}
+.workspaceShell .v21Top h1{font-size:30px;line-height:1.2}
+.workspaceShell .v21Top p{font-size:16px;line-height:1.6}
+.workspaceShell .v21Status{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:16px}
+.workspaceShell .v21Hero{padding:28px;margin-top:24px;gap:28px}
+.workspaceShell .v21Hero h2{font-size:clamp(30px,3.2vw,48px);line-height:1.15}
+.workspaceShell .v21Hero p{font-size:16px;line-height:1.7}
+.workspaceShell .v21Panel,.workspaceShell .v21Grid,.workspaceShell .consoleCard,.workspaceShell .sportNavigator,.workspaceShell .marketCommandBar,.workspaceShell .todayDecisionFlow{margin-top:24px}
+.workspaceShell .v21PanelHead,.workspaceShell .consoleHead{padding:24px;gap:18px;flex-wrap:wrap}
+.workspaceShell h3{font-size:20px;line-height:1.4}
+.workspaceShell .consoleCard,.workspaceShell .v21Card{padding:24px}
+.workspaceShell .consoleHead{padding:0 0 20px}
+.workspaceShell .sportNavigator,.workspaceShell .marketCommandBar,.workspaceShell .todayDecisionFlow{padding:22px}
+.workspaceShell .todayDecisionFlowGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.workspaceShell .todayDecisionCard{padding:18px;min-height:112px;gap:14px}
+.workspaceShell .todayDecisionCard b,.workspaceShell .todayDecisionCard div>span{white-space:normal;overflow:visible}
+.workspaceShell .todayDecisionFlowMeta{justify-content:flex-start}
+.workspaceShell .edgeCommandGrid,.workspaceShell .liveScoreGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.workspaceShell .edgeCommandPulse{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.workspaceShell .liveScoreCard{padding:20px}
+.workspaceShell .liveScoreTeams b{font-size:16px;white-space:normal}
+.workspaceShell .liveScoreMeta small{line-height:1.6}
+.workspaceShell table{font-size:15px}
+.workspaceShell th{font-size:13px;letter-spacing:.03em}
+.workspaceShell th,.workspaceShell td{padding:18px 16px}
+.workspaceShell td small{font-size:13px;line-height:1.5;white-space:normal;min-width:120px}
+.workspaceShell button,.workspaceShell select,.workspaceShell input{min-height:44px}
+.workspaceShell .setBody{grid-template-columns:1fr}
+.workspaceShell .gapNumbers{grid-template-columns:repeat(3,minmax(64px,1fr))}
+.workspaceShell .launchFreezeBar{display:none}
+.workspaceShell .operatorDrawer{margin-top:24px}
+.workspaceShell [id]{scroll-margin-top:24px}
+@media(max-width:1200px){
+ .workspaceShell{padding:24px 24px 64px 252px}
+ .workspaceShell .workspaceSidebar{width:228px;padding:24px 14px}
+ .workspaceShell .v21Grid.two,.workspaceShell .v21Grid.three,.workspaceShell .v21Hero{grid-template-columns:1fr}
+ .workspaceShell .liveGamePulse{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:800px){
+ .workspaceShell{padding:18px 16px 64px}
+ .workspaceShell .workspaceSidebar{position:relative;inset:auto;width:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:16px;margin-bottom:24px;border:1px solid var(--ef-line);border-radius:16px}
+ .workspaceBrand{grid-column:1/-1;padding:4px 8px 12px}
+ .workspaceNavLabel{grid-column:1/-1;padding:8px}
+ .workspaceSidebarNote{grid-column:1/-1;padding:8px}
+ .workspaceShell .workspaceSidebar a{font-size:14px;padding:12px 10px}
+ .workspaceShell .v21Top{padding:20px}
+ .workspaceShell .v21Top h1{font-size:26px}
+ .workspaceShell .edgeCommandGrid,.workspaceShell .liveScoreGrid,.workspaceShell .todayDecisionFlowGrid{grid-template-columns:1fr}
+ .workspaceShell .edgeCommandPulse{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .workspaceShell .todayDecisionFlowHead,.workspaceShell .featuredLiveHead{flex-direction:column;gap:16px}
+ .workspaceShell .featuredLiveScore b{font-size:16px;white-space:normal}
+ .workspaceShell .boardScanDock{position:relative;top:auto}
+ .workspaceShell .v21Hero{padding:20px}
+}
+
+/* Keep the entry view compact even when diagnostics contain many metrics. */
+.workspaceShell .workspaceSidebar{align-items:stretch}
+.workspaceShell .v21Top{display:grid}
+.workspaceShell .v21Hero{grid-template-columns:minmax(0,1fr);align-items:start}
+.workspaceShell .v21Hero>div:first-child{min-height:0;padding:24px;justify-content:center}
+.workspaceShell .v21HeroCard{padding:22px}
+.workspaceShell .v21HeroCard .v21MiniGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.workspaceShell .boardDataDetails{margin-top:18px;border-top:1px solid var(--ef-line);padding-top:14px}
+.workspaceShell .boardDataDetails summary{font-size:14px;color:var(--ef-muted);cursor:pointer;min-height:44px;display:flex;align-items:center;gap:10px}
+.workspaceShell .boardDataDetails summary:before{content:'+';font-size:20px;color:var(--ef-lime)}
+.workspaceShell .boardDataDetails[open] summary:before{content:'−'}
+@media(max-width:800px){.workspaceShell .v21HeroCard .v21MiniGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.marketCoveragePanel{padding:24px;margin:24px 0;background:linear-gradient(135deg,#102330,#0b1119);border:1px solid #294051;border-radius:18px}
+.marketCoverageHead{display:flex;align-items:center;justify-content:space-between;gap:16px}.marketCoverageHead h2{font-size:26px;margin:8px 0}
+.coverageLive,.coverageWarning{padding:8px 12px;border-radius:8px;font-size:13px;font-weight:700;background:#162b20;color:#b9ff4a}.coverageWarning{background:#362912;color:#f4d88e}
+.coverageNumbers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:20px 0}.coverageNumbers>div{background:#0b131d;border:1px solid #263849;border-radius:12px;padding:18px}.coverageNumbers b{display:block;font-size:30px}.coverageNumbers span{color:#abb7c7;font-size:14px}
+.coverageToolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.coverageToolbar button,.coverageToolbar select{padding:10px 14px;border:1px solid #364f65;border-radius:9px;background:#101d2b;color:#eef5ff;cursor:pointer}.coverageToolbar button:disabled{opacity:.4;cursor:default}.coverageToolbar button[aria-pressed="true"]{border-color:#b9ff4a;color:#b9ff4a}
+.coverageFeedDetails{margin-top:20px;color:#abb7c7}.coverageFeedDetails summary{padding:12px 0;cursor:pointer}.coverageFeedDetails>div{display:flex;justify-content:space-between;border-top:1px solid #263849;padding:12px 0;gap:12px}.coverageFeedDetails p{overflow-wrap:anywhere}
+@media(max-width:800px){.marketCoverageHead{align-items:flex-start;flex-direction:column}.coverageNumbers{grid-template-columns:repeat(2,minmax(0,1fr))}.marketCoveragePanel{padding:18px}.coverageToolbar select{max-width:100%}}
+
+/* Schedule-first sports workspace */
+.workspaceShell{--ef-muted:#a6b4c6;background:#0b1018}
+.workspaceShell .v21Top{padding:8px 0 20px;border:0;background:none;box-shadow:none;margin-bottom:12px}
+.workspaceShell .v21Top h1{font-size:24px;letter-spacing:-.03em}
+.workspaceShell .v21Status{display:none}
+.workspaceShell .workspaceSidebar{background:#101722}
+.workspaceShell .workspaceSidebar a[aria-current="page"]{background:#1b334e;color:#b9ddff;border-color:#2c547b}
+.gamesWorkspace{max-width:1440px;margin:0 auto}
+.gamesHeading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:24px 0 28px}
+.gamesKicker{font-size:12px;letter-spacing:.14em;color:#89bfff;font-weight:700}
+.gamesHeading h2{font-size:clamp(28px,3vw,42px);letter-spacing:-.04em;line-height:1.2;margin:10px 0}
+.gamesHeading p{color:#a6b4c6;font-size:16px;margin:0;line-height:1.6}
+.gamesControls{display:flex;flex-wrap:wrap;gap:12px;padding:18px;background:#121b28;border:1px solid #273446;border-radius:12px}
+.gamesControls select,.gamesControls input,.gamesRange button,.gamesRefresh{font:inherit;font-size:15px;min-height:46px;border:1px solid #334459;border-radius:8px;background:#0e1724;color:#e5edf7;padding:10px 14px}
+.gamesControls input{flex:1;min-width:170px}
+.gamesRange{display:flex;gap:4px}
+.gamesRange button[aria-pressed="true"]{background:#2563a8;border-color:#408bdc;color:white}
+.gamesSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;padding:24px 0}
+.gamesSummary>div{border-right:1px solid #2a3749;padding:0 20px}.gamesSummary>div:first-child{padding-left:0}.gamesSummary>div:last-child{border:0}
+.gamesSummary b{display:block;font-size:27px;font-weight:700}.gamesSummary span{font-size:14px;color:#a6b4c6}
+.gamesCoverage{color:#a6b4c6;font-size:14px;line-height:1.6;margin-bottom:24px}.gamesCoverage summary{cursor:pointer;min-height:36px}.gamesCoverage p{max-width:900px}
+.gamesDay{margin:24px 0 36px}.gamesDay h3{display:flex;align-items:center;justify-content:space-between;font-size:20px;margin:0 0 18px}.gamesDay h3>span{font-size:14px;color:#a6b4c6;font-weight:400}
+.gamesGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.matchupCard{min-width:0;background:#141e2c;border:1px solid #2b394d;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px #0002}
+.matchupMeta{display:flex;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid #253348;font-size:13px;color:#a8b9ce}.matchupMeta>span{color:#91c5ff;font-weight:700}.matchupMeta b{font-weight:500}.matchupMeta .gameLive{color:#5ce6ac}
+.matchupTeams{padding:20px 20px 8px;display:grid;gap:14px}.matchupTeams>div{display:flex;justify-content:space-between;gap:16px}.matchupTeams strong{font-size:19px;line-height:1.4;letter-spacing:-.015em}.matchupTeams b{font-size:21px;color:#b9dcff}
+.matchupVenue{padding:4px 20px 20px;color:#8496ae;font-size:13px}
+.matchupPrices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#2b394d;border-top:1px solid #2b394d}
+.matchupPrices>div{padding:14px 12px;background:#101a28;min-width:0}.matchupPrices small{display:block;color:#a6b4c6;font-size:12px;margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em}
+.gameQuote{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0}.gameQuote span{overflow-wrap:anywhere}.gameQuote b{color:#d4e8ff;background:#20334b;border:1px solid #314d6b;border-radius:5px;padding:6px;white-space:nowrap}
+.matchupPrices .noGameOdds{grid-column:1/-1;padding:18px 20px;color:#8fa2ba;font-size:14px}.noQuote{font-size:13px;color:#8395ac}
+.matchupCard footer{font-size:12px;color:#91a3bb;padding:12px 20px;background:#101a28;border-top:1px solid #253348}
+.gamesLoading,.gamesEmpty{padding:24px;background:#121c29;border:1px solid #2a3a50;border-radius:10px;color:#a6b4c6}
+.boardContextDrawer{margin:20px 0;border:1px solid #2b394d;padding:16px;border-radius:12px}.boardContextDrawer>summary{cursor:pointer;font-size:16px;color:#bbd9fb}
+@media(max-width:1100px){.gamesGrid{grid-template-columns:1fr}.gamesControls select{flex:1}}
+@media(max-width:800px){.workspaceShell .workspaceSidebar{display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;padding:10px;border-radius:8px;gap:6px}.workspaceBrand,.workspaceNavLabel,.workspaceSidebarNote{display:none}.workspaceShell .workspaceSidebar a{flex:0 0 auto;white-space:nowrap;min-height:44px;padding:10px 14px}.gamesHeading{align-items:flex-start;gap:12px}.gamesHeading h2{font-size:28px}.gamesRefresh{font-size:13px}.gamesSummary{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:20px}.gamesSummary>div{padding:0;border:0}.gamesControls{padding:12px}.gamesRange{width:100%}.gamesRange button{flex:1}.gamesControls input{width:100%}.matchupTeams strong{font-size:17px}.matchupPrices{grid-template-columns:1fr}.matchupPrices>div{padding:12px 20px}.gameQuote{font-size:14px}.gamesDay h3{font-size:18px}}
+.workspaceShell .mobileBoardCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:20px}
+.workspaceShell .mobileBoardCard{padding:22px;background:#141e2c;border-color:#2b394d}
+.workspaceShell .mobileBoardMain b{font-size:20px;line-height:1.4}.workspaceShell .mobileBoardMain small{font-size:14px;line-height:1.6}
+.workspaceShell .mobileBoardMetrics strong{font-size:24px}.workspaceShell .mobileBoardMetrics small{font-size:12px}
+.workspaceShell .fullBoardDetails{margin:20px;padding:16px;border:1px solid #2b394d;border-radius:10px}.fullBoardDetails>summary{cursor:pointer;color:#bbd9fb;font-size:15px}.workspaceShell .fullBoardDetails .desktopBoardTable{display:block;margin-top:20px}
+@media(max-width:1100px){.workspaceShell .mobileBoardCards{grid-template-columns:1fr}}
+.predictionShortcut{display:none}
+.boardReviewNotice{padding:16px 18px;border:1px solid #74532c;border-radius:10px;background:#342717;color:#ffe2b2;font-size:15px;line-height:1.6}
