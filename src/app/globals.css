@@ -583,3 +583,23 @@
 }
 .researchDrawer[open] .operatorDrawerAction:before{content:"CLOSE LAB"}
 .researchDrawer .v21Panel{box-shadow:none}
+
+
+/* EDGEFORCE V120 INLINE ROBUSTNESS */
+.robustnessBadge{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ min-width:76px;
+ padding:4px 7px;
+ border-radius:999px;
+ font-size:10px;
+ font-weight:800;
+ letter-spacing:.07em;
+ border:1px solid rgba(255,255,255,.12);
+ background:rgba(255,255,255,.035);
+}
+.robustnessBadge.robust{color:#7ff0ba;border-color:rgba(127,240,186,.26);background:rgba(127,240,186,.07)}
+.robustnessBadge.resilient{color:#a9eaff;border-color:rgba(111,220,255,.28);background:rgba(111,220,255,.06)}
+.robustnessBadge.fragile{color:#ffd27a;border-color:rgba(255,210,122,.28);background:rgba(255,210,122,.06)}
+.robustnessBadge.fail{color:#ff9b9b;border-color:rgba(255,120,120,.30);background:rgba(255,120,120,.07)}
