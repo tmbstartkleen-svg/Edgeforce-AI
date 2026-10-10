@@ -391,15 +391,15 @@ async function weatherAt(latitude:number,longitude:number,startTime:string){
 
 function publicMaxEvents(){
  const n=Number(process.env.PUBLIC_CONTEXT_MAX_EVENTS);
- return Number.isFinite(n)?Math.max(1,Math.min(30,Math.floor(n))):16;
+ return Number.isFinite(n)?Math.max(1,Math.min(30,Math.floor(n))):(process.env.NODE_ENV==='development'?8:16);
 }
 function summaryMaxEvents(){
  const n=Number(process.env.PUBLIC_CONTEXT_SUMMARY_EVENTS);
- return Number.isFinite(n)?Math.max(0,Math.min(20,Math.floor(n))):8;
+ return Number.isFinite(n)?Math.max(0,Math.min(20,Math.floor(n))):(process.env.NODE_ENV==='development'?4:8);
 }
 function scheduleMaxEvents(){
  const n=Number(process.env.PUBLIC_CONTEXT_SCHEDULE_EVENTS);
- return Number.isFinite(n)?Math.max(0,Math.min(12,Math.floor(n))):6;
+ return Number.isFinite(n)?Math.max(0,Math.min(12,Math.floor(n))):(process.env.NODE_ENV==='development'?2:6);
 }
 
 export async function fetchPublicSportsContext(markets:Market[]){
