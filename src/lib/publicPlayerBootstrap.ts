@@ -33,10 +33,23 @@ export type PublicPlayerBootstrapResult={
 };
 
 function normalizeSearchName(value:string){
- return normalizePlayerName(value)
+ const tokens=normalizePlayerName(value)
   .replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'')
-  .replace(/\s+/g,' ')
-  .trim();
+  .split(/\s+/)
+  .filter(Boolean);
+ const out:string[]=[];
+ for(let i=0;i<tokens.length;i++){
+  if(tokens[i].length===1){
+   let combined=tokens[i];
+   while(i+1<tokens.length&&tokens[i+1].length===1){
+    combined+=tokens[++i];
+   }
+   out.push(combined);
+  }else{
+   out.push(tokens[i]);
+  }
+ }
+ return out.join(' ');
 }
 
 function specForMarket(m:Market):EspnSpec|null{
