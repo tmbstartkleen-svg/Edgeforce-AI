@@ -328,6 +328,7 @@ type LiveBoardResponse={
 
 type EdgeScannerApiResponse={
   ok:boolean;
+  scanStatus?:'VERIFIED'|'SOURCE_UNVERIFIED';
   result?:NonNullable<LiveBoardResponse['edgeScanner']>;
   error?:string;
   message?:string;
@@ -658,6 +659,7 @@ export default function Dashboard(){
   const [automationHealth,setAutomationHealth]=useState<AutomationHealthResponse|null>(null);
   const [dataQuality,setDataQuality]=useState<DataQualityResponse|null>(null);
   const [edgeScanner,setEdgeScanner]=useState<NonNullable<LiveBoardResponse['edgeScanner']>|null>(null);
+  const [scannerStatus,setScannerStatus]=useState<'CHECKING'|'VERIFIED'|'SOURCE_UNVERIFIED'|'ERROR'>('CHECKING');
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -852,15 +854,23 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace!=='board'&&workspace!=='signals')return;
+    if(workspace!=='board'&&workspace!=='signals'&&workspace!=='desk')return;
     let mounted=true;
     const load=async()=>{
       try{
         const res=await fetch('/api/edge-scanner',{cache:'no-store'});
-        if(!res.ok)return;
+        if(!res.ok){
+          if(mounted){setEdgeScanner(null);setScannerStatus('ERROR')}
+          return;
+        }
         const json=await res.json() as EdgeScannerApiResponse;
-        if(mounted&&json.ok&&json.result)setEdgeScanner(json.result);
-      }catch{}
+        if(mounted){
+          setEdgeScanner(json.ok&&json.result?json.result:null);
+          setScannerStatus(json.scanStatus||(json.ok?'VERIFIED':'SOURCE_UNVERIFIED'));
+        }
+      }catch{
+        if(mounted){setEdgeScanner(null);setScannerStatus('ERROR')}
+      }
     };
     void load();
     const timer=window.setInterval(()=>void load(),15000);
@@ -1100,7 +1110,7 @@ export default function Dashboard(){
     {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     {workspace==='games'&&<GamesWorkspace/>}
-    {workspace==='desk'&&<InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'} generatedAt={board.generatedAt} scanner={edgeScanner} onInspect={setSelectedMarket}/>}
+    {workspace==='desk'&&<InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'} generatedAt={board.generatedAt} scanner={edgeScanner} scannerStatus={scannerStatus} onInspect={setSelectedMarket}/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>
     {liveFeedError&&<div className="v21Alert" role="alert">{liveFeedError}{liveFeed?' Showing the last received scores; they may be stale.':''}</div>}
     {!liveFeed&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{liveFeedError?'Waiting for a successful score refresh.':'Loading the live score feed…'}</p></div></section>}
