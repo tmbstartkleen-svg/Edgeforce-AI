@@ -145,179 +145,183 @@ async function load(apiKey:string):Promise<Cached>{
 
   const client=new PropLine(apiKey);
 
-  for(const sport of rotatingSports()){
+  await Promise.all(
+    rotatingSports().map(async sport=>{
 
-    try{
+      try{
 
-      const events:any[]=
-        await client.getEvents(sport) as any[];
+        const events:any[]=
+          await client.getEvents(sport) as any[];
 
-      const selected=events
-        .filter(Boolean)
-        .sort((a,b)=>{
-          const at=new Date(
-            a.commence_time ||
-            a.start_time ||
-            0
-          ).getTime();
+        const selected=events
+          .filter(Boolean)
+          .sort((a,b)=>{
+            const at=new Date(
+              a.commence_time ||
+              a.start_time ||
+              0
+            ).getTime();
 
-          const bt=new Date(
-            b.commence_time ||
-            b.start_time ||
-            0
-          ).getTime();
+            const bt=new Date(
+              b.commence_time ||
+              b.start_time ||
+              0
+            ).getTime();
 
-          return at-bt;
-        })
-        .slice(0,eventsPerSport());
+            return at-bt;
+          })
+          .slice(0,eventsPerSport());
 
-      for(const event of selected){
+        await Promise.all(
+          selected.map(async event=>{
 
-        try{
+            try{
 
-          const eventId=event.id;
+              const eventId=event.id;
 
-          const odds:any=
-            await client.getOdds(
-              sport,
-              {
-                eventId,
-                markets:marketsForSport(sport),
-                bookmakers:[
-                  'draftkings',
-                  'fanduel',
-                  'pinnacle',
-                  'bovada'
-                ],
-                includeBookIds:true
-              } as any
-            );
+              const odds:any=
+                await client.getOdds(
+                  sport,
+                  {
+                    eventId,
+                    markets:marketsForSport(sport),
+                    bookmakers:[
+                      'draftkings',
+                      'fanduel',
+                      'pinnacle',
+                      'bovada'
+                    ],
+                    includeBookIds:true
+                  } as any
+                );
 
-          const home=String(
-            event.home_team||''
-          );
-
-          const away=String(
-            event.away_team||''
-          );
-
-          const startTime=String(
-            event.commence_time ||
-            event.start_time ||
-            ''
-          );
-
-          if(!home||!away||!startTime){
-            continue;
-          }
-
-          for(const book of odds?.bookmakers||[]){
-
-            const bookmaker=cleanBook(book);
-
-            for(const market of book?.markets||[]){
-
-              const marketKey=String(
-                market?.key ||
-                market?.market_key ||
-                'player_prop'
+              const home=String(
+                event.home_team||''
               );
 
-              for(const outcome of market?.outcomes||[]){
+              const away=String(
+                event.away_team||''
+              );
 
-                const price=
-                  Number(outcome?.price);
+              const startTime=String(
+                event.commence_time ||
+                event.start_time ||
+                ''
+              );
 
-                if(!Number.isFinite(price)||price===0){
-                  continue;
-                }
-
-                const player=String(
-                  outcome?.description ||
-                  outcome?.player_name ||
-                  ''
-                ).trim();
-
-                const side=String(
-                  outcome?.name ||
-                  ''
-                ).trim();
-
-                const point=
-                  Number(outcome?.point);
-
-                const selection=[
-                  player,
-                  side,
-                  Number.isFinite(point)
-                    ? String(point)
-                    : ''
-                ]
-                .filter(Boolean)
-                .join(' ');
-
-                if(!selection){
-                  continue;
-                }
-
-                const id=[
-                  'propline',
-                  sport,
-                  String(eventId),
-                  bookmaker,
-                  marketKey,
-                  String(outcome?.id||''),
-                  selection
-                ].join(':');
-
-                rows.push({
-                  id,
-                  eventId:String(eventId),
-                  sport,
-                  league:sport,
-                  event:`${away} @ ${home}`,
-                  home,
-                  away,
-                  selection,
-                  market:marketKey,
-                  startTime,
-                  odds:price,
-                  bookmaker,
-                  pulledAt:String(
-                    book?.last_update ||
-                    market?.last_update ||
-                    new Date().toISOString()
-                  )
-                });
+              if(!home||!away||!startTime){
+                return;
               }
+
+              for(const book of odds?.bookmakers||[]){
+
+                const bookmaker=cleanBook(book);
+
+                for(const market of book?.markets||[]){
+
+                  const marketKey=String(
+                    market?.key ||
+                    market?.market_key ||
+                    'player_prop'
+                  );
+
+                  for(const outcome of market?.outcomes||[]){
+
+                    const price=
+                      Number(outcome?.price);
+
+                    if(!Number.isFinite(price)||price===0){
+                      continue;
+                    }
+
+                    const player=String(
+                      outcome?.description ||
+                      outcome?.player_name ||
+                      ''
+                    ).trim();
+
+                    const side=String(
+                      outcome?.name ||
+                      ''
+                    ).trim();
+
+                    const point=
+                      Number(outcome?.point);
+
+                    const selection=[
+                      player,
+                      side,
+                      Number.isFinite(point)
+                        ? String(point)
+                        : ''
+                    ]
+                    .filter(Boolean)
+                    .join(' ');
+
+                    if(!selection){
+                      continue;
+                    }
+
+                    const id=[
+                      'propline',
+                      sport,
+                      String(eventId),
+                      bookmaker,
+                      marketKey,
+                      String(outcome?.id||''),
+                      selection
+                    ].join(':');
+
+                    rows.push({
+                      id,
+                      eventId:String(eventId),
+                      sport,
+                      league:sport,
+                      event:`${away} @ ${home}`,
+                      home,
+                      away,
+                      selection,
+                      market:marketKey,
+                      startTime,
+                      odds:price,
+                      bookmaker,
+                      pulledAt:String(
+                        book?.last_update ||
+                        market?.last_update ||
+                        new Date().toISOString()
+                      )
+                    });
+                  }
+                }
+              }
+
+            }catch(error){
+
+              warnings.push(
+                `${sport} event ${event.id}: ${
+                  error instanceof Error
+                    ? error.message
+                    : 'PropLine odds request failed'
+                }`
+              );
+
             }
-          }
+          })
+        );
 
-        }catch(error){
+      }catch(error){
 
-          warnings.push(
-            `${sport} event ${event.id}: ${
-              error instanceof Error
-                ? error.message
-                : 'PropLine odds request failed'
-            }`
-          );
+        warnings.push(
+          `${sport}: ${
+            error instanceof Error
+              ? error.message
+              : 'PropLine event request failed'
+          }`
+        );
 
-        }
       }
-
-    }catch(error){
-
-      warnings.push(
-        `${sport}: ${
-          error instanceof Error
-            ? error.message
-            : 'PropLine event request failed'
-        }`
-      );
-
-    }
-  }
+    })
+  );
 
   return {
     at:Date.now(),
@@ -326,7 +330,6 @@ async function load(apiKey:string):Promise<Cached>{
     warnings:[...new Set(warnings)].slice(0,20)
   };
 }
-
 
 export function propLineProvider(
   env:Record<string,string|undefined>=process.env
