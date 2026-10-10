@@ -842,6 +842,15 @@ export default function Dashboard(){
   },[board.rows,bankroll,drawdownPct,risk]);
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
+  const marketCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.market]=(acc[row.market]||0)+1;return acc},{}),[board.rows]);
+  const applyBoardPreset=(preset:'HIGH_SIM'|'ROBUST'|'REVIEW'|'RESET')=>{
+    if(preset==='RESET'){resetBoardFilters();return}
+    setReviewQueueOnly(false);
+    setDivergenceFilter('ALL');
+    if(preset==='HIGH_SIM'){setRankingMode('SIM');setRobustnessFilter('ALL');setMinSim(70);return}
+    if(preset==='ROBUST'){setRankingMode('PRIORITY');setRobustnessFilter('ROBUST');setMinSim(0);return}
+    setRankingMode('PRIORITY');setRobustnessFilter('ALL');setMinSim(0);setReviewQueueOnly(true);
+  };
 
   const robustnessMap=useMemo(()=>new Map(board.rows.map(x=>[x.id,buildBoardRobustness(x)])),[board.rows]);
 
@@ -1046,95 +1055,123 @@ export default function Dashboard(){
       </div>
     </section>
 
-    <section className="v21ControlPanel">
-      <div className="controlGroup">
-        <label>Board</label>
-        <div className="segmented">
-          <button className={view==='today'?'active':''} onClick={()=>setView('today')}>Today</button>
-          <button className={view==='week'?'active':''} onClick={()=>setView('week')}>7-Day</button>
+    <section className="marketCommandBar" aria-label="Market and preset controls">
+      <div className="marketCommandHead">
+        <div><div className="eyebrow">V190 MARKET COMMAND BAR</div><h3>Preset the board, then drill into a market</h3></div>
+        <div className="presetRail" aria-label="Board presets">
+          <button onClick={()=>applyBoardPreset('HIGH_SIM')}>High Sim</button>
+          <button onClick={()=>applyBoardPreset('ROBUST')}>Robust</button>
+          <button onClick={()=>applyBoardPreset('REVIEW')}>Review</button>
+          <button onClick={()=>applyBoardPreset('RESET')}>Reset</button>
         </div>
       </div>
-      <div className="controlGroup">
-        <label>Rows</label>
-        <div className="segmented">
-          <button className={limit===30?'active':''} onClick={()=>setLimit(30)}>30</button>
-          <button className={limit===50?'active':''} onClick={()=>setLimit(50)}>50</button>
-        </div>
+      <div className="marketChipRail" aria-label="Market shortcuts">
+        <button className={market==='ALL'?'active':''} aria-pressed={market==='ALL'} onClick={()=>setMarket('ALL')}><b>All markets</b><span>{board.rows.length}</span></button>
+        {marketOptions.map(x=><button key={'market-chip-'+x} className={market===x?'active':''} aria-pressed={market===x} onClick={()=>setMarket(x)}><b>{x}</b><span>{marketCounts[x]||0}</span></button>)}
       </div>
-      <div className="controlGroup">
-        <label>Risk model</label>
-        <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}>
-          <option>Conservative</option>
-          <option>Moderate</option>
-          <option>Aggressive</option>
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>V120 robustness</label>
-        <select value={robustnessFilter} onChange={e=>setRobustnessFilter(e.target.value as 'ALL'|'RESILIENT'|'ROBUST')}>
-          <option value="ALL">All qualified</option>
-          <option value="RESILIENT">Resilient+</option>
-          <option value="ROBUST">Robust only</option>
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>V121 ranking</label>
-        <select value={rankingMode} onChange={e=>setRankingMode(e.target.value as 'SIM'|'PRIORITY')}>
-          <option value="SIM">Highest simulation</option>
-          <option value="PRIORITY">Robustness-aware</option>
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>V129 movement</label>
-        <select value={divergenceFilter} onChange={e=>setDivergenceFilter(e.target.value as 'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE')}>
-          <option value="ALL">All movement</option>
-          <option value="UPGRADED">Upgraded only</option>
-          <option value="DOWNGRADED">Downgraded only</option>
-          <option value="STABLE">Stable only</option>
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>V182 review queue</label>
-        <div className="segmented">
-          <button className={!reviewQueueOnly?'active':''} onClick={()=>setReviewQueueOnly(false)}>All</button>
-          <button className={reviewQueueOnly?'active':''} onClick={()=>setReviewQueueOnly(true)}>Review {reviewQueueSummary.total}</button>
-        </div>
-      </div>
-      <div className="controlGroup">
-        <label>Sport</label>
-        <select value={effectiveSport} onChange={e=>setSport(e.target.value)}>
-          <option value="ALL">All sports</option>
-          {board.sports.map(x=><option key={x}>{x}</option>)}
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>Time</label>
-        <select value={period} onChange={e=>setPeriod(e.target.value as 'ALL'|'AM'|'PM')}>
-          <option value="ALL">All day</option>
-          <option value="AM">AM</option>
-          <option value="PM">PM</option>
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>Market</label>
-        <select value={market} onChange={e=>setMarket(e.target.value)}>
-          <option value="ALL">All markets</option>
-          {marketOptions.map(x=><option key={x}>{x}</option>)}
-        </select>
-      </div>
-      <div className="controlGroup">
-        <label>Minimum sim %</label>
-        <input type="number" min="0" max="99" value={minSim} onChange={e=>setMinSim(Math.max(0,Math.min(99,Number(e.target.value)||0)))}/>
-      </div>
-      <div className="controlGroup double">
-        <label>American odds range</label>
-        <div className="rangePair">
-          <input type="number" value={minOdds} onChange={e=>setMinOdds(Number(e.target.value)||-1000)}/>
-          <span>to</span>
-          <input type="number" value={maxOdds} onChange={e=>setMaxOdds(Number(e.target.value)||1000)}/>
-        </div>
+      <div className="presetSummary" aria-live="polite">
+        <span>{minSim?('Sim '+minSim+'%+'):'Any sim'}</span>
+        <span>{robustnessFilter==='ALL'?'Any robustness':robustnessFilter}</span>
+        <span>{reviewQueueOnly?'Review queue':'Normal queue'}</span>
+        <span>{rankingMode==='PRIORITY'?'Priority order':'Sim order'}</span>
       </div>
     </section>
+
+    <details className="advancedBoardFilters">
+      <summary>
+        <div><div className="eyebrow">ADVANCED FILTERS</div><b>Fine-tune board controls</b></div>
+        <span>{activeFilterCount} active</span>
+      </summary>
+      <section className="v21ControlPanel">
+        <div className="controlGroup">
+          <label>Board</label>
+          <div className="segmented">
+            <button className={view==='today'?'active':''} onClick={()=>setView('today')}>Today</button>
+            <button className={view==='week'?'active':''} onClick={()=>setView('week')}>7-Day</button>
+          </div>
+        </div>
+        <div className="controlGroup">
+          <label>Rows</label>
+          <div className="segmented">
+            <button className={limit===30?'active':''} onClick={()=>setLimit(30)}>30</button>
+            <button className={limit===50?'active':''} onClick={()=>setLimit(50)}>50</button>
+          </div>
+        </div>
+        <div className="controlGroup">
+          <label>Risk model</label>
+          <select value={risk} onChange={e=>setRisk(e.target.value as RiskProfile)}>
+            <option>Conservative</option>
+            <option>Moderate</option>
+            <option>Aggressive</option>
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>V120 robustness</label>
+          <select value={robustnessFilter} onChange={e=>setRobustnessFilter(e.target.value as 'ALL'|'RESILIENT'|'ROBUST')}>
+            <option value="ALL">All qualified</option>
+            <option value="RESILIENT">Resilient+</option>
+            <option value="ROBUST">Robust only</option>
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>V121 ranking</label>
+          <select value={rankingMode} onChange={e=>setRankingMode(e.target.value as 'SIM'|'PRIORITY')}>
+            <option value="SIM">Highest simulation</option>
+            <option value="PRIORITY">Robustness-aware</option>
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>V129 movement</label>
+          <select value={divergenceFilter} onChange={e=>setDivergenceFilter(e.target.value as 'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE')}>
+            <option value="ALL">All movement</option>
+            <option value="UPGRADED">Upgraded only</option>
+            <option value="DOWNGRADED">Downgraded only</option>
+            <option value="STABLE">Stable only</option>
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>V182 review queue</label>
+          <div className="segmented">
+            <button className={!reviewQueueOnly?'active':''} onClick={()=>setReviewQueueOnly(false)}>All</button>
+            <button className={reviewQueueOnly?'active':''} onClick={()=>setReviewQueueOnly(true)}>Review {reviewQueueSummary.total}</button>
+          </div>
+        </div>
+        <div className="controlGroup">
+          <label>Sport</label>
+          <select value={effectiveSport} onChange={e=>setSport(e.target.value)}>
+            <option value="ALL">All sports</option>
+            {board.sports.map(x=><option key={x}>{x}</option>)}
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>Time</label>
+          <select value={period} onChange={e=>setPeriod(e.target.value as 'ALL'|'AM'|'PM')}>
+            <option value="ALL">All day</option>
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>Market</label>
+          <select value={market} onChange={e=>setMarket(e.target.value)}>
+            <option value="ALL">All markets</option>
+            {marketOptions.map(x=><option key={x}>{x}</option>)}
+          </select>
+        </div>
+        <div className="controlGroup">
+          <label>Minimum sim %</label>
+          <input type="number" min="0" max="99" value={minSim} onChange={e=>setMinSim(Math.max(0,Math.min(99,Number(e.target.value)||0)))}/>
+        </div>
+        <div className="controlGroup double">
+          <label>American odds range</label>
+          <div className="rangePair">
+            <input type="number" value={minOdds} onChange={e=>setMinOdds(Number(e.target.value)||-1000)}/>
+            <span>to</span>
+            <input type="number" value={maxOdds} onChange={e=>setMaxOdds(Number(e.target.value)||1000)}/>
+          </div>
+        </div>
+      </section>
+    </details>
 
     <section className="v21Stats">
       <div><small>{rankingMode==='PRIORITY'?'TOP PRIORITY':'TOP SIM'}</small><strong>{rankedFiltered[0]?fmtPct(rankingMode==='PRIORITY'?buildBoardPriority(rankedFiltered[0]).score:rankedFiltered[0].simProbability):'—'}</strong><span>{rankedFiltered[0]?.selection||'No current row'}</span></div>
