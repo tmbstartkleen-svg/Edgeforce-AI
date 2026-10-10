@@ -24,7 +24,7 @@ function leg(id:string,sport:string,event:string,p:number,odds:number):Scanned{
    minProbability:.50,maxProbability:.54,bestOdds:odds,bestBook:'DraftKings',
    marketStructure:'ALIGNED',outlierBooks:[],books:['DraftKings','Book B','Book C']
   }
- } as Scanned;
+ } as unknown as Scanned;
 }
 
 export async function GET(){
