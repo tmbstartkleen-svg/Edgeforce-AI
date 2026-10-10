@@ -186,7 +186,9 @@ export async function loadFreshIntelligenceReliabilityState():Promise<Reliabilit
   .filter(Number.isFinite)
   .sort((a,b)=>b-a)[0]||0;
  const stale=!newestUpdate||Date.now()-newestUpdate>120000;
- if(snapshot.mode!=='PROTECTIVE'||!stale)return snapshot;
+ const localDevelopment=process.env.NODE_ENV==='development';
+ const shouldRefresh=snapshot.mode==='PROTECTIVE'&&(localDevelopment||stale);
+ if(!shouldRefresh)return snapshot;
  if(Date.now()-lastReliabilityRefreshAttempt<60000)return snapshot;
 
  lastReliabilityRefreshAttempt=Date.now();
