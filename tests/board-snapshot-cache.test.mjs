@@ -18,7 +18,7 @@ test('refresh failure retains a bounded last successful snapshot and reports sto
  try{
   const snapshot=cacheModule.createBoardSnapshotCache(10,100);await snapshot('today',async()=>Response.json({source:'live',rows:[{id:'first'}],warnings:[],marketCoverage:{qualified:1},topBoardQualification:{qualified:1,forced:false}}));
   clock=1020;const retained=await snapshot('today',async()=>Response.json({error:'timeout'},{status:503}));
-  assert.equal(retained.status,200);const data=await retained.json();assert.equal(data.source,'stored');assert.equal(data.marketCoverage.qualified,0);assert.equal(data.topBoardQualification.qualified,0);assert.equal(data.topBoardQualification.forced,true);assert.equal(data.refreshStatus.mode,'STALE_CACHE');assert.equal(data.rows[0].id,'first');assert.match(data.warnings[0],/last successful snapshot/);
+  assert.equal(retained.status,200);const data=await retained.json();assert.equal(data.source,'stored');assert.equal(data.marketCoverage.qualified,0);assert.equal(data.topBoardQualification.qualified,0);assert.equal(data.topBoardQualification.forced,true);assert.equal(data.refreshStatus.mode,'STALE_CACHE');assert.equal(data.rows[0].id,'first');assert.equal(data.rows[0].grade,'PASS');assert.equal(data.rows[0].freshness,'STALE');assert.equal(data.rows[0].expectedValue,0);assert.equal(data.rows[0].reliabilityCriticalOpen,true);assert.match(data.warnings[0],/last successful snapshot/);
   clock=1200;const expired=await snapshot('today',async()=>Response.json({error:'timeout'},{status:503}));assert.equal(expired.status,503);
  }finally{Date.now=original;}
 });
@@ -38,4 +38,44 @@ test('thrown refresh errors retain a snapshot but thrown cold builds remain fail
  const snapshot=cacheModule.createBoardSnapshotCache(0);await snapshot('ready',async()=>Response.json({rows:[]}));
  const stale=await snapshot('ready',async()=>{throw Error('upstream');});assert.equal((await stale.json()).refreshStatus.error,'upstream');
  await assert.rejects(snapshot('cold',async()=>{throw Error('unavailable');}),/unavailable/);
+});
+
+test('V197 default recovery provides 3-minute non-actionable research snapshot, then 503',async()=>{
+ const original=Date.now;let clock=1_000_000;Date.now=()=>clock;
+ try{
+  const snapshot=cacheModule.createBoardSnapshotCache();
+  await snapshot('board',async()=>Response.json({
+   source:'live',warnings:[],
+   rows:[{id:'x',grade:'ELITE',freshness:'FRESH',expectedValue:.2,quarterKelly:.05,dynamicConfidence:.89}],
+   marketCoverage:{qualified:1},
+   topBoardQualification:{qualified:1,forced:false,allowedGrades:['ELITE']}
+  }));
+  clock+=90_000;
+  const response=await snapshot('board',async()=>Response.json({error:'LIVE_BOARD_CORE_TIMEOUT'},{status:503}));
+  assert.equal(response.status,200);
+  const payload=await response.json();
+  assert.equal(payload.refreshStatus.mode,'STALE_CACHE');
+  assert.equal(payload.providerDegraded,true);
+  assert.equal(payload.rows[0].grade,'PASS');
+  assert.equal(payload.rows[0].freshness,'STALE');
+  assert.equal(payload.rows[0].quarterKelly,0);
+  assert.equal(payload.topBoardQualification.qualified,0);
+  assert.deepEqual(payload.topBoardQualification.allowedGrades,[]);
+  clock+=91_000;
+  assert.equal((await snapshot('board',async()=>Response.json({error:'503'},{status:503}))).status,503);
+ }finally{Date.now=original;}
+});
+test('V197 stale recovery never rewrites genuine auth or rate-limit errors',async()=>{
+ const original=Date.now;let clock=1000;Date.now=()=>clock;
+ try{
+  const snapshot=cacheModule.createBoardSnapshotCache(10,180000);
+  await snapshot('board',async()=>Response.json({rows:[{grade:'ELITE'}]}));
+  clock=1050;
+  const unauthorized=await snapshot('board',async()=>Response.json({error:'no access'},{status:403}));
+  assert.equal(unauthorized.status,403);
+  clock=1060;
+  const rate=await snapshot('board',async()=>Response.json({error:'quota'},{status:429,headers:{'Retry-After':'60'}}));
+  assert.equal(rate.status,429);
+  assert.equal(rate.headers.get('Retry-After'),'60');
+ }finally{Date.now=original;}
 });
