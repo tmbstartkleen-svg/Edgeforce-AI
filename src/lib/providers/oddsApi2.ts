@@ -23,6 +23,15 @@ type Cache={
   warnings:string[];
 };
 
+type SportCatalogRow={
+  key?:string;
+  sport_key?:string;
+  active?:boolean;
+  title?:string;
+  name?:string;
+  min_tier?:string;
+};
+
 let cache:Cache|null=null;
 let inFlight:Promise<Cache>|null=null;
 
@@ -71,7 +80,7 @@ const baseUrl=()=>{
 const sportKeys=()=>{
   return String(
     process.env.ODDS_API_2_SPORT_KEYS ||
-    'basketball_nba,baseball_mlb'
+    'basketball_nba,baseball_mlb,americanfootball_nfl'
   )
     .split(',')
     .map(x=>x.trim())
@@ -131,6 +140,48 @@ function appendPoint(
   }
 
   return selection;
+}
+
+async function accessibleSports(apiKey:string,warnings:string[]){
+  const url=new URL(`${baseUrl()}/sports/`);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs());
+
+  try{
+    const response=await fetch(url,{
+      cache:'no-store',
+      signal:controller.signal,
+      headers:{
+        'Accept':'application/json',
+        'x-api-key':apiKey,
+        'User-Agent':'EdgeForce-AI/120 Odds-API-2'
+      }
+    });
+
+    if(!response.ok){
+      warnings.push(`sports catalog: HTTP ${response.status}`);
+      return null;
+    }
+
+    const json=await response.json();
+    const catalog=arr(json).map(obj);
+    const keys=catalog
+      .filter(row=>row.active!==false)
+      .map(row=>str(row.key??row.sport_key))
+      .filter(Boolean);
+
+    if(!keys.length){
+      warnings.push('sports catalog returned no accessible sport keys');
+      return null;
+    }
+
+    return new Set(keys);
+  }catch(error){
+    warnings.push(`sports catalog: ${error instanceof Error?error.message:'request failed'}`);
+    return null;
+  }finally{
+    clearTimeout(timer);
+  }
 }
 
 function flattenSportPayload(
@@ -283,8 +334,24 @@ async function load(
 
   const rows:FlatRow[]=[];
   const warnings:string[]=[];
+  const requested=sportKeys();
+  const accessible=await accessibleSports(apiKey,warnings);
+  const selected=accessible
+    ?requested.filter(key=>accessible.has(key))
+    :requested;
 
-  for(const sportKey of sportKeys()){
+  if(accessible){
+    const blocked=requested.filter(key=>!accessible.has(key));
+    if(blocked.length){
+      warnings.push(`tier/access excluded sports: ${blocked.join(', ')}`);
+    }
+  }
+
+  if(!selected.length){
+    warnings.push('No configured Odds API 2 sports are accessible to this key');
+  }
+
+  for(const sportKey of selected){
 
     const url=new URL(
       `${baseUrl()}/odds/`
@@ -298,6 +365,16 @@ async function load(
     url.searchParams.set(
       'markets',
       requestedMarkets()
+    );
+
+    url.searchParams.set(
+      'oddsFormat',
+      'american'
+    );
+
+    url.searchParams.set(
+      'regions',
+      process.env.ODDS_API_2_REGIONS||'us'
     );
 
     const controller=
@@ -375,6 +452,8 @@ async function load(
 
     }
   }
+
+  warnings.unshift(`Odds API 2 requested ${requested.length} sport(s), selected ${selected.length}, accepted ${rows.length} row(s)`);
 
   return {
     at:Date.now(),
