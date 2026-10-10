@@ -47,6 +47,7 @@ test('V195 unknown or stale quote cannot be promoted to an entry',()=>{
  for(const override of [
   {sourceAgeMin:15,freshness:'AGING'},
   {sourceTimestamp:'2026-10-10T15:40:00Z'},
+  {sourceTimestamp:undefined},
   {sourceBook:'Unknown venue',bestExecutionVenue:undefined},
   {grade:'PASS'},
   {simCi:[.40,.68]},
@@ -95,7 +96,18 @@ test('V195 desk is local; UI offers distinct days, readable statuses, and a real
  assert.match(ui,/ENTRY WINDOW/);
  assert.match(ui,/No verified immediate entry/);
  assert.match(ui,/onInspect/);
- assert.match(dashboard,/id="trade-desk"/); // Links and anchored desk are deliberate.
+ assert.match(dashboard,/href="#trade-desk"/);
+ assert.match(ui,/id="trade-desk"/);
  assert.match(dashboard,/InstitutionalTradeDesk/);
  assert.match(styles,/institutionalDeskHead h2\{font-size:clamp/);
+});
+
+test('V195 negative estimated returns produce PASS rather than a positive trade signal',()=>{
+ const result=make([liveQuote({
+  odds:-200,marketProb:.667,simProbability:.63,simCi:[.59,.68],
+  bestExecutionVenue:{venue:'Book A',type:'SPORTSBOOK',marketProbability:.667,
+   americanOdds:-200,expectedValue:-.055,feeAdjusted:true}
+ })]);
+ assert.equal(result.ready,0);
+ assert.equal(result.today[0].status,'PASS');
 });
