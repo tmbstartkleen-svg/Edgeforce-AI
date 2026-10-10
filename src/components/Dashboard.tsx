@@ -1094,7 +1094,7 @@ export default function Dashboard(){
                 <small>{x.sport} • {x.event} • {x.market}</small>
               </div>
               <div className="edgeMetric"><strong>{fmtPct(rankingMode==='PRIORITY'?buildBoardPriority(x).score:x.simProbability)}</strong><small>{rankingMode==='PRIORITY'?'PRIORITY':'SIM'}</small></div>
-              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small></div>
+              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small>{rankingMode==='PRIORITY'&&<small>{buildBoardPriority(x).explanation.slice(0,3).join(' • ')}</small>}</div>
             </button>)}
             {!filtered.length&&<div className="edgeEmpty">No qualified simulation rows under the current filters.</div>}
           </div>
