@@ -35,3 +35,12 @@ test('home shortcuts contain no literal escaped newline text',()=>{
   assert.match(page,/Prediction Terminal/);
   assert.match(page,/Forecast Research/);
 });
+
+
+test('V187 mobile and live board surfaces preserve sports-first usability',()=>{
+  assert.match(dashboard,/href="#live"/);
+  assert.match(dashboard,/liveScoreSurface/);
+  assert.match(dashboard,/liveScoreGrid/);
+  assert.match(dashboard,/mobileBoardCards/);
+  assert.match(dashboard,/desktopBoardTable/);
+});

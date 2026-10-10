@@ -1240,6 +1240,7 @@ add('V155 research API and UI',exists('src/app/api/intelligence/forecast-researc
 add('V155 mandatory research regression',exists('tests/forecast-research-lab.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/forecast-research-lab.test.mjs')&&read('scripts/smoke.mjs').includes('forecast research regression failed'),'forecast research math and hosted runtime contract are mandatory release gates');
 add('V155 health capability',read('src/app/api/health/route.ts').includes('forecastResearchLab:true')&&read('src/app/api/health/route.ts').includes('researchExecutionIsolation:true')&&read('scripts/smoke.mjs').includes('forecast research lab flag missing'),'health and smoke advertise the research-only forecast evaluation surface');
 add('V155 release notes',exists('EDGEFORCE_V155_RELEASE.md'),'V155 release documentation exists');
+add('V187 mobile live-board UX',read('src/components/Dashboard.tsx').includes('mobileBoardCards')&&read('src/components/Dashboard.tsx').includes('liveScoreGrid')&&read('src/components/Dashboard.tsx').includes('href="#live"')&&read('src/app/globals.css').includes('EDGEFORCE V187 MOBILE + LIVE BOARD'),'mobile users get touch-first probability cards and live-score cards using existing board payloads with zero provider calls');
 const failed=checks.filter(x=>!x.ok);
 const report={ok:failed.length===0,expected,passed:checks.length-failed.length,failed:failed.length,checks};
 const summary={ok:report.ok,expected,passed:report.passed,failed:report.failed,failedChecks:failed};
