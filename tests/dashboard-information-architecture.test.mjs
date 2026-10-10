@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const dashboard=readFileSync(new URL('../src/components/Dashboard.tsx',import.meta.url),'utf8');
 const page=readFileSync(new URL('../src/app/page.tsx',import.meta.url),'utf8');
+const styles=readFileSync(new URL('../src/app/globals.css',import.meta.url),'utf8');
 
 test('sports-first dashboard order stays user-facing before research internals',()=>{
   const markers=[
