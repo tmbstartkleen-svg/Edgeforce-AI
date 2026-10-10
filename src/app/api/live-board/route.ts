@@ -31,6 +31,23 @@ let oddsCache:{at:number;value:{
 let lastContextMarkets:Market[]=[];
 const SOURCE_TTL_MS=10000;
 
+async function withTimeout<T>(promise:Promise<T>,timeoutMs:number,label:string):Promise<T>{
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{
+    return await Promise.race([
+      promise,
+      new Promise<T>((_,reject)=>{
+        timer=setTimeout(
+          ()=>reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+          timeoutMs
+        );
+      })
+    ]);
+  }finally{
+    if(timer)clearTimeout(timer);
+  }
+}
+
 async function cachedOdds(force=false){
   const now=Date.now();
   if(!force&&oddsCache&&now-oddsCache.at<SOURCE_TTL_MS)return oddsCache.value;
@@ -72,24 +89,45 @@ export async function GET(req:Request){
   }
 
   const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores,fanduelPulse]=await Promise.all([
-    cachedOdds(forceRefresh),
-    fetchPredictionMarkets().catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider unavailable'})),
-    loadLearnedWeightMultipliers(),
-    loadLedgerHistory(),
-    loadLearnedSgpCorrelations(),
-    loadDynamicCalibrationProfiles(),
-    fetchLiveScoreMesh().catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh unavailable']})),
-    fetchFanDuelOddsPulse().catch(()=>({ok:false,source:'fanlinewire',mode:'keyless-public-snapshot',generatedAt:null,sequence:null,liveTotal:0,prematchTotal:0,rows:[],drops:[],latencyMs:0,fresh:false,ageMs:null,warning:'FanDuel pulse unavailable'}))
+    withTimeout(
+      cachedOdds(forceRefresh),
+      Math.max(8000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||20000)),
+      'live-board odds/context pipeline'
+    ).catch(()=>null),
+    withTimeout(
+      fetchPredictionMarkets(),
+      Math.max(2000,Number(process.env.LIVE_BOARD_PREDICTION_TIMEOUT_MS||6000)),
+      'prediction markets'
+    ).catch(()=>({mode:'failed',source:null,contracts:[],attempts:[],error:'prediction provider timed out'} as Awaited<ReturnType<typeof fetchPredictionMarkets>>)),
+    withTimeout(loadLearnedWeightMultipliers(),4000,'learned weights').catch(()=>({} as Awaited<ReturnType<typeof loadLearnedWeightMultipliers>>)),
+    withTimeout(loadLedgerHistory(),4000,'ledger history').catch(()=>([] as Awaited<ReturnType<typeof loadLedgerHistory>>)),
+    withTimeout(loadLearnedSgpCorrelations(),4000,'SGP correlations').catch(()=>({} as Awaited<ReturnType<typeof loadLearnedSgpCorrelations>>)),
+    withTimeout(loadDynamicCalibrationProfiles(),4000,'dynamic calibration').catch(()=>({} as Awaited<ReturnType<typeof loadDynamicCalibrationProfiles>>)),
+    withTimeout(fetchLiveScoreMesh(),6000,'live score mesh').catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh timed out']} as Awaited<ReturnType<typeof fetchLiveScoreMesh>>)),
+    withTimeout(fetchFanDuelOddsPulse(),6000,'FanDuel pulse').catch(()=>({ok:false,source:'fanlinewire',mode:'keyless-public-snapshot',generatedAt:null,sequence:null,liveTotal:0,prematchTotal:0,rows:[],drops:[],latencyMs:0,fresh:false,ageMs:null,warning:'FanDuel pulse timed out'} as Awaited<ReturnType<typeof fetchFanDuelOddsPulse>>))
   ]);
+
+  if(!cached){
+    await withTimeout(recordPerformance('/api/live-board',Date.now()-started,503,'timeout'),1000,'performance logging').catch(()=>undefined);
+    return Response.json({
+      ok:false,
+      error:'LIVE_BOARD_CORE_TIMEOUT',
+      message:'The odds/context pipeline exceeded its deadline. EdgeForce returned control instead of hanging.',
+      generatedAt:new Date().toISOString()
+    },{
+      status:503,
+      headers:{'Cache-Control':'no-store, max-age=0'}
+    });
+  }
 
   const ingestion=cached.ingestion;
   const [scanned,lineMovement]=await Promise.all([
     Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles)),
-    loadLineMovement(ingestion.markets).catch(()=>new Map())
+    withTimeout(loadLineMovement(ingestion.markets),4000,'line movement').catch(()=>new Map())
   ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
   const resimulatedRows=scanned.filter(x=>triggeredIds.has(x.id));
-  if(resimulatedRows.length)await recordModelRuns(resimulatedRows).catch(()=>0);
+  if(resimulatedRows.length)await withTimeout(recordModelRuns(resimulatedRows),2000,'model-run persistence').catch(()=>0);
   const resimulationResults=resimulatedRows.map(x=>({
     marketId:x.id,
     selection:x.selection,
@@ -146,7 +184,7 @@ export async function GET(req:Request){
     averageDynamicConfidence:rows.length?rows.reduce((sum,x)=>sum+x.dynamicConfidence,0)/rows.length:0
   };
 
-  await recordPerformance('/api/live-board',Date.now()-started,200,ingestion.providerId);
+  await withTimeout(recordPerformance('/api/live-board',Date.now()-started,200,ingestion.providerId),1000,'performance logging').catch(()=>undefined);
   return Response.json({
     generatedAt:new Date().toISOString(),
     uiRefreshMs:1000,
