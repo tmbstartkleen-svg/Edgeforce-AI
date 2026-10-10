@@ -41,6 +41,10 @@ export type OddsIngestionResult={
  providerPanel:Array<{
   providerId:string;providerName:string;bookmaker:string;marketRole:string;
   configuredWeight:number;effectiveWeight:number;acceptedMarkets:number;
+  sports:string[];
+  sportCounts:Record<string,number>;
+  playerPropRows:number;
+  teamMarketRows:number;
   qualityGrade?:string;qualityScore?:number;latencyMs?:number;freshnessFactor?:number;transportScore?:number;
  }>;
  error?:string;
@@ -173,6 +177,24 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  };
 }
 
+function coverageForMarkets(markets:Market[]){
+ const sportCounts:Record<string,number>={};
+ let playerPropRows=0;
+ let teamMarketRows=0;
+ for(const market of markets){
+  const sport=String(market.sport||market.league||'Unknown');
+  sportCounts[sport]=(sportCounts[sport]||0)+1;
+  if(market.playerContext?.name||/^(player|pitcher|batter|goalie)[_\s-]/i.test(market.market))playerPropRows++;
+  else teamMarketRows++;
+ }
+ return {
+  sports:Object.keys(sportCounts).sort(),
+  sportCounts,
+  playerPropRows,
+  teamMarketRows
+ };
+}
+
 function aggregateQuality(rows:PanelResult[]){
  const accepted=rows.filter(x=>x.attempt.ok&&x.quality);
  if(!accepted.length)return undefined;
@@ -227,7 +249,8 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
    providerPanel:panel.map(x=>({
     providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
     marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-    acceptedMarkets:x.markets.length,qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
+    acceptedMarkets:x.markets.length,...coverageForMarkets(x.markets),
+    qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
     latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
    })),
    error:'No configured odds provider produced acceptable normalized markets'
