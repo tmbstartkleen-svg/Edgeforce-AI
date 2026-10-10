@@ -1007,3 +1007,65 @@
   .boardScanLanes::-webkit-scrollbar{display:none}
   .boardScanLane{flex:0 0 78%;min-height:64px}
 }
+
+
+/* EDGEFORCE V192 LIVE GAME CENTER */
+.liveGameCenter{overflow:hidden}
+.liveGamePulse{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:1px;
+  padding:1px;
+  border-top:1px solid var(--ef-line);
+  border-bottom:1px solid var(--ef-line);
+  background:var(--ef-line);
+}
+.liveGamePulse>div{min-width:0;padding:9px 12px;background:#090d11}
+.liveGamePulse small{display:block;color:var(--ef-muted);font-size:7px;letter-spacing:.08em;font-weight:850}
+.liveGamePulse b{display:block;margin-top:4px;color:var(--ef-gold-soft);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.featuredLiveGame{
+  margin:12px;
+  padding:14px;
+  border:1px solid rgba(185,255,74,.20);
+  border-radius:16px;
+  background:linear-gradient(145deg,rgba(185,255,74,.055),#0a0f14 52%,rgba(111,220,255,.04));
+  box-shadow:0 18px 44px rgba(0,0,0,.20);
+}
+.featuredLiveGame.conflict{border-color:rgba(255,166,76,.28);background:linear-gradient(145deg,rgba(255,166,76,.055),#0a0f14 55%)}
+.featuredLiveHead,.featuredLiveFoot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.featuredLiveHead>div{display:flex;align-items:center;gap:7px}
+.featuredLiveHead b{font-size:9px;letter-spacing:.08em}
+.featuredLiveHead span{color:var(--ef-muted);font-size:8px}
+.liveBeacon{width:7px;height:7px;border-radius:50%;background:var(--ef-lime);box-shadow:0 0 0 4px rgba(185,255,74,.10),0 0 16px rgba(185,255,74,.45)}
+.featuredLiveScore{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  gap:18px;
+  align-items:center;
+  margin:18px 0;
+}
+.featuredLiveScore>div{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:end}
+.featuredLiveScore>div:last-child{text-align:right}
+.featuredLiveScore small{grid-column:1/-1;color:var(--ef-muted);font-size:7px;letter-spacing:.08em}
+.featuredLiveScore b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
+.featuredLiveScore strong{font-size:38px;line-height:.9;color:var(--ef-gold-soft)}
+.scoreDivider{font-size:24px;color:var(--ef-muted)}
+.featuredLiveFoot{justify-content:flex-start;flex-wrap:wrap;padding-top:11px;border-top:1px solid var(--ef-line)}
+.featuredLiveFoot span{padding:5px 8px;border:1px solid var(--ef-line);border-radius:999px;color:var(--ef-muted);font-size:7px}
+.compactLiveRail{padding-top:0}
+.liveScoreCard.hasConflict{border-color:rgba(255,166,76,.26)}
+.liveScoreClock{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:10px 0 2px}
+.liveScoreClock b{font-size:9px;color:var(--ef-muted)}
+.liveScoreClock strong{font-size:17px;color:var(--ef-cyan)}
+@media(max-width:700px){
+  .liveGamePulse{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .featuredLiveGame{margin:8px;padding:12px}
+  .featuredLiveHead{align-items:flex-start}
+  .featuredLiveHead>div:last-child{display:grid;justify-items:end}
+  .featuredLiveScore{gap:9px;margin:15px 0}
+  .featuredLiveScore>div{grid-template-columns:1fr;gap:4px}
+  .featuredLiveScore>div:last-child{text-align:right}
+  .featuredLiveScore strong{font-size:34px}
+  .featuredLiveScore b{font-size:13px}
+  .scoreDivider{font-size:17px}
+}
