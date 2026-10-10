@@ -14,7 +14,7 @@ import {enrichMarketsWithExternalExpertModels} from '../expertModelBridge';
 import {enrichMarketsWithPremiumData} from '../expertDataBridge';
 import {enrichMarketsWithTrainedSportModels} from '../trainedSportModels';
 import {enrichMarketsWithUnifiedIntelligence} from '../unifiedIntelligence';
-import {applyReliabilityGuards,loadIntelligenceReliabilityState,reliabilityOpen} from '../intelligenceReliability';
+import {applyReliabilityGuards,loadFreshIntelligenceReliabilityState,reliabilityOpen} from '../intelligenceReliability';
 
 type ContextKind='weather'|'injuries'|'stats';
 type ContextRow={
@@ -154,7 +154,7 @@ function sourceNames(row:PublicContextRow){
 }
 
 export async function enrichMarketsWithContext(markets:Market[]){
- const reliability=await loadIntelligenceReliabilityState();
+ const reliability=await loadFreshIntelligenceReliabilityState();
  const [weather,injuries,stats,publicNetwork]=await Promise.all([
   fetchWeatherContext(),
   fetchTrackedInjuryContext(),
@@ -274,7 +274,22 @@ export async function enrichMarketsWithContext(markets:Market[]){
    startingLineups:{matchedRows:startingLineups.matched,profiles:startingLineups.profiles,promotions:startingLineups.promotions},
    marketMovement:{matchedRows:marketMovement.matched,profiles:marketMovement.profiles,steam:marketMovement.steam,reversals:marketMovement.reversals},
    unifiedIntelligence:unified.diagnostics,
-   reliability:{mode:reliability.mode,score:reliability.score,openComponents:reliability.openComponents,halfOpenComponents:reliability.halfOpenComponents},
+   reliability:{
+    mode:reliability.mode,
+    score:reliability.score,
+    criticalOpen:reliability.criticalOpen,
+    openComponents:reliability.openComponents,
+    halfOpenComponents:reliability.halfOpenComponents,
+    rows:reliability.rows.map(x=>({
+     componentId:x.componentId,
+     label:x.label,
+     required:x.required,
+     circuitState:x.circuitState,
+     observedState:x.observedState,
+     lastReason:x.lastReason,
+     updatedAt:x.updatedAt
+    }))
+   },
    trainedSportMl:trainedSportMl.diagnostics,
    expertModels:externalExpert.diagnostics,
    publicNetwork:publicNetwork.diagnostics,
