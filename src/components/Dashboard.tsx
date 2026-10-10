@@ -159,6 +159,25 @@ type LiveBoardResponse={
     targetBookRows:number;averageAgreement:number;averageDispersion:number;priceShopOpportunities:number;
     outlierRows:number;classifiedRows:number;sharpOverPublic:number;publicOverSharp:number;aligned:number;
   };
+  edgeScanner?:{
+    quoteCount:number;
+    groupCount:number;
+    arbitrageCount:number;
+    positiveEvCount:number;
+    sharpReferenceGroups:number;
+    consensusReferenceGroups:number;
+    arbitrage:Array<{
+      key:string;sport:string;league:string;event:string;market:string;startTime:string;
+      outcomeCount:number;impliedProbabilitySum:number;roi:number;
+      stakePlan:Array<{selection:string;book:string;odds:number;stakeFraction:number;payoutMultiple:number}>;
+    }>;
+    positiveEv:Array<{
+      key:string;sport:string;league:string;event:string;market:string;selection:string;startTime:string;
+      book:string;odds:number;fairProbability:number;fairOdds:number;edge:number;expectedValue:number;
+      fullKelly:number;fractionalKelly:number;reference:string;referenceBooks:string[];
+    }>;
+    methodology:{arbitrage:string;devig:string;expectedValue:string;kellyFraction:number;extraProviderRequests:number};
+  };
   dynamicCalibrationProfileCount?:number;
   regimeCoverage?:{
     stable:number;volatile:number;dislocated:number;thin:number;unknown:number;
@@ -891,6 +910,9 @@ export default function Dashboard(){
           <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
           <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
           <div><small>Price shops</small><b>{board.consensusCoverage?.priceShopOpportunities??0}</b></div>
+          <div><small>Arbs</small><b>{board.edgeScanner?.arbitrageCount??0}</b></div>
+          <div><small>+EV</small><b>{board.edgeScanner?.positiveEvCount??0}</b></div>
+          <div><small>Sharp ref</small><b>{board.edgeScanner?.sharpReferenceGroups??0}</b></div>
           <div><small>Stable</small><b>{board.regimeCoverage?.stable??0}</b></div>
           <div><small>Dislocated</small><b>{board.regimeCoverage?.dislocated??0}</b></div>
           <div><small>High conf</small><b>{board.regimeCoverage?.highConfidence??0}</b></div>
