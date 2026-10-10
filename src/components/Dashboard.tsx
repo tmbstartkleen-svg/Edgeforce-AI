@@ -646,6 +646,7 @@ export default function Dashboard(){
   const [market,setMarket]=useState('ALL');
   const [robustnessFilter,setRobustnessFilter]=useState<'ALL'|'RESILIENT'|'ROBUST'>('ALL');
   const [rankingMode,setRankingMode]=useState<'SIM'|'PRIORITY'>('SIM');
+  const [divergenceFilter,setDivergenceFilter]=useState<'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE'>('ALL');
   const [minSim,setMinSim]=useState(0);
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
@@ -859,9 +860,11 @@ export default function Dashboard(){
   const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
   const rankDeltas=useMemo(()=>buildBoardRankDeltas(filtered),[filtered]);
   const rankDeltaSummary=useMemo(()=>summarizeBoardRankDeltas(filtered),[filtered]);
-  const rankedFiltered=useMemo(()=>[...filtered].sort((a,b)=>rankingMode==='PRIORITY'
-    ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
-    :b.simProbability-a.simProbability),[filtered,rankingMode]);
+  const rankedFiltered=useMemo(()=>[...filtered]
+    .filter(row=>divergenceFilter==='ALL'||rankDeltas.get(row.id)?.label===divergenceFilter)
+    .sort((a,b)=>rankingMode==='PRIORITY'
+      ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
+      :b.simProbability-a.simProbability),[filtered,rankingMode,divergenceFilter,rankDeltas]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
@@ -1018,6 +1021,15 @@ export default function Dashboard(){
         <select value={rankingMode} onChange={e=>setRankingMode(e.target.value as 'SIM'|'PRIORITY')}>
           <option value="SIM">Highest simulation</option>
           <option value="PRIORITY">Robustness-aware</option>
+        </select>
+      </div>
+      <div className="controlGroup">
+        <label>V129 movement</label>
+        <select value={divergenceFilter} onChange={e=>setDivergenceFilter(e.target.value as 'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE')}>
+          <option value="ALL">All movement</option>
+          <option value="UPGRADED">Upgraded only</option>
+          <option value="DOWNGRADED">Downgraded only</option>
+          <option value="STABLE">Stable only</option>
         </select>
       </div>
       <div className="controlGroup">
