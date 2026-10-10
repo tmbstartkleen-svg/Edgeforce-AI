@@ -89,3 +89,11 @@ test('V129 movement filter is opt-in and local',()=>{
  assert.match(dashboard,/Stable only/);
  assert.match(dashboard,/divergenceFilter==='ALL'\|\|rankDeltas\.get\(row\.id\)\?\.label===divergenceFilter/);
 });
+
+
+test('V181 review queue isolates fragile or downgraded rows locally',()=>{
+ assert.match(dashboard,/reviewQueueOnly/);
+ assert.match(dashboard,/V181 review queue/);
+ assert.match(dashboard,/Needs review/);
+ assert.match(dashboard,/buildBoardRobustness\(row\)\.reviewRequired\|\|rankDeltas\.get\(row\.id\)\?\.label==='DOWNGRADED'/);
+});
