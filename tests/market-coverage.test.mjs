@@ -57,3 +57,19 @@ test('ESPN current Draft Kings nested closing quotes yield all six real lines',(
  const rows=espn.normalizeEspnOddsItems({items:[quotes]},{eventId:'real',home:'Devils',away:'Canucks',startTime:new Date(Date.now()+3600000).toISOString()},'NHL');
  assert.equal(rows.length,6);assert.ok(rows.every(x=>x.bookmaker==='DraftKings'));assert.ok(rows.some(x=>x.selection==='Over 6.5'&&x.odds===-102));assert.ok(rows.some(x=>x.selection==='Devils -1.5'&&x.odds===-112));
 });
+
+test('college football event props are requested within the existing event budget',async()=>{
+ const original=globalThis.fetch;const urls=[];
+ globalThis.fetch=async url=>{
+  urls.push(String(url));
+  if(String(url).includes('/events/'))return Response.json({id:'cfb',sport_key:'americanfootball_ncaaf',bookmakers:[{key:'draftkings',markets:[{key:'player_pass_yds',outcomes:[{name:'Over',description:'Quarterback',point:200.5,price:-110}]}]}]});
+  if(String(url).includes('/upcoming/odds'))return Response.json([{id:'cfb',sport_key:'americanfootball_ncaaf',commence_time:new Date(Date.now()+3600000).toISOString(),bookmakers:[]}],{headers:{'x-requests-remaining':'100'}});
+  return Response.json([]);
+ };
+ try{
+  const result=await odds.fetchTheOddsApiBoard({id:'test',name:'Test',capability:'ODDS',apiKey:'fixture'});
+  const props=urls.filter(url=>url.includes('/events/'));
+  assert.equal(props.length,1);assert.match(props[0],/americanfootball_ncaaf/);assert.match(decodeURIComponent(props[0]),/player_pass_yds,player_rush_yds,player_reception_yds/);
+  assert.ok(result.data.some(event=>event.bookmakers?.some(book=>book.markets.some(m=>m.key==='player_pass_yds'))));
+ }finally{globalThis.fetch=original;}
+});

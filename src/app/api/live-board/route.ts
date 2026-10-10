@@ -120,6 +120,8 @@ async function buildBoard(req:Request){
   const view=searchParams.get('view')==='week'?'week':'today';
   const limit=searchParams.get('limit')==='50'?50:30;
   const catalogue=searchParams.get('catalogue')==='1';
+  const workerRuntime=process.env.DEPLOYMENT_PLATFORM==='cloudflare';
+  const cataloguePageSize=workerRuntime?50:250;
   const cataloguePage=Math.max(0,Math.min(1000,Math.floor(Number(searchParams.get('page'))||0)));
   const catalogueSport=searchParams.get('sport')||'ALL';
   const catalogueKind=searchParams.get('kind')||'ALL';
@@ -165,7 +167,7 @@ async function buildBoard(req:Request){
 
   const ingestion=cached.ingestion;
   const [scanned,lineMovement]=await Promise.all([
-    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles)),
+    Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles,workerRuntime?{simulationRunCap:1000}:{})),
     withTimeout(loadLineMovement(ingestion.markets),4000,'line movement').catch(()=>new Map())
   ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
@@ -197,7 +199,7 @@ async function buildBoard(req:Request){
     if(catalogueKind==='TOTALS')return !prop&&/total|over|under/i.test(row.market);
     return true;
   }).sort((a,b)=>b.simProbability-a.simProbability);
-  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*250,(cataloguePage+1)*250):strictRanked.length?strictRanked:fallbackRanked;
+  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*cataloguePageSize,(cataloguePage+1)*cataloguePageSize):strictRanked.length?strictRanked:fallbackRanked;
   const boardFallbackUsed=strictRanked.length===0&&fallbackRanked.length>0;
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
     ...row,
@@ -282,9 +284,15 @@ async function buildBoard(req:Request){
     warnings:ingestion.warnings,
     liveScores,
     fanduelPulse,
-    catalogue:{enabled:catalogue,page:cataloguePage,pageSize:250,total:catalogueCandidates.length,hasNext:(cataloguePage+1)*250<catalogueCandidates.length},
+    catalogue:{enabled:catalogue,page:cataloguePage,pageSize:cataloguePageSize,total:catalogueCandidates.length,hasNext:(cataloguePage+1)*cataloguePageSize<catalogueCandidates.length},
     marketCoverage:{
       ingested:ingestion.markets.length,candidates:boardCandidates.length,qualified:qualifiedCandidates.length,
+      scanned:scanned.length,
+      marketTypes:Object.fromEntries([...new Set(boardCandidates.map(x=>x.market))].map(market=>[market,boardCandidates.filter(x=>x.market===market).length])),
+      outsidePreviousOddsWindow:boardCandidates.filter(x=>x.odds<-1000||x.odds>1000).length,
+      highestRawSimulation:boardCandidates.length?Math.max(...boardCandidates.map(x=>x.rawSimProbability)):null,
+      highestCalibratedSimulation:boardCandidates.length?Math.max(...boardCandidates.map(x=>x.simProbability)):null,
+      simulationRunCap:workerRuntime?1000:null,
       playerProps:boardCandidates.filter(x=>Boolean(x.playerContext?.name)||/^(player|pitcher|batter|goalie)[_\s-]/i.test(x.market)).length,
       sports:[...new Set(boardCandidates.map(x=>x.sport))].sort(),
       bySport:Object.fromEntries([...new Set(boardCandidates.map(x=>x.sport))].map(sport=>[sport,boardCandidates.filter(x=>x.sport===sport).length]))

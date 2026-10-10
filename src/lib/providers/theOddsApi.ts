@@ -94,6 +94,7 @@ export function uniqueEvents(rows:unknown[]){
 
 const defaultProps:Record<string,string>={
  basketball_nba:'player_points,player_rebounds,player_assists',basketball_wnba:'player_points,player_rebounds,player_assists',
+ americanfootball_ncaaf:'player_pass_yds,player_rush_yds,player_reception_yds',
  americanfootball_nfl:'player_pass_yds,player_rush_yds,player_reception_yds',baseball_mlb:'batter_hits,pitcher_strikeouts',icehockey_nhl:'player_shots_on_goal'
 };
 

@@ -664,8 +664,8 @@ export default function Dashboard(){
   const [divergenceFilter,setDivergenceFilter]=useState<'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE'>('ALL');
   const [reviewQueueOnly,setReviewQueueOnly]=useState(false);
   const [minSim,setMinSim]=useState(0);
-  const [minOdds,setMinOdds]=useState(-1000);
-  const [maxOdds,setMaxOdds]=useState(1000);
+  const [minOdds,setMinOdds]=useState(-Infinity);
+  const [maxOdds,setMaxOdds]=useState(Infinity);
   const [parlaySize,setParlaySize]=useState(2);
   const [parlayBoard,setParlayBoard]=useState<ParlayBoardResponse|null>(null);
   const [lastError,setLastError]=useState('');
@@ -867,8 +867,8 @@ export default function Dashboard(){
 
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
   const sportCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.sport]=(acc[row.sport]||0)+1;return acc},{}),[board.rows]);
-  const activeFilterCount=(effectiveSport!=='ALL'?1:0)+(period!=='ALL'?1:0)+(market!=='ALL'?1:0)+(minSim>0?1:0)+(minOdds!==-1000||maxOdds!==1000?1:0)+(robustnessFilter!=='ALL'?1:0)+(rankingMode!=='SIM'?1:0)+(divergenceFilter!=='ALL'?1:0)+(reviewQueueOnly?1:0);
-  const resetBoardFilters=()=>{setSport('ALL');setPeriod('ALL');setMarket('ALL');setMinSim(0);setMinOdds(-1000);setMaxOdds(1000);setRobustnessFilter('ALL');setRankingMode('SIM');setDivergenceFilter('ALL');setReviewQueueOnly(false)};
+  const activeFilterCount=(effectiveSport!=='ALL'?1:0)+(period!=='ALL'?1:0)+(market!=='ALL'?1:0)+(minSim>0?1:0)+(Number.isFinite(minOdds)||Number.isFinite(maxOdds)?1:0)+(robustnessFilter!=='ALL'?1:0)+(rankingMode!=='SIM'?1:0)+(divergenceFilter!=='ALL'?1:0)+(reviewQueueOnly?1:0);
+  const resetBoardFilters=()=>{setSport('ALL');setPeriod('ALL');setMarket('ALL');setMinSim(0);setMinOdds(-Infinity);setMaxOdds(Infinity);setRobustnessFilter('ALL');setRankingMode('SIM');setDivergenceFilter('ALL');setReviewQueueOnly(false)};
   const fastestProviderLatency=useMemo(()=>{
     const values=(board.providerPanel||[]).map(x=>x.latencyMs).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0);
     return values.length?Math.min(...values):null;
@@ -1352,9 +1352,9 @@ export default function Dashboard(){
         <div className="controlGroup double">
           <label>American odds range</label>
           <div className="rangePair">
-            <input type="number" value={minOdds} onChange={e=>setMinOdds(Number(e.target.value)||-1000)}/>
+            <input type="number" value={Number.isFinite(minOdds)?minOdds:''} placeholder="Any" onChange={e=>setMinOdds(e.target.value===''?-Infinity:Number(e.target.value))}/>
             <span>to</span>
-            <input type="number" value={maxOdds} onChange={e=>setMaxOdds(Number(e.target.value)||1000)}/>
+            <input type="number" value={Number.isFinite(maxOdds)?maxOdds:''} placeholder="Any" onChange={e=>setMaxOdds(e.target.value===''?Infinity:Number(e.target.value))}/>
           </div>
         </div>
       </section>
