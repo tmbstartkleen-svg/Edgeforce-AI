@@ -94,3 +94,13 @@ test('V192 live game center promotes score clock and source health',()=>{
   assert.match(dashboard,/SOURCE CONFLICT/);
   assert.match(dashboard,/compactLiveRail/);
 });
+
+
+test('V193 today decision flow connects action watch review and parlay',()=>{
+  assert.match(dashboard,/V193 TODAY DECISION FLOW/);
+  assert.match(dashboard,/todayDecisionFlow/);
+  assert.match(dashboard,/ACT NOW/);
+  assert.match(dashboard,/WATCH NEXT/);
+  assert.match(dashboard,/BEST PARLAY/);
+  assert.match(dashboard,/reviewQueueSummary\.total/);
+});
