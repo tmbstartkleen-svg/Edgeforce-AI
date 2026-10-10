@@ -29,7 +29,15 @@ export type PublicPlayerBootstrapResult={
  athletesTouched:number;
  featureSnapshotsWritten:number;
  warnings:string[];
+ attempts:Array<{name:string;sport:string;stage:string;detail:string}>;
 };
+
+function normalizeSearchName(value:string){
+ return normalizePlayerName(value)
+  .replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'')
+  .replace(/\s+/g,' ')
+  .trim();
+}
 
 function specForMarket(m:Market):EspnSpec|null{
  const s=`${m.sport} ${m.league}`.toLowerCase();
@@ -70,9 +78,7 @@ async function json(url:string,ttlMs=30*60000){
    signal:controller.signal,
    headers:{
     Accept:'application/json, text/plain, */*',
-    'User-Agent':'Mozilla/5.0 EdgeForce-AI public-player-bootstrap',
-    Origin:'https://www.espn.com',
-    Referer:'https://www.espn.com/'
+    'User-Agent':'Mozilla/5.0 (compatible; EdgeForce-AI/1.0)'
    }
   });
   if(!res.ok)throw new Error(`HTTP ${res.status}`);
@@ -136,9 +142,9 @@ function collectAthleteCandidates(payload:unknown){
 }
 
 function resolveAthlete(payload:unknown,name:string,spec:EspnSpec){
- const target=normalizePlayerName(name);
+ const target=normalizeSearchName(name);
  const candidates=collectAthleteCandidates(payload);
- const exact=candidates.filter(x=>normalizePlayerName(x.name)===target);
+ const exact=candidates.filter(x=>normalizeSearchName(x.name)===target);
  if(!exact.length)return null;
  if(exact.length===1)return exact[0];
 
@@ -207,41 +213,58 @@ function gamelogRows(payload:unknown,athlete:{id:string;name:string},spec:EspnSp
 }
 
 async function fetchPlayer(name:string,spec:EspnSpec){
- const buildSearch=(withSport:boolean)=>{
+ const attempts:Array<{name:string;sport:string;stage:string;detail:string}>=[];
+ const buildSearch=()=>{
   const url=new URL('https://site.web.api.espn.com/apis/search/v2');
   url.searchParams.set('query',name);
-  url.searchParams.set('limit','8');
+  url.searchParams.set('limit','10');
   url.searchParams.set('type','player');
   url.searchParams.set('region','us');
   url.searchParams.set('lang','en');
-  if(withSport)url.searchParams.set('sport',spec.searchSport);
   return url.toString();
  };
 
- let search=await json(buildSearch(true),6*3600000);
- let athlete=search?resolveAthlete(search,name,spec):null;
- if(!athlete){
-  search=await json(buildSearch(false),6*3600000);
-  athlete=search?resolveAthlete(search,name,spec):null;
+ const search=await json(buildSearch(),6*3600000);
+ if(!search){
+  attempts.push({name,sport:spec.edgeSport,stage:'search',detail:'request failed or returned no JSON'});
+  return {athlete:null,rows:[] as AnyRow[],attempts};
  }
- if(!athlete)return {athlete:null,rows:[] as AnyRow[]};
+
+ const candidates=collectAthleteCandidates(search);
+ attempts.push({
+  name,sport:spec.edgeSport,stage:'search',
+  detail:`candidates=${candidates.length}; exact=${candidates.filter(x=>normalizeSearchName(x.name)===normalizeSearchName(name)).length}`
+ });
+
+ const athlete=resolveAthlete(search,name,spec);
+ if(!athlete){
+  attempts.push({name,sport:spec.edgeSport,stage:'resolve',detail:'no unique exact-name athlete match'});
+  return {athlete:null,rows:[] as AnyRow[],attempts};
+ }
+
+ attempts.push({name,sport:spec.edgeSport,stage:'resolve',detail:`athleteId=${athlete.id}; matched=${athlete.name}`});
 
  const year=new Date().getUTCFullYear();
  const seasons=[year,year-1];
  for(const season of seasons){
   const url=`https://site.web.api.espn.com/apis/common/v3/sports/${spec.sport}/${spec.league}/athletes/${encodeURIComponent(athlete.id)}/gamelog?season=${season}`;
   const gamelog=await json(url,6*3600000);
-  const rows=gamelog?gamelogRows(gamelog,athlete,spec):[];
-  if(rows.length)return {athlete,rows};
+  if(!gamelog){
+   attempts.push({name,sport:spec.edgeSport,stage:'gamelog',detail:`season ${season}: request failed or empty JSON`});
+   continue;
+  }
+  const rows=gamelogRows(gamelog,athlete,spec);
+  attempts.push({name,sport:spec.edgeSport,stage:'gamelog',detail:`season ${season}: rows=${rows.length}`});
+  if(rows.length)return {athlete,rows,attempts};
  }
- return {athlete,rows:[] as AnyRow[]};
+ return {athlete,rows:[] as AnyRow[],attempts};
 }
 
 async function run(markets:Market[]):Promise<PublicPlayerBootstrapResult>{
  const base:PublicPlayerBootstrapResult={
   enabled:enabled(),requested:0,alreadyKnown:0,searched:0,resolved:0,
   playersWithGames:0,gameRows:0,gamesWritten:0,athletesTouched:0,
-  featureSnapshotsWritten:0,warnings:[]
+  featureSnapshotsWritten:0,warnings:[],attempts:[]
  };
  if(!base.enabled)return base;
  const sql=db();
@@ -276,9 +299,13 @@ async function run(markets:Market[]):Promise<PublicPlayerBootstrapResult>{
  const fetched=await Promise.all(
   missing.map(async([,item])=>{
    try{return await fetchPlayer(item.name,item.spec)}
-   catch{return {athlete:null,rows:[] as AnyRow[]}}
+   catch(error){return {
+    athlete:null,rows:[] as AnyRow[],
+    attempts:[{name:item.name,sport:item.spec.edgeSport,stage:'exception',detail:error instanceof Error?error.message:'unknown error'}]
+   }}
   })
  );
+ base.attempts=fetched.flatMap(x=>x.attempts||[]).slice(0,40);
  base.resolved=fetched.filter(x=>Boolean(x.athlete)).length;
  base.playersWithGames=fetched.filter(x=>x.rows.length>0).length;
  const rows=fetched.flatMap(x=>x.rows);
@@ -303,7 +330,7 @@ export async function bootstrapPublicPlayerHistory(markets:Market[]){
   return {
    enabled:enabled(),requested:0,alreadyKnown:0,searched:0,resolved:0,
    playersWithGames:0,gameRows:0,gamesWritten:0,athletesTouched:0,
-   featureSnapshotsWritten:0,warnings:['bootstrap interval cache active']
+   featureSnapshotsWritten:0,warnings:['bootstrap interval cache active'],attempts:[]
   } satisfies PublicPlayerBootstrapResult;
  }
  lastRunAt=Date.now();
