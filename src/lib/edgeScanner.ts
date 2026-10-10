@@ -155,7 +155,7 @@ function teamSide(selection:string,home:string,away:string){
 }
 
 function parseQuote(m:Market):Quote|null{
- if(!m||!Number.isFinite(m.odds)||m.odds===0)return null;
+ if(!m||!Number.isFinite(m.odds)||Math.abs(m.odds)<100)return null;
  if(!m.sport||!m.event||!m.market||!m.selection||!m.startTime)return null;
 
  const date=new Date(m.startTime);
@@ -303,11 +303,12 @@ export function scanEdgeOpportunities(
  panelMarkets:Market[],
  options:{kellyFraction?:number;minEv?:number;maxArbitrage?:number;maxPositiveEv?:number}={}
 ):EdgeScannerResult{
- const kellyFraction=clamp(options.kellyFraction??.25,.01,1);
- const minEv=Math.max(0,options.minEv??.01);
- const maxArbRoi=clamp(Number(process.env.EDGE_SCANNER_MAX_ARB_ROI||.15),.01,.50);
- const maxEv=clamp(Number(process.env.EDGE_SCANNER_MAX_EV||.35),.05,1);
- const maxQuoteAgeMinutes=clamp(Number(process.env.EDGE_SCANNER_MAX_QUOTE_AGE_MIN||10),1,30);
+ const finite=(value:number,fallback:number)=>Number.isFinite(value)?value:fallback;
+ const kellyFraction=clamp(finite(options.kellyFraction??.25,.25),.01,1);
+ const minEv=Math.max(0,finite(options.minEv??.01,.01));
+ const maxArbRoi=clamp(finite(Number(process.env.EDGE_SCANNER_MAX_ARB_ROI||.15),.15),.01,.50);
+ const maxEv=clamp(finite(Number(process.env.EDGE_SCANNER_MAX_EV||.35),.35),.05,1);
+ const maxQuoteAgeMinutes=clamp(finite(Number(process.env.EDGE_SCANNER_MAX_QUOTE_AGE_MIN||10),10),1,30);
  const now=Date.now();
  let rejectedUnverifiedQuotes=0;
  let rejectedStaleQuotes=0;
