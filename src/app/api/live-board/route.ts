@@ -62,7 +62,10 @@ async function cachedOdds(force=false){
   try{
     context=await withTimeout(
       enrichMarketsWithContext(ingestion.markets),
-      Math.max(3000,Number(process.env.LIVE_BOARD_CONTEXT_TIMEOUT_MS||7000)),
+      Math.max(
+        3000,
+        Number(process.env.LIVE_BOARD_CONTEXT_TIMEOUT_MS||(process.env.NODE_ENV==='development'?12000:7000))
+      ),
       'context enrichment'
     );
   }catch(error){
