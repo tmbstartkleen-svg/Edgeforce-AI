@@ -33,7 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
-import {buildBoardRobustness,summarizeBoardRobustness} from '@/lib/boardRobustness';
+import {buildBoardPriority,buildBoardRobustness,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -645,6 +645,7 @@ export default function Dashboard(){
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
   const [robustnessFilter,setRobustnessFilter]=useState<'ALL'|'RESILIENT'|'ROBUST'>('ALL');
+  const [rankingMode,setRankingMode]=useState<'SIM'|'PRIORITY'>('SIM');
   const [minSim,setMinSim]=useState(0);
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
@@ -856,6 +857,9 @@ export default function Dashboard(){
   }),[rawFiltered,robustnessFilter,robustnessMap]);
 
   const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
+  const rankedFiltered=useMemo(()=>[...filtered].sort((a,b)=>rankingMode==='PRIORITY'
+    ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
+    :b.simProbability-a.simProbability),[filtered,rankingMode]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
@@ -1008,6 +1012,13 @@ export default function Dashboard(){
         </select>
       </div>
       <div className="controlGroup">
+        <label>V121 ranking</label>
+        <select value={rankingMode} onChange={e=>setRankingMode(e.target.value as 'SIM'|'PRIORITY')}>
+          <option value="SIM">Highest simulation</option>
+          <option value="PRIORITY">Robustness-aware</option>
+        </select>
+      </div>
+      <div className="controlGroup">
         <label>Sport</label>
         <select value={effectiveSport} onChange={e=>setSport(e.target.value)}>
           <option value="ALL">All sports</option>
@@ -1044,7 +1055,7 @@ export default function Dashboard(){
     </section>
 
     <section className="v21Stats">
-      <div><small>TOP SIM</small><strong>{filtered[0]?fmtPct(filtered[0].simProbability):'—'}</strong><span>{filtered[0]?.selection||'No current row'}</span></div>
+      <div><small>{rankingMode==='PRIORITY'?'TOP PRIORITY':'TOP SIM'}</small><strong>{rankedFiltered[0]?fmtPct(rankingMode==='PRIORITY'?buildBoardPriority(rankedFiltered[0]).score:rankedFiltered[0].simProbability):'—'}</strong><span>{rankedFiltered[0]?.selection||'No current row'}</span></div>
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
@@ -1076,13 +1087,13 @@ export default function Dashboard(){
             <span>{effectiveSport==='ALL'?'ALL SPORTS':effectiveSport}</span>
           </div>
           <div className="edgeRows">
-            {filtered.slice(0,5).map((x,i)=><button className="edgeRow" key={'fast-'+x.id} onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>
+            {rankedFiltered.slice(0,5).map((x,i)=><button className="edgeRow" key={'fast-'+x.id} onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>
               <span className="edgeRank">{i+1}</span>
               <div className="edgeRowMain">
                 <b>{x.selection}</b>
                 <small>{x.sport} • {x.event} • {x.market}</small>
               </div>
-              <div className="edgeMetric"><strong>{fmtPct(x.simProbability)}</strong><small>SIM</small></div>
+              <div className="edgeMetric"><strong>{fmtPct(rankingMode==='PRIORITY'?buildBoardPriority(x).score:x.simProbability)}</strong><small>{rankingMode==='PRIORITY'?'PRIORITY':'SIM'}</small></div>
               <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small></div>
             </button>)}
             {!filtered.length&&<div className="edgeEmpty">No qualified simulation rows under the current filters.</div>}

@@ -36,3 +36,16 @@ test('dashboard exposes robustness filtering without forcing it on',()=>{
  assert.match(dashboard,/robustnessBadge/);
  assert.match(dashboard,/0 extra calls/);
 });
+
+
+test('V121 robustness-aware ranking is opt-in and zero-call',()=>{
+ assert.match(engine,/buildBoardPriority/);
+ assert.match(engine,/sim\*\.45\+robustness\.score\*\.35\+confidence\*\.20/);
+ assert.match(engine,/reviewPenalty=robustness\.reviewRequired\?\.08:0/);
+ assert.doesNotMatch(engine,/fetch\s*\(/);
+ assert.match(dashboard,/rankingMode.*useState<'SIM'\|'PRIORITY'>\('SIM'\)/);
+ assert.match(dashboard,/V121 ranking/);
+ assert.match(dashboard,/Highest simulation/);
+ assert.match(dashboard,/Robustness-aware/);
+ assert.match(dashboard,/rankedFiltered/);
+});
