@@ -15,6 +15,8 @@ type FlatRow={
   odds:number;
   bookmaker:string;
   pulledAt:string;
+  playerName?:string;
+  statKey?:string;
 };
 
 type Cached={
@@ -285,6 +287,7 @@ async function load(apiKey:string):Promise<Cached>{
                       startTime,
                       odds:price,
                       bookmaker,
+                      ...(player?{playerName:player,statKey:marketKey}:{}),
                       pulledAt:String(
                         book?.last_update ||
                         market?.last_update ||
