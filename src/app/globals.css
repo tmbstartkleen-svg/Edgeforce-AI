@@ -1180,3 +1180,77 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* V195 institutional edge desk: readable, distinct decision workspace */
+.institutionalDesk{margin:24px 0;padding:24px;border:1px solid rgba(111,220,255,.24);border-radius:20px;background:linear-gradient(135deg,#101a21 0%,#0b1016 52%,#141515 100%);box-shadow:0 12px 48px rgba(0,0,0,.15)}
+.institutionalDeskHead{display:flex;justify-content:space-between;align-items:flex-start;gap:22px}
+.institutionalDeskHead h2{font-size:clamp(24px,2.5vw,34px);line-height:1.16;letter-spacing:-.015em;margin:8px 0 10px;color:#f4f8fa}
+.institutionalDeskHead p{max-width:800px;font-size:14px;line-height:1.6;color:#b9c8d1;margin:0}
+.institutionalFeed{flex-shrink:0;border:1px solid rgba(255,183,75,.4);color:#ffda99;border-radius:10px;padding:12px 14px;font-size:12px;font-weight:750;letter-spacing:.04em}
+.institutionalFeed.healthy{border-color:rgba(185,255,74,.35);color:var(--ef-lime)}
+.institutionalSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0}
+.institutionalSummary>div{min-width:0;display:flex;flex-direction:column;gap:7px;padding:20px;background:#101a21;border:1px solid rgba(255,255,255,.1);border-radius:15px}
+.institutionalSummary small{font-size:12px;color:#b0c1ca}
+.institutionalSummary strong{font-size:32px;line-height:1.15;font-variant-numeric:tabular-nums;color:#f7fbff}
+.institutionalSummary span{font-size:12px;line-height:1.4;color:#a0b3bf}
+.institutionalWarning,.institutionalNeutral{border-radius:12px;padding:14px 16px;margin:10px 0;font-size:13px;line-height:1.6}
+.institutionalWarning{background:rgba(255,174,72,.07);border:1px solid rgba(255,174,72,.25);color:#ffdba5}
+.institutionalNeutral{background:rgba(111,220,255,.045);border:1px solid rgba(111,220,255,.17);color:#bfd5df}
+.institutionalDayTabs{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 16px}
+.institutionalDayTabs button{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:46px;padding:11px 17px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#111921;color:#ccdae1;font-size:14px;font-weight:750;cursor:pointer}
+.institutionalDayTabs button.active{color:#f6ffec;border-color:rgba(185,255,74,.4);background:rgba(185,255,74,.10)}
+.institutionalDayTabs button span{background:rgba(255,255,255,.08);padding:3px 8px;border-radius:8px;font-variant-numeric:tabular-nums}
+.institutionalList{margin-top:12px}
+.institutionalListHeading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.institutionalListHeading h3{font-size:18px;margin:0}
+.institutionalListHeading>span{color:#a0b3bf;font-size:12px}
+.institutionalPick{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(240px,1.1fr) minmax(250px,1fr);gap:20px;align-items:center;margin:10px 0;padding:20px;border:1px solid rgba(255,255,255,.12);border-radius:15px;background:#0a1117}
+.institutionalPick.entry_window{border-color:rgba(185,255,74,.4)}
+.institutionalPick.monitor{border-color:rgba(224,182,90,.24)}
+.institutionalPickHeader{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#a9bdc8;font-size:12px}
+.institutionalState{padding:5px 8px;border:1px solid rgba(255,255,255,.18);border-radius:8px;font-size:11px;font-weight:800;letter-spacing:.03em;color:#bdcbd3}
+.institutionalState.entry_window{color:var(--ef-lime);border-color:rgba(185,255,74,.4)}
+.institutionalState.monitor{color:#f7cd80;border-color:rgba(247,205,128,.35)}
+.institutionalPickMain h3{font-size:18px;line-height:1.3;margin:11px 0 6px;color:#f7fafc}
+.institutionalPickMain p{font-size:13px;line-height:1.5;color:#b8c6cf;margin:0 0 10px}
+.institutionalPickContext{font-size:12px;line-height:1.5;color:#91acb9}
+.institutionalPickStats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.institutionalPickStats>div{display:flex;flex-direction:column;gap:6px}
+.institutionalPickStats small{font-size:11px;color:#a1b7c3}
+.institutionalPickStats strong{font-size:16px;line-height:1.2;color:#f5fafc;font-variant-numeric:tabular-nums}
+.institutionalPickAction strong{display:block;font-size:13px;line-height:1.5;color:#d9ebf4}
+.institutionalPickAction p{font-size:12px;line-height:1.5;color:#b5c8d2;margin:7px 0}
+.institutionalPickAction small{display:block;margin:4px 0;color:#ecc68b;font-size:11px}
+.institutionalPickAction button{margin-top:10px;min-height:44px;padding:10px 14px;border:1px solid rgba(111,220,255,.4);border-radius:10px;background:rgba(111,220,255,.09);color:#bcecfb;font-weight:700;font-size:13px;cursor:pointer}
+.institutionalPickAction button:disabled{opacity:.4;cursor:default}
+.institutionalEmpty{padding:18px;font-size:13px;line-height:1.6;color:#aebec7;background:#0c151c;border:1px solid rgba(255,255,255,.10);border-radius:12px}
+.institutionalReference{display:grid;grid-template-columns:minmax(200px,.7fr) minmax(0,1.5fr);gap:26px;margin-top:26px;padding-top:24px;border-top:1px solid rgba(255,255,255,.15)}
+.institutionalReference h3{font-size:18px;margin:0 0 10px}
+.institutionalReference p{font-size:13px;line-height:1.5;color:#aac0cc;margin:0}
+.institutionalReferenceRows{display:grid;gap:8px}
+.institutionalReferenceRow{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:12px 14px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:#0e151c}
+.institutionalReferenceRow div{min-width:0}
+.institutionalReferenceRow b,.institutionalReferenceRow strong{display:block;font-size:13px;line-height:1.4;color:#f0f8fd}
+.institutionalReferenceRow small{display:block;font-size:11px;line-height:1.5;margin-top:5px;color:#a9bbc5}
+.institutionalFootnote{margin:20px 0 0;color:#9db3be;font-size:12px;line-height:1.6}
+@media(max-width:1050px){
+ .institutionalPick{grid-template-columns:minmax(220px,1fr) minmax(220px,1fr)}
+ .institutionalPickAction{grid-column:1/-1}
+ .institutionalSummary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ .institutionalDesk{padding:16px;margin:18px 0}
+ .institutionalDeskHead{flex-direction:column}
+ .institutionalDeskHead h2{font-size:25px}
+ .institutionalFeed{width:100%;text-align:center}
+ .institutionalSummary{gap:9px;margin:16px 0}
+ .institutionalSummary>div{padding:13px}
+ .institutionalSummary strong{font-size:27px}
+ .institutionalDayTabs button{flex:1;min-width:130px;padding:10px}
+ .institutionalPick{grid-template-columns:1fr;gap:15px;padding:16px}
+ .institutionalPickAction{grid-column:auto}
+ .institutionalReference{grid-template-columns:1fr;gap:12px}
+ .institutionalReferenceRow{align-items:flex-start;flex-direction:column;gap:9px}
+ .institutionalListHeading{align-items:flex-start;flex-direction:column}
+}
