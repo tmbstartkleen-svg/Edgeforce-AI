@@ -318,6 +318,13 @@ type LiveBoardResponse={
   }>;
 };
 
+type EdgeScannerApiResponse={
+  ok:boolean;
+  result?:NonNullable<LiveBoardResponse['edgeScanner']>;
+  error?:string;
+  message?:string;
+};
+
 type PortfolioApiResponse={
   source:string;
   result:{
@@ -632,6 +639,7 @@ export default function Dashboard(){
   const [releaseCertification,setReleaseCertification]=useState<ReleaseCertificationResponse|null>(null);
   const [automationHealth,setAutomationHealth]=useState<AutomationHealthResponse|null>(null);
   const [dataQuality,setDataQuality]=useState<DataQualityResponse|null>(null);
+  const [edgeScanner,setEdgeScanner]=useState<NonNullable<LiveBoardResponse['edgeScanner']>|null>(null);
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -785,6 +793,21 @@ export default function Dashboard(){
     return ()=>{mounted=false;window.clearInterval(timer)};
   },[]);
 
+  useEffect(()=>{
+    let mounted=true;
+    const load=async()=>{
+      try{
+        const res=await fetch('/api/edge-scanner',{cache:'no-store'});
+        if(!res.ok)return;
+        const json=await res.json() as EdgeScannerApiResponse;
+        if(mounted&&json.ok&&json.result)setEdgeScanner(json.result);
+      }catch{}
+    };
+    void load();
+    const timer=window.setInterval(()=>void load(),15000);
+    return ()=>{mounted=false;window.clearInterval(timer)};
+  },[]);
+
   const effectiveSport=sport==='ALL'||board.sports.includes(sport)?sport:'ALL';
   const fastestProviderLatency=useMemo(()=>{
     const values=(board.providerPanel||[]).map(x=>x.latencyMs).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0);
@@ -910,9 +933,9 @@ export default function Dashboard(){
           <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
           <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
           <div><small>Price shops</small><b>{board.consensusCoverage?.priceShopOpportunities??0}</b></div>
-          <div><small>Arbs</small><b>{board.edgeScanner?.arbitrageCount??0}</b></div>
-          <div><small>+EV</small><b>{board.edgeScanner?.positiveEvCount??0}</b></div>
-          <div><small>Sharp ref</small><b>{board.edgeScanner?.sharpReferenceGroups??0}</b></div>
+          <div><small>Arbs</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
+          <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
+          <div><small>Sharp ref</small><b>{edgeScanner?.sharpReferenceGroups??0}</b></div>
           <div><small>Stable</small><b>{board.regimeCoverage?.stable??0}</b></div>
           <div><small>Dislocated</small><b>{board.regimeCoverage?.dislocated??0}</b></div>
           <div><small>High conf</small><b>{board.regimeCoverage?.highConfidence??0}</b></div>
