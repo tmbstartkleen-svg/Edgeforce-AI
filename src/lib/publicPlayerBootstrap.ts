@@ -32,8 +32,15 @@ export type PublicPlayerBootstrapResult={
  attempts:Array<{name:string;sport:string;stage:string;detail:string}>;
 };
 
+function cleanPlayerLabel(value:string){
+ return String(value||'')
+  .replace(/\s*\([A-Z0-9 .'-]{2,8}\)\s*$/i,'')
+  .replace(/\s+/g,' ')
+  .trim();
+}
+
 function normalizeSearchName(value:string){
- const tokens=normalizePlayerName(value)
+ const tokens=normalizePlayerName(cleanPlayerLabel(value))
   .replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'')
   .split(/\s+/)
   .filter(Boolean);
@@ -227,9 +234,10 @@ function gamelogRows(payload:unknown,athlete:{id:string;name:string},spec:EspnSp
 
 async function fetchPlayer(name:string,spec:EspnSpec){
  const attempts:Array<{name:string;sport:string;stage:string;detail:string}>=[];
+ const cleanName=cleanPlayerLabel(name);
  const buildSearch=()=>{
   const url=new URL('https://site.web.api.espn.com/apis/search/v2');
-  url.searchParams.set('query',name);
+  url.searchParams.set('query',cleanName);
   url.searchParams.set('limit','10');
   url.searchParams.set('type','player');
   url.searchParams.set('region','us');
@@ -249,7 +257,7 @@ async function fetchPlayer(name:string,spec:EspnSpec){
   detail:`candidates=${candidates.length}; exact=${candidates.filter(x=>normalizeSearchName(x.name)===normalizeSearchName(name)).length}`
  });
 
- const athlete=resolveAthlete(search,name,spec);
+ const athlete=resolveAthlete(search,cleanName,spec);
  if(!athlete){
   attempts.push({name,sport:spec.edgeSport,stage:'resolve',detail:'no unique exact-name athlete match'});
   return {athlete:null,rows:[] as AnyRow[],attempts};
