@@ -33,3 +33,9 @@ test('ESPN odds rotation prioritizes sports outside PropLine free coverage',()=>
  assert.match(espn,/'nhl'/);
  assert.match(espn,/'mlb'/);
 });
+
+
+test('healthy live provider panel preserves coverage telemetry',()=>{
+ const hits=(odds.match(/acceptedMarkets:x\.markets\.length,\.\.\.coverageForMarkets\(x\.markets\)/g)||[]).length;
+ assert.ok(hits>=2,`expected coverage telemetry on failed and healthy providerPanel branches, found ${hits}`);
+});
