@@ -48,7 +48,7 @@ export default function ParlayStudio({rows,source,degraded,learned,generatedAt,o
   const top=ranked.filter(x=>x.gate.eligible).slice(0,3).map(x=>x.row.id);
   setSelected(top);
  };
- return <section className="efParlayStudio" id="parlays" aria-label="Parlay laboratory">
+ return <section className="efParlayStudio" aria-label="Parlay laboratory">
   <div className="efStudioHeading">
    <div>
     <div className="efKicker">EDGEFORCE AI / PARLAY INTELLIGENCE / V198</div>
