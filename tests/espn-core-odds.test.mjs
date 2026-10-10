@@ -120,3 +120,19 @@ test('provider prefers embedded scoreboard odds and only falls back to Core',()=
  assert.match(source,/if\(embeddedRows\.length\)/);
  assert.match(source,/for\(const offset of \[0,1\]\)/);
 });
+
+
+test('prioritizes non-PropLine coverage gaps before supplemental leagues',()=>{
+ assert.match(source,/const GAP_PRIORITY_IDS=\[/);
+ assert.match(source,/'ncaaf'/);
+ assert.match(source,/'nba'/);
+ assert.match(source,/'wnba'/);
+ assert.match(source,/'ncaam-basketball'/);
+ assert.match(source,/'mls'/);
+ assert.match(source,/'epl'/);
+ assert.match(source,/const SUPPLEMENTAL_IDS=\[/);
+ assert.match(source,/'nfl'/);
+ assert.match(source,/'nhl'/);
+ assert.match(source,/'mlb'/);
+ assert.match(source,/width===1\?1:width-1/);
+});
