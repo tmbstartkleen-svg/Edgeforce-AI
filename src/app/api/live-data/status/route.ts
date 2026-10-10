@@ -40,18 +40,25 @@ export async function GET(req:Request){
    providerDegraded:ingestion.degraded,
    targetBook:ingestion.targetBook,
    configuredOddsProviders:oddsProviders.length,
-   providerCoverage:(ingestion.providerPanel||[]).map(x=>({
-    providerId:x.providerId,
-    providerName:x.providerName,
-    bookmaker:x.bookmaker,
-    acceptedMarkets:x.acceptedMarkets,
-    sports:x.sports||[],
-    sportCounts:x.sportCounts||{},
-    playerPropRows:x.playerPropRows||0,
-    teamMarketRows:x.teamMarketRows||0,
-    qualityGrade:x.qualityGrade,
-    latencyMs:x.latencyMs
-   })),
+   providerCoverage:(ingestion.providerPanel||[]).map(x=>{
+    const attempt=(ingestion.attempts||[]).find(a=>a.providerId===x.providerId);
+    return {
+     providerId:x.providerId,
+     providerName:x.providerName,
+     bookmaker:x.bookmaker,
+     acceptedMarkets:x.acceptedMarkets,
+     sports:x.sports||[],
+     sportCounts:x.sportCounts||{},
+     playerPropRows:x.playerPropRows||0,
+     teamMarketRows:x.teamMarketRows||0,
+     qualityGrade:x.qualityGrade,
+     latencyMs:x.latencyMs,
+     ok:attempt?.ok??null,
+     skipped:attempt?.skipped??false,
+     error:attempt?.error??null,
+     circuitState:attempt?.circuitState??null
+    };
+   }),
    credentialConfigured:Boolean(process.env.THE_ODDS_API_KEY)||oddsProviders.some(x=>Boolean(x.apiKey)),
    marketCount:ingestion.markets.length,
    pulseMarketRows:pulseRows.length,
