@@ -75,9 +75,13 @@ export type EdgeScannerResult={
  };
 };
 
+type OutcomeSetKind='OVER_UNDER'|'YES_NO'|'MONEYLINE_2WAY'|'MONEYLINE_3WAY'|'SPREAD_2WAY'|'UNSUPPORTED';
+
 type GroupedQuote=EdgeScannerQuote&{
  groupKey:string;
  outcomeKey:string;
+ setKind:OutcomeSetKind;
+ scanEligible:boolean;
 };
 
 const norm=(value:string)=>normalizeConsensusText(value);
@@ -108,6 +112,15 @@ function playerBase(m:Market){
  return '';
 }
 
+function normalizedTeamOutcome(selection:string,home:string,away:string){
+ const value=norm(selection.replace(/\s+[+-]?\d+(?:\.\d+)?\s*$/,''));
+ const h=norm(home),a=norm(away);
+ if(value===h||value.includes(h)||h.includes(value))return 'home';
+ if(value===a||value.includes(a)||a.includes(value))return 'away';
+ if(/^(draw|tie|x)$/.test(value))return 'draw';
+ return value;
+}
+
 function quoteGrouping(m:Market){
  const market=canonicalConsensusMarket(m.market);
  const selection=cleanSelection(m.selection);
@@ -118,7 +131,9 @@ function quoteGrouping(m:Market){
  const start=new Date(m.startTime).toISOString();
 
  let family='';
- let outcome=norm(selection);
+ let outcome='';
+ let setKind:OutcomeSetKind='UNSUPPORTED';
+ let scanEligible=false;
 
  const ou=selection.match(/^(.*?)\s+(over|under)\s+([+-]?\d+(?:\.\d+)?)$/i);
  if(ou){
@@ -126,32 +141,70 @@ function quoteGrouping(m:Market){
   const lineValue=Math.abs(Number(ou[3]));
   family=`${base}|${lineValue}`;
   outcome=ou[2].toLowerCase();
- }else if(market==='total'){
-  family=line===undefined?'':String(Math.abs(line));
-  outcome=/under/i.test(selection)?'under':/over/i.test(selection)?'over':norm(selection);
- }else if(market==='spread'){
-  family=line===undefined?'':String(Math.abs(line));
-  outcome=norm(selection.replace(/\s+[+-]?\d+(?:\.\d+)?\s*$/,''));
- }else if(market==='moneyline'){
-  family='';
-  outcome=norm(selection);
- }else if(/^player[_\s-]/i.test(m.market)||m.playerContext?.name){
-  const base=playerBase(m);
-  const side=/\bover\b/i.test(selection)?'over':/\bunder\b/i.test(selection)?'under':/\byes\b/i.test(selection)?'yes':/\bno\b/i.test(selection)?'no':norm(selection);
-  family=`${base}|${line===undefined?'':Math.abs(line)}`;
-  outcome=side;
+  setKind='OVER_UNDER';
+  scanEligible=true;
  }else{
-  const yesNo=selection.match(/^(.*?)\s+(yes|no)$/i);
+  const yesNo=selection.match(/^(.*?)\s+(yes|no)(?:\s+[+-]?\d+(?:\.\d+)?)?$/i);
   if(yesNo){
    family=norm(yesNo[1]);
    outcome=yesNo[2].toLowerCase();
-  }else{
-   family=norm(selection);
+   setKind='YES_NO';
+   scanEligible=true;
+  }else if(market==='total'){
+   if(/\bover\b/i.test(selection)||/\bunder\b/i.test(selection)){
+    family=line===undefined?'':String(Math.abs(line));
+    outcome=/\bunder\b/i.test(selection)?'under':'over';
+    setKind='OVER_UNDER';
+    scanEligible=line!==undefined;
+   }
+  }else if(market==='spread'){
+   const side=normalizedTeamOutcome(selection,m.home,m.away);
+   family=line===undefined?'':String(Math.abs(line));
+   outcome=side;
+   setKind='SPREAD_2WAY';
+   scanEligible=line!==undefined&&(side==='home'||side==='away');
+  }else if(market==='moneyline'){
+   const side=normalizedTeamOutcome(selection,m.home,m.away);
+   family='';
+   outcome=side;
+   const soccer=/soccer|\bmls\b|\bepl\b|premier league|la liga|bundesliga|serie a|ligue 1/i.test(`${m.sport} ${m.league}`);
+   setKind=soccer?'MONEYLINE_3WAY':'MONEYLINE_2WAY';
+   scanEligible=side==='home'||side==='away'||(soccer&&side==='draw');
+  }else if(/^player[_\s-]/i.test(m.market)||m.playerContext?.name){
+   // Player markets are only safe to scan when the selection explicitly exposes both sides.
+   // A one-sided price such as "Anytime TD +2200" is NOT an arb leg by itself.
+   const side=/\bover\b/i.test(selection)?'over':/\bunder\b/i.test(selection)?'under':/\byes\b/i.test(selection)?'yes':/\bno\b/i.test(selection)?'no':'';
+   if(side){
+    const base=playerBase(m)||norm(selection.replace(/\b(over|under|yes|no)\b.*$/i,''));
+    family=`${base}|${line===undefined?'':Math.abs(line)}`;
+    outcome=side;
+    setKind=side==='yes'||side==='no'?'YES_NO':'OVER_UNDER';
+    scanEligible=true;
+   }
   }
- }
 
- const groupKey=[sport,home,away,market,family,start].join('|');
- return {groupKey,outcomeKey:outcome};
+ const groupKey=[sport,home,away,market,family,start,setKind].join('|');
+ return {groupKey,outcomeKey:outcome,setKind,scanEligible};
+}
+
+function expectedOutcomeKeys(kind:OutcomeSetKind){
+ if(kind==='OVER_UNDER')return ['over','under'];
+ if(kind==='YES_NO')return ['yes','no'];
+ if(kind==='MONEYLINE_2WAY'||kind==='SPREAD_2WAY')return ['home','away'];
+ if(kind==='MONEYLINE_3WAY')return ['home','draw','away'];
+ return [];
+}
+
+function completeOutcomeSet(rows:GroupedQuote[]){
+ if(!rows.length)return null;
+ const kind=rows[0].setKind;
+ if(kind==='UNSUPPORTED')return null;
+ if(rows.some(x=>!x.scanEligible||x.setKind!==kind))return null;
+ const expected=expectedOutcomeKeys(kind);
+ const present=new Set(rows.map(x=>x.outcomeKey));
+ if(expected.some(x=>!present.has(x)))return null;
+ if([...present].some(x=>!expected.includes(x)))return null;
+ return expected;
 }
 
 function asQuotes(markets:Market[]):GroupedQuote[]{
@@ -160,7 +213,8 @@ function asQuotes(markets:Market[]):GroupedQuote[]{
   if(!Number.isFinite(m.odds)||m.odds===0)continue;
   const book=(m.sourceBook||m.sourceProviderId||'unknown').trim();
   if(!book)continue;
-  const {groupKey,outcomeKey}=quoteGrouping(m);
+  const {groupKey,outcomeKey,setKind,scanEligible}=quoteGrouping(m);
+  if(!scanEligible||!outcomeKey)continue;
   out.push({
    marketId:m.id,
    sport:m.sport,
@@ -175,7 +229,9 @@ function asQuotes(markets:Market[]):GroupedQuote[]{
    decimal:decimalOdds(m.odds),
    impliedProbability:impliedProbability(m.odds),
    groupKey,
-   outcomeKey
+   outcomeKey,
+   setKind,
+   scanEligible
   });
  }
  return out;
@@ -209,15 +265,14 @@ function bestPerOutcome(rows:GroupedQuote[]){
 }
 
 function requiredOutcomes(rows:GroupedQuote[]){
- const market=canonicalConsensusMarket(rows[0]?.market||'');
- const sport=norm(rows[0]?.sport||'');
- if(market==='moneyline'&&/soccer|football.*eng|mls|epl/.test(sport))return 3;
- return 2;
+ const expected=completeOutcomeSet(rows);
+ return expected?.length||0;
 }
 
 function referenceProbabilities(rows:GroupedQuote[]){
- const outcomes=[...new Set(rows.map(x=>x.outcomeKey))];
- const required=requiredOutcomes(rows);
+ const outcomes=completeOutcomeSet(rows);
+ if(!outcomes)return null;
+ const required=outcomes.length;
 
  for(const sharp of SHARP_BOOKS){
   const bookRows=rows.filter(x=>norm(x.book)===sharp||norm(x.book).includes(sharp));
@@ -271,12 +326,12 @@ export function scanEdgeOpportunities(
  let consensusReferenceGroups=0;
 
  for(const [key,rows] of groups){
-  const outcomes=[...new Set(rows.map(x=>x.outcomeKey))];
-  const required=requiredOutcomes(rows);
-  if(outcomes.length<required)continue;
+  const outcomes=completeOutcomeSet(rows);
+  if(!outcomes)continue;
+  const required=outcomes.length;
 
-  const best=bestPerOutcome(rows);
-  if(best.length>=required){
+  const best=bestPerOutcome(rows).filter(x=>outcomes.includes(x.outcomeKey));
+  if(best.length===required){
    const inverse=best.map(x=>1/x.decimal);
    const sum=inverse.reduce((s,x)=>s+x,0);
    if(sum>0&&sum<.9995){
@@ -302,6 +357,7 @@ export function scanEdgeOpportunities(
   }
 
   const ref=referenceProbabilities(rows);
+  if(!ref)continue;
   if(ref.reference==='Pinnacle/sharp')sharpReferenceGroups++;
   else consensusReferenceGroups++;
 
@@ -350,7 +406,7 @@ export function scanEdgeOpportunities(
   arbitrage:arbitrage.slice(0,options.maxArbitrage??25),
   positiveEv:positiveEv.slice(0,options.maxPositiveEv??50),
   methodology:{
-   arbitrage:'best-price inverse-decimal sum across complete outcome sets',
+   arbitrage:'best-price inverse-decimal sum across validated complementary outcome sets only (Over/Under, Yes/No, 2-way ML/spread, 3-way soccer ML)',
    devig:'power-method devig with Pinnacle/sharp reference when a complete sharp market exists; multi-book consensus fallback otherwise',
    expectedValue:'fair probability versus best available market price',
    kellyFraction,
