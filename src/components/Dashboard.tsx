@@ -713,11 +713,17 @@ export default function Dashboard(){
     let mounted=true;let timer:number|undefined;let controller:AbortController|undefined;
     const load=async()=>{
       controller=new AbortController();
+      const deadline=window.setTimeout(()=>controller?.abort(),15000);
+      let nextDelay=5000;
       try{
         const res=await fetch('/api/live-scores',{cache:'no-store',signal:controller.signal});
-        if(res.ok){const liveScores=await res.json() as NonNullable<LiveBoardResponse['liveScores']>;if(mounted)setBoard(previous=>({...previous,liveScores}));}
-      }catch{}
-      if(mounted)timer=window.setTimeout(load,2000);
+        if(res.ok){
+          const liveScores=await res.json() as NonNullable<LiveBoardResponse['liveScores']>;
+          nextDelay=Math.max(500,Math.min(5000,liveScores.freshness?.recommendedUiRefreshMs??liveScores.uiRefreshMs??2000));
+          if(mounted)setBoard(previous=>({...previous,liveScores}));
+        }
+      }catch{}finally{window.clearTimeout(deadline);}
+      if(mounted)timer=window.setTimeout(load,nextDelay);
     };
     void load();return ()=>{mounted=false;controller?.abort();if(timer!==undefined)window.clearTimeout(timer);};
   },[workspace]);
