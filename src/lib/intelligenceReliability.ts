@@ -243,6 +243,7 @@ async function persistIncident(component:IntelligenceComponent,transition:Circui
 export async function runIntelligenceReliabilitySupervisor(input?:UnifiedIntelligenceCertification){
  const sql=db();
  const certification=input??await buildUnifiedIntelligenceCertification();
+ const localRuntime=(certification.environment==='local'||process.env.NODE_ENV==='development');
  if(!sql){
   return {configured:false,mode:certification.state==='BLOCKED'?'PROTECTIVE':'DEGRADED',score:.55,opened:0,recovered:0,rows:[] as ReliabilityStateRow[]};
  }
@@ -262,7 +263,16 @@ export async function runIntelligenceReliabilitySupervisor(input?:UnifiedIntelli
  const now=new Date().toISOString();
  for(const component of certification.components){
   const prior=previous.get(component.id);
-  const transition=nextCircuitTransition(prior,component);
+  const transition=
+   localRuntime&&component.id==='automation'&&!component.required&&component.state==='HEALTHY'
+    ?{
+      circuitState:'CLOSED' as const,
+      consecutiveFailures:0,
+      consecutiveHealthy:Math.max(2,(prior?.consecutiveHealthy??0)+1),
+      transition:prior?.circuitState!=='CLOSED',
+      reason:'Local development runtime exempts hosted cron automation from the production reliability gate'
+     }
+    :nextCircuitTransition(prior,component);
   if(transition.transition&&transition.circuitState==='OPEN')opened++;
   if(transition.transition&&transition.circuitState==='CLOSED')recovered++;
   const score=observedScore(component.state);
