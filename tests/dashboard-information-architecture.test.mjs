@@ -44,3 +44,12 @@ test('V187 mobile and live board surfaces preserve sports-first usability',()=>{
   assert.match(dashboard,/mobileBoardCards/);
   assert.match(dashboard,/desktopBoardTable/);
 });
+
+
+test('V188 sport navigator exposes one-tap sports and resettable filters',()=>{
+  assert.match(dashboard,/V188 SPORT NAVIGATOR/);
+  assert.match(dashboard,/sportChipRail/);
+  assert.match(dashboard,/aria-pressed=/);
+  assert.match(dashboard,/resetBoardFilters/);
+  assert.match(dashboard,/sportCounts/);
+});
