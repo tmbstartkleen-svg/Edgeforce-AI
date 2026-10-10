@@ -28,6 +28,8 @@ type Cached={
 
 let cache:Cached|null=null;
 let inFlight:Promise<Cached>|null=null;
+const sportBackoffUntil=new Map<string,number>();
+const sportLastAccepted=new Map<string,number>();
 
 const cacheMs=()=>Math.max(
   300000,
@@ -36,7 +38,7 @@ const cacheMs=()=>Math.max(
 
 const sports=()=>(
   process.env.PROPLINE_SPORTS ||
-  'football_nfl,football_ncaaf,basketball_nba,hockey_nhl,baseball_mlb,tennis'
+  'baseball_mlb,football_nfl,hockey_nhl'
 )
 .split(',')
 .map(x=>x.trim())
@@ -52,8 +54,30 @@ const eventsPerSport=()=>Math.max(
   Math.min(4,Number(process.env.PROPLINE_EVENTS_PER_SPORT||2))
 );
 
+function sportAvailableForPoll(sport:string){
+  return (sportBackoffUntil.get(sport)||0)<=Date.now();
+}
+
+function markSportCoverage(sport:string,accepted:number){
+  if(accepted>0){
+    sportLastAccepted.set(sport,accepted);
+    sportBackoffUntil.delete(sport);
+    return;
+  }
+
+  // Empty free-tier sports should not burn requests every cache cycle.
+  // MLB gets a shorter retry window because it is the known reliable tier.
+  const retryMs=sport==='baseball_mlb'
+    ? Math.max(15*60*1000,Number(process.env.PROPLINE_MLB_EMPTY_RETRY_MS||30*60*1000))
+    : Math.max(30*60*1000,Number(process.env.PROPLINE_EMPTY_SPORT_RETRY_MS||2*60*60*1000));
+
+  sportBackoffUntil.set(sport,Date.now()+retryMs);
+}
+
 function rotatingSports(){
-  const all=sports();
+  const configured=sports();
+  const available=configured.filter(sportAvailableForPoll);
+  const all=available.length?available:configured.filter(x=>x==='baseball_mlb');
   const width=Math.min(batchWidth(),all.length);
 
   if(all.length<=width)return all;
@@ -151,11 +175,18 @@ async function load(apiKey:string):Promise<Cached>{
   const started=Date.now();
   const rows:FlatRow[]=[];
   const warnings:string[]=[];
+  const configuredSports=sports();
+  const backedOff=configuredSports.filter(sport=>!sportAvailableForPoll(sport));
+  if(backedOff.length){
+    warnings.push(`PropLine coverage backoff active for: ${backedOff.join(', ')}`);
+  }
 
   const client=new PropLine(apiKey);
 
   await Promise.all(
     rotatingSports().map(async sport=>{
+
+      let acceptedForSport=0;
 
       try{
 
@@ -301,6 +332,7 @@ async function load(apiKey:string):Promise<Cached>{
                         new Date().toISOString()
                       )
                     });
+                    acceptedForSport++;
                   }
                 }
               }
@@ -319,7 +351,11 @@ async function load(apiKey:string):Promise<Cached>{
           })
         );
 
+        markSportCoverage(sport,acceptedForSport);
+
       }catch(error){
+
+        markSportCoverage(sport,0);
 
         warnings.push(
           `${sport}: ${
