@@ -669,13 +669,15 @@ export default function Dashboard(){
   const [parlaySize,setParlaySize]=useState(2);
   const [parlayBoard,setParlayBoard]=useState<ParlayBoardResponse|null>(null);
   const [lastError,setLastError]=useState('');
+  const [liveFeed,setLiveFeed]=useState<NonNullable<LiveBoardResponse['liveScores']>|null>(null);
+  const [liveFeedError,setLiveFeedError]=useState('');
   const [bankroll,setBankroll]=useState(1000);
   const [drawdownPct,setDrawdownPct]=useState(0);
   const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
   const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace==='games'||workspace==='live')return;
     let mounted=true;
     let timer:number|undefined;
     let failures=0;
@@ -694,7 +696,7 @@ export default function Dashboard(){
         }
         const json=await res.json() as LiveBoardResponse;
         failures=0;
-        if(mounted){setBoard(previous=>workspace==='live'&&previous.liveScores?{...json,liveScores:previous.liveScores}:json);setLastError(json.refreshStatus?.mode==='STALE_CACHE'?'Refresh delayed. Showing the last successful board; retrying automatically.':'');}
+        if(mounted){setBoard(json);setLastError(json.refreshStatus?.mode==='STALE_CACHE'?'Refresh delayed. Showing the last successful board; retrying automatically.':'');}
       }catch(error){
         failures++;
         nextDelay=Math.max(nextDelay,Math.min(60000,10000*2**Math.min(3,failures-1)));
@@ -717,12 +719,14 @@ export default function Dashboard(){
       let nextDelay=5000;
       try{
         const res=await fetch('/api/live-scores',{cache:'no-store',signal:controller.signal});
-        if(res.ok){
+        if(!res.ok)throw new Error(`Live scores: HTTP ${res.status}. Retrying automatically.`);
+        {
           const liveScores=await res.json() as NonNullable<LiveBoardResponse['liveScores']>;
+          if(!liveScores.ok||!Array.isArray(liveScores.games)||liveScores.sourceMode==='separate-live-score-feed')throw new Error('Live score feed is unavailable. Retrying automatically.');
           nextDelay=Math.max(500,Math.min(5000,liveScores.freshness?.recommendedUiRefreshMs??liveScores.uiRefreshMs??2000));
-          if(mounted)setBoard(previous=>({...previous,liveScores}));
+          if(mounted){setLiveFeed(liveScores);setLiveFeedError('');}
         }
-      }catch{}finally{window.clearTimeout(deadline);}
+      }catch(error){if(mounted)setLiveFeedError(error instanceof Error&&error.name!=='AbortError'?error.message:'Live score refresh timed out. Retrying automatically.');}finally{window.clearTimeout(deadline);}
       if(mounted)timer=window.setTimeout(load,nextDelay);
     };
     void load();return ()=>{mounted=false;controller?.abort();if(timer!==undefined)window.clearTimeout(timer);};
@@ -1006,14 +1010,14 @@ export default function Dashboard(){
     return {action,watch,review,parlay};
   },[boardScanLanes,rankedFiltered,parlayBoard]);
   const liveGameCenter=useMemo(()=>{
-    const games=(board.liveScores?.games||[]).filter(g=>g.status==='LIVE');
+    const games=(liveFeed?.games||[]).filter(g=>g.status==='LIVE');
     const trusted=games.filter(g=>!g.consensus?.activeConflict);
     const featured=trusted.find(g=>(g.consensus?.sourceCount??0)>1)||trusted[0]||games[0]||null;
     const conflicts=games.filter(g=>g.consensus?.activeConflict).length;
     const multiSource=games.filter(g=>(g.consensus?.sourceCount??0)>1).length;
     const leagues=new Set(games.map(g=>g.league).filter(Boolean)).size;
     return {games,featured,conflicts,multiSource,leagues};
-  },[board.liveScores]);
+  },[liveFeed]);
 
   return <main className="v21 workspaceShell">
     <a className="skipLink" href="#edge" onClick={()=>setWorkspace('board')}>Skip to today&apos;s edge</a>
@@ -1082,25 +1086,26 @@ export default function Dashboard(){
       <a href="#operator" onClick={()=>setWorkspace('operator')} className="launchFreezeAction">Operator status</a>
     </section>
 
-    {workspace!=='games'&&lastError&&<div className="v21Alert">{lastError}</div>}
-    {workspace!=='games'&&board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
-    {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
-    {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
+    {workspace!=='games'&&workspace!=='live'&&lastError&&<div className="v21Alert">{lastError}</div>}
+    {workspace!=='games'&&workspace!=='live'&&board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
+    {workspace!=='live'&&board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
+    {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     {workspace==='games'&&<GamesWorkspace/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>
-    {!board.liveScores&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{boardLoading?'Loading the live score feed…':'The live score feed is unavailable. Waiting for the next refresh.'}</p></div></section>}
-    {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
+    {liveFeedError&&<div className="v21Alert" role="alert">{liveFeedError}{liveFeed?' Showing the last received scores; they may be stale.':''}</div>}
+    {!liveFeed&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{liveFeedError?'Waiting for a successful score refresh.':'Loading the live score feed…'}</p></div></section>}
+    {liveFeed&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
       <div className="consoleHead">
-        <div><div className="eyebrow">V192 LIVE GAME CENTER</div><h3>{liveGameCenter.games.length} game{liveGameCenter.games.length===1?'':'s'} live now</h3></div>
-        <div className="consoleSource">{Math.round(board.liveScores.refreshMs/1000)}s source cache • {board.liveScores.freshness?.state||'ACTIVE'} • {Math.max(.5,(board.liveScores.freshness?.recommendedUiRefreshMs??board.liveScores.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {board.liveScores.consensus?Math.round(board.liveScores.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
+        <div><div className="eyebrow">V192 LIVE GAME CENTER</div><h3>{liveFeedError?'Last received scores':`${liveGameCenter.games.length} game${liveGameCenter.games.length===1?'':'s'} live now`}</h3></div>
+        <div className="consoleSource">{Math.round(liveFeed.refreshMs/1000)}s source cache • {liveFeedError?'STALE':liveFeed.freshness?.state||'UNKNOWN'} • {Math.max(.5,(liveFeed.freshness?.recommendedUiRefreshMs??liveFeed.uiRefreshMs??1000)/1000).toFixed(2).replace(/\.00$/,'')}s UI • {liveFeed.consensus?Math.round(liveFeed.consensus.corroborationRate*100)+'% corroborated':'consensus warming'}</div>
       </div>
       <div className="liveGamePulse" aria-label="Live game center summary">
         <div><small>LIVE</small><b>{liveGameCenter.games.length}</b></div>
         <div><small>MULTI-SOURCE</small><b>{liveGameCenter.multiSource}</b></div>
         <div><small>CONFLICTS</small><b className={liveGameCenter.conflicts?'orange':''}>{liveGameCenter.conflicts}</b></div>
         <div><small>LEAGUES</small><b>{liveGameCenter.leagues}</b></div>
-        <div><small>FEED</small><b>{board.liveScores.freshness?.state||'ACTIVE'}</b></div>
+        <div><small>FEED</small><b>{liveFeedError?'STALE':liveFeed.freshness?.state||'UNKNOWN'}</b></div>
       </div>
       {liveGameCenter.featured&&<article className={'featuredLiveGame '+(liveGameCenter.featured.consensus?.activeConflict?'conflict':'trusted')}>
         <div className="featuredLiveHead">
@@ -1120,7 +1125,7 @@ export default function Dashboard(){
         </div>
       </article>}
       <div className="liveScoreGrid compactLiveRail">
-        {liveGameCenter.games.filter(g=>g.id!==liveGameCenter.featured?.id||g.source!==liveGameCenter.featured?.source).slice(0,11).map(g=><article className={'liveScoreCard '+(g.consensus?.activeConflict?'hasConflict':'')} key={g.source+'-'+g.id}>
+        {liveGameCenter.games.filter(g=>g.id!==liveGameCenter.featured?.id||g.source!==liveGameCenter.featured?.source).map(g=><article className={'liveScoreCard '+(g.consensus?.activeConflict?'hasConflict':'')} key={g.source+'-'+g.id}>
           <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict||g.consensus?.confidence==='SINGLE_SOURCE'?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':scoreConfidenceLabel(g)}</span></div>
           <div className="liveScoreClock"><b>{g.period||'LIVE'}</b><strong>{g.clock||'—'}</strong></div>
           <div className="liveScoreTeams">
@@ -1130,7 +1135,7 @@ export default function Dashboard(){
           <div className="liveScoreMeta"><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+scoreConfidenceLabel(g)),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
         </article>)}
       </div>
-      {!liveGameCenter.games.length&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
+      {!liveGameCenter.games.length&&!liveFeedError&&<p className="emptyState">The latest score feed reports no live games. It received {liveFeed.games.length} scheduled or completed games. Last updated {new Date(liveFeed.generatedAt).toLocaleTimeString()}.</p>}
     </section>}
 
     </div>

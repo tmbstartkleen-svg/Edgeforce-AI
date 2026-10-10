@@ -246,3 +246,16 @@ test('live scoreboard fan-out stays within the invocation budget and preserves b
   assert.equal(runtime.getLiveScoreMeshSnapshot(),result);
  }finally{globalThis.fetch=original;if(limit===undefined)delete process.env.LIVE_SCORE_MAX_REQUESTS;else process.env.LIVE_SCORE_MAX_REQUESTS=limit;}
 });
+
+test('failed discovery is unavailable rather than a healthy empty scoreboard',async()=>{
+ const isolated=await import('data:text/javascript,'+encodeURIComponent(compiled.outputText+'\n// unavailable fixture'));
+ const original=globalThis.fetch;globalThis.fetch=async()=>{throw new Error('provider offline');};
+ try{const result=await isolated.fetchLiveScoreMesh();assert.equal(result.ok,false);assert.equal(result.freshness.state,'STALE');assert.equal(result.games.length,0);assert.ok(result.warnings.length>0);}
+ finally{globalThis.fetch=original;}
+});
+test('successful empty scoreboards remain a valid idle feed',async()=>{
+ const isolated=await import('data:text/javascript,'+encodeURIComponent(compiled.outputText+'\n// idle fixture'));
+ const original=globalThis.fetch;globalThis.fetch=async()=>Response.json({events:[]});
+ try{const result=await isolated.fetchLiveScoreMesh();assert.equal(result.ok,true);assert.equal(result.freshness.state,'IDLE');assert.equal(result.games.length,0);}
+ finally{globalThis.fetch=original;}
+});

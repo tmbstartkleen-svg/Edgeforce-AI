@@ -429,7 +429,8 @@ let latestMesh:Awaited<ReturnType<typeof fetchLiveScoreMesh>>|null=null;
 export function getLiveScoreMeshSnapshot(){return latestMesh&&Date.now()-Date.parse(latestMesh.generatedAt)<120000?latestMesh:null;}
 
 export async function fetchLiveScoreMesh(){
- const requestLimit=Math.max(2,Math.min(45,Number(process.env.LIVE_SCORE_MAX_REQUESTS||45)));
+ const configuredLimit=Number(process.env.LIVE_SCORE_MAX_REQUESTS||45);
+ const requestLimit=Number.isFinite(configuredLimit)?Math.max(2,Math.min(45,configuredLimit)):45;
  let requests=0;
  const budget=()=>requests<requestLimit?(requests++,true):false;
  const settled=await Promise.allSettled([
@@ -455,13 +456,15 @@ export async function fetchLiveScoreMesh(){
  const games=reconcileLiveGames(specialized,espnGames,sportScoreGames as LiveGameState[],communityGames as LiveGameState[])
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
  const freshness=evaluateLiveScoreFreshness(games);
+ const unavailable=!games.length&&!settled.some(r=>r.status==='fulfilled')&&!sportScoreGames.length&&!communityGames.length;
+ if(unavailable)freshness.state='STALE';
  const consensus=summarizeLiveScoreConsensus(games);
  const consensusWarnings=games
   .filter(x=>x.status==='LIVE'&&x.consensus?.activeConflict)
   .slice(0,8)
   .map(x=>`live score conflict ${x.away.name} @ ${x.home.name}: selected ${x.source}; ${x.consensus?.reasons.join('; ')}`);
  const result={
-  ok:true,
+  ok:!unavailable,
   generatedAt:new Date().toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   uiRefreshMs:freshness.recommendedUiRefreshMs,
