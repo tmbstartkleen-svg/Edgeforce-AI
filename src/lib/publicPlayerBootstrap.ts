@@ -87,39 +87,68 @@ async function json(url:string,ttlMs=30*60000){
  }
 }
 
+function athleteIdFromRow(row:AnyRow){
+ const direct=str(row.id||row.athleteId||row.athlete_id);
+ if(/^\d{1,12}$/.test(direct))return direct;
+ const uid=str(row.uid);
+ const uidMatch=uid.match(/(?:^|~)a:(\d{1,12})(?:~|$)/);
+ if(uidMatch)return uidMatch[1];
+ const ref=str(row.$ref||row.href||obj(row.link).web);
+ const refMatch=ref.match(/\/athletes\/(\d{1,12})(?:\/|\?|$)/);
+ return refMatch?.[1]||'';
+}
+
 function collectAthleteCandidates(payload:unknown){
- const out:Array<{id:string;name:string;type:string}>=[];
+ const out:Array<{id:string;name:string;type:string;sport:string;league:string}>=[];
  const seen=new Set<string>();
+ const root=obj(payload);
+ const playerGroups=arr(root.results)
+  .map(obj)
+  .filter(group=>str(group.type).toLowerCase()==='player');
+ const roots=playerGroups.length
+  ?playerGroups.flatMap(group=>arr(group.contents))
+  :[payload];
+
  const visit=(value:unknown)=>{
   if(Array.isArray(value)){for(const x of value)visit(x);return}
   if(!value||typeof value!=='object')return;
   const row=obj(value);
-  const id=str(row.id||row.athleteId||row.athlete_id);
+  const id=athleteIdFromRow(row);
   const athlete=obj(row.athlete);
   const name=str(
    row.displayName||row.fullName||row.name||
    athlete.displayName||athlete.fullName||athlete.name
   );
   const type=str(row.type||row.contentType||row.resultType||row.category).toLowerCase();
+  const sport=str(row.sport||obj(row.sport).name||row.description).toLowerCase();
+  const league=str(row.league||row.defaultLeagueSlug||obj(row.league).name||row.description).toLowerCase();
   if(id&&name){
    const key=id+'|'+normalizePlayerName(name);
    if(!seen.has(key)){
     seen.add(key);
-    out.push({id,name,type});
+    out.push({id,name,type,sport,league});
    }
   }
   for(const child of Object.values(row))visit(child);
  };
- visit(payload);
+ for(const rootValue of roots)visit(rootValue);
  return out;
 }
 
-function resolveAthlete(payload:unknown,name:string){
+function resolveAthlete(payload:unknown,name:string,spec:EspnSpec){
  const target=normalizePlayerName(name);
  const candidates=collectAthleteCandidates(payload);
- const exact=candidates.find(x=>normalizePlayerName(x.name)===target&&(/athlete|player/.test(x.type)||!x.type));
- if(exact)return exact;
- return candidates.find(x=>normalizePlayerName(x.name)===target)||null;
+ const exact=candidates.filter(x=>normalizePlayerName(x.name)===target);
+ if(!exact.length)return null;
+
+ const leagueNeedle=spec.league.replace('college-football','college football').toLowerCase();
+ const sportNeedle=spec.sport.toLowerCase();
+ const preferred=exact.find(x=>
+  x.league.includes(leagueNeedle)||
+  x.sport.includes(sportNeedle)||
+  /athlete|player/.test(x.type)
+ );
+ return preferred||exact[0];
 }
 
 function numericStats(names:string[],values:unknown[]){
@@ -176,18 +205,34 @@ function gamelogRows(payload:unknown,athlete:{id:string;name:string},spec:EspnSp
 }
 
 async function fetchPlayer(name:string,spec:EspnSpec){
- const searchUrl=new URL('https://site.web.api.espn.com/apis/search/v2');
- searchUrl.searchParams.set('query',name);
- searchUrl.searchParams.set('limit','6');
- searchUrl.searchParams.set('sport',spec.searchSport);
- const search=await json(searchUrl.toString(),6*3600000);
- if(!search)return {athlete:null,rows:[] as AnyRow[]};
- const athlete=resolveAthlete(search,name);
+ const buildSearch=(withSport:boolean)=>{
+  const url=new URL('https://site.web.api.espn.com/apis/search/v2');
+  url.searchParams.set('query',name);
+  url.searchParams.set('limit','8');
+  url.searchParams.set('type','player');
+  url.searchParams.set('region','us');
+  url.searchParams.set('lang','en');
+  if(withSport)url.searchParams.set('sport',spec.searchSport);
+  return url.toString();
+ };
+
+ let search=await json(buildSearch(true),6*3600000);
+ let athlete=search?resolveAthlete(search,name,spec):null;
+ if(!athlete){
+  search=await json(buildSearch(false),6*3600000);
+  athlete=search?resolveAthlete(search,name,spec):null;
+ }
  if(!athlete)return {athlete:null,rows:[] as AnyRow[]};
+
  const year=new Date().getUTCFullYear();
- const url=`https://site.web.api.espn.com/apis/common/v3/sports/${spec.sport}/${spec.league}/athletes/${encodeURIComponent(athlete.id)}/gamelog?season=${year}`;
- const gamelog=await json(url,6*3600000);
- return {athlete,rows:gamelog?gamelogRows(gamelog,athlete,spec):[]};
+ const seasons=[year,year-1];
+ for(const season of seasons){
+  const url=`https://site.web.api.espn.com/apis/common/v3/sports/${spec.sport}/${spec.league}/athletes/${encodeURIComponent(athlete.id)}/gamelog?season=${season}`;
+  const gamelog=await json(url,6*3600000);
+  const rows=gamelog?gamelogRows(gamelog,athlete,spec):[];
+  if(rows.length)return {athlete,rows};
+ }
+ return {athlete,rows:[] as AnyRow[]};
 }
 
 async function run(markets:Market[]):Promise<PublicPlayerBootstrapResult>{
