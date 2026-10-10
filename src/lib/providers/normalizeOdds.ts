@@ -28,7 +28,8 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const league=str(row.league,str(row.sportTitle,str(row.sport_title,sport)));
  const id=str(row.id,`${sport}-${index}-${startTime}`);
  const event=str(row.event,home&&away?`${away} @ ${home}`:selection);
- const pulled=str(row.pulledAt,str(row.pulled_at,receivedAt));
+ const providerTimestamp=str(row.sourceTimestamp,str(row.lastUpdatedAt,str(row.last_update,str(row.pulledAt,str(row.pulled_at,'')))));
+ const pulled=providerTimestamp||receivedAt;
  const sourceAgeMin=Math.max(0,(Date.now()-new Date(pulled).getTime())/60000);
  const rawImpliedProb=impliedProbability(odds);
  const suppliedNoVig=num(row.noVigProbability,num(row.no_vig_probability,num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,rawImpliedProb)))));
@@ -43,10 +44,10 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
   modelProb:num(row.modelProb,suppliedNoVig),
   confidence:num(row.confidence,.6),
   sourceAgeMin:Number.isFinite(sourceAgeMin)?sourceAgeMin:0,
+  ...(providerTimestamp?{sourceTimestamp:providerTimestamp}:{}),
   ...(row.liveEligible===false?{
    liveEligible:false,
    sourceDelaySeconds:Math.max(0,num(row.sourceDelaySeconds)),
-   sourceTimestamp:str(row.sourceTimestamp)||undefined,
    sourceEventId:str(row.eventId)||undefined
   }:{}),
   period:new Date(startTime).getHours()<12?'AM':'PM',
@@ -89,7 +90,10 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
      home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
      ...(playerName?{playerContext:{name:playerName,statKey:marketKey}}:{}),
-    confidence:.6,sourceAgeMin:Math.max(0,(Date.now()-new Date(str(marketObj.last_update,str(book.last_update,receivedAt))).getTime())/60000)||0,period:new Date(startTime).getHours()<12?'AM':'PM'
+    confidence:.6,
+    sourceTimestamp:str(marketObj.last_update,str(book.last_update,''))||undefined,
+    sourceAgeMin:Math.max(0,(Date.now()-new Date(str(marketObj.last_update,str(book.last_update,receivedAt))).getTime())/60000)||0,
+    period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
   }
