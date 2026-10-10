@@ -52,16 +52,44 @@ async function cachedOdds(force=false){
   const now=Date.now();
   if(!force&&oddsCache&&now-oddsCache.at<SOURCE_TTL_MS)return oddsCache.value;
 
-  const ingestion=await ingestOdds({forceLive:force});
-  const context=await enrichMarketsWithContext(ingestion.markets);
-  const previousStored=await loadContextMarketStates().catch(()=>[]);
+  const ingestion=await withTimeout(
+    ingestOdds({forceLive:force}),
+    Math.max(5000,Number(process.env.LIVE_BOARD_INGEST_TIMEOUT_MS||14000)),
+    'odds ingestion'
+  );
+
+  let context:Awaited<ReturnType<typeof enrichMarketsWithContext>>;
+  try{
+    context=await withTimeout(
+      enrichMarketsWithContext(ingestion.markets),
+      Math.max(3000,Number(process.env.LIVE_BOARD_CONTEXT_TIMEOUT_MS||7000)),
+      'context enrichment'
+    );
+  }catch(error){
+    context={
+      markets:ingestion.markets,
+      diagnostics:{
+        degraded:true,
+        fallback:'raw-odds',
+        reason:error instanceof Error?error.message:'context enrichment timed out',
+        matchedRows:0,
+        totalRows:ingestion.markets.length
+      }
+    } as Awaited<ReturnType<typeof enrichMarketsWithContext>>;
+  }
+
+  const previousStored=await withTimeout(
+    loadContextMarketStates(),
+    2000,
+    'context state load'
+  ).catch(()=>[]);
   const previous=previousStored.length?previousStored:lastContextMarkets;
   const contextChanges=detectMaterialContextChanges(previous,context.markets);
   const revision=contextRevision(context.markets);
 
   await Promise.all([
-    recordContextChanges(contextChanges).catch(()=>0),
-    saveContextMarketStates(context.markets,revision).catch(()=>0)
+    withTimeout(recordContextChanges(contextChanges),1500,'context change persistence').catch(()=>0),
+    withTimeout(saveContextMarketStates(context.markets,revision),1500,'context state persistence').catch(()=>0)
   ]);
   lastContextMarkets=context.markets;
 
@@ -91,7 +119,7 @@ export async function GET(req:Request){
   const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores,fanduelPulse]=await Promise.all([
     withTimeout(
       cachedOdds(forceRefresh),
-      Math.max(8000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||20000)),
+      Math.max(12000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||24000)),
       'live-board odds/context pipeline'
     ).catch(()=>null),
     withTimeout(
