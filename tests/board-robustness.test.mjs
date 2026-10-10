@@ -116,3 +116,12 @@ test('V183 ranking efficiency caches local priority work',()=>{
  assert.match(dashboard,/const priorityMap=useMemo/);
  assert.match(dashboard,/summarizeBoardRankDeltaMap\(rankDeltas\)/);
 });
+
+
+test('V184 review rows explain why they need attention',()=>{
+ assert.match(dashboard,/reviewReasonMap/);
+ assert.match(dashboard,/V184 REVIEW/);
+ assert.match(dashboard,/robustness fail/);
+ assert.match(dashboard,/fragile robustness/);
+ assert.match(dashboard,/priority rank down/);
+});
