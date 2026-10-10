@@ -49,3 +49,12 @@ test('V121 robustness-aware ranking is opt-in and zero-call',()=>{
  assert.match(dashboard,/Robustness-aware/);
  assert.match(dashboard,/rankedFiltered/);
 });
+
+
+test('V125 priority explainability stays local and deterministic',()=>{
+ assert.match(engine,/explanation:string\[\]/);
+ assert.match(engine,/review penalty/);
+ assert.match(engine,/robustness\.reasons\.slice\(0,2\)/);
+ assert.doesNotMatch(engine,/fetch\s*\(/);
+ assert.match(dashboard,/buildBoardPriority\(x\)\.explanation\.slice\(0,3\)/);
+});
