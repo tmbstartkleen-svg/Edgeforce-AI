@@ -33,7 +33,8 @@ test('V195 valid calibrated and fresh positive EV creates only a conditional ent
  assert.equal(result.boardHealthy,true);
  assert.equal(result.ready,1);
  assert.equal(result.today[0].status,'ENTRY_WINDOW');
- assert.ok(result.today[0].entryMinAmericanOdds>0);
+ assert.notEqual(result.today[0].entryMinAmericanOdds,0);
+ assert.ok(result.today[0].entryPriceProbability<result.today[0].fairProbability);
  assert.match(result.today[0].reasons.join(' '),/Recheck live odds/);
 });
 test('V195 degraded or stale main board never exposes entry windows',()=>{
