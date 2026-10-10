@@ -128,7 +128,7 @@ test('V184 review rows explain why they need attention',()=>{
 
 
 test('V185 operator triage consolidates local decision signals',()=>{
- assert.match(dashboard,/V185 OPERATOR TRIAGE/);
+ assert.match(dashboard,/operatorTriage/);
  assert.match(dashboard,/operatorRiskCount/);
  assert.match(dashboard,/Focus review/);
  assert.match(dashboard,/Robust only/);
