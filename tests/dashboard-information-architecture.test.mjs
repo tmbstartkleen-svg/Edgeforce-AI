@@ -62,3 +62,14 @@ test('V189 probability board renders the ranked filtered decision surface',()=>{
   assert.match(dashboard,/decisionRow/);
   assert.match(dashboard,/No qualified rows match the current ranking and review filters/);
 });
+
+
+test('V190 market command bar exposes presets and collapsible advanced filters',()=>{
+  assert.match(dashboard,/V190 MARKET COMMAND BAR/);
+  assert.match(dashboard,/applyBoardPreset/);
+  assert.match(dashboard,/marketChipRail/);
+  assert.match(dashboard,/advancedBoardFilters/);
+  assert.match(dashboard,/High Sim/);
+  assert.match(dashboard,/Robust/);
+  assert.match(dashboard,/Review/);
+});
