@@ -1241,7 +1241,7 @@ export default function Dashboard(){
         </div>)}
       </div>:<div className="connectState">
         <b>Prediction-market adapter is ready.</b>
-        <p>Set PREDICTION_PROVIDER_PRIMARY_URL and its key in Vercel to populate this section. Matched contracts above the configured volume threshold are eligible for model-vs-market edge.</p>
+        <p>Configure PREDICTION_PROVIDER_PRIMARY_URL and its key in the production environment to populate this section. Matched contracts above the configured volume threshold are eligible for model-vs-market edge.</p>
       </div>}
     </section>
 
