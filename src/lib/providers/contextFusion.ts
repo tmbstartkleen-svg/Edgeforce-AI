@@ -264,6 +264,9 @@ export async function enrichMarketsWithContext(markets:Market[]){
   diagnostics:{
    matchedRows,
    totalRows:markets.length,
+   playerIdentityRows:markets.filter(x=>Boolean(x.playerContext?.name)).length,
+   playerProjectionRows:finalMarkets.filter(x=>Number.isFinite(Number(x.playerContext?.projection))).length,
+   playerAvailabilityRows:finalMarkets.filter(x=>x.playerContext?.availability!==undefined||Boolean(x.playerContext?.status)).length,
    qualitySummary,
    premiumData:premium.diagnostics,
    playerWarehouse:{matchedRows:historical.matched,players:historical.players},
