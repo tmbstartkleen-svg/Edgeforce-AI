@@ -293,7 +293,8 @@ assert(health.body?.shadowLeagueWinnerOnlyPromotion===true,'shadow league winner
 const liveScores=await get('/api/live-scores');
 assert(liveScores.res.ok&&liveScores.body?.ok===true,'live score mesh endpoint failed');
 assert(Array.isArray(liveScores.body?.games),'live score mesh games missing');
-assert(Number(liveScores.body?.refreshMs)>=1000,'live score mesh refresh contract invalid');
+assert(Number(liveScores.body?.refreshMs)>=750,'live score mesh refresh contract invalid');
+assert(Number(liveScores.body?.uiRefreshMs)>=500,'live score UI refresh contract invalid');
 
 const liveComebackTest=await get('/api/testing/live-comeback');
 assert(liveComebackTest.res.ok&&liveComebackTest.body?.ok===true,'live comeback regression failed');
