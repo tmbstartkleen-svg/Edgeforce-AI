@@ -1264,3 +1264,166 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .v21 .providerFailureDetails summary{cursor:pointer;font-size:13px;font-weight:750}
 .v21 .providerFailureDetails div{padding:7px 0;border-top:1px solid rgba(255,255,255,.10);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 .v21 .providerFailureDetails div:first-of-type{margin-top:9px}
+
+
+/* V198 EdgeForce institutional sports design system */
+.v21 .efHeaderAccent{color:#a8ff7a}
+.v21.workspaceShell{--ef-premium-bg:#090f17;--ef-premium-panel:#101b27;--ef-premium-line:#273949;--ef-premium-text:#f2f7fc;color:var(--ef-premium-text)}
+.v21Top{background:linear-gradient(115deg,rgba(11,21,32,.97),rgba(12,17,25,.93))!important;border-color:#304253!important}
+.v21Top h1{font-size:clamp(23px,2.5vw,31px)!important;letter-spacing:-.035em}
+.v21Top p{font-size:14px!important;line-height:1.65!important;color:#c3d2df}
+.workspaceSidebar{background:linear-gradient(185deg,#101a26,#0c121c)!important;border:1px solid #283948!important;border-radius:18px!important;padding:20px 15px!important}
+.workspaceSidebar .workspaceBrand{font-size:21px!important;font-weight:900!important;letter-spacing:.035em}
+.workspaceSidebar .workspaceBrand span{display:block;font-size:12px!important;font-weight:650;letter-spacing:.04em;color:#90a9bd;margin:5px 0 12px}
+.workspaceSidebar a{min-height:43px;display:flex!important;align-items:center;line-height:1.4!important;font-size:14px!important;font-weight:680;padding:11px 13px!important;border-radius:11px!important;color:#c7d9e5;letter-spacing:0!important}
+.workspaceSidebar a[aria-current="page"]{background:linear-gradient(90deg,rgba(169,255,119,.18),rgba(31,66,58,.3))!important;border:1px solid rgba(169,255,119,.37)!important;color:#e8ffe1!important}
+.workspaceSidebar a:hover{background:rgba(91,151,166,.13);color:#fff}
+.workspaceSidebar .workspaceNavLabel{display:block;margin:20px 9px 9px!important;color:#88a9ba;font-size:11px!important;letter-spacing:.12em!important}
+.efKicker{font-size:11px;font-weight:850;letter-spacing:.12em;line-height:1.5;color:#a5ff7c;text-transform:uppercase}
+.efCommandCenter,.efParlayStudio{color:#eff6fd;min-width:0}
+.efCommandCenter h2,.efParlayStudio h2{font-size:clamp(28px,3.1vw,42px);font-weight:860;letter-spacing:-.035em;line-height:1.15;margin:9px 0 12px}
+.efCommandCenter h3,.efParlayStudio h3{font-size:18px;letter-spacing:-.015em;margin:5px 0}
+.efCommandCenter p,.efParlayStudio p{font-size:14px;line-height:1.65;color:#b2c7d5}
+.efCommandHero{background:linear-gradient(111deg,#172b34 0%,#102031 47%,#0b151f 100%);border:1px solid #3a5960;border-radius:22px;padding:clamp(20px,2.5vw,32px);display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.9fr);gap:26px;margin:14px 0 16px}
+.efCommandHero h2{font-size:clamp(34px,4vw,54px);max-width:720px}
+.efCommandHero h2 em{font-style:normal;color:#b6ff7c}
+.efCommandHero p{max-width:690px;font-size:15px}
+.efCommandActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:23px}
+.efCommandActions button,.efCoverageStrip>button{display:inline-flex;align-items:center;justify-content:space-between;gap:20px;min-height:48px;padding:12px 19px;border:1px solid #abed86;border-radius:12px;background:#a7ec79;color:#102214;font-size:14px;font-weight:820;cursor:pointer}
+.efCommandActions button+button{color:#e2f2fa;border-color:#577d8d;background:rgba(68,106,123,.19)}
+.efCommandFeature{background:rgba(6,15,23,.65);border:1px solid #36545b;border-radius:17px;padding:23px;display:flex;flex-direction:column;justify-content:center}
+.efCommandFeature>span{font-size:12px;font-weight:830;color:#9ac0d0;letter-spacing:.08em}
+.efCommandFeature strong{font-size:clamp(20px,2vw,26px);line-height:1.2;color:#f5fafc;margin-top:16px}
+.efCommandFeature p{font-size:13px;margin:10px 0}
+.efCommandFeature small{font-size:12px;color:#b6cbd2;line-height:1.6;margin-top:14px}
+.efPulseRail{height:7px;background:#223748;border-radius:20px;overflow:hidden}
+.efPulseRail span{display:block;height:100%;border-radius:20px;background:#acff78}
+.efCommandStats,.efStudioSummary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0 21px}
+.efCommandStats article,.efStudioSummary>div{min-width:0;padding:20px;border:1px solid #2d4052;border-radius:15px;background:linear-gradient(150deg,#121f2d,#101923);display:flex;flex-direction:column;gap:6px}
+.efCommandStats small,.efStudioSummary small{color:#b1cad6;font-size:12px;font-weight:720}
+.efCommandStats b,.efStudioSummary strong{font-size:32px;color:#f3faff;line-height:1.3;font-variant-numeric:tabular-nums}
+.efStudioSummary em{font-size:16px;font-weight:500;color:#9ab0c0;font-style:normal}
+.efCommandStats span,.efStudioSummary span{color:#8faabc;font-size:12px;line-height:1.45}
+.efCommandGrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+.efCommandPanel,.efCoverageStrip{border:1px solid #2a3c4a;background:#111c29;border-radius:18px;padding:22px;min-width:0}
+.efPanelHead,.efSectionTitle{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.efPanelHead>button,.efSubtleButton,.efShowMore{border:1px solid #47606b;background:rgba(255,255,255,.035);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:720;color:#d9edfb;cursor:pointer}
+.efCommandTable{display:flex;flex-direction:column;gap:9px}
+.efCommandRow,.efWatchRow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(90px,.55fr) minmax(90px,.65fr) auto;align-items:center;gap:12px;border:1px solid #293c4b;border-radius:12px;background:#0a1521;padding:12px}
+.efCommandRow b,.efWatchRow b{display:block;font-size:14px;line-height:1.4;color:#f4f8fc}
+.efCommandRow small,.efWatchRow small{display:block;font-size:11px;color:#9db6c6;line-height:1.5;margin-top:5px}
+.efCommandRow strong,.efWatchRow strong{font-size:13px;font-variant-numeric:tabular-nums}
+.efWatchRow{grid-template-columns:minmax(0,1.6fr) minmax(85px,.5fr) auto}
+.efCommandNotice{padding:13px 14px;background:rgba(253,190,94,.07);border:1px solid rgba(253,190,94,.3);border-radius:10px;color:#f3d1a6!important}
+.efQuality{white-space:nowrap;font-size:10px;font-weight:860;letter-spacing:.045em;padding:6px 8px;border:1px solid #405364;border-radius:7px;text-align:center}
+.efQuality.positive{border-color:rgba(177,255,118,.44);color:#c5ff9a;background:rgba(171,255,123,.075)}
+.efQuality.muted{color:#efce8d;border-color:rgba(253,194,101,.25);background:rgba(253,194,101,.045)}
+.efCoverageStrip{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:14px}
+.efCoverageStrip>div:first-child{flex:1 1 220px}
+.efCoverageStrip p{margin:6px 0 0;font-size:12px}
+.efSportsCoverage{display:flex;flex:2 1 280px;flex-wrap:wrap;gap:8px}
+.efSportsCoverage span{padding:9px 12px;border-radius:9px;background:#172939;border:1px solid #344859;color:#b6cbda;font-size:12px}
+.efSportsCoverage b{color:#fff;margin-right:5px}
+.efCoverageStrip>button{background:rgba(173,238,142,.08);border-color:#59775d;color:#c4faa6;min-height:43px}
+.efStudioHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;background:linear-gradient(115deg,#142736,#0c1724);border:1px solid #355166;border-radius:20px;padding:26px;margin-top:13px}
+.efStudioHeading>div:first-child{max-width:720px}
+.efStudioHeading h2 span{color:#a0bbca;font-size:.48em;letter-spacing:0;margin-left:9px;vertical-align:middle;font-weight:600}
+.efStudioHeading p{margin:5px 0 0}
+.efStudioStatus{min-width:225px;max-width:290px;display:flex;flex-direction:column;gap:7px;padding:15px;border-radius:13px;border:1px solid rgba(242,188,104,.3);background:rgba(242,188,104,.055);color:#ffdba4}
+.efStudioStatus.isGood{border-color:rgba(174,255,127,.32);color:#c5ff98;background:rgba(174,255,127,.065)}
+.efStudioStatus b{font-size:12px;letter-spacing:.02em;line-height:1.45}
+.efStudioStatus small{font-size:11px;line-height:1.6;color:#afc0cb}
+.efStatusDot{height:8px;width:8px;background:currentColor;border-radius:50%;box-shadow:0 0 12px currentColor}
+.efStudioLayout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(285px,.8fr);align-items:start;gap:17px}
+.efStudioPool,.efSlipPanel{min-width:0;border:1px solid #2c4255;border-radius:18px;background:#111d29;padding:20px}
+.efSectionTitle h3,.efSlipPanel h3{font-size:22px}
+.efSectionTitle p{margin:4px 0 0;font-size:12px}
+.efStrategyPicker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}
+.efStrategyPicker button{background:#152638;border:1px solid #364b5c;border-radius:9px;padding:11px 13px;color:#c4d9e7;font-size:13px;font-weight:710;min-height:43px;cursor:pointer}
+.efStrategyPicker button[aria-pressed=true]{background:rgba(169,255,119,.11);border-color:#90c66a;color:#d6ffc2}
+.efPoolFilters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:14px}
+.efPoolFilters label{display:flex;flex-direction:column;gap:7px;color:#a9c2d0;font-size:12px;font-weight:700;flex:1 1 120px}
+.efPoolFilters select{width:100%;min-height:43px;padding:8px 10px;color:#f0f7fc;background:#122234;border:1px solid #3f576a;border-radius:9px;font-size:14px}
+.efPoolFilters .efSubtleButton{min-height:43px}
+.efPoolList{display:flex;flex-direction:column;gap:9px}
+.efPoolRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;border:1px solid #2c4050;background:#0c1723;border-radius:13px;padding:15px;min-width:0}
+.efPoolRow.isSelected{border-color:#80aa67;background:#152728}
+.efRowTop{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;font-weight:750;color:#9ac9db;letter-spacing:.035em}
+.efRowTop small{color:#8fa8b9;font-size:11px}
+.efPoolRow h4{font-size:17px;color:#f0f8ff;margin:9px 0 4px}
+.efPoolRow p{font-size:12px;color:#a7becd;margin:0 0 10px}
+.efRowMeta{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#d1e2ec}
+.efRowMeta span+span{border-left:1px solid #354f5d;padding-left:11px}
+.efPoolRowActions{min-width:106px;display:flex;align-items:stretch;flex-direction:column;gap:8px;text-align:center}
+.efPoolRowActions>b{font-size:23px;font-variant-numeric:tabular-nums}
+.efPoolRowActions>b small{font-size:11px;color:#9cb4c2;font-weight:500}
+.efPoolRowActions button{min-height:39px;padding:8px 10px;border-radius:9px;border:1px solid #87c36e;background:#b1ec91;color:#132916;font-weight:820;font-size:12px;cursor:pointer}
+.efPoolRowActions button:disabled,.efSubtleButton:disabled{opacity:.38;cursor:not-allowed}
+.efPoolRowActions .efLinkButton{background:transparent;border-color:#37596b;color:#c1daee;font-weight:700}
+.efShowMore{width:100%;margin-top:13px;min-height:44px}
+.efSlipPanel{position:sticky;top:110px;background:linear-gradient(145deg,#142332,#0c1825);border-color:#395565}
+.efSlipHeader{display:flex;justify-content:space-between;gap:12px;align-items:center;padding-bottom:15px;border-bottom:1px solid #375060}
+.efSlipHeader h3{margin-top:6px}
+.efSlipCount{background:rgba(173,255,119,.10);border:1px solid rgba(173,255,119,.35);color:#d0ffb4;border-radius:9px;font-size:12px;font-weight:820;padding:8px 10px;white-space:nowrap}
+.efSlipLegs{display:grid;gap:9px;margin:16px 0}
+.efSlipLeg{display:flex;align-items:center;gap:10px;background:#0b1723;padding:11px;border:1px solid #364b59;border-radius:9px}
+.efSlipLeg>span{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;color:#b4fa95;border:1px solid #5e895b;font-size:12px;flex-shrink:0}
+.efSlipLeg>div{flex:1;min-width:0}
+.efSlipLeg b{font-size:13px;display:block;color:#f4f9fd}
+.efSlipLeg small{font-size:11px;line-height:1.4;color:#a6beca}
+.efSlipLeg button{font-size:21px;width:30px;height:30px;background:transparent;color:#cadde9;border:1px solid #435866;border-radius:8px;cursor:pointer}
+.efSlipAlert{border:1px solid #8a6345;background:rgba(224,144,63,.09);border-radius:11px;padding:13px;margin-top:15px}
+.efSlipAlert b{font-size:13px;color:#f4d09a}
+.efSlipAlert p{font-size:12px;margin:5px 0;color:#e3c7a7}
+.efSlipMetrics{border-top:1px solid #344959;padding-top:13px}
+.efMajorMetric small{color:#b2c8d4;font-size:12px;display:block}
+.efMajorMetric strong{display:block;font-size:41px;color:#c5ff9b;line-height:1.25;font-variant-numeric:tabular-nums}
+.efMajorMetric span{color:#bbd0db;font-size:12px}
+.efSlipMetricGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0}
+.efSlipMetricGrid>div{padding:11px;background:#112436;border:1px solid #304759;border-radius:9px;min-width:0}
+.efSlipMetricGrid small{display:block;color:#a4bccd;font-size:11px;line-height:1.4}
+.efSlipMetricGrid b{font-size:17px;color:#f2faff;display:block;margin-top:7px;overflow-wrap:anywhere}
+.efQuoteNote{font-size:12px;line-height:1.6;color:#bdd2da;margin:10px 0}
+.efSlipDecision{border:1px solid #486855;background:rgba(127,188,104,.065);border-radius:11px;padding:15px;margin-top:19px}
+.efSlipDecision b{font-size:12px;letter-spacing:.06em;color:#c8edb7}
+.efSlipDecision p{font-size:12px;margin:5px 0 0}
+.efModelDetails{border:1px solid #385065;padding:9px 12px;border-radius:10px;margin-top:14px}
+.efModelDetails summary,.efLegacyParlay summary{cursor:pointer;color:#c8dce8;font-size:13px;font-weight:770;line-height:1.5}
+.efModelDetails p{margin:8px 0;color:#c9ae89;font-size:12px}
+.efFootnote{color:#93aabb!important;font-size:11px!important}
+.efEmpty{font-size:13px;line-height:1.65;color:#afc5d4;background:#0c1a28;border:1px solid #304759;border-radius:11px;padding:17px}
+.efLegacyParlay{margin:20px 0;border:1px solid #30485a;background:#0c1723;border-radius:15px;padding:16px}
+.efLegacyParlay[open]>summary{margin-bottom:14px}
+@media(max-width:1230px){
+ .efCommandGrid{grid-template-columns:1fr}
+ .efStudioLayout{grid-template-columns:minmax(0,1fr) minmax(265px,.8fr)}
+ .efCommandRow{grid-template-columns:minmax(0,1.2fr) repeat(2,minmax(70px,.5fr)) auto}
+}
+@media(max-width:950px){
+ .efCommandHero{grid-template-columns:1fr}
+ .efStudioLayout{grid-template-columns:1fr}
+ .efSlipPanel{position:static}
+ .efCommandStats,.efStudioSummary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+ .efCommandHero,.efStudioHeading{padding:17px;border-radius:15px}
+ .efStudioHeading{flex-direction:column}
+ .efStudioStatus{min-width:0;max-width:none;width:100%}
+ .efCommandHero h2{font-size:35px}
+ .efStudioHeading h2 span{display:block;margin:4px 0 0;font-size:16px}
+ .efCommandStats article,.efStudioSummary>div{padding:13px}
+ .efCommandStats b,.efStudioSummary strong{font-size:27px}
+ .efCommandPanel,.efStudioPool,.efSlipPanel{padding:14px}
+ .efCommandRow,.efWatchRow{grid-template-columns:minmax(0,1fr) minmax(80px,.45fr);gap:10px}
+ .efCommandRow .efQuality,.efWatchRow .efQuality{grid-column:1/-1;justify-self:start}
+ .efCommandRow>div:nth-child(3){display:none}
+ .efPoolRow{grid-template-columns:1fr}
+ .efPoolRowActions{display:grid;grid-template-columns:1fr 1fr;align-items:center}
+ .efPoolRowActions .efQuality{grid-column:1}
+ .efPoolRowActions>b{grid-column:2}
+ .efPoolFilters .efSubtleButton{flex:1}
+ .efSectionTitle{align-items:flex-start}
+ .efSectionTitle h3{font-size:20px}
+ .efCommandActions button{flex:1 1 180px}
+ .efCommandFeature{padding:16px}
+}
