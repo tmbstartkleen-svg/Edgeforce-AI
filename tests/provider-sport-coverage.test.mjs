@@ -6,6 +6,7 @@ const odds=readFileSync(new URL('../src/lib/providers/odds.ts',import.meta.url),
 const status=readFileSync(new URL('../src/app/api/live-data/status/route.ts',import.meta.url),'utf8');
 const espn=readFileSync(new URL('../src/lib/providers/espnCoreOdds.ts',import.meta.url),'utf8');
 const propLine=readFileSync(new URL('../src/lib/providers/propLine.ts',import.meta.url),'utf8');
+const oddsApi2=readFileSync(new URL('../src/lib/providers/oddsApi2.ts',import.meta.url),'utf8');
 
 test('provider coverage telemetry includes sports and market mix',()=>{
  assert.match(odds,/sports:string\[\]/);
@@ -38,4 +39,14 @@ test('ESPN odds rotation prioritizes sports outside PropLine free coverage',()=>
 test('healthy live provider panel preserves coverage telemetry',()=>{
  const hits=(odds.match(/acceptedMarkets:x\.markets\.length,\.\.\.coverageForMarkets\(x\.markets\)/g)||[]).length;
  assert.ok(hits>=2,`expected coverage telemetry on failed and healthy providerPanel branches, found ${hits}`);
+});
+
+
+test('Odds API 2 discovers accessible free-tier sports and uses current sport keys',()=>{
+ assert.match(oddsApi2,/'basketball_nba,baseball_mlb,americanfootball_nfl'/);
+ assert.match(oddsApi2,/async function accessibleSports/);
+ assert.match(oddsApi2,/\`\$\{baseUrl\(\)\}\/sports\//);
+ assert.match(oddsApi2,/accessible\.has\(key\)/);
+ assert.match(oddsApi2,/oddsFormat/);
+ assert.match(oddsApi2,/regions/);
 });
