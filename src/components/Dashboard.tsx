@@ -33,7 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
-import {buildBoardPriority,buildBoardRobustness,summarizeBoardRobustness} from '@/lib/boardRobustness';
+import {buildBoardPriority,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -857,6 +857,7 @@ export default function Dashboard(){
   }),[rawFiltered,robustnessFilter,robustnessMap]);
 
   const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
+  const rankDeltas=useMemo(()=>buildBoardRankDeltas(filtered),[filtered]);
   const rankedFiltered=useMemo(()=>[...filtered].sort((a,b)=>rankingMode==='PRIORITY'
     ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
     :b.simProbability-a.simProbability),[filtered,rankingMode]);
@@ -1094,7 +1095,7 @@ export default function Dashboard(){
                 <small>{x.sport} • {x.event} • {x.market}</small>
               </div>
               <div className="edgeMetric"><strong>{fmtPct(rankingMode==='PRIORITY'?buildBoardPriority(x).score:x.simProbability)}</strong><small>{rankingMode==='PRIORITY'?'PRIORITY':'SIM'}</small></div>
-              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small>{rankingMode==='PRIORITY'&&<small>{buildBoardPriority(x).explanation.slice(0,3).join(' • ')}</small>}</div>
+              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small>{rankingMode==='PRIORITY'&&<small>{buildBoardPriority(x).explanation.slice(0,3).join(' • ')}</small>}{rankingMode==='PRIORITY'&&rankDeltas.get(x.id)&&<small>V126 {rankDeltas.get(x.id)?.label} • {rankDeltas.get(x.id)?.delta===0?'same rank':`${Math.abs(rankDeltas.get(x.id)?.delta||0)} place${Math.abs(rankDeltas.get(x.id)?.delta||0)===1?'':'s'} ${(rankDeltas.get(x.id)?.delta||0)>0?'up':'down'}`}</small>}</div>
             </button>)}
             {!filtered.length&&<div className="edgeEmpty">No qualified simulation rows under the current filters.</div>}
           </div>
