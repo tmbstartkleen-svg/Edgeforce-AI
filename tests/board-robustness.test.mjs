@@ -68,3 +68,14 @@ test('V126 ranking divergence compares priority and simulation locally',()=>{
  assert.match(dashboard,/V126/);
  assert.match(dashboard,/place/);
 });
+
+
+test('V127 divergence summary stays local and zero-call',()=>{
+ assert.match(engine,/summarizeBoardRankDeltas/);
+ assert.match(engine,/upgraded/);
+ assert.match(engine,/downgraded/);
+ assert.match(engine,/stable/);
+ assert.doesNotMatch(engine,/fetch\s*\(/);
+ assert.match(dashboard,/V127 DIVERGENCE/);
+ assert.match(dashboard,/rankDeltaSummary/);
+});

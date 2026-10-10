@@ -142,6 +142,17 @@ export function buildBoardRankDeltas(rows:Scanned[]){
  }));
 }
 
+export function summarizeBoardRankDeltas(rows:Scanned[]){
+ const deltas=buildBoardRankDeltas(rows);
+ let upgraded=0,downgraded=0,stable=0;
+ for(const value of deltas.values()){
+  if(value.label==='UPGRADED')upgraded++;
+  else if(value.label==='DOWNGRADED')downgraded++;
+  else stable++;
+ }
+ return {total:rows.length,upgraded,downgraded,stable,zeroExtraProviderRequests:true};
+}
+
 export function summarizeBoardRobustness(rows:Scanned[]){
  const results=rows.map(buildBoardRobustness);
  const count=(classification:BoardRobustnessClass)=>results.filter(x=>x.classification===classification).length;
