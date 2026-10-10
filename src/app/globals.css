@@ -1254,3 +1254,6 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
  .institutionalReferenceRow{align-items:flex-start;flex-direction:column;gap:9px}
  .institutionalListHeading{align-items:flex-start;flex-direction:column}
 }
+
+/* EDGEFORCE V196 MARKET TRUTH */
+.institutionalIntegrity{margin-top:14px!important;padding:12px;border:1px solid rgba(111,220,255,.20);border-radius:11px;background:rgba(111,220,255,.05);font-size:12px!important;line-height:1.7!important;color:#b7d2df!important}

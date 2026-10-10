@@ -63,7 +63,7 @@ test('V195 unknown or stale quote cannot be promoted to an entry',()=>{
  }
 });
 test('V195 exchange quotes require fee-adjustment and contract match evidence',()=>{
- const exchange={venue:'Kalshi',type:'PREDICTION_EXCHANGE',marketProbability:.45,expectedValue:.18,feeAdjusted:false};
+ const exchange={venue:'Kalshi',type:'PREDICTION_EXCHANGE',marketProbability:.45,expectedValue:.18,feeAdjusted:false,quoteTimestamp:'2026-10-10T15:59:30Z'};
  let result=make([liveQuote({bestExecutionVenue:exchange,bestPredictionVenue:{status:'MATCHED'}})]);
  assert.equal(result.ready,0);
  result=make([liveQuote({bestExecutionVenue:{...exchange,feeAdjusted:true},bestPredictionVenue:{status:'NO_MATCH'}})]);
@@ -111,4 +111,25 @@ test('V195 negative estimated returns produce PASS rather than a positive trade 
  })]);
  assert.equal(result.ready,0);
  assert.equal(result.today[0].status,'PASS');
+});
+
+test('V196 executable sportsbook American odds override optimistic reference probability',()=>{
+ const result=make([liveQuote({
+  odds:-250,marketProb:.40,simProbability:.63,simCi:[.58,.68],
+  bestExecutionVenue:{venue:'Book A',type:'SPORTSBOOK',americanOdds:-250,
+   marketProbability:.40,expectedValue:.20,feeAdjusted:true}
+ })]);
+ assert.equal(result.ready,0);
+ assert.equal(result.today[0].status,'PASS');
+ assert.ok(result.today[0].marketProbability>.71);
+ assert.ok(result.today[0].expectedValue<0);
+});
+test('V196 prediction exchanges without an independently dated quote cannot open entries',()=>{
+ const result=make([liveQuote({
+  bestExecutionVenue:{venue:'Kalshi',type:'PREDICTION_EXCHANGE',
+   marketProbability:.45,expectedValue:.20,feeAdjusted:true},
+  bestPredictionVenue:{status:'MATCHED'}
+ })]);
+ assert.equal(result.ready,0);
+ assert.match(result.today[0].flags.join(' '),/Exchange execution quote timestamp/);
 });

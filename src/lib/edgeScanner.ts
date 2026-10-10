@@ -36,6 +36,7 @@ export type PositiveEvOpportunity={
  expectedValue:number;
  fullKelly:number;
  fractionalKelly:number;
+ quoteTimestamp:string;
  reference:string;
  referenceBooks:string[];
 };
@@ -44,6 +45,10 @@ export type EdgeScannerResult={
  generatedAt:string;
  quoteCount:number;
  groupCount:number;
+ rejectedUnverifiedQuotes:number;
+ rejectedStaleQuotes:number;
+ rejectedExpiredQuotes:number;
+ maxQuoteAgeMinutes:number;
  arbitrageCount:number;
  positiveEvCount:number;
  sharpReferenceGroups:number;
@@ -61,6 +66,8 @@ export type EdgeScannerResult={
   expectedValue:string;
   kellyFraction:number;
   extraProviderRequests:number;
+  quoteIntegrity:string;
+  independentReference:string;
   playerProps:string;
  };
 };
@@ -82,6 +89,9 @@ type Quote={
  groupKey:string;
  outcomeKey:string;
  kind:MarketKind;
+ line?:number;
+ quoteTimestamp?:string;
+ sourceAgeMin:number;
 };
 
 const SHARP_BOOKS=['pinnacle','circa','bookmaker','bookmaker.eu'];
@@ -145,7 +155,7 @@ function teamSide(selection:string,home:string,away:string){
 }
 
 function parseQuote(m:Market):Quote|null{
- if(!m||!Number.isFinite(m.odds)||m.odds===0)return null;
+ if(!m||!Number.isFinite(m.odds)||Math.abs(m.odds)<100)return null;
  if(!m.sport||!m.event||!m.market||!m.selection||!m.startTime)return null;
 
  const date=new Date(m.startTime);
@@ -173,7 +183,7 @@ function parseQuote(m:Market):Quote|null{
  }else if(kind==='SPREAD_2WAY'){
   outcomeKey=teamSide(selection,m.home,m.away);
   if((outcomeKey!=='home'&&outcomeKey!=='away')||line===undefined)return null;
-  family=String(Math.abs(line));
+  family=String(outcomeKey==='home'?line:-line);
  }else{
   outcomeKey=teamSide(selection,m.home,m.away);
   if(kind==='MONEYLINE_2WAY'&&outcomeKey!=='home'&&outcomeKey!=='away')return null;
@@ -203,7 +213,10 @@ function parseQuote(m:Market):Quote|null{
   impliedProbability:impliedProbability(m.odds),
   groupKey,
   outcomeKey,
-  kind
+  kind,
+  line,
+  quoteTimestamp:m.sourceTimestamp,
+  sourceAgeMin:m.sourceAgeMin
  };
 }
 
@@ -263,18 +276,26 @@ function sharpReference(rows:Quote[],expected:string[]){
 }
 
 function consensusReference(rows:Quote[],expected:string[]){
- const books=new Set(rows.map(x=>norm(x.book)).filter(Boolean));
- if(books.size<2)return null;
-
- const raw=expected.map(outcome=>{
-  const selected=rows.filter(x=>x.outcomeKey===outcome);
-  return selected.reduce((s,x)=>s+x.impliedProbability,0)/Math.max(1,selected.length);
- });
- const fair=powerDevig(raw);
+ // Every reference sportsbook must provide a full complementary outcome set.
+ // Mixing a home quote from one book with an away quote from another is not a true line.
+ const perBook=new Map<string,Quote[]>();
+ for(const row of rows){
+  const key=norm(row.book);
+  if(!key||key==='unknown')continue;
+  const group=perBook.get(key)||[];
+  group.push(row);
+  perBook.set(key,group);
+ }
+ const complete=[...perBook.values()]
+  .map(group=>({group,selected:bestPerOutcome(group,expected)}))
+  .filter(x=>x.selected.length===expected.length);
+ if(complete.length<2)return null;
+ const perBookFair=complete.map(x=>powerDevig(x.selected.map(q=>q.impliedProbability)));
+ const fair=expected.map((_,index)=>perBookFair.reduce((sum,vector)=>sum+vector[index],0)/perBookFair.length);
  return {
   probabilities:new Map(expected.map((key,i)=>[key,fair[i]])),
-  reference:'multi-book consensus',
-  books:[...new Set(rows.map(x=>x.book))]
+  reference:'independent multi-book consensus',
+  books:complete.map(x=>x.group[0].book)
  };
 }
 
@@ -282,12 +303,28 @@ export function scanEdgeOpportunities(
  panelMarkets:Market[],
  options:{kellyFraction?:number;minEv?:number;maxArbitrage?:number;maxPositiveEv?:number}={}
 ):EdgeScannerResult{
- const kellyFraction=clamp(options.kellyFraction??.25,.01,1);
- const minEv=Math.max(0,options.minEv??.01);
- const maxArbRoi=clamp(Number(process.env.EDGE_SCANNER_MAX_ARB_ROI||.15),.01,.50);
- const maxEv=clamp(Number(process.env.EDGE_SCANNER_MAX_EV||.35),.05,1);
-
- const quotes=panelMarkets.map(parseQuote).filter((x):x is Quote=>Boolean(x));
+ const finite=(value:number,fallback:number)=>Number.isFinite(value)?value:fallback;
+ const kellyFraction=clamp(finite(options.kellyFraction??.25,.25),.01,1);
+ const minEv=Math.max(0,finite(options.minEv??.01,.01));
+ const maxArbRoi=clamp(finite(Number(process.env.EDGE_SCANNER_MAX_ARB_ROI||.15),.15),.01,.50);
+ const maxEv=clamp(finite(Number(process.env.EDGE_SCANNER_MAX_EV||.35),.35),.05,1);
+ const maxQuoteAgeMinutes=clamp(finite(Number(process.env.EDGE_SCANNER_MAX_QUOTE_AGE_MIN||10),10),1,30);
+ const now=Date.now();
+ let rejectedUnverifiedQuotes=0;
+ let rejectedStaleQuotes=0;
+ let rejectedExpiredQuotes=0;
+ const quotes=panelMarkets.map(parseQuote).filter((x):x is Quote=>Boolean(x)).filter(quote=>{
+  const start=Date.parse(quote.startTime);
+  if(!Number.isFinite(start)||start<=now){rejectedExpiredQuotes++;return false;}
+  const observed=Date.parse(quote.quoteTimestamp||'');
+  if(!quote.quoteTimestamp||!Number.isFinite(observed)||!quote.book||norm(quote.book)==='unknown'||observed>now+60000){
+   rejectedUnverifiedQuotes++;return false;
+  }
+  if(!Number.isFinite(quote.sourceAgeMin)||quote.sourceAgeMin>maxQuoteAgeMinutes||now-observed>maxQuoteAgeMinutes*60000){
+   rejectedStaleQuotes++;return false;
+  }
+  return true;
+ });
  const groups=new Map<string,Quote[]>();
  for(const quote of quotes){
   const list=groups.get(quote.groupKey)||[];
@@ -317,7 +354,9 @@ export function scanEdgeOpportunities(
   if(best.length===expected.length){
    const inverse=best.map(x=>1/x.decimal);
    const sum=inverse.reduce((s,x)=>s+x,0);
-   if(sum>0&&sum<.9995){
+   // Single-book apparent underround can be restricted or an invalid paired market.
+   const independentBooks=new Set(best.map(quote=>norm(quote.book)));
+   if(independentBooks.size>=2&&sum>0&&sum<.9995){
     const roi=1/sum-1;
     if(roi<=maxArbRoi){
      arbitrage.push({
@@ -344,18 +383,25 @@ export function scanEdgeOpportunities(
    }
   }
 
-  const reference=sharpReference(rows,expected)||consensusReference(rows,expected);
-  if(!reference)continue;
-  if(reference.reference==='Pinnacle/sharp')sharpReferenceGroups++;
-  else consensusReferenceGroups++;
-
+  // The reference must be independent of the executable target quote.
+  // Track actual references used, not nominal groups that contain no independent price.
+  let groupHasSharpReference=false;
+  let groupHasConsensusReference=false;
   for(const outcome of expected){
+   const candidates=rows.filter(x=>x.outcomeKey===outcome)
+    .sort((a,b)=>b.decimal-a.decimal);
+   // Prefer the best price with an independently reconstructed fair line.
+   const matched=candidates.map(bestQuote=>{
+    const independent=rows.filter(x=>norm(x.book)!==norm(bestQuote.book));
+    const reference=sharpReference(independent,expected)||consensusReference(independent,expected);
+    return {bestQuote,reference};
+   }).find(x=>Boolean(x.reference));
+   if(!matched?.reference)continue;
+   const {bestQuote,reference}=matched;
    const fairP=reference.probabilities.get(outcome);
    if(!fairP)continue;
-   const candidates=rows.filter(x=>x.outcomeKey===outcome);
-   const bestQuote=[...candidates].sort((a,b)=>b.decimal-a.decimal)[0];
-   if(!bestQuote)continue;
-
+   if(reference.reference==='Pinnacle/sharp')groupHasSharpReference=true;
+   else groupHasConsensusReference=true;
    const expectedValue=ev(fairP,bestQuote.odds);
    if(expectedValue<minEv)continue;
    if(expectedValue>maxEv){
@@ -380,10 +426,13 @@ export function scanEdgeOpportunities(
     expectedValue,
     fullKelly,
     fractionalKelly:fullKelly*kellyFraction,
+    quoteTimestamp:bestQuote.quoteTimestamp||'',
     reference:reference.reference,
     referenceBooks:reference.books
    });
   }
+  if(groupHasSharpReference)sharpReferenceGroups++;
+  if(groupHasConsensusReference)consensusReferenceGroups++;
  }
 
  arbitrage.sort((a,b)=>b.roi-a.roi);
@@ -393,6 +442,10 @@ export function scanEdgeOpportunities(
   generatedAt:new Date().toISOString(),
   quoteCount:quotes.length,
   groupCount:groups.size,
+  rejectedUnverifiedQuotes,
+  rejectedStaleQuotes,
+  rejectedExpiredQuotes,
+  maxQuoteAgeMinutes,
   arbitrageCount:arbitrage.length,
   positiveEvCount:positiveEv.length,
   sharpReferenceGroups,
@@ -407,9 +460,11 @@ export function scanEdgeOpportunities(
   methodology:{
    arbitrage:'validated complete team moneyline, total, spread, and exact-line player Over/Under outcome sets only',
    devig:'power-method devig with complete sharp reference when available; multi-book consensus fallback otherwise',
-   expectedValue:'fair probability versus best available price with anomaly caps',
+   expectedValue:'independent devig fair probability versus executable sportsbook price, with anomaly caps',
    kellyFraction,
    extraProviderRequests:0,
+   quoteIntegrity:'reject expired events, missing provider quote timestamps, unknown books and quotes older than the freshness limit',
+   independentReference:'reference excludes the executable sportsbook; complete complementary odds required for every supporting book',
    playerProps:'Over/Under player props are scanned only when event, player identity, stat key, and exact line match on both sides; one-sided props such as anytime TD remain excluded'
   }
  };

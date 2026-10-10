@@ -15,7 +15,7 @@ export type DeskMarket={
  contextQuality?:{recommendationReady?:boolean;score?:number};
  bestExecutionVenue?:{
   venue:string;type:'SPORTSBOOK'|'PREDICTION_EXCHANGE';marketProbability:number;
-  americanOdds?:number;expectedValue:number;feeAdjusted:boolean;
+  americanOdds?:number;expectedValue:number;feeAdjusted:boolean;quoteTimestamp?:string;
  };
  bestPredictionVenue?:{status?:string;volume?:number;liquidity?:number};
 };
@@ -46,6 +46,9 @@ function americanFromProbability(p:number){
 }
 function decimalOdds(odds:number){
  return odds>0?1+odds/100:1+100/Math.abs(odds);
+}
+function americanImplied(odds:number){
+ return odds<0?-odds/(-odds+100):100/(odds+100);
 }
 function dayKey(value:Date,timeZone:string){
  return new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).format(value);
@@ -85,7 +88,11 @@ export function buildInstitutionalDesk(input:{
   const execution=row.bestExecutionVenue;
   const venueType=execution?.type??'SPORTSBOOK';
   const odds=venueType==='SPORTSBOOK'?(execution?.americanOdds??row.odds):row.odds;
-  const price=execution?.marketProbability??row.marketProb;
+  // For sportsbooks the breakeven threshold must come from the actual offered odds,
+  // not a consensus / no-vig probability that may describe a different price.
+  const price=venueType==='SPORTSBOOK'&&Number.isFinite(odds)&&odds!==0
+   ?americanImplied(odds)
+   :execution?.marketProbability??row.marketProb;
   const fair=row.simProbability;
   const lower=row.simCi?.[0];
   const flags:string[]=[];
@@ -104,6 +111,12 @@ export function buildInstitutionalDesk(input:{
   if(row.contextQuality?.recommendationReady===false)flags.push('Injury, lineup or context verification incomplete');
   if(!validProbability(price)||!validProbability(fair)||!Number.isFinite(lower)||lower<=0||lower>fair)flags.push('Probability interval or price is invalid');
   if(venueType==='PREDICTION_EXCHANGE'&&(!execution?.feeAdjusted||row.bestPredictionVenue?.status!=='MATCHED'))flags.push('Exchange fees or contract matching unverified');
+  if(venueType==='PREDICTION_EXCHANGE'){
+   const exchangeStamp=Date.parse(execution?.quoteTimestamp||'');
+   if(!Number.isFinite(exchangeStamp)||now.getTime()-exchangeStamp>120000||exchangeStamp-now.getTime()>60000){
+    flags.push('Exchange execution quote timestamp unavailable or stale');
+   }
+  }
   if(venueType==='SPORTSBOOK'&&(!Number.isFinite(odds)||odds===0))flags.push('Executable sportsbook odds unavailable');
   const edge=validProbability(price)&&validProbability(fair)?fair-price:0;
   const expectedValue=venueType==='SPORTSBOOK'&&Number.isFinite(odds)&&odds!==0
@@ -160,6 +173,8 @@ export function buildInstitutionalDesk(input:{
   later:windows.LATER.slice(0,20),
   methodology:[
    'Only actual fresh live quotes and model-calibrated intervals can open an entry window.',
+   'Sportsbook edge is computed against the executable American odds, never the no-vig consensus probability.',
+   'Exchange entries require a fresh independently timestamped execution quote and confirmed fee treatment.',
    'Expected value, conservative interval and execution price outweigh raw simulation percentage.',
    'Future days are monitored. A 100,000-run simulation is not assumed unless the row reports that run count.',
    'The desk does not place wagers, assert fills or promise profit. Passing is a valid outcome.'
