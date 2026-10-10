@@ -896,6 +896,14 @@ export default function Dashboard(){
       </div>
     </header>
 
+    <nav className="v21QuickNav" aria-label="Dashboard sections">
+      <a href="#edge">Today&apos;s Edge</a>
+      <a href="#board">Probability Board</a>
+      <a href="#parlays">Parlays</a>
+      <a href="#predictions">Prediction Markets</a>
+      <a href="#operator">Operator Console</a>
+    </nav>
+
     {lastError&&<div className="v21Alert">{lastError}</div>}
     {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
@@ -1018,7 +1026,7 @@ export default function Dashboard(){
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
     </section>
 
-    <section className="edgeCommand">
+    <section className="edgeCommand" id="edge">
       <div className="edgeCommandHead">
         <div>
           <div className="eyebrow">TODAY&apos;S EDGE</div>
@@ -1108,7 +1116,7 @@ export default function Dashboard(){
       </div>
     </section>
 
-    <section className="v21Panel">
+    <section className="v21Panel" id="board">
       <div className="v21PanelHead">
         <div>
           <div className="eyebrow">{view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
@@ -1229,7 +1237,7 @@ export default function Dashboard(){
       </div>
     </section>
 
-    <PredictionIntelligencePanel/>
+    <div id="predictions"><PredictionIntelligencePanel/></div>
 
     <section className="v21Panel">
       <div className="v21PanelHead">
@@ -1317,55 +1325,44 @@ export default function Dashboard(){
       <div className="historyNote">Signals are model-based decision support, not guarantees. BUY/BET requires positive expected value and confidence gates; REDUCE means the current market price exceeds the model&apos;s present fair value for a long position.</div>
     </section>
 
-    <SloGovernorPanel/>
+    <details className="operatorDrawer" id="operator">
+      <summary>
+        <div>
+          <span className="eyebrow">ADVANCED OPERATOR CONSOLE</span>
+          <strong>Models, reliability, deployment and deep context</strong>
+          <small>Open only when you need engineering diagnostics or model internals.</small>
+        </div>
+        <span className="operatorDrawerAction">OPEN CONSOLE</span>
+      </summary>
+      <div className="operatorDrawerBody">
+        <SloGovernorPanel/>
+        <DeploymentGuardPanel/>
+        <VercelGovernorPanel/>
+        <ProductionTopologyWatchdogPanel/>
+        <ReliabilitySupervisorPanel/>
+        <UnifiedIntelligencePanel/>
+        <CrossSportOptimizerPanel/>
+        <MarketMovementLearningPanel/>
+        <VenueConditionsPanel/>
+        <ScheduleFatiguePanel/>
+        <StartingLineupPanel/>
+        <LineupRedistributionPanel/>
+        <OpponentMatchupPanel/>
+        <PlayerCalibrationPanel/>
+        <PlayerFeatureFramesPanel/>
+        <ShadowRecoveryPanel/>
+        <ChampionDriftPanel/>
+        <FirstChampionTournamentPanel/>
+        <MlDeploymentAutomationPanel/>
+        <MlServiceActivationPanel/>
+        <ExternalMlTournamentPanel/>
+        <TrainedSportModelsPanel/>
+        <ExpertModelSuitePanel/>
+        <OperatorCommandCenter/>
+      </div>
+    </details>
 
-    <DeploymentGuardPanel/>
-
-    <VercelGovernorPanel/>
-
-    <ProductionTopologyWatchdogPanel/>
-
-    <ReliabilitySupervisorPanel/>
-
-    <UnifiedIntelligencePanel/>
-
-    <CrossSportOptimizerPanel/>
-
-    <MarketMovementLearningPanel/>
-
-    <VenueConditionsPanel/>
-
-    <ScheduleFatiguePanel/>
-
-    <StartingLineupPanel/>
-
-    <LineupRedistributionPanel/>
-
-    <OpponentMatchupPanel/>
-
-    <PlayerCalibrationPanel/>
-
-    <PlayerFeatureFramesPanel/>
-
-    <ShadowRecoveryPanel/>
-
-    <ChampionDriftPanel/>
-
-    <FirstChampionTournamentPanel/>
-
-    <MlDeploymentAutomationPanel/>
-
-    <MlServiceActivationPanel/>
-
-    <ExternalMlTournamentPanel/>
-
-    <TrainedSportModelsPanel/>
-
-    <ExpertModelSuitePanel/>
-
-    <OperatorCommandCenter/>
-
-    <section className="v21Grid two">
+    <section className="v21Grid two" id="parlays">
       <div className="v21Card">
         <div className="v21CardHead">
           <div><div className="eyebrow">PARLAY LEG FILTER</div><h3>Probability set</h3></div>
