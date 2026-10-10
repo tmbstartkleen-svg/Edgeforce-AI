@@ -79,3 +79,13 @@ test('V127 divergence summary stays local and zero-call',()=>{
  assert.match(dashboard,/V127 DIVERGENCE/);
  assert.match(dashboard,/rankDeltaSummary/);
 });
+
+
+test('V129 movement filter is opt-in and local',()=>{
+ assert.match(dashboard,/divergenceFilter/);
+ assert.match(dashboard,/V129 movement/);
+ assert.match(dashboard,/Upgraded only/);
+ assert.match(dashboard,/Downgraded only/);
+ assert.match(dashboard,/Stable only/);
+ assert.match(dashboard,/divergenceFilter==='ALL'\|\|rankDeltas\.get\(row\.id\)\?\.label===divergenceFilter/);
+});
