@@ -37,6 +37,8 @@ import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
 import {buildInstitutionalDesk} from '@/lib/institutionalDesk';
 import InstitutionalTradeDesk from './InstitutionalTradeDesk';
+import ParlayStudio from './ParlayStudio';
+import SportsCommandCenter from './SportsCommandCenter';
 import {buildBoardPriority,buildBoardPriorityMap,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltaMap,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
@@ -645,7 +647,7 @@ export default function Dashboard(){
   const [catalogue,setCatalogue]=useState(false);
   const [cataloguePage,setCataloguePage]=useState(0);
   const [catalogueKind,setCatalogueKind]=useState('ALL');
-  const [workspace,setWorkspace]=useState<'games'|'desk'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('games');
+  const [workspace,setWorkspace]=useState<'command'|'games'|'desk'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('command');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
@@ -1040,9 +1042,9 @@ export default function Dashboard(){
     <a className="skipLink" href="#edge" onClick={()=>setWorkspace('board')}>Skip to today&apos;s edge</a>
     <header className="v21Top">
       <div>
-        <div className="eyebrow">EDGEFORCE AI • LIVE SPORTS INTELLIGENCE</div>
-        <h1>Sports. Markets. Intelligence.</h1>
-        <p>Your games and available prices, with ranked analysis in its own workspace.</p>
+        <div className="eyebrow">EDGEFORCE AI • SPORTS QUANT INTELLIGENCE</div>
+        <h1>EdgeForce <span className="efHeaderAccent">Sports Intelligence</span></h1>
+        <p>Discover defensible market gaps, price the probability, build smarter parlays.</p>
       </div>
       <div className="v21Status">
         <span className={board.source==='live'?'dot liveDot':'dot'}/>
@@ -1071,15 +1073,18 @@ export default function Dashboard(){
 
     <nav className="v21QuickNav workspaceSidebar" aria-label="EdgeForce workspaces">
       <div className="workspaceBrand">EDGEFORCE<span>Sports intelligence</span></div>
-      <small className="workspaceNavLabel">YOUR WORKSPACE</small>
-      <a href="#games" aria-current={workspace==='games'?'page':undefined} onClick={()=>setWorkspace('games')}>Games & Schedules</a>
-      <a href="#trade-desk" aria-current={workspace==='desk'?'page':undefined} onClick={()=>{setWorkspace('desk');setView('week');setLimit(50);setCatalogue(false);}}>Institutional Edge Desk</a>
+      <small className="workspaceNavLabel">CORE WORKSPACES</small>
+      <a href="#command" aria-current={workspace==='command'?'page':undefined} onClick={()=>setWorkspace('command')}>◈ &nbsp; Command Center</a>
+      <a href="#trade-desk" aria-current={workspace==='desk'?'page':undefined} onClick={()=>{setWorkspace('desk');setView('week');setLimit(50);setCatalogue(false);}}>⌁ &nbsp; Edge Scanner</a>
+      <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>{setWorkspace('parlays');setView('week');setLimit(50);}}>◇ &nbsp; Parlay Lab</a>
+      <a href="#games" aria-current={workspace==='games'?'page':undefined} onClick={()=>setWorkspace('games')}>▣ &nbsp; Games & Schedules</a>
+      <small className="workspaceNavLabel">MARKETS & RESEARCH</small>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(30);}}>Daily Top 30</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(50);}}>Today’s Top 50</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('week');setLimit(50);}}>This Week’s Top 50</a>
       <a href="#board" aria-current={workspace==='board'&&catalogue?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(true);setCataloguePage(0);setView('week');resetBoardFilters();}}>All Markets & Props</a>
       <a href="#live" aria-current={workspace==='live'?'page':undefined} onClick={()=>setWorkspace('live')}>Live Scores</a>
-      <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>setWorkspace('parlays')}>Parlays</a>
+
       <a href="#predictions" aria-current={workspace==='predictions'?'page':undefined} onClick={()=>setWorkspace('predictions')}>Prediction Markets</a>
       <a href="#signals" aria-current={workspace==='signals'?'page':undefined} onClick={()=>setWorkspace('signals')}>Pro Signals</a>
       <a href="#triage" onClick={()=>{setWorkspace('board');const drawer=document.querySelector<HTMLDetailsElement>('.boardContextDrawer');if(drawer)drawer.open=true;}}>Review Queue</a>
@@ -1122,6 +1127,7 @@ export default function Dashboard(){
     {workspace!=='live'&&board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
+    {workspace==='command'&&<SportsCommandCenter rows={board.rows} source={board.source} degraded={Boolean(board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE')} generatedAt={board.generatedAt} acceptedFeeds={board.consensusCoverage?.acceptedFeeds??0} configuredFeeds={board.consensusCoverage?.configuredFeeds??0} onNavigate={section=>{setWorkspace(section);if(section==='desk'||section==='parlays'){setView('week');setLimit(50);setCatalogue(false);}}}/>}
     {workspace==='games'&&<GamesWorkspace/>}
     {workspace==='desk'&&<InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'} generatedAt={board.generatedAt} scanner={edgeScanner} scannerStatus={scannerStatus} onInspect={setSelectedMarket}/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>
@@ -1605,6 +1611,8 @@ export default function Dashboard(){
 
     </div>
     <div className="workspaceContent" hidden={workspace!=='parlays'}>
+    {workspace==='parlays'&&<ParlayStudio rows={board.rows} source={board.source} degraded={Boolean(board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE')} generatedAt={board.generatedAt} learned={board.learnedSgpCorrelations} onInspect={setSelectedMarket}/>}
+    <details className="efLegacyParlay"><summary>Advanced analysis · automated parlay sets and historical model comparisons</summary>
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div>
@@ -1642,7 +1650,7 @@ export default function Dashboard(){
       </div>
     </section>
 
-    <section className="v21Grid two" id="parlays">
+    <section className="v21Grid two" id="legacy-parlay-models">
       <div className="v21Card">
         <div className="v21CardHead">
           <div><div className="eyebrow">PARLAY LEG FILTER</div><h3>Probability set</h3></div>
@@ -1664,6 +1672,7 @@ export default function Dashboard(){
         </div>:<p className="muted">Not enough rows to form this set.</p>}
       </div>
     </section>
+    </details>
 
     </div>
     <div className="workspaceContent" hidden={workspace!=='predictions'}>
