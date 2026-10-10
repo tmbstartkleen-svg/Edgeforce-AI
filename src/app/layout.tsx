@@ -1,5 +1,6 @@
 import './globals.css';
 import './v21.css';
+import './workspaces.css';
 
 export const metadata={
  title:'Edgeforce AI',

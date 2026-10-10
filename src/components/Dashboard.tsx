@@ -621,6 +621,12 @@ function sourceLabel(source:string,mode:string){
   if(source==='demo')return 'DEMO FALLBACK';
   return source.toUpperCase();
 }
+function scoreConfidenceLabel(game:LiveScoreGame){
+  const confidence=game.consensus?.confidence;
+  if(confidence==='SINGLE_SOURCE')return 'One provider · unconfirmed';
+  if(!confidence)return 'Verification pending';
+  return confidence.charAt(0)+confidence.slice(1).toLowerCase()+' confidence';
+}
 function dateLabel(value:string){
   if(!value)return '—';
   const d=new Date(value);
@@ -628,6 +634,7 @@ function dateLabel(value:string){
 }
 
 export default function Dashboard(){
+  const [workspace,setWorkspace]=useState<'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('board');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
@@ -966,8 +973,8 @@ export default function Dashboard(){
     return {games,featured,conflicts,multiSource,leagues};
   },[board.liveScores]);
 
-  return <main className="v21">
-    <a className="skipLink" href="#edge">Skip to today&apos;s edge</a>
+  return <main className="v21 workspaceShell">
+    <a className="skipLink" href="#edge" onClick={()=>setWorkspace('board')}>Skip to today&apos;s edge</a>
     <header className="v21Top">
       <div>
         <div className="eyebrow">EDGEFORCE AI • LIVE SPORTS INTELLIGENCE</div>
@@ -999,22 +1006,27 @@ export default function Dashboard(){
       </div>
     </header>
 
-    <nav className="v21QuickNav" aria-label="Dashboard sections">
-      <a href="#triage">Triage</a>
-      <a href="#live">Live Scores</a>
-      <a href="#edge">Today&apos;s Edge</a>
-      <a href="#board">Probability Board</a>
-      <a href="#parlays">Parlays</a>
-      <a href="#predictions">Prediction Markets</a>
-      <a href="#signals">Pro Signals</a>
-      <a href="#research">Research + Risk</a>
-      <a href="#operator">Operator Console</a>
+    <nav className="v21QuickNav workspaceSidebar" aria-label="EdgeForce workspaces">
+      <div className="workspaceBrand">EDGEFORCE<span>Sports intelligence</span></div>
+      <small className="workspaceNavLabel">YOUR WORKSPACE</small>
+      <a href="#board" aria-current={workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setView('today');setLimit(30);}}>Daily Top 30</a>
+      <a href="#board" aria-current={workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setView('today');setLimit(50);}}>Today’s Top 50</a>
+      <a href="#board" aria-current={workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setView('week');setLimit(50);}}>This Week’s Top 50</a>
+      <a href="#live" aria-current={workspace==='live'?'page':undefined} onClick={()=>setWorkspace('live')}>Live Scores</a>
+      <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>setWorkspace('parlays')}>Parlays</a>
+      <a href="#predictions" aria-current={workspace==='predictions'?'page':undefined} onClick={()=>setWorkspace('predictions')}>Prediction Markets</a>
+      <a href="#signals" aria-current={workspace==='signals'?'page':undefined} onClick={()=>setWorkspace('signals')}>Pro Signals</a>
+      <a href="#triage" onClick={()=>setWorkspace('board')}>Review Queue</a>
+      <small className="workspaceNavLabel">ANALYSIS & OPERATIONS</small>
+      <a href="#research" aria-current={workspace==='research'?'page':undefined} onClick={()=>setWorkspace('research')}>Research + Risk</a>
+      <a href="#operator" aria-current={workspace==='operator'?'page':undefined} onClick={()=>setWorkspace('operator')}>Operator Console</a>
+      <div className="workspaceSidebarNote">Live data refreshes while you explore.</div>
     </nav>
 
     <section className="launchFreezeBar" aria-label="V194 launch review">
       <div className="launchFreezeTitle">
         <div className="eyebrow">V194 LAUNCH REVIEW • DESIGN FREEZE</div>
-        <b>Production surface locked for launch review</b>
+        <b>Live data and system status</b>
       </div>
       <div className="launchFreezeChecks" role="list">
         <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Live data</b><small>{launchReview.liveData?'connected':'warming'}</small></span>
@@ -1023,7 +1035,7 @@ export default function Dashboard(){
         <span role="listitem" className={launchReview.reviewClear?'pass':'warn'}><i aria-hidden="true"/><b>Review</b><small>{launchReview.reviewClear?'clear':reviewQueueSummary.total+' queued'}</small></span>
         <span role="listitem" className="pass"><i aria-hidden="true"/><b>Mobile</b><small>ready</small></span>
       </div>
-      <a href="#operator" className="launchFreezeAction">Operator status</a>
+      <a href="#operator" onClick={()=>setWorkspace('operator')} className="launchFreezeAction">Operator status</a>
     </section>
 
     {lastError&&<div className="v21Alert">{lastError}</div>}
@@ -1031,6 +1043,8 @@ export default function Dashboard(){
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
+    <div className="workspaceContent" hidden={workspace!=='live'}>
+    {!board.liveScores&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{boardLoading?'Loading the live score feed…':'The live score feed is unavailable. Waiting for the next refresh.'}</p></div></section>}
     {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
       <div className="consoleHead">
         <div><div className="eyebrow">V192 LIVE GAME CENTER</div><h3>{liveGameCenter.games.length} game{liveGameCenter.games.length===1?'':'s'} live now</h3></div>
@@ -1054,7 +1068,7 @@ export default function Dashboard(){
           <div><small>HOME</small><b>{liveGameCenter.featured.home.name}</b><strong>{liveGameCenter.featured.home.score??'—'}</strong></div>
         </div>
         <div className="featuredLiveFoot">
-          <span className={liveGameCenter.featured.consensus?.activeConflict?'orange':'lime'}>{liveGameCenter.featured.consensus?.activeConflict?'SOURCE CONFLICT':(liveGameCenter.featured.consensus?.confidence||'LIVE')}</span>
+          <span className={liveGameCenter.featured.consensus?.activeConflict||liveGameCenter.featured.consensus?.confidence==='SINGLE_SOURCE'?'orange':'lime'}>{liveGameCenter.featured.consensus?.activeConflict?'SOURCE CONFLICT':scoreConfidenceLabel(liveGameCenter.featured)}</span>
           <span>{liveGameCenter.featured.consensus?.sourceCount?liveGameCenter.featured.consensus.sourceCount+' sources':'1 source'}</span>
           <span>{liveGameCenter.featured.source}</span>
           {liveGameCenter.featured.consensus?.laggingSources?.length?<span className="orange">lagging {liveGameCenter.featured.consensus.laggingSources.join(', ')}</span>:<span>sync healthy</span>}
@@ -1062,18 +1076,20 @@ export default function Dashboard(){
       </article>}
       <div className="liveScoreGrid compactLiveRail">
         {liveGameCenter.games.filter(g=>g.id!==liveGameCenter.featured?.id||g.source!==liveGameCenter.featured?.source).slice(0,11).map(g=><article className={'liveScoreCard '+(g.consensus?.activeConflict?'hasConflict':'')} key={g.source+'-'+g.id}>
-          <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':(g.consensus?.confidence||'LIVE')}</span></div>
+          <div className="liveScoreCardHead"><span className="action action-open">{g.league}</span><span className={g.consensus?.activeConflict||g.consensus?.confidence==='SINGLE_SOURCE'?'orange':'lime'}>{g.consensus?.activeConflict?'CONFLICT':scoreConfidenceLabel(g)}</span></div>
           <div className="liveScoreClock"><b>{g.period||'LIVE'}</b><strong>{g.clock||'—'}</strong></div>
           <div className="liveScoreTeams">
             <div><b>{g.away.name}</b><strong>{g.away.score??'—'}</strong></div>
             <div><b>{g.home.name}</b><strong>{g.home.score??'—'}</strong></div>
           </div>
-          <div className="liveScoreMeta"><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+g.consensus.confidence+' confidence'),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
+          <div className="liveScoreMeta"><small>{[g.source,g.consensus&&((g.consensus.confidence==='SINGLE_SOURCE'?'1 source':g.consensus.sourceCount+' sources')+' • '+scoreConfidenceLabel(g)),g.consensus?.laggingSources?.length&&('lagging '+g.consensus.laggingSources.join(','))].filter(Boolean).join(' • ')}</small></div>
         </article>)}
       </div>
       {!liveGameCenter.games.length&&<p className="emptyState">No supported games are live at this moment. The score mesh remains active for scheduled starts and finals.</p>}
     </section>}
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='board'}>
     <section className="v21Hero">
       <div>
         <div className="badge">ALL SPORTS • LIVE SCORES • PLAYER PROPS • +EV • PARLAYS • PREDICTION MARKETS</div>
@@ -1137,7 +1153,7 @@ export default function Dashboard(){
           <div><small>REVIEW</small><b>{todayDecisionFlow.review?.selection||'No flagged row'}</b><span>{todayDecisionFlow.review?reviewReasonMap.get(todayDecisionFlow.review.id)?.slice(0,2).join(' • ')||'Manual review required':'Review queue is clear'}</span></div>
           <strong>{reviewQueueSummary.total}</strong>
         </button>
-        <a className={'todayDecisionCard parlay '+(todayDecisionFlow.parlay?'ready':'empty')} href="#parlays">
+        <a className={'todayDecisionCard parlay '+(todayDecisionFlow.parlay?'ready':'empty')} href="#parlays" onClick={()=>setWorkspace('parlays')}>
           <span className="todayDecisionStep">4</span>
           <div><small>BEST PARLAY</small><b>{todayDecisionFlow.parlay?todayDecisionFlow.parlay.legs.length+' qualified legs':'No promoted build'}</b><span>{todayDecisionFlow.parlay?fmtOdds(todayDecisionFlow.parlay.combinedAmericanOdds)+' • '+fmtPct(todayDecisionFlow.parlay.averageDynamicConfidence)+' confidence':'Safety gates are holding the slot'}</span></div>
           <strong>{todayDecisionFlow.parlay?fmtPct(todayDecisionFlow.parlay.combinedProbability):'—'}</strong>
@@ -1491,6 +1507,8 @@ export default function Dashboard(){
       </div>
     </section>
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='parlays'}>
     <section className="v21Panel">
       <div className="v21PanelHead">
         <div>
@@ -1551,6 +1569,8 @@ export default function Dashboard(){
       </div>
     </section>
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='predictions'}>
     <div id="predictions"><PredictionIntelligencePanel/></div>
 
     <section className="v21Panel">
@@ -1573,6 +1593,8 @@ export default function Dashboard(){
       </div>}
     </section>
 
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='signals'}>
     <section className="v21Panel" id="signals">
       <div className="v21PanelHead">
         <div>
@@ -1685,7 +1707,9 @@ export default function Dashboard(){
       </div>
     </section>
 
-    <details className="operatorDrawer researchDrawer" id="research">
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='research'}>
+    <details className="operatorDrawer researchDrawer" id="research" open={workspace==='research'}>
       <summary>
         <div>
           <span className="eyebrow">RESEARCH + RISK LAB</span>
@@ -1935,7 +1959,9 @@ export default function Dashboard(){
       </div>
     </details>
 
-    <details className="operatorDrawer" id="operator">
+    </div>
+    <div className="workspaceContent" hidden={workspace!=='operator'}>
+    <details className="operatorDrawer" id="operator" open={workspace==='operator'}>
       <summary>
         <div>
           <span className="eyebrow">ADVANCED OPERATOR CONSOLE</span>
@@ -1984,6 +2010,7 @@ export default function Dashboard(){
       <div><small>GOVERNANCE RUNS</small><b>{dbStats.counts?.model_governance_runs||0}</b></div>
       <div><small>GOVERNANCE SNAPSHOTS</small><b>{dbStats.counts?.model_governance_snapshots||0}</b></div>
     </section>
+    </div>
     {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
 }

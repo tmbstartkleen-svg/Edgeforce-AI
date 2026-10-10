@@ -1,0 +1,66 @@
+/* Readable workspace shell. Loaded after the legacy terminal styles. */
+.workspaceShell{padding:28px 32px 72px 292px;max-width:1920px;font-size:16px;line-height:1.5;--ef-muted:#abb7c7}
+.workspaceShell .workspaceContent[hidden]{display:none}
+.workspaceShell .workspaceContent{min-width:0}
+.workspaceShell .workspaceSidebar{position:fixed;inset:0 auto 0 0;width:252px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;margin:0;padding:28px 18px;border:0;border-right:1px solid var(--ef-line);border-radius:0;background:#090e14;z-index:35;box-shadow:none}
+.workspaceBrand{padding:0 12px 24px;font-size:24px;font-weight:900;letter-spacing:.04em;color:var(--ef-text)}
+.workspaceBrand span{display:block;margin-top:5px;font-size:14px;letter-spacing:0;font-weight:500;color:var(--ef-muted)}
+.workspaceNavLabel{padding:16px 12px 6px;font-size:12px;letter-spacing:.1em;color:var(--ef-muted)}
+.workspaceShell .workspaceSidebar a{display:flex;align-items:center;min-height:48px;padding:12px 14px;border:1px solid transparent;border-radius:10px;font-size:15px;font-weight:650;color:var(--ef-muted);text-decoration:none;white-space:normal;background:transparent;transition:background .15s,color .15s,border-color .15s}
+.workspaceShell .workspaceSidebar a:hover{background:#17212c;color:#fff;border-color:#35404d}
+.workspaceShell .workspaceSidebar a[aria-current="page"]{background:rgba(185,255,74,.09);border-color:rgba(185,255,74,.3);color:var(--ef-lime)}
+.workspaceSidebarNote{margin-top:auto;padding:24px 12px 8px;color:var(--ef-muted);font-size:13px}
+.workspaceShell .v21Top{position:relative;top:auto;padding:24px;margin-bottom:24px;grid-template-columns:1fr;gap:20px}
+.workspaceShell .v21Top h1{font-size:30px;line-height:1.2}
+.workspaceShell .v21Top p{font-size:16px;line-height:1.6}
+.workspaceShell .v21Status{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:16px}
+.workspaceShell .v21Hero{padding:28px;margin-top:24px;gap:28px}
+.workspaceShell .v21Hero h2{font-size:clamp(30px,3.2vw,48px);line-height:1.15}
+.workspaceShell .v21Hero p{font-size:16px;line-height:1.7}
+.workspaceShell .v21Panel,.workspaceShell .v21Grid,.workspaceShell .consoleCard,.workspaceShell .sportNavigator,.workspaceShell .marketCommandBar,.workspaceShell .todayDecisionFlow{margin-top:24px}
+.workspaceShell .v21PanelHead,.workspaceShell .consoleHead{padding:24px;gap:18px;flex-wrap:wrap}
+.workspaceShell h3{font-size:20px;line-height:1.4}
+.workspaceShell .consoleCard,.workspaceShell .v21Card{padding:24px}
+.workspaceShell .consoleHead{padding:0 0 20px}
+.workspaceShell .sportNavigator,.workspaceShell .marketCommandBar,.workspaceShell .todayDecisionFlow{padding:22px}
+.workspaceShell .todayDecisionFlowGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.workspaceShell .todayDecisionCard{padding:18px;min-height:112px;gap:14px}
+.workspaceShell .todayDecisionCard b,.workspaceShell .todayDecisionCard div>span{white-space:normal;overflow:visible}
+.workspaceShell .todayDecisionFlowMeta{justify-content:flex-start}
+.workspaceShell .edgeCommandGrid,.workspaceShell .liveScoreGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.workspaceShell .edgeCommandPulse{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.workspaceShell .liveScoreCard{padding:20px}
+.workspaceShell .liveScoreTeams b{font-size:16px;white-space:normal}
+.workspaceShell .liveScoreMeta small{line-height:1.6}
+.workspaceShell table{font-size:15px}
+.workspaceShell th{font-size:13px;letter-spacing:.03em}
+.workspaceShell th,.workspaceShell td{padding:18px 16px}
+.workspaceShell td small{font-size:13px;line-height:1.5;white-space:normal;min-width:120px}
+.workspaceShell button,.workspaceShell select,.workspaceShell input{min-height:44px}
+.workspaceShell .setBody{grid-template-columns:1fr}
+.workspaceShell .gapNumbers{grid-template-columns:repeat(3,minmax(64px,1fr))}
+.workspaceShell .launchFreezeBar{display:none}
+.workspaceShell .operatorDrawer{margin-top:24px}
+.workspaceShell [id]{scroll-margin-top:24px}
+@media(max-width:1200px){
+ .workspaceShell{padding:24px 24px 64px 252px}
+ .workspaceShell .workspaceSidebar{width:228px;padding:24px 14px}
+ .workspaceShell .v21Grid.two,.workspaceShell .v21Grid.three,.workspaceShell .v21Hero{grid-template-columns:1fr}
+ .workspaceShell .liveGamePulse{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:800px){
+ .workspaceShell{padding:18px 16px 64px}
+ .workspaceShell .workspaceSidebar{position:relative;inset:auto;width:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:16px;margin-bottom:24px;border:1px solid var(--ef-line);border-radius:16px}
+ .workspaceBrand{grid-column:1/-1;padding:4px 8px 12px}
+ .workspaceNavLabel{grid-column:1/-1;padding:8px}
+ .workspaceSidebarNote{grid-column:1/-1;padding:8px}
+ .workspaceShell .workspaceSidebar a{font-size:14px;padding:12px 10px}
+ .workspaceShell .v21Top{padding:20px}
+ .workspaceShell .v21Top h1{font-size:26px}
+ .workspaceShell .edgeCommandGrid,.workspaceShell .liveScoreGrid,.workspaceShell .todayDecisionFlowGrid{grid-template-columns:1fr}
+ .workspaceShell .edgeCommandPulse{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .workspaceShell .todayDecisionFlowHead,.workspaceShell .featuredLiveHead{flex-direction:column;gap:16px}
+ .workspaceShell .featuredLiveScore b{font-size:16px;white-space:normal}
+ .workspaceShell .boardScanDock{position:relative;top:auto}
+ .workspaceShell .v21Hero{padding:20px}
+}
