@@ -4,6 +4,7 @@ import {sharpApiProvider} from './sharpApi';
 import {theRundownProvider} from './theRundown';
 import {theRundownResultsProvider} from './theRundownResults';
 import {espnCoreOddsProvider} from './espnCoreOdds';
+import {propLineProvider} from './propLine';
 import {oddsApi2Provider} from './oddsApi2';
 
 const int=(v:string|undefined,fallback:number)=>{
@@ -106,6 +107,7 @@ export function configuredProviders(capability?:ProviderCapability):ProviderConf
   theRundownProvider(),
   theRundownResultsProvider(),
   sharpApiProvider(),
+  propLineProvider(),
   oddsApi2Provider(),
   sportsGameOddsProvider(),
   theOddsApiProvider(),
