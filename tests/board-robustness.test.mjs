@@ -93,7 +93,16 @@ test('V129 movement filter is opt-in and local',()=>{
 
 test('V181 review queue isolates fragile or downgraded rows locally',()=>{
  assert.match(dashboard,/reviewQueueOnly/);
- assert.match(dashboard,/V181 review queue/);
- assert.match(dashboard,/Needs review/);
+ assert.match(dashboard,/setReviewQueueOnly/);
  assert.match(dashboard,/buildBoardRobustness\(row\)\.reviewRequired\|\|rankDeltas\.get\(row\.id\)\?\.label==='DOWNGRADED'/);
+});
+
+
+test('V182 review queue summary is local and one-click',()=>{
+ assert.match(dashboard,/reviewQueueSummary/);
+ assert.match(dashboard,/V182 review queue/);
+ assert.match(dashboard,/V182 REVIEW QUEUE/);
+ assert.match(dashboard,/Review \{reviewQueueSummary\.total\}/);
+ assert.match(dashboard,/fragile/);
+ assert.match(dashboard,/downgraded/);
 });

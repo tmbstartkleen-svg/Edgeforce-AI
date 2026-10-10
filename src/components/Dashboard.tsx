@@ -861,6 +861,18 @@ export default function Dashboard(){
   const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
   const rankDeltas=useMemo(()=>buildBoardRankDeltas(filtered),[filtered]);
   const rankDeltaSummary=useMemo(()=>summarizeBoardRankDeltas(filtered),[filtered]);
+  const reviewQueueSummary=useMemo(()=>{
+    let fragile=0,fail=0,downgraded=0,total=0;
+    for(const row of filtered){
+      const robustness=robustnessMap.get(row.id);
+      const delta=rankDeltas.get(row.id);
+      if(robustness?.classification==='FRAGILE')fragile++;
+      if(robustness?.classification==='FAIL')fail++;
+      if(delta?.label==='DOWNGRADED')downgraded++;
+      if(robustness?.reviewRequired||delta?.label==='DOWNGRADED')total++;
+    }
+    return {total,fragile,fail,downgraded};
+  },[filtered,robustnessMap,rankDeltas]);
   const rankedFiltered=useMemo(()=>[...filtered]
     .filter(row=>divergenceFilter==='ALL'||rankDeltas.get(row.id)?.label===divergenceFilter)
     .filter(row=>!reviewQueueOnly||buildBoardRobustness(row).reviewRequired||rankDeltas.get(row.id)?.label==='DOWNGRADED')
@@ -1035,11 +1047,11 @@ export default function Dashboard(){
         </select>
       </div>
       <div className="controlGroup">
-        <label>V181 review queue</label>
-        <select value={reviewQueueOnly?'REVIEW':'ALL'} onChange={e=>setReviewQueueOnly(e.target.value==='REVIEW')}>
-          <option value="ALL">All ranked rows</option>
-          <option value="REVIEW">Needs review</option>
-        </select>
+        <label>V182 review queue</label>
+        <div className="segmented">
+          <button className={!reviewQueueOnly?'active':''} onClick={()=>setReviewQueueOnly(false)}>All</button>
+          <button className={reviewQueueOnly?'active':''} onClick={()=>setReviewQueueOnly(true)}>Review {reviewQueueSummary.total}</button>
+        </div>
       </div>
       <div className="controlGroup">
         <label>Sport</label>
@@ -1084,6 +1096,7 @@ export default function Dashboard(){
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
       <div><small>V120 ROBUSTNESS</small><strong>{rawFiltered.length?fmtPct(robustnessSummary.averageScore):'—'}</strong><span>{robustnessSummary.robust} robust • {robustnessSummary.reviewRequired} review • 0 extra calls</span></div>
       <div><small>V127 DIVERGENCE</small><strong>{rankDeltaSummary.upgraded+rankDeltaSummary.downgraded}</strong><span>{rankDeltaSummary.upgraded} up • {rankDeltaSummary.downgraded} down • {rankDeltaSummary.stable} stable</span></div>
+      <div><small>V182 REVIEW QUEUE</small><strong>{reviewQueueSummary.total}</strong><span>{reviewQueueSummary.fragile} fragile • {reviewQueueSummary.fail} fail • {reviewQueueSummary.downgraded} down</span></div>
     </section>
 
     <section className="edgeCommand" id="edge">
