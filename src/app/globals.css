@@ -819,3 +819,45 @@
   .sportChipRail button{min-height:48px;padding:9px 12px}
   .filterReset{min-height:42px}
 }
+
+
+/* EDGEFORCE V189 BOARD DECISION SURFACE */
+.boardDecisionStrip{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:1px;
+  padding:1px;
+  background:var(--ef-line);
+  border-bottom:1px solid var(--ef-line);
+}
+.boardDecisionStrip>div{min-width:0;padding:10px 12px;background:#090d11}
+.boardDecisionStrip small{display:block;color:var(--ef-muted);font-size:7px;letter-spacing:.08em;font-weight:850}
+.boardDecisionStrip b{display:block;margin-top:4px;color:var(--ef-gold-soft);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.decisionBadge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:22px;
+  padding:4px 7px;
+  margin-right:5px;
+  border:1px solid var(--ef-line-strong);
+  border-radius:999px;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.decisionBadge.action{color:var(--ef-lime);border-color:rgba(185,255,74,.30);background:rgba(185,255,74,.07)}
+.decisionBadge.watch{color:var(--ef-gold-soft);border-color:rgba(224,182,90,.28);background:rgba(224,182,90,.06)}
+.decisionBadge.review{color:#ff9b9b;border-color:rgba(255,120,120,.28);background:rgba(255,120,120,.06)}
+.decisionRow.decision-action{box-shadow:inset 2px 0 rgba(185,255,74,.35)}
+.decisionRow.decision-review{box-shadow:inset 2px 0 rgba(255,120,120,.38)}
+.mobileBoardCard.decision-action{border-color:rgba(185,255,74,.23)}
+.mobileBoardCard.decision-review{border-color:rgba(255,120,120,.25)}
+@media(max-width:800px){
+  .boardDecisionStrip{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .boardDecisionStrip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mobileBoardTop{flex-wrap:wrap;justify-content:flex-start}
+  .mobileBoardTop .grade{margin-left:auto}
+}
