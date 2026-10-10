@@ -4,6 +4,18 @@ import {latestStoredMarkets} from '../persistence';
 import {demoMarkets} from '../demo';
 import type {Market} from '../types';
 
+async function withDeadline<T>(promise:Promise<T>,ms:number,label:string):Promise<T>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ try{
+  return await Promise.race([
+   promise,
+   new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} timeout after ${ms}ms`)),ms)})
+  ]);
+ }finally{
+  if(timer)clearTimeout(timer);
+ }
+}
+
 export type IngestOddsOptions={
  forceLive?:boolean;
  storedReuseMaxAgeMin?:number;
@@ -39,7 +51,11 @@ function adaptiveStoredReuseAge(markets:Market[]){
 }
 
 export async function ingestOdds(options:IngestOddsOptions={}){
- const stored=await latestStoredMarkets().catch(()=>[]);
+ const stored=await withDeadline(
+  latestStoredMarkets(),
+  Math.max(1000,Number(process.env.ODDS_STORED_READ_TIMEOUT_MS||1500)),
+  'stored odds read'
+ ).catch(()=>[]);
  const reuseAge=options.storedReuseMaxAgeMin??adaptiveStoredReuseAge(stored);
  const reusableStored=stored.filter(x=>x.sourceAgeMin<=reuseAge);
  const liveRefreshMs=adaptiveLiveRefreshMs();
@@ -72,8 +88,16 @@ export async function ingestOdds(options:IngestOddsOptions={}){
  const live=await fetchNormalizedOdds();
  if(live.mode==='live'&&live.markets.length){
   await Promise.all([
-   saveMarketSnapshots(live.markets,live.providerId||'consensus-panel',live.targetBook||'DraftKings').catch(()=>undefined),
-   saveConsensusMarketSnapshots(live.markets,live.panelMarkets||[]).catch(()=>undefined)
+   withDeadline(
+    saveMarketSnapshots(live.markets,live.providerId||'consensus-panel',live.targetBook||'DraftKings'),
+    1500,
+    'market snapshot write'
+   ).catch(()=>undefined),
+   withDeadline(
+    saveConsensusMarketSnapshots(live.markets,live.panelMarkets||[]),
+    1500,
+    'consensus snapshot write'
+   ).catch(()=>undefined)
   ]);
   return {...live,source:'live' as const,reuseAgeMin:reuseAge,liveRefreshMs,nextLiveRefreshMs:liveRefreshMs};
  }
