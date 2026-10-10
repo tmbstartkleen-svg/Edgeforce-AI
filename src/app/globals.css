@@ -489,7 +489,7 @@
   outline:none;
 }
 
-#edge,#board,#parlays,#predictions,#operator{scroll-margin-top:145px}
+#edge,#board,#parlays,#predictions,#signals,#research,#operator{scroll-margin-top:145px}
 
 .operatorDrawer{
   margin:16px 0;
@@ -556,7 +556,7 @@
     position:sticky;
     margin-top:0;
   }
-  #edge,#board,#parlays,#predictions,#operator{scroll-margin-top:64px}
+  #edge,#board,#parlays,#predictions,#signals,#research,#operator{scroll-margin-top:64px}
   .operatorDrawer>summary{align-items:flex-start}
 }
 @media(max-width:560px){
@@ -566,3 +566,20 @@
   }
   .operatorDrawerAction{align-self:flex-start}
 }
+
+
+/* EDGEFORCE POST-LAUNCH RESEARCH DRAWER */
+.researchDrawer{
+  border-color:rgba(111,220,255,.20);
+  background:
+    linear-gradient(135deg,rgba(111,220,255,.035),transparent 36%),
+    linear-gradient(160deg,#0c1015,#080b0f);
+}
+.researchDrawer>summary .eyebrow{color:var(--ef-cyan,#6fdcff)}
+.researchDrawer>summary .operatorDrawerAction{
+  border-color:rgba(111,220,255,.28);
+  color:#a9eaff;
+  background:rgba(111,220,255,.05);
+}
+.researchDrawer[open] .operatorDrawerAction:before{content:"CLOSE LAB"}
+.researchDrawer .v21Panel{box-shadow:none}
