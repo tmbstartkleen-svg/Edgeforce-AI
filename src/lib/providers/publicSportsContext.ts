@@ -403,9 +403,12 @@ function scheduleMaxEvents(){
 }
 
 export async function fetchPublicSportsContext(markets:Market[]){
- const enabled=process.env.PUBLIC_CONTEXT_ENABLED==='true'||process.env.DEPLOYMENT_ENV==='production';
+ const enabled=
+  process.env.PUBLIC_CONTEXT_ENABLED==='true'||
+  process.env.DEPLOYMENT_ENV==='production'||
+  process.env.NODE_ENV==='development';
  if(!enabled||process.env.PUBLIC_CONTEXT_ENABLED==='false'){
-  return {rows:[] as PublicContextRow[],sourceQuality:{} as Record<string,number>,diagnostics:{enabled:false,matchedEvents:0,totalEvents:0,requests:0,warnings:['Public context network disabled outside production unless explicitly enabled']}};
+  return {rows:[] as PublicContextRow[],sourceQuality:{} as Record<string,number>,diagnostics:{enabled:false,matchedEvents:0,totalEvents:0,requests:0,warnings:['Public context network disabled by configuration']}};
  }
 
  const warnings:string[]=[];
