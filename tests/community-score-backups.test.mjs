@@ -56,7 +56,7 @@ test('V144 free score backups remain quota-conscious and key-optional',()=>{
  assert.match(source,/THESPORTSDB_ENABLED/);
  assert.match(source,/api\/v1\/json\/123\/eventsday\.php/);
  assert.match(source,/football-data\.org\/v4\/matches/);
- assert.match(source,/6\*60_000,bigBalls/);
- assert.match(source,/15\*60_000,apiSports/);
+ assert.match(source,/6\*60_000,\(\)=>bigBalls\(budget\)/);
+ assert.match(source,/15\*60_000,\(\)=>apiSports\(budget\)/);
  assert.match(source,/if\(!key\)return \[\]/);
 });

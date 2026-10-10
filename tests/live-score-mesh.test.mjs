@@ -234,3 +234,15 @@ test('V166 malformed backup-provider scores cannot count toward freshness or con
   assert.equal(runtime.evaluateLiveScoreFreshness([item],now).scoreCoverage,0);
  }
 });
+
+test('live scoreboard fan-out stays within the invocation budget and preserves base observations',async()=>{
+ const original=globalThis.fetch,limit=process.env.LIVE_SCORE_MAX_REQUESTS;let calls=0;
+ process.env.LIVE_SCORE_MAX_REQUESTS='45';
+ globalThis.fetch=async url=>{calls++;return Response.json(String(url).includes('/scoreboard')?{events:[0,1].map(i=>({id:'live-'+i,date:new Date().toISOString(),status:{type:{state:'in',detail:'In Progress'},displayClock:'05:00'},competitions:[{competitors:[{homeAway:'home',team:{displayName:'Home '+i},score:'3'},{homeAway:'away',team:{displayName:'Away '+i},score:'2'}]}]}))}:{});};
+ try{
+  const result=await runtime.fetchLiveScoreMesh();
+  assert.equal(calls,45);assert.equal(result.transport.requests,45);assert.equal(result.transport.requestLimit,45);
+  assert.ok(result.games.length>30);assert.ok(result.games.some(g=>g.home.score===3&&g.away.score===2));
+  assert.equal(runtime.getLiveScoreMeshSnapshot(),result);
+ }finally{globalThis.fetch=original;if(limit===undefined)delete process.env.LIVE_SCORE_MAX_REQUESTS;else process.env.LIVE_SCORE_MAX_REQUESTS=limit;}
+});

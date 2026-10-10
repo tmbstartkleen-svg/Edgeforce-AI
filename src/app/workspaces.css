@@ -128,3 +128,4 @@
 .workspaceShell .fullBoardDetails{margin:20px;padding:16px;border:1px solid #2b394d;border-radius:10px}.fullBoardDetails>summary{cursor:pointer;color:#bbd9fb;font-size:15px}.workspaceShell .fullBoardDetails .desktopBoardTable{display:block;margin-top:20px}
 @media(max-width:1100px){.workspaceShell .mobileBoardCards{grid-template-columns:1fr}}
 .predictionShortcut{display:none}
+.boardReviewNotice{padding:16px 18px;border:1px solid #74532c;border-radius:10px;background:#342717;color:#ffe2b2;font-size:15px;line-height:1.6}

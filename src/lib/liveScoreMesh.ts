@@ -256,7 +256,8 @@ export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now())
   recommendedUiRefreshMs
  };
 }
-async function json(url:string){
+async function json(url:string,budget?:()=>boolean){
+ if(budget&&!budget())throw new Error('Live score request budget reached');
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs());
  try{
@@ -392,46 +393,52 @@ async function cached(
  return request;
 }
 
-async function espnCdn(base:LiveGameState,label:string,league:string){
+async function espnCdn(base:LiveGameState,label:string,league:string,budget?:()=>boolean){
  const slug=ESPN_CDN_SLUG[label];
  if(!slug||base.status!=='LIVE')return base;
  const key='espn-cdn:'+label+':'+base.id;
  const games=await cached(key,espnCdnLiveTtlMs(),espnCdnLiveTtlMs(),async()=>{
   const suffix=slug==='soccer'?`&league=${encodeURIComponent(league)}`:'';
-  const payload=await json(`https://cdn.espn.com/core/${slug}/game?xhr=1&gameId=${encodeURIComponent(base.id)}${suffix}`);
+  const payload=await json(`https://cdn.espn.com/core/${slug}/game?xhr=1&gameId=${encodeURIComponent(base.id)}${suffix}`,budget);
   const parsed=parseEspnCdnGame(payload,base);
   return parsed?[parsed]:[];
  });
  return games[0]||base;
 }
 
-async function espn(sport:string,league:string,label:string){
+async function espn(sport:string,league:string,label:string,budget?:()=>boolean){
  const key='espn:'+league;
  const board=await cached(key,espnLiveTtlMs(),espnIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10).replaceAll('-','');
-  const payload=await json(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${date}`);
+  const payload=await json(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${date}`,budget);
   return parseEspnLiveGames(payload,label);
  });
- return Promise.all(board.map(game=>espnCdn(game,label,league).catch(()=>game)));
+ return Promise.all(board.map(game=>espnCdn(game,label,league,budget).catch(()=>game)));
 }
-async function nhl(){
- return cached('nhl-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>parseNhlGames(await json('https://api-web.nhle.com/v1/score/now')));
+async function nhl(budget?:()=>boolean){
+ return cached('nhl-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>parseNhlGames(await json('https://api-web.nhle.com/v1/score/now',budget)));
 }
-async function mlb(){
+async function mlb(budget?:()=>boolean){
  return cached('mlb-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10);
-  return parseMlbSchedule(await json(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=linescore`));
+  return parseMlbSchedule(await json(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=linescore`,budget));
  });
 }
 
+let latestMesh:Awaited<ReturnType<typeof fetchLiveScoreMesh>>|null=null;
+export function getLiveScoreMeshSnapshot(){return latestMesh&&Date.now()-Date.parse(latestMesh.generatedAt)<120000?latestMesh:null;}
+
 export async function fetchLiveScoreMesh(){
+ const requestLimit=Math.max(2,Math.min(45,Number(process.env.LIVE_SCORE_MAX_REQUESTS||45)));
+ let requests=0;
+ const budget=()=>requests<requestLimit?(requests++,true):false;
  const settled=await Promise.allSettled([
-  nhl(),mlb(),
-  ...ESPN_LEAGUES.map(([sport,league,label])=>espn(sport,league,label))
+  nhl(budget),mlb(budget),
+  ...ESPN_LEAGUES.map(([sport,league,label])=>espn(sport,league,label,budget))
  ]);
  const [sportScore,community]=await Promise.all([
-  fetchSportScoreBackup().catch(()=>({enabled:false,games:[],warnings:['SportScore request failed'],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}})),
-  fetchCommunityScoreBackups().catch(()=>({games:[] as LiveGameState[],warnings:['Community score backups unavailable'],sourceState:[]}))
+  fetchSportScoreBackup(budget).catch(()=>({enabled:false,games:[],warnings:['SportScore request failed'],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}})),
+  fetchCommunityScoreBackups(budget).catch(()=>({games:[] as LiveGameState[],warnings:['Community score backups unavailable'],sourceState:[]}))
  ]);
  const warnings:string[]=[];
  const batches:LiveGameState[][]=[];
@@ -453,7 +460,7 @@ export async function fetchLiveScoreMesh(){
   .filter(x=>x.status==='LIVE'&&x.consensus?.activeConflict)
   .slice(0,8)
   .map(x=>`live score conflict ${x.away.name} @ ${x.home.name}: selected ${x.source}; ${x.consensus?.reasons.join('; ')}`);
- return {
+ const result={
   ok:true,
   generatedAt:new Date().toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
@@ -462,7 +469,7 @@ export async function fetchLiveScoreMesh(){
   consensus,
   sourceMode:'adaptive-multi-source-free-first-consensus',
   coverage:sportCoverageSummary(),
-  transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
+  transport:{requestCoalescing:true,requests,requestLimit,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
   attribution:sportScore.enabled?sportScore.attribution:null,
   sources:[
    {id:'nhl-web',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
@@ -476,4 +483,5 @@ export async function fetchLiveScoreMesh(){
   games,
   warnings:[...new Set([...consensusWarnings,...warnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
  };
+ latestMesh=result;return result;
 }

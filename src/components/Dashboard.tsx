@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {buildMixedSportProbabilitySet,buildProbabilitySet,type Parlay} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
 import type {Scanned} from '@/lib/scanner';
@@ -8,6 +8,7 @@ import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import MarketDrilldown from './MarketDrilldown';
 import GamesWorkspace from './GamesWorkspace';
+import {qualifiesForTopBoard} from '@/lib/boardScoring';
 import PredictionIntelligencePanel from './PredictionIntelligencePanel';
 import OperatorCommandCenter from './OperatorCommandCenter';
 import ExpertModelSuitePanel from './ExpertModelSuitePanel';
@@ -140,6 +141,7 @@ type LiveScoreGame={
 type LiveBoardResponse={
   catalogue?:{enabled:boolean;page:number;pageSize:number;total:number;hasNext:boolean};
   marketCoverage?:{ingested:number;candidates:number;qualified:number;playerProps:number;sports:string[];bySport:Record<string,number>};
+  refreshStatus?:{mode:string;error?:string;lastSuccessfulAt?:string};
   generatedAt:string;
   uiRefreshMs:number;
   sourceRefreshMs:number;
@@ -189,7 +191,7 @@ type LiveBoardResponse={
   };
   warnings?:string[];
   topBoardQualification?:{
-    requested:number;candidates:number;qualified:number;shown:number;withheld:number;forced:boolean;
+    requested:number;candidates:number;qualified:number;shown:number;withheld:number;forced:boolean;fallbackMode?:string|null;fallbackReason?:string|null;
     minimumSimProbability:number;minimumDynamicConfidence:number;allowedGrades:string[];
   };
   contextRevision?:string;
@@ -671,39 +673,57 @@ export default function Dashboard(){
   const [drawdownPct,setDrawdownPct]=useState(0);
   const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
   const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
-  const busy=useRef(false);
 
   useEffect(()=>{
     if(workspace==='games')return;
     let mounted=true;
     let timer:number|undefined;
-    let nextDelay=1000;
+    let failures=0;
+    let controller:AbortController|undefined;
     const adaptiveLoad=async()=>{
-      if(!mounted)return;
-      if(!busy.current){
-        busy.current=true;
-        try{
-          const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk+(catalogue?'&catalogue=1&page='+cataloguePage+'&kind='+catalogueKind+'&sport='+encodeURIComponent(sport):''),{cache:'no-store'});
-          if(!res.ok)throw new Error('Board request failed');
-          const json=await res.json() as LiveBoardResponse;
-          const requested=json.liveScores?.freshness?.recommendedUiRefreshMs??json.liveScores?.uiRefreshMs??json.uiRefreshMs??1000;
-          nextDelay=Math.max(500,Math.min(5000,Number(requested)||1000));
-          if(mounted){setBoard(json);setLastError('')}
-        }catch(error){
-          nextDelay=Math.max(nextDelay,1500);
-          if(mounted)setLastError(error instanceof Error?error.message:'Unable to refresh board');
-        }finally{
-          busy.current=false;
+      controller=new AbortController();
+      const deadline=window.setTimeout(()=>controller?.abort(),35000);
+      let nextDelay=10000;
+      try{
+        const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk+(catalogue?'&catalogue=1&page='+cataloguePage+'&kind='+catalogueKind+'&sport='+encodeURIComponent(sport):''),{cache:'no-store',signal:controller.signal});
+        if(!res.ok){
+          const detail=await res.json().catch(()=>({}));
+          const retrySeconds=Number(res.headers.get('Retry-After'))||0;
+          nextDelay=Math.max(10000,Math.min(120000,retrySeconds*1000));
+          throw new Error(`Board refresh: HTTP ${res.status}${detail.error?' · '+detail.error:''}. Retrying automatically.`);
         }
+        const json=await res.json() as LiveBoardResponse;
+        failures=0;
+        if(mounted){setBoard(previous=>workspace==='live'&&previous.liveScores?{...json,liveScores:previous.liveScores}:json);setLastError(json.refreshStatus?.mode==='STALE_CACHE'?'Refresh delayed. Showing the last successful board; retrying automatically.':'');}
+      }catch(error){
+        failures++;
+        nextDelay=Math.max(nextDelay,Math.min(60000,10000*2**Math.min(3,failures-1)));
+        if(mounted)setLastError(error instanceof Error&&error.name!=='AbortError'?error.message:'Board refresh timed out. Retrying automatically; previous results remain visible.');
+      }finally{
+        window.clearTimeout(deadline);
+        if(mounted)timer=window.setTimeout(adaptiveLoad,nextDelay);
       }
-      if(mounted)timer=window.setTimeout(adaptiveLoad,nextDelay);
     };
     void adaptiveLoad();
-    return ()=>{mounted=false;if(timer!==undefined)window.clearTimeout(timer)};
+    return ()=>{mounted=false;controller?.abort();if(timer!==undefined)window.clearTimeout(timer)};
   },[workspace,view,limit,risk,catalogue,cataloguePage,catalogueKind,sport]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='live')return;
+    let mounted=true;let timer:number|undefined;let controller:AbortController|undefined;
+    const load=async()=>{
+      controller=new AbortController();
+      try{
+        const res=await fetch('/api/live-scores',{cache:'no-store',signal:controller.signal});
+        if(res.ok){const liveScores=await res.json() as NonNullable<LiveBoardResponse['liveScores']>;if(mounted)setBoard(previous=>({...previous,liveScores}));}
+      }catch{}
+      if(mounted)timer=window.setTimeout(load,2000);
+    };
+    void load();return ()=>{mounted=false;controller?.abort();if(timer!==undefined)window.clearTimeout(timer);};
+  },[workspace]);
+
+  useEffect(()=>{
+    if(workspace!=='parlays')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -719,7 +739,7 @@ export default function Dashboard(){
   },[workspace,view]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -735,7 +755,7 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -751,7 +771,7 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -767,7 +787,7 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -783,7 +803,7 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='research'&&workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -799,7 +819,7 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='operator')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -820,7 +840,7 @@ export default function Dashboard(){
   },[workspace]);
 
   useEffect(()=>{
-    if(workspace==='games')return;
+    if(workspace!=='board'&&workspace!=='signals')return;
     let mounted=true;
     const load=async()=>{
       try{
@@ -845,6 +865,7 @@ export default function Dashboard(){
   },[board.providerPanel]);
 
   useEffect(()=>{
+    if(workspace!=='research')return;
     let cancelled=false;
     const load=async()=>{
       if(!board.rows.length){setPortfolio(null);return;}
@@ -861,7 +882,7 @@ export default function Dashboard(){
     };
     void load();
     return ()=>{cancelled=true};
-  },[board.rows,bankroll,drawdownPct,risk]);
+  },[workspace,board.rows,bankroll,drawdownPct,risk]);
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
   const marketCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.market]=(acc[row.market]||0)+1;return acc},{}),[board.rows]);
@@ -1109,7 +1130,8 @@ export default function Dashboard(){
     </div>
     <div className="workspaceContent" hidden={workspace!=='board'}>
     <section className="marketCoveragePanel" aria-label="Market coverage">
-      <div className="marketCoverageHead"><div><div className="eyebrow">MARKET COVERAGE</div><h2>{catalogue?'All Markets & Player Props':'Ranked recommendations'}</h2></div><span className={board.source==='live'?'coverageLive':'coverageWarning'}>{boardLoading?'Connecting':board.source==='demo'?'DEMO DATA':board.source==='live'?'LIVE ODDS':board.source==='stored'?'STORED ODDS':'ODDS UNAVAILABLE'}</span></div>
+      {board.topBoardQualification?.forced&&!catalogue&&<p className="boardReviewNotice">No picks passed the recommendation gate. These simulations are for review only. {board.topBoardQualification.fallbackReason}</p>}
+      <div className="marketCoverageHead"><div><div className="eyebrow">MARKET COVERAGE</div><h2>{catalogue?'All Markets & Player Props':board.topBoardQualification?.forced?'Market review · no qualified picks':'Ranked recommendations'}</h2></div><span className={board.source==='live'?'coverageLive':'coverageWarning'}>{boardLoading?'Connecting':board.source==='demo'?'DEMO DATA':board.source==='live'?'LIVE ODDS':board.source==='stored'?'STORED ODDS':'ODDS UNAVAILABLE'}</span></div>
       <div className="coverageNumbers"><div><b>{board.marketCoverage?.ingested??'—'}</b><span>markets received</span></div><div><b>{board.marketCoverage?.candidates??'—'}</b><span>in this date range</span></div><div><b>{board.marketCoverage?.playerProps??'—'}</b><span>player props</span></div><div><b>{board.marketCoverage?.qualified??'—'}</b><span>qualified recommendations</span></div></div>
       <p>{catalogue?'Browse every received market in this date range. Listing a market does not make it a recommended bet.':'This is a filtered shortlist. Open All Markets & Props to browse the full received catalogue.'}</p>
       <div className="coverageToolbar"><button onClick={()=>{setCatalogue(!catalogue);setCataloguePage(0);resetBoardFilters();}}>{catalogue?'Show ranked picks':'Browse all markets'}</button><button aria-pressed={view==='today'} onClick={()=>{setView('today');setCataloguePage(0);}}>Today</button><button aria-pressed={view==='week'} onClick={()=>{setView('week');setCataloguePage(0);}}>Next 7 days</button>{catalogue&&<><select aria-label="Market category" value={catalogueKind} onChange={e=>{setCatalogueKind(e.target.value);setCataloguePage(0);setMarket('ALL');}}><option value="ALL">All market types</option><option value="MONEYLINE">Moneylines</option><option value="PROPS">Player props</option><option value="SPREADS">Spreads</option><option value="TOTALS">Game totals</option></select><select aria-label="Catalogue sport" value={sport} onChange={e=>{setSport(e.target.value);setCataloguePage(0);}}><option value="ALL">All sports</option>{(board.marketCoverage?.sports||[]).map(s=><option key={s} value={s}>{s} ({board.marketCoverage?.bySport[s]??0})</option>)}</select><button disabled={cataloguePage===0} onClick={()=>setCataloguePage(p=>Math.max(0,p-1))}>Previous</button><span>Page {cataloguePage+1} · {board.catalogue?.total??0} matching</span><button disabled={!board.catalogue?.hasNext} onClick={()=>setCataloguePage(p=>p+1)}>Next</button></>}</div>
@@ -1163,7 +1185,7 @@ export default function Dashboard(){
         <div><div className="eyebrow">V193 TODAY DECISION FLOW</div><h3>What deserves attention first</h3></div>
         <div className="todayDecisionFlowMeta">
           <span>{board.source==='live'?'LIVE BOARD':'BOARD WARMING'}</span>
-          <span>{rankedFiltered.length} qualified</span>
+          <span>{(board.refreshStatus?.mode==='STALE_CACHE'?0:rankedFiltered.filter(qualifiesForTopBoard).length)} model-qualified</span>
           <span>{reviewQueueSummary.total} review</span>
         </div>
       </div>
@@ -1371,7 +1393,7 @@ export default function Dashboard(){
         <div className="edgeCommandPulse">
           <span className={board.source==='live'?'dot liveDot':'dot'}/>
           <div><small>BOARD</small><b>{board.source==='live'?'LIVE':'WARMING'}</b></div>
-          <div><small>QUALIFIED</small><b>{boardLoading?'—':filtered.length}</b></div>
+          <div><small>MODEL-QUALIFIED</small><b>{boardLoading?'—':(board.refreshStatus?.mode==='STALE_CACHE'?0:filtered.filter(qualifiesForTopBoard).length)}</b></div>
           <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
           <div><small>ARBS</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
           <div><small>ROBUST</small><b>{robustnessSummary.robust}</b></div>
@@ -1462,7 +1484,7 @@ export default function Dashboard(){
         </div>
         <div className="panelMeta">
           <span>{catalogue?`${rankedFiltered.length} on this page · ${board.catalogue?.total??0} matching`: `${rankedFiltered.length} shown • ${board.topBoardQualification?.withheld??0} withheld`}</span>
-          <span>{catalogue?'ALL RECEIVED GRADES':board.topBoardQualification?.forced===false?'QUALITY ONLY • NOT FORCED':'loading qualification'}</span>
+          <span>{catalogue?'ALL RECEIVED GRADES':boardLoading?'Loading board':board.topBoardQualification?.forced?'REVIEW ONLY • NOT RECOMMENDATIONS':'QUALIFIED MODEL ROWS'}</span>
           <span>{board.generatedAt?dateLabel(board.generatedAt):'loading'}</span>
         </div>
       </div>
@@ -1492,8 +1514,8 @@ export default function Dashboard(){
         </div>
       </div>
       <div className="mobileBoardCards">
-        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
-          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></div>
+        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=catalogue||board.refreshStatus?.mode==='STALE_CACHE'||!qualifiesForTopBoard(x)||r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
+          <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision==='REVIEW'?'Review only':decision}</span><span className={'grade '+x.grade.toLowerCase()}>Model: {x.grade}</span></div>
           <div className="mobileBoardMain"><b>{x.selection}</b><small>{x.event} • {x.market} • {x.period}</small></div>
           <div className="mobileBoardMetrics">
             <div><small>SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong></div>
@@ -1501,7 +1523,7 @@ export default function Dashboard(){
             <div><small>CONF</small><strong>{fmtPct(x.dynamicConfidence)}</strong></div>
             <div><small>EDGE</small><strong className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</strong></div>
           </div>
-          <div className="mobileBoardFoot"><span className={'robustnessBadge '+(r?.classification||'FAIL').toLowerCase()}>{r?.classification||'—'}</span><span>{x.bestExecutionVenue?.venue||board.targetBook||'—'}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></div>
+          <div className="mobileBoardFoot"><span className={'robustnessBadge '+(r?.classification||'FAIL').toLowerCase()}>Quality: {r?.classification==='FAIL'?'Insufficient':r?.classification||'—'}</span><span>{x.bestExecutionVenue?.venue||board.targetBook||'—'}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></div>
         </article>})}
         {!rankedFiltered.length&&<div className="edgeEmpty">No qualified rows match the current ranking and review filters.</div>}
       </div>
@@ -1511,7 +1533,7 @@ export default function Dashboard(){
             <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
-            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
+            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=catalogue||board.refreshStatus?.mode==='STALE_CACHE'||!qualifiesForTopBoard(x)||r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
               <td className="rankCell">{i+1}</td>
               <td><span className="sportPill">{x.sport}</span></td>
               <td><b>{x.event}</b><small>{x.selection}</small></td>
@@ -1530,7 +1552,7 @@ export default function Dashboard(){
               <td>{fmtPct(x.quarterKelly)}</td>
               <td><b>{x.simEngine.replaceAll('_',' ')}</b><small>{x.simProjection.microUnit?`${x.simProjection.microUnitCount?.toFixed(1)??'—'} ${x.simProjection.microUnit} avg • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:x.simProjection.distributionFamily?`${x.simProjection.distributionFamily} • p10 ${x.simProjection.p10?.toFixed(1)??'—'} • p50 ${x.simProjection.p50?.toFixed(1)??'—'} • p90 ${x.simProjection.p90?.toFixed(1)??'—'}`:(x.playerContext?`${x.playerContext.name}${x.playerContext.status?` • ${x.playerContext.status}`:''}${x.playerContext.starter===false?' • not starting':''}`:(x.simProjection.unit?`${x.simProjection.totalMean!==undefined?x.simProjection.totalMean.toFixed(1):x.simProjection.selectionMean!==undefined?x.simProjection.selectionMean.toFixed(1):''} ${x.simProjection.unit}`:''))}</small></td>
               <td>{x.simulationRuns.toLocaleString()}</td>
-              <td><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
+              <td><span className={'decisionBadge '+decision.toLowerCase()}>{decision==='REVIEW'?'Review only':decision}</span><span className={'grade '+x.grade.toLowerCase()}>Model: {x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>})}
             {!rankedFiltered.length&&<tr><td colSpan={19} className="emptyRow">{catalogue?'No received markets match this date range and filters. Check feed status above.':'No qualified rows match the current ranking and review filters. Edgeforce will not pad the board with lower-grade plays.'}</td></tr>}
           </tbody>
