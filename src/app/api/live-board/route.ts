@@ -184,7 +184,8 @@ async function buildBoard(req:Request){
   ]);
   const triggeredIds=new Set(cached.contextChanges.map(x=>x.marketId));
   const resimulatedRows=scanned.filter(x=>triggeredIds.has(x.id));
-  if(resimulatedRows.length)await withTimeout(recordModelRuns(resimulatedRows),850,'model-run persistence').catch(()=>0);
+  const providerQualified=ingestion.source==='live'&&!ingestion.degraded;
+  if(providerQualified&&resimulatedRows.length)await withTimeout(recordModelRuns(resimulatedRows),850,'model-run persistence').catch(()=>0);
   const resimulationResults=resimulatedRows.map(x=>({
     marketId:x.id,
     selection:x.selection,
@@ -195,9 +196,9 @@ async function buildBoard(req:Request){
     simEngine:x.simEngine
   }));
   const boardCandidates=view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned;
-  const qualifiedCandidates=boardCandidates.filter(qualifiesForTopBoard);
+  const qualifiedCandidates=providerQualified?boardCandidates.filter(qualifiesForTopBoard):[];
   const strictRanked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
-  const fallbackRanked=strictRanked.length?[]:scoreBoardRows(boardCandidates)
+  const fallbackRanked=providerQualified&&strictRanked.length?[]:scoreBoardRows(boardCandidates)
     .filter(x=>x.freshness!=='STALE')
     .filter(x=>x.simProbability>=.50)
     .sort((a,b)=>b.dailyScore-a.dailyScore||b.simProbability-a.simProbability||b.dynamicConfidence-a.dynamicConfidence)
@@ -211,10 +212,16 @@ async function buildBoard(req:Request){
     if(catalogueKind==='TOTALS')return !prop&&/total|over|under/i.test(row.market);
     return true;
   }).sort((a,b)=>b.simProbability-a.simProbability);
-  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*cataloguePageSize,(cataloguePage+1)*cataloguePageSize):strictRanked.length?strictRanked:fallbackRanked;
-  const boardFallbackUsed=strictRanked.length===0&&fallbackRanked.length>0;
+  const ranked=catalogue?catalogueCandidates.slice(cataloguePage*cataloguePageSize,(cataloguePage+1)*cataloguePageSize):providerQualified&&strictRanked.length?strictRanked:fallbackRanked;
+  const boardFallbackUsed=(!providerQualified||strictRanked.length===0)&&fallbackRanked.length>0;
   const rows=fusePredictionMarkets(ranked,predictions.contracts,minPredictionVolume).map(row=>({
     ...row,
+    // Continue to show research/schedules without representing degraded prices as picks.
+    ...(!providerQualified?{
+      grade:ingestion.source==='live'?'WATCH' as const:'PASS' as const,
+      ...(ingestion.source!=='live'?{freshness:'STALE' as const}:{}),
+      expectedValue:0,quarterKelly:0,dynamicConfidence:0
+    }:{}),
     lineMovement:lineMovement.get(row.id)||null
   }));
   const steamAlerts=rows.map(x=>x.lineMovement?steamAlert(x.id,x.lineMovement.probabilityMove,x.lineMovement.snapshotCount,x.lineMovement.direction):null).filter(Boolean);
@@ -317,10 +324,10 @@ async function buildBoard(req:Request){
       withheld:Math.max(0,boardCandidates.length-qualifiedCandidates.length),
       forced:!catalogue&&boardFallbackUsed,
       fallbackMode:!catalogue&&boardFallbackUsed?'MARKET_SIM_VIEW':null,
-      fallbackReason:!catalogue&&boardFallbackUsed?'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.':null,
+      fallbackReason:!catalogue&&boardFallbackUsed?(!providerQualified?'Live independent provider coverage is degraded or unavailable. Rankings are research only, not actionable picks.':'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.'):null,
       minimumSimProbability:.52,
       minimumDynamicConfidence:.50,
-      allowedGrades:['ELITE','STRONG'],
+      allowedGrades:providerQualified?['ELITE','STRONG']:[],
       downgradeCounts
     },
     rows,
