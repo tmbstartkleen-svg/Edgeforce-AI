@@ -1105,6 +1105,9 @@ export default function Dashboard(){
           <div><small>PM</small><b>{pmCount}</b></div>
           <div><small>Sports</small><b>{board.sports.length}</b></div>
           <div><small>History</small><b>{board.history.sampleSize}</b></div>
+        </div>
+        <details className="boardDataDetails"><summary>Board data details</summary>
+        <div className="v21MiniGrid">
           <div><small>Feed</small><b>{board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'READY'}</b></div>
           <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
           <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
@@ -1125,6 +1128,7 @@ export default function Dashboard(){
           <div><small>Brier skill</small><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b></div>
           <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
         </div>
+        </details>
       </div>
     </section>
 

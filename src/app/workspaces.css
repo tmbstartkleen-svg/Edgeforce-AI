@@ -64,3 +64,16 @@
  .workspaceShell .boardScanDock{position:relative;top:auto}
  .workspaceShell .v21Hero{padding:20px}
 }
+
+/* Keep the entry view compact even when diagnostics contain many metrics. */
+.workspaceShell .workspaceSidebar{align-items:stretch}
+.workspaceShell .v21Top{display:grid}
+.workspaceShell .v21Hero{grid-template-columns:minmax(0,1fr);align-items:start}
+.workspaceShell .v21Hero>div:first-child{min-height:0;padding:24px;justify-content:center}
+.workspaceShell .v21HeroCard{padding:22px}
+.workspaceShell .v21HeroCard .v21MiniGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.workspaceShell .boardDataDetails{margin-top:18px;border-top:1px solid var(--ef-line);padding-top:14px}
+.workspaceShell .boardDataDetails summary{font-size:14px;color:var(--ef-muted);cursor:pointer;min-height:44px;display:flex;align-items:center;gap:10px}
+.workspaceShell .boardDataDetails summary:before{content:'+';font-size:20px;color:var(--ef-lime)}
+.workspaceShell .boardDataDetails[open] summary:before{content:'−'}
+@media(max-width:800px){.workspaceShell .v21HeroCard .v21MiniGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
