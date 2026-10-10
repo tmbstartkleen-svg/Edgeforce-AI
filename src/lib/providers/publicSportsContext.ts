@@ -100,7 +100,10 @@ function leagueSpec(m:Market):LeagueSpec|null{
  return null;
 }
 
-const timeoutMs=()=>Math.max(1500,Number(process.env.PUBLIC_CONTEXT_TIMEOUT_MS)||5000);
+const timeoutMs=()=>Math.max(
+ 1500,
+ Number(process.env.PUBLIC_CONTEXT_TIMEOUT_MS)||(process.env.NODE_ENV==='development'?2500:5000)
+);
 async function fetchJson(url:string,ttlMs:number):Promise<Cached>{
  const cached=requestCache.get(url);
  if(cached&&Date.now()-cached.at<ttlMs)return cached;
