@@ -25,18 +25,64 @@ const maxRequests=()=>Math.max(1,Math.min(30,Number(process.env.ESPN_CORE_ODDS_M
 const maxEvents=()=>Math.max(1,Math.min(40,Number(process.env.ESPN_CORE_ODDS_EVENTS_PER_LEAGUE||12)));
 const bookAllow=()=>new Set((process.env.ESPN_CORE_ODDS_BOOKS||'DraftKings,FanDuel,BetMGM,Caesars,ESPN BET').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 
-const PREFERRED_IDS=['nfl','ncaaf','nba','wnba','mlb','nhl','ncaam-basketball','ncaaw-basketball','mls','epl','ucl','ufc'];
+const GAP_PRIORITY_IDS=[
+ 'ncaaf',
+ 'nba',
+ 'wnba',
+ 'ncaam-basketball',
+ 'ncaaw-basketball',
+ 'mls',
+ 'epl',
+ 'laliga',
+ 'bundesliga',
+ 'serie-a',
+ 'ligue-1',
+ 'ucl',
+ 'uel'
+];
+
+const SUPPLEMENTAL_IDS=[
+ 'nfl',
+ 'nhl',
+ 'mlb',
+ 'ufc'
+];
+
+function orderedFeeds(){
+ const preferred=[...GAP_PRIORITY_IDS,...SUPPLEMENTAL_IDS];
+ return [
+  ...preferred.map(id=>ESPN_SCOREBOARD_FEEDS.find(x=>x.id===id)).filter(Boolean),
+  ...ESPN_SCOREBOARD_FEEDS.filter(x=>!preferred.includes(x.id))
+ ].filter((x):x is NonNullable<typeof x>=>Boolean(x?.sportSlug&&x?.leagueSlug));
+}
 
 function rotatingFeeds(){
- const all=[
-  ...PREFERRED_IDS.map(id=>ESPN_SCOREBOARD_FEEDS.find(x=>x.id===id)).filter(Boolean),
-  ...ESPN_SCOREBOARD_FEEDS.filter(x=>!PREFERRED_IDS.includes(x.id))
- ].filter((x):x is NonNullable<typeof x>=>Boolean(x?.sportSlug&&x?.leagueSlug));
+ const all=orderedFeeds();
  const width=Math.min(maxLeagues(),all.length);
  if(all.length<=width)return all;
+
+ const gapFeeds=all.filter(x=>GAP_PRIORITY_IDS.includes(x.id));
+ const otherFeeds=all.filter(x=>!GAP_PRIORITY_IDS.includes(x.id));
+
+ // Spend most of each constrained batch on sports not covered by the
+ // PropLine free-tier default. Keep one slot rotating through the rest
+ // so NFL/NHL/MLB and long-tail leagues still get periodic coverage.
+ const gapSlots=Math.max(1,Math.min(width,gapFeeds.length,width===1?1:width-1));
+ const otherSlots=Math.max(0,width-gapSlots);
  const bucket=Math.floor(Date.now()/cacheMs());
- const start=(bucket*width)%all.length;
- return Array.from({length:width},(_,i)=>all[(start+i)%all.length]);
+
+ const take=(rows:typeof all,count:number,offset:number)=>{
+  if(!count||!rows.length)return [] as typeof all;
+  return Array.from({length:Math.min(count,rows.length)},(_,i)=>rows[(offset+i)%rows.length]);
+ };
+
+ const gapStart=(bucket*gapSlots)%Math.max(1,gapFeeds.length);
+ const otherStart=(bucket*Math.max(1,otherSlots))%Math.max(1,otherFeeds.length);
+
+ return [
+  ...take(gapFeeds,gapSlots,gapStart),
+  ...take(otherFeeds,otherSlots,otherStart)
+ ];
 }
 
 async function json(url:string){
