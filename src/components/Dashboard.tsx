@@ -942,6 +942,13 @@ export default function Dashboard(){
   const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
   const operatorRiskCount=(board.providerDegraded?1:0)+(automationHealth?.staleCount??0)+(automationHealth?.failedCount??0);
   const boardLoading=board.source==='loading'&&!board.generatedAt;
+  const todayDecisionFlow=useMemo(()=>{
+    const action=boardScanLanes.ACTION[0]||rankedFiltered[0]||null;
+    const watch=boardScanLanes.WATCH[0]||rankedFiltered.find(x=>x.id!==action?.id)||null;
+    const review=boardScanLanes.REVIEW[0]||null;
+    const parlay=parlayBoard?.recommended?.[0]||null;
+    return {action,watch,review,parlay};
+  },[boardScanLanes,rankedFiltered,parlayBoard]);
   const liveGameCenter=useMemo(()=>{
     const games=(board.liveScores?.games||[]).filter(g=>g.status==='LIVE');
     const trusted=games.filter(g=>!g.consensus?.activeConflict);
@@ -1079,6 +1086,39 @@ export default function Dashboard(){
           <div><small>Brier skill</small><b>{validationLab?.report?.sampleSize?fmtPct(validationLab.report.overall.brierSkillScore):'—'}</b></div>
           <div><small>Release cert</small><b>{releaseCertification?.latest?(releaseCertification.latest.certified?'CERTIFIED':'BLOCKED'):'AWAITING'}</b></div>
         </div>
+      </div>
+    </section>
+
+    <section className="todayDecisionFlow" aria-label="V193 today decision flow">
+      <div className="todayDecisionFlowHead">
+        <div><div className="eyebrow">V193 TODAY DECISION FLOW</div><h3>What deserves attention first</h3></div>
+        <div className="todayDecisionFlowMeta">
+          <span>{board.source==='live'?'LIVE BOARD':'BOARD WARMING'}</span>
+          <span>{rankedFiltered.length} qualified</span>
+          <span>{reviewQueueSummary.total} review</span>
+        </div>
+      </div>
+      <div className="todayDecisionFlowGrid">
+        <button className="todayDecisionCard action" disabled={!todayDecisionFlow.action} onClick={()=>todayDecisionFlow.action&&setSelectedMarket({id:todayDecisionFlow.action.id,market:todayDecisionFlow.action.market,selection:todayDecisionFlow.action.selection})}>
+          <span className="todayDecisionStep">1</span>
+          <div><small>ACT NOW</small><b>{todayDecisionFlow.action?.selection||'No action candidate'}</b><span>{todayDecisionFlow.action?todayDecisionFlow.action.sport+' • '+todayDecisionFlow.action.market:'Waiting for qualified edge'}</span></div>
+          <strong>{todayDecisionFlow.action?fmtPct(todayDecisionFlow.action.simProbability):'—'}</strong>
+        </button>
+        <button className="todayDecisionCard watch" disabled={!todayDecisionFlow.watch} onClick={()=>todayDecisionFlow.watch&&setSelectedMarket({id:todayDecisionFlow.watch.id,market:todayDecisionFlow.watch.market,selection:todayDecisionFlow.watch.selection})}>
+          <span className="todayDecisionStep">2</span>
+          <div><small>WATCH NEXT</small><b>{todayDecisionFlow.watch?.selection||'No watch candidate'}</b><span>{todayDecisionFlow.watch?todayDecisionFlow.watch.sport+' • '+fmtOdds(todayDecisionFlow.watch.odds):'No secondary candidate'}</span></div>
+          <strong>{todayDecisionFlow.watch?fmtPct(todayDecisionFlow.watch.dynamicConfidence):'—'}</strong>
+        </button>
+        <button className="todayDecisionCard review" disabled={!todayDecisionFlow.review} onClick={()=>{if(todayDecisionFlow.review){setReviewQueueOnly(true);setSelectedMarket({id:todayDecisionFlow.review.id,market:todayDecisionFlow.review.market,selection:todayDecisionFlow.review.selection})}}}>
+          <span className="todayDecisionStep">3</span>
+          <div><small>REVIEW</small><b>{todayDecisionFlow.review?.selection||'No flagged row'}</b><span>{todayDecisionFlow.review?reviewReasonMap.get(todayDecisionFlow.review.id)?.slice(0,2).join(' • ')||'Manual review required':'Review queue is clear'}</span></div>
+          <strong>{reviewQueueSummary.total}</strong>
+        </button>
+        <a className={'todayDecisionCard parlay '+(todayDecisionFlow.parlay?'ready':'empty')} href="#parlays">
+          <span className="todayDecisionStep">4</span>
+          <div><small>BEST PARLAY</small><b>{todayDecisionFlow.parlay?todayDecisionFlow.parlay.legs.length+' qualified legs':'No promoted build'}</b><span>{todayDecisionFlow.parlay?fmtOdds(todayDecisionFlow.parlay.combinedAmericanOdds)+' • '+fmtPct(todayDecisionFlow.parlay.averageDynamicConfidence)+' confidence':'Safety gates are holding the slot'}</span></div>
+          <strong>{todayDecisionFlow.parlay?fmtPct(todayDecisionFlow.parlay.combinedProbability):'—'}</strong>
+        </a>
       </div>
     </section>
 

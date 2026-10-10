@@ -1069,3 +1069,63 @@
   .featuredLiveScore b{font-size:13px}
   .scoreDivider{font-size:17px}
 }
+
+
+/* EDGEFORCE V193 TODAY DECISION FLOW */
+.todayDecisionFlow{
+  margin:12px 0;
+  padding:13px;
+  border:1px solid rgba(224,182,90,.18);
+  border-radius:16px;
+  background:linear-gradient(155deg,#0d1116,#090d11);
+}
+.todayDecisionFlowHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.todayDecisionFlowHead h3{margin:4px 0 0;font-size:15px}
+.todayDecisionFlowMeta{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.todayDecisionFlowMeta span{padding:5px 8px;border:1px solid var(--ef-line);border-radius:999px;color:var(--ef-muted);font-size:7px}
+.todayDecisionFlowGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:11px}
+.todayDecisionCard{
+  min-width:0;
+  min-height:94px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:11px;
+  border:1px solid var(--ef-line);
+  border-radius:13px;
+  background:#0a0f14;
+  color:var(--ef-text);
+  text-align:left;
+  text-decoration:none;
+  cursor:pointer;
+}
+.todayDecisionCard:disabled{opacity:.46;cursor:default}
+.todayDecisionStep{
+  width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--ef-line-strong);border-radius:50%;
+  color:var(--ef-muted);font-size:8px;font-weight:900;
+}
+.todayDecisionCard small{display:block;color:var(--ef-muted);font-size:7px;letter-spacing:.08em;font-weight:900}
+.todayDecisionCard b{display:block;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.todayDecisionCard div>span{display:block;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ef-muted);font-size:8px}
+.todayDecisionCard>strong{font-size:16px}
+.todayDecisionCard.action{border-color:rgba(185,255,74,.22)}
+.todayDecisionCard.action>strong{color:var(--ef-lime)}
+.todayDecisionCard.watch{border-color:rgba(224,182,90,.22)}
+.todayDecisionCard.watch>strong{color:var(--ef-gold-soft)}
+.todayDecisionCard.review{border-color:rgba(255,120,120,.22)}
+.todayDecisionCard.review>strong{color:#ff9b9b}
+.todayDecisionCard.parlay{border-color:rgba(111,220,255,.22)}
+.todayDecisionCard.parlay>strong{color:var(--ef-cyan)}
+.todayDecisionCard:hover:not(:disabled){background:#0d141a}
+.todayDecisionCard:focus-visible{outline:2px solid var(--ef-cyan);outline-offset:2px}
+@media(max-width:980px){
+  .todayDecisionFlowGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .todayDecisionFlow{padding:10px}
+  .todayDecisionFlowHead{display:block}
+  .todayDecisionFlowMeta{margin-top:8px;justify-content:flex-start}
+  .todayDecisionFlowGrid{grid-template-columns:1fr}
+  .todayDecisionCard{min-height:82px}
+}
