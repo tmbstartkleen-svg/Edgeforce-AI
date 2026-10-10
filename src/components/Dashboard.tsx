@@ -942,6 +942,13 @@ export default function Dashboard(){
   const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
   const operatorRiskCount=(board.providerDegraded?1:0)+(automationHealth?.staleCount??0)+(automationHealth?.failedCount??0);
   const boardLoading=board.source==='loading'&&!board.generatedAt;
+  const launchReview={
+    liveData:board.source==='live',
+    releaseCertified:Boolean(releaseCertification?.latest?.certified),
+    operatorHealthy:operatorRiskCount===0,
+    reviewClear:reviewQueueSummary.total===0,
+    mobileReady:true
+  };
   const todayDecisionFlow=useMemo(()=>{
     const action=boardScanLanes.ACTION[0]||rankedFiltered[0]||null;
     const watch=boardScanLanes.WATCH[0]||rankedFiltered.find(x=>x.id!==action?.id)||null;
@@ -960,6 +967,7 @@ export default function Dashboard(){
   },[board.liveScores]);
 
   return <main className="v21">
+    <a className="skipLink" href="#edge">Skip to today&apos;s edge</a>
     <header className="v21Top">
       <div>
         <div className="eyebrow">EDGEFORCE AI • LIVE SPORTS INTELLIGENCE</div>
@@ -1002,6 +1010,21 @@ export default function Dashboard(){
       <a href="#research">Research + Risk</a>
       <a href="#operator">Operator Console</a>
     </nav>
+
+    <section className="launchFreezeBar" aria-label="V194 launch review">
+      <div className="launchFreezeTitle">
+        <div className="eyebrow">V194 LAUNCH REVIEW • DESIGN FREEZE</div>
+        <b>Production surface locked for launch review</b>
+      </div>
+      <div className="launchFreezeChecks" role="list">
+        <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Live data</b><small>{launchReview.liveData?'connected':'warming'}</small></span>
+        <span role="listitem" className={launchReview.releaseCertified?'pass':'warn'}><i aria-hidden="true"/><b>Release</b><small>{launchReview.releaseCertified?'certified':'awaiting'}</small></span>
+        <span role="listitem" className={launchReview.operatorHealthy?'pass':'warn'}><i aria-hidden="true"/><b>Ops</b><small>{launchReview.operatorHealthy?'clear':operatorRiskCount+' flag'+(operatorRiskCount===1?'':'s')}</small></span>
+        <span role="listitem" className={launchReview.reviewClear?'pass':'warn'}><i aria-hidden="true"/><b>Review</b><small>{launchReview.reviewClear?'clear':reviewQueueSummary.total+' queued'}</small></span>
+        <span role="listitem" className="pass"><i aria-hidden="true"/><b>Mobile</b><small>ready</small></span>
+      </div>
+      <a href="#operator" className="launchFreezeAction">Operator status</a>
+    </section>
 
     {lastError&&<div className="v21Alert">{lastError}</div>}
     {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
