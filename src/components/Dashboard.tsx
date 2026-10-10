@@ -35,6 +35,8 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
+import {buildInstitutionalDesk} from '@/lib/institutionalDesk';
+import InstitutionalTradeDesk from './InstitutionalTradeDesk';
 import {buildBoardPriority,buildBoardPriorityMap,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltaMap,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
@@ -642,7 +644,7 @@ export default function Dashboard(){
   const [catalogue,setCatalogue]=useState(false);
   const [cataloguePage,setCataloguePage]=useState(0);
   const [catalogueKind,setCatalogueKind]=useState('ALL');
-  const [workspace,setWorkspace]=useState<'games'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('games');
+  const [workspace,setWorkspace]=useState<'games'|'desk'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('games');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
@@ -1002,13 +1004,18 @@ export default function Dashboard(){
     reviewClear:reviewQueueSummary.total===0,
     mobileReady:true
   };
+  const institutionalSignals=useMemo(()=>buildInstitutionalDesk({
+    rows:board.rows,source:board.source,generatedAt:board.generatedAt,
+    providerDegraded:board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'
+  }),[board.rows,board.source,board.generatedAt,board.providerDegraded,board.refreshStatus?.mode]);
   const todayDecisionFlow=useMemo(()=>{
-    const action=boardScanLanes.ACTION[0]||rankedFiltered[0]||null;
+    const eligible=new Set(institutionalSignals.today.filter(x=>x.status==='ENTRY_WINDOW').map(x=>x.id));
+    const action=rankedFiltered.find(x=>eligible.has(x.id))||null;
     const watch=boardScanLanes.WATCH[0]||rankedFiltered.find(x=>x.id!==action?.id)||null;
     const review=boardScanLanes.REVIEW[0]||null;
     const parlay=parlayBoard?.recommended?.[0]||null;
     return {action,watch,review,parlay};
-  },[boardScanLanes,rankedFiltered,parlayBoard]);
+  },[boardScanLanes,rankedFiltered,parlayBoard,institutionalSignals]);
   const liveGameCenter=useMemo(()=>{
     const games=(liveFeed?.games||[]).filter(g=>g.status==='LIVE');
     const trusted=games.filter(g=>!g.consensus?.activeConflict);
@@ -1056,6 +1063,7 @@ export default function Dashboard(){
       <div className="workspaceBrand">EDGEFORCE<span>Sports intelligence</span></div>
       <small className="workspaceNavLabel">YOUR WORKSPACE</small>
       <a href="#games" aria-current={workspace==='games'?'page':undefined} onClick={()=>setWorkspace('games')}>Games & Schedules</a>
+      <a href="#trade-desk" aria-current={workspace==='desk'?'page':undefined} onClick={()=>{setWorkspace('desk');setView('week');setLimit(50);setCatalogue(false);}}>Institutional Edge Desk</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(30);}}>Daily Top 30</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===50?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(50);}}>Today’s Top 50</a>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='week'?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('week');setLimit(50);}}>This Week’s Top 50</a>
@@ -1092,6 +1100,7 @@ export default function Dashboard(){
     {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     {workspace==='games'&&<GamesWorkspace/>}
+    {workspace==='desk'&&<InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'} generatedAt={board.generatedAt} scanner={edgeScanner} onInspect={setSelectedMarket}/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>
     {liveFeedError&&<div className="v21Alert" role="alert">{liveFeedError}{liveFeed?' Showing the last received scores; they may be stale.':''}</div>}
     {!liveFeed&&<section className="v21Panel"><div className="v21PanelHead"><h3>Live Scores</h3><p>{liveFeedError?'Waiting for a successful score refresh.':'Loading the live score feed…'}</p></div></section>}
@@ -1203,7 +1212,7 @@ export default function Dashboard(){
       <div className="todayDecisionFlowGrid">
         <button className="todayDecisionCard action" disabled={!todayDecisionFlow.action} onClick={()=>todayDecisionFlow.action&&setSelectedMarket({id:todayDecisionFlow.action.id,market:todayDecisionFlow.action.market,selection:todayDecisionFlow.action.selection})}>
           <span className="todayDecisionStep">1</span>
-          <div><small>ACT NOW</small><b>{todayDecisionFlow.action?.selection||'No action candidate'}</b><span>{todayDecisionFlow.action?todayDecisionFlow.action.sport+' • '+todayDecisionFlow.action.market:'Waiting for qualified edge'}</span></div>
+          <div><small>ACT NOW · VERIFY PRICE</small><b>{todayDecisionFlow.action?.selection||'No verified entry candidate'}</b><span>{todayDecisionFlow.action?todayDecisionFlow.action.sport+' • '+todayDecisionFlow.action.market:'Waiting for qualified edge'}</span></div>
           <strong>{todayDecisionFlow.action?fmtPct(todayDecisionFlow.action.simProbability):'—'}</strong>
         </button>
         <button className="todayDecisionCard watch" disabled={!todayDecisionFlow.watch} onClick={()=>todayDecisionFlow.watch&&setSelectedMarket({id:todayDecisionFlow.watch.id,market:todayDecisionFlow.watch.market,selection:todayDecisionFlow.watch.selection})}>
