@@ -647,6 +647,7 @@ export default function Dashboard(){
   const [robustnessFilter,setRobustnessFilter]=useState<'ALL'|'RESILIENT'|'ROBUST'>('ALL');
   const [rankingMode,setRankingMode]=useState<'SIM'|'PRIORITY'>('SIM');
   const [divergenceFilter,setDivergenceFilter]=useState<'ALL'|'UPGRADED'|'DOWNGRADED'|'STABLE'>('ALL');
+  const [reviewQueueOnly,setReviewQueueOnly]=useState(false);
   const [minSim,setMinSim]=useState(0);
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
@@ -862,9 +863,10 @@ export default function Dashboard(){
   const rankDeltaSummary=useMemo(()=>summarizeBoardRankDeltas(filtered),[filtered]);
   const rankedFiltered=useMemo(()=>[...filtered]
     .filter(row=>divergenceFilter==='ALL'||rankDeltas.get(row.id)?.label===divergenceFilter)
+    .filter(row=>!reviewQueueOnly||buildBoardRobustness(row).reviewRequired||rankDeltas.get(row.id)?.label==='DOWNGRADED')
     .sort((a,b)=>rankingMode==='PRIORITY'
       ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
-      :b.simProbability-a.simProbability),[filtered,rankingMode,divergenceFilter,rankDeltas]);
+      :b.simProbability-a.simProbability),[filtered,rankingMode,divergenceFilter,reviewQueueOnly,rankDeltas]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
@@ -1030,6 +1032,13 @@ export default function Dashboard(){
           <option value="UPGRADED">Upgraded only</option>
           <option value="DOWNGRADED">Downgraded only</option>
           <option value="STABLE">Stable only</option>
+        </select>
+      </div>
+      <div className="controlGroup">
+        <label>V181 review queue</label>
+        <select value={reviewQueueOnly?'REVIEW':'ALL'} onChange={e=>setReviewQueueOnly(e.target.value==='REVIEW')}>
+          <option value="ALL">All ranked rows</option>
+          <option value="REVIEW">Needs review</option>
         </select>
       </div>
       <div className="controlGroup">
