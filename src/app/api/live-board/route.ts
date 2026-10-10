@@ -189,6 +189,11 @@ export async function GET(req:Request){
     unmatched:rows.filter(x=>x.predictionMarketStatus==='NO_MATCH').length
   };
 
+  const downgradeCounts=Object.fromEntries(
+    [...new Set(rows.flatMap(x=>x.downgradeReasons||[]))]
+      .map(reason=>[reason,rows.filter(x=>(x.downgradeReasons||[]).includes(reason)).length])
+  );
+
   const consensusRows=rows.filter(x=>x.consensus);
   const consensusCoverage={
     targetBook:ingestion.targetBook||process.env.TARGET_BOOKMAKER||'DraftKings',
@@ -264,7 +269,8 @@ export async function GET(req:Request){
       fallbackReason:boardFallbackUsed?'No ELITE/STRONG rows passed the strict edge/confidence gate; showing the highest-ranked fresh market/simulation rows without promoting them to picks.':null,
       minimumSimProbability:.52,
       minimumDynamicConfidence:.50,
-      allowedGrades:['ELITE','STRONG']
+      allowedGrades:['ELITE','STRONG'],
+      downgradeCounts
     },
     rows,
     sports,
