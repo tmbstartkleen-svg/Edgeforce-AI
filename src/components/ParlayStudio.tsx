@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import type {Scanned} from '@/lib/scanner';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
 import {analyzeCustomParlay} from '@/lib/parlays';
@@ -25,20 +25,22 @@ export default function ParlayStudio({rows,source,degraded,learned,generatedAt,o
  const [sport,setSport]=useState('ALL');
  const [kind,setKind]=useState('ALL');
  const [showAll,setShowAll]=useState(false);
- const boardAge=Date.now()-Date.parse(generatedAt||'');
+ const [nowMs,setNowMs]=useState(0);
+ useEffect(()=>{const update=()=>setNowMs(Date.now());update();const ticker=window.setInterval(update,30000);return ()=>window.clearInterval(ticker)},[]);
+ const boardAge=nowMs>0?nowMs-Date.parse(generatedAt||''):Number.POSITIVE_INFINITY;
  const boardVerified=source==='live'&&!degraded&&Number.isFinite(boardAge)&&boardAge>=0&&boardAge<=60000;
  const sports=useMemo(()=>[...new Set(rows.map(r=>r.sport))].sort(),[rows]);
- const ranked=useMemo(()=>rankResearchPool(rows,strategy).filter(({row})=>
+ const ranked=useMemo(()=>rankResearchPool(rows,strategy,nowMs||0).filter(({row})=>
    (sport==='ALL'||row.sport===sport)&&(kind==='ALL'||typeLabel(row)===kind)
- ),[rows,strategy,sport,kind]);
+ ),[rows,strategy,sport,kind,nowMs]);
  const pool=showAll?ranked.slice(0,80):ranked.slice(0,20);
  const selectedRows=useMemo(()=>selected.map(id=>rows.find(row=>row.id===id)).filter((r):r is Scanned=>Boolean(r)),[selected,rows]);
  const conflicts=useMemo(()=>analyzeParlayConflicts(selectedRows),[selectedRows]);
  const result=useMemo(()=>selectedRows.length>=2&&selectedRows.length<=6&&conflicts.length===0
    ?analyzeCustomParlay(selectedRows,learned):null,[selectedRows,learned,conflicts]);
  const sameGame=selectedRows.length>1&&new Set(selectedRows.map(x=>x.event+'|'+x.startTime)).size<selectedRows.length;
- const passed=selectedRows.every(x=>assessResearchLeg(x).eligible);
- const modelFlags=selectedRows.flatMap(x=>assessResearchLeg(x).reasons);
+ const passed=selectedRows.every(x=>assessResearchLeg(x,nowMs||0).eligible);
+ const modelFlags=selectedRows.flatMap(x=>assessResearchLeg(x,nowMs||0).reasons);
  const quoteAvailable=boardVerified&&passed&&conflicts.length===0;
  const experimentalEv=Boolean(result)&&!sameGame;
  const toggle=(id:string)=>setSelected(current=>current.includes(id)?current.filter(x=>x!==id):current.length<6?[...current,id]:current);
