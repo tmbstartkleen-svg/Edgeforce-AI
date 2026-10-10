@@ -909,6 +909,17 @@ export default function Dashboard(){
     upgraded:rankedFiltered.filter(row=>rankDeltas.get(row.id)?.label==='UPGRADED').length,
     positiveEdge:rankedFiltered.filter(row=>row.sportsbookEdge>0).length
   }),[rankedFiltered,robustnessMap,rankDeltas]);
+  const boardScanLanes=useMemo(()=>{
+    const lanes={ACTION:[] as typeof rankedFiltered,WATCH:[] as typeof rankedFiltered,REVIEW:[] as typeof rankedFiltered};
+    for(const row of rankedFiltered){
+      const robustness=robustnessMap.get(row.id);
+      const delta=rankDeltas.get(row.id);
+      const needsReview=robustness?.reviewRequired||delta?.label==='DOWNGRADED';
+      const decision=needsReview?'REVIEW':(row.sportsbookEdge>0&&row.dynamicConfidence>=.65?'ACTION':'WATCH');
+      lanes[decision].push(row);
+    }
+    return lanes;
+  },[rankedFiltered,robustnessMap,rankDeltas]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
@@ -1318,6 +1329,23 @@ export default function Dashboard(){
         <div><small>UPGRADED</small><b>{boardDecisionSummary.upgraded}</b></div>
         <div><small>+ EDGE</small><b>{boardDecisionSummary.positiveEdge}</b></div>
         <div><small>ORDER</small><b>{rankingMode==='PRIORITY'?'PRIORITY':'SIM'}</b></div>
+      </div>
+      <div className="boardScanDock" aria-label="V191 board scan controls">
+        <div className="boardScanMode">
+          <div><small>V191 LIVE SCAN</small><b>Action-first board</b></div>
+          <div className="segmented">
+            <button className={rankingMode==='SIM'?'active':''} onClick={()=>setRankingMode('SIM')}>Sim</button>
+            <button className={rankingMode==='PRIORITY'?'active':''} onClick={()=>setRankingMode('PRIORITY')}>Priority</button>
+            <button className={robustnessFilter==='ROBUST'?'active':''} onClick={()=>{setRobustnessFilter(robustnessFilter==='ROBUST'?'ALL':'ROBUST');setReviewQueueOnly(false)}}>Robust</button>
+            <button className={reviewQueueOnly?'active':''} onClick={()=>{setReviewQueueOnly(!reviewQueueOnly);if(!reviewQueueOnly)setRobustnessFilter('ALL')}}>Review</button>
+          </div>
+        </div>
+        <div className="boardScanLanes">
+          {(['ACTION','WATCH','REVIEW'] as const).map(lane=>{const row=boardScanLanes[lane][0];return <button key={lane} className={'boardScanLane '+lane.toLowerCase()} onClick={()=>row&&setSelectedMarket({id:row.id,market:row.market,selection:row.selection})} disabled={!row}>
+            <span><small>{lane}</small><b>{boardScanLanes[lane].length}</b></span>
+            <span><strong>{row?.selection||'No rows'}</strong><small>{row?fmtPct(row.simProbability)+' sim • '+fmtOdds(row.odds):'No current candidate'}</small></span>
+          </button>})}
+        </div>
       </div>
       <div className="mobileBoardCards">
         {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>

@@ -73,3 +73,13 @@ test('V190 market command bar exposes presets and collapsible advanced filters',
   assert.match(dashboard,/Robust/);
   assert.match(dashboard,/Review/);
 });
+
+
+test('V191 live board scan exposes sticky action-first controls',()=>{
+  assert.match(dashboard,/V191 LIVE SCAN/);
+  assert.match(dashboard,/boardScanLanes/);
+  assert.match(dashboard,/boardScanDock/);
+  assert.match(dashboard,/boardScanLane/);
+  assert.match(dashboard,/Action-first board/);
+  assert.match(dashboard,/setRankingMode\('PRIORITY'\)/);
+});
