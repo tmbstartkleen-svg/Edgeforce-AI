@@ -140,15 +140,17 @@ function resolveAthlete(payload:unknown,name:string,spec:EspnSpec){
  const candidates=collectAthleteCandidates(payload);
  const exact=candidates.filter(x=>normalizePlayerName(x.name)===target);
  if(!exact.length)return null;
+ if(exact.length===1)return exact[0];
 
  const leagueNeedle=spec.league.replace('college-football','college football').toLowerCase();
  const sportNeedle=spec.sport.toLowerCase();
- const preferred=exact.find(x=>
+ const leagueMatches=exact.filter(x=>
   x.league.includes(leagueNeedle)||
-  x.sport.includes(sportNeedle)||
-  /athlete|player/.test(x.type)
+  x.league.replaceAll('-',' ').includes(leagueNeedle)||
+  x.sport.includes(sportNeedle)
  );
- return preferred||exact[0];
+ if(leagueMatches.length===1)return leagueMatches[0];
+ return null;
 }
 
 function numericStats(names:string[],values:unknown[]){
