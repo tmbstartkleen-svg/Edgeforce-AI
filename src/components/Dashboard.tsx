@@ -33,7 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
-import {buildBoardPriority,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltas,summarizeBoardRobustness} from '@/lib/boardRobustness';
+import {buildBoardPriority,buildBoardPriorityMap,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltaMap,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -859,8 +859,9 @@ export default function Dashboard(){
   }),[rawFiltered,robustnessFilter,robustnessMap]);
 
   const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
-  const rankDeltas=useMemo(()=>buildBoardRankDeltas(filtered),[filtered]);
-  const rankDeltaSummary=useMemo(()=>summarizeBoardRankDeltas(filtered),[filtered]);
+  const priorityMap=useMemo(()=>buildBoardPriorityMap(filtered),[filtered]);
+  const rankDeltas=useMemo(()=>buildBoardRankDeltas(filtered,priorityMap),[filtered,priorityMap]);
+  const rankDeltaSummary=useMemo(()=>summarizeBoardRankDeltaMap(rankDeltas),[rankDeltas]);
   const reviewQueueSummary=useMemo(()=>{
     let fragile=0,fail=0,downgraded=0,total=0;
     for(const row of filtered){
@@ -877,8 +878,8 @@ export default function Dashboard(){
     .filter(row=>divergenceFilter==='ALL'||rankDeltas.get(row.id)?.label===divergenceFilter)
     .filter(row=>!reviewQueueOnly||buildBoardRobustness(row).reviewRequired||rankDeltas.get(row.id)?.label==='DOWNGRADED')
     .sort((a,b)=>rankingMode==='PRIORITY'
-      ?buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability
-      :b.simProbability-a.simProbability),[filtered,rankingMode,divergenceFilter,reviewQueueOnly,rankDeltas]);
+      ?(priorityMap.get(b.id)?.score??0)-(priorityMap.get(a.id)?.score??0)||b.simProbability-a.simProbability
+      :b.simProbability-a.simProbability),[filtered,rankingMode,divergenceFilter,reviewQueueOnly,rankDeltas,priorityMap]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);

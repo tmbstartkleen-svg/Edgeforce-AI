@@ -130,9 +130,13 @@ export function buildBoardPriority(row:Scanned):BoardPriority{
  return {score,sim,robustness:robustness.score,confidence,reviewPenalty,explanation};
 }
 
-export function buildBoardRankDeltas(rows:Scanned[]){
+export function buildBoardPriorityMap(rows:Scanned[]){
+ return new Map(rows.map(row=>[row.id,buildBoardPriority(row)] as const));
+}
+
+export function buildBoardRankDeltas(rows:Scanned[],priorityMap=buildBoardPriorityMap(rows)){
  const simRank=new Map([...rows].sort((a,b)=>b.simProbability-a.simProbability).map((row,index)=>[row.id,index+1]));
- const priorityRank=new Map([...rows].sort((a,b)=>buildBoardPriority(b).score-buildBoardPriority(a).score||b.simProbability-a.simProbability).map((row,index)=>[row.id,index+1]));
+ const priorityRank=new Map([...rows].sort((a,b)=>(priorityMap.get(b.id)?.score??0)-(priorityMap.get(a.id)?.score??0)||b.simProbability-a.simProbability).map((row,index)=>[row.id,index+1]));
  return new Map(rows.map(row=>{
   const sim=simRank.get(row.id)??0;
   const priority=priorityRank.get(row.id)??0;
@@ -142,15 +146,18 @@ export function buildBoardRankDeltas(rows:Scanned[]){
  }));
 }
 
-export function summarizeBoardRankDeltas(rows:Scanned[]){
- const deltas=buildBoardRankDeltas(rows);
+export function summarizeBoardRankDeltaMap(deltas:ReturnType<typeof buildBoardRankDeltas>){
  let upgraded=0,downgraded=0,stable=0;
  for(const value of deltas.values()){
   if(value.label==='UPGRADED')upgraded++;
   else if(value.label==='DOWNGRADED')downgraded++;
   else stable++;
  }
- return {total:rows.length,upgraded,downgraded,stable,zeroExtraProviderRequests:true};
+ return {total:deltas.size,upgraded,downgraded,stable,zeroExtraProviderRequests:true};
+}
+
+export function summarizeBoardRankDeltas(rows:Scanned[]){
+ return summarizeBoardRankDeltaMap(buildBoardRankDeltas(rows));
 }
 
 export function summarizeBoardRobustness(rows:Scanned[]){

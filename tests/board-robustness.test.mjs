@@ -106,3 +106,13 @@ test('V182 review queue summary is local and one-click',()=>{
  assert.match(dashboard,/fragile/);
  assert.match(dashboard,/downgraded/);
 });
+
+
+test('V183 ranking efficiency caches local priority work',()=>{
+ assert.match(engine,/buildBoardPriorityMap/);
+ assert.match(engine,/summarizeBoardRankDeltaMap/);
+ assert.match(engine,/priorityMap\.get\(b\.id\)\?\.score/);
+ assert.doesNotMatch(engine,/sort\(\(a,b\)=>buildBoardPriority\(b\)\.score-buildBoardPriority\(a\)\.score/);
+ assert.match(dashboard,/const priorityMap=useMemo/);
+ assert.match(dashboard,/summarizeBoardRankDeltaMap\(rankDeltas\)/);
+});
