@@ -1129,3 +1129,54 @@
   .todayDecisionFlowGrid{grid-template-columns:1fr}
   .todayDecisionCard{min-height:82px}
 }
+
+
+/* EDGEFORCE V194 LAUNCH REVIEW + DESIGN FREEZE */
+.skipLink{
+  position:fixed;left:12px;top:10px;z-index:100;
+  transform:translateY(-160%);
+  padding:9px 12px;border:1px solid var(--ef-cyan);border-radius:9px;
+  background:#05090d;color:#fff;font-size:10px;font-weight:900;text-decoration:none;
+}
+.skipLink:focus{transform:translateY(0)}
+.launchFreezeBar{
+  display:grid;grid-template-columns:minmax(220px,.9fr) minmax(0,2fr) auto;
+  gap:12px;align-items:center;
+  margin:10px 0 12px;padding:10px 12px;
+  border:1px solid rgba(224,182,90,.2);border-radius:14px;
+  background:linear-gradient(150deg,rgba(224,182,90,.055),#090d11 45%,rgba(111,220,255,.035));
+}
+.launchFreezeTitle b{display:block;margin-top:3px;font-size:10px}
+.launchFreezeChecks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.launchFreezeChecks>span{
+  min-width:0;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:7px;
+  padding:7px 8px;border:1px solid var(--ef-line);border-radius:10px;background:#0a0f14;
+}
+.launchFreezeChecks i{grid-row:1/3;width:7px;height:7px;margin-top:3px;border-radius:50%;background:var(--ef-muted)}
+.launchFreezeChecks .pass i{background:var(--ef-lime);box-shadow:0 0 10px rgba(185,255,74,.3)}
+.launchFreezeChecks .warn i{background:var(--ef-gold-soft);box-shadow:0 0 10px rgba(224,182,90,.25)}
+.launchFreezeChecks b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}
+.launchFreezeChecks small{color:var(--ef-muted);font-size:7px}
+.launchFreezeAction{
+  min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:8px 11px;
+  border:1px solid rgba(111,220,255,.22);border-radius:10px;background:rgba(111,220,255,.05);
+  color:var(--ef-cyan);font-size:8px;font-weight:900;text-decoration:none;white-space:nowrap;
+}
+button,a,summary,select,input{touch-action:manipulation}
+button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,input:focus-visible{
+  outline:2px solid var(--ef-cyan)!important;outline-offset:2px;
+}
+@media(max-width:900px){
+  .launchFreezeBar{grid-template-columns:1fr auto}
+  .launchFreezeChecks{grid-column:1/-1;grid-row:2}
+}
+@media(max-width:620px){
+  .launchFreezeBar{grid-template-columns:1fr;padding:10px}
+  .launchFreezeChecks{grid-template-columns:repeat(2,minmax(0,1fr));grid-column:auto;grid-row:auto}
+  .launchFreezeChecks>span:last-child{grid-column:1/-1}
+  .launchFreezeAction{min-height:46px;width:100%}
+  button,.ackBtn,.segmented button,.filterReset,.presetRail button,.marketChipRail button{min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
