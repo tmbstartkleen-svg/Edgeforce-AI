@@ -874,6 +874,16 @@ export default function Dashboard(){
     }
     return {total,fragile,fail,downgraded};
   },[filtered,robustnessMap,rankDeltas]);
+  const reviewReasonMap=useMemo(()=>new Map(filtered.map(row=>{
+    const robustness=robustnessMap.get(row.id);
+    const delta=rankDeltas.get(row.id);
+    const reasons:string[]=[];
+    if(robustness?.classification==='FAIL')reasons.push('robustness fail');
+    else if(robustness?.classification==='FRAGILE')reasons.push('fragile robustness');
+    else if(robustness?.reviewRequired)reasons.push('review required');
+    if(delta?.label==='DOWNGRADED')reasons.push(`priority rank down ${Math.abs(delta.delta)}`);
+    return [row.id,reasons] as const;
+  })),[filtered,robustnessMap,rankDeltas]);
   const rankedFiltered=useMemo(()=>[...filtered]
     .filter(row=>divergenceFilter==='ALL'||rankDeltas.get(row.id)?.label===divergenceFilter)
     .filter(row=>!reviewQueueOnly||buildBoardRobustness(row).reviewRequired||rankDeltas.get(row.id)?.label==='DOWNGRADED')
@@ -1132,7 +1142,7 @@ export default function Dashboard(){
                 <small>{x.sport} • {x.event} • {x.market}</small>
               </div>
               <div className="edgeMetric"><strong>{fmtPct(rankingMode==='PRIORITY'?buildBoardPriority(x).score:x.simProbability)}</strong><small>{rankingMode==='PRIORITY'?'PRIORITY':'SIM'}</small></div>
-              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small>{rankingMode==='PRIORITY'&&<small>{buildBoardPriority(x).explanation.slice(0,3).join(' • ')}</small>}{rankingMode==='PRIORITY'&&rankDeltas.get(x.id)&&<small>V126 {rankDeltas.get(x.id)?.label} • {rankDeltas.get(x.id)?.delta===0?'same rank':`${Math.abs(rankDeltas.get(x.id)?.delta||0)} place${Math.abs(rankDeltas.get(x.id)?.delta||0)===1?'':'s'} ${(rankDeltas.get(x.id)?.delta||0)>0?'up':'down'}`}</small>}</div>
+              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small>{rankingMode==='PRIORITY'&&<small>{buildBoardPriority(x).explanation.slice(0,3).join(' • ')}</small>}{rankingMode==='PRIORITY'&&rankDeltas.get(x.id)&&<small>V126 {rankDeltas.get(x.id)?.label} • {rankDeltas.get(x.id)?.delta===0?'same rank':`${Math.abs(rankDeltas.get(x.id)?.delta||0)} place${Math.abs(rankDeltas.get(x.id)?.delta||0)===1?'':'s'} ${(rankDeltas.get(x.id)?.delta||0)>0?'up':'down'}`}</small>}{reviewQueueOnly&&reviewReasonMap.get(x.id)?.length?<small>V184 REVIEW • {reviewReasonMap.get(x.id)?.join(' • ')}</small>:null}</div>
             </button>)}
             {!filtered.length&&<div className="edgeEmpty">No qualified simulation rows under the current filters.</div>}
           </div>
