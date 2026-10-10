@@ -460,7 +460,7 @@ add('V74 SLO schema',read('db/v86.sql').includes('slo_error_budget_state')&&read
 add('V74 multi-window burn',read('src/lib/sloGovernor.ts').includes("evaluateSloWindow")&&read('src/lib/sloGovernor.ts').includes("'1h'")&&read('src/lib/sloGovernor.ts').includes("'24h'")&&read('src/lib/sloGovernor.ts').includes("'7d'"),'SLO governor evaluates 1h, 24h and 7d windows');
 add('V74 freeze thresholds',read('src/lib/sloGovernor.ts').includes('oneHour.burnRate>=8')&&read('src/lib/sloGovernor.ts').includes('twentyFourHour.burnRate>=4')&&read('src/lib/sloGovernor.ts').includes('sevenDay.budgetRemaining<=0'),'fast and slow burn thresholds freeze unsafe deployments');
 add('V74 sustained recovery',read('src/lib/sloGovernor.ts').includes('three consecutive safe checks passed')&&read('src/app/api/testing/slo-governor/route.ts').includes("reopened.state==='OPEN'"),'deployment freeze needs three safe recovery checks before reopening');
-add('V74 hourly governor automation',read('src/lib/automationHealth.ts').includes("jobName:'slo-governor'")&&read('vercel.json').includes('/api/cron/slo-governor')&&read('worker/index.ts').includes('/api/cron/slo-governor'),'Vercel and Cloudflare run the governor hourly');
+add('V74 hourly governor automation',read('src/lib/automationHealth.ts').includes("jobName:'slo-governor'")&&read('worker/index.ts').includes('/api/cron/slo-governor')&&!Array.isArray(vercel.crons),'Cloudflare owns scheduled SLO governance while Vercel remains manual-only standby');
 add('V74 predeploy freeze',read('.github/workflows/deploy-production.yml').includes('Enforce current production SLO budget')&&read('.github/workflows/deploy-production.yml').includes('deploymentAllowed // false'),'existing production can freeze the next deploy before build');
 add('V74 candidate SLO gate',read('.github/workflows/deploy-production.yml').includes('Refresh candidate SLO governor')&&read('.github/workflows/deploy-production.yml').includes('SLO_BUDGET_PASSED'),'candidate must pass the error-budget gate before comparative canary');
 add('V74 production certification',read('src/lib/productionCertification.ts').includes("sloGovernor.state==='FROZEN'")&&read('src/lib/v1ReleaseReadiness.ts').includes("'slo-error-budget'"),'production certification and final readiness consume SLO state');
@@ -587,7 +587,7 @@ add('public scan uses live ingestion',read('src/app/api/scan/route.ts').includes
 add('decision automation uses live ingestion',read('src/app/api/cron/decision/route.ts').includes("ingestOdds")&&!read('src/app/api/cron/decision/route.ts').includes("demoMarkets"),'decision automation is real-data only');
 add('live data status endpoint',read('src/app/api/live-data/status/route.ts').includes("connected:ingestion.source==='live'"),'live connection status exposed');
 add('shared event-state joint engine',read('src/lib/eventJointSimulation.ts').includes('runSharedEventStateSimulation')&&read('src/lib/sharedEventState.ts').includes("engine:'SHARED_EVENT_STATE'"),'same-game legs share one event scenario');
-add('shared event-state regression',read('src/app/api/testing/joint-simulation/route.ts').includes("shared.engine==='SHARED_EVENT_STATE'"),'CI guards joint engine routing');
+add('shared event-state regression',read('src/app/api/testing/joint-simulation/route.ts').includes("engine:'SHARED_EVENT_STATE'")&&read('src/lib/eventJointSimulation.ts').includes('runSharedEventStateSimulation'),'CI guards joint engine routing');
 add('Cloudflare autopilot Worker',read('worker/index.ts').includes("handler from 'vinext/server/fetch-handler'")&&read('worker/index.ts').includes('scheduled'),'custom Worker delegates HTTP and handles cron');
 add('Cloudflare local preflight placeholder guard',read('scripts/cloudflare-preflight.mjs').includes('PASTE_YOUR_ACCOUNT_ID_HERE'),'placeholder account IDs are rejected');
 add('Cloudflare generated build validation',read('scripts/validate-cloudflare-build.mjs').includes('dist/server/wrangler.json'),'generated Worker config is validated');
@@ -598,8 +598,8 @@ add('parlay route artifact identity',read('src/app/api/parlays/route.ts').includ
 const requiredCrons=[
  '/api/cron/injuries','/api/cron/heartbeat','/api/cron/settle','/api/cron/scan','/api/cron/decision','/api/cron/recalibrate'
 ];
-const cronPaths=new Set((vercel.crons||[]).map(x=>x.path));
-for(const cron of requiredCrons)add(`cron ${cron}`,cronPaths.has(cron),cron);
+add('Vercel standby has no scheduled crons',!Array.isArray(vercel.crons),'Cloudflare is the sole scheduler; Vercel remains Hobby-safe manual DR');
+for(const cron of requiredCrons)add(`Cloudflare cron ${cron}`,read('worker/index.ts').includes(cron),cron);
 
 for(const token of [
  'Content-Security-Policy','Strict-Transport-Security','X-Frame-Options',
@@ -1161,7 +1161,7 @@ add('V146 health capability',read('src/app/api/health/route.ts').includes('produ
 add('V146 mandatory watchdog regression',exists('tests/production-topology-watchdog.test.mjs')&&String(pkg.scripts.posttypecheck).includes('tests/production-topology-watchdog.test.mjs'),'V146 watchdog and failover invariants are mandatory');
 add('V146 Cloudflare secret handoff',read('.github/workflows/deploy-cloudflare.yml').indexOf('Generate Edgeforce runtime secrets')<read('.github/workflows/deploy-cloudflare.yml').indexOf('Build Cloudflare Worker')&&read('.github/workflows/deploy-cloudflare.yml').includes('for ATTEMPT in {1..10}')&&read('.github/workflows/deploy-cloudflare.yml').includes('Waiting for rotated Cloudflare ingest secret propagation'),'runtime secrets exist before Worker build and post-deploy auth retries remain bounded');
 add('V146 release notes',exists('EDGEFORCE_V146_RELEASE.md'),'V146 release documentation exists');
-add('V147 ESPN CDN fast path preserved',read('src/lib/liveScoreMesh.ts').includes("g.source==='espn-public'||g.source==='espn-cdn'")&&read('src/lib/liveScoreMesh.ts').includes('espnCdnLiveTtlMs=()=>Math.max(500'),'live ESPN CDN upgrades survive final aggregation and run on the sub-second fast path');
+add('V147 ESPN CDN fast path preserved',read('src/lib/liveScoreMesh.ts').includes("g.source==='espn-public'||g.source==='espn-cdn'")&&read('src/lib/liveScoreMesh.ts').includes('espnCdnLiveTtlMs=()=>Math.max(750'),'live ESPN CDN upgrades survive final aggregation and run on the 750ms fast path');
 add('V147 source-aware score reconciliation',read('src/lib/liveScoreMesh.ts').includes('SOURCE_PRIORITY')&&read('src/lib/liveScoreMesh.ts').includes('liveGameQuality')&&read('src/lib/liveScoreMesh.ts').includes('reconcileLiveGames'),'duplicate live games are resolved by source trust, completeness and freshness instead of fixed merge order');
 add('V147 freshness governor',read('src/lib/liveScoreMesh.ts').includes('evaluateLiveScoreFreshness')&&read('src/lib/liveScoreMesh.ts').includes("state:'IDLE'|'FAST'|'HEALTHY'|'DEGRADED'|'STALE'")&&read('src/lib/liveScoreMesh.ts').includes('recommendedUiRefreshMs'),'live score responses expose bounded freshness state and recommended UI cadence');
 add('V147 adaptive dashboard polling',read('src/components/Dashboard.tsx').includes('nextDelay=Math.max(500,Math.min(5000')&&read('src/components/Dashboard.tsx').includes('window.setTimeout(adaptiveLoad,nextDelay)'),'dashboard polling follows server freshness guidance without overlapping requests');
