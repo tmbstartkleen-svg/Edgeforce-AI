@@ -861,3 +861,66 @@
   .mobileBoardTop{flex-wrap:wrap;justify-content:flex-start}
   .mobileBoardTop .grade{margin-left:auto}
 }
+
+
+/* EDGEFORCE V190 MARKET COMMAND BAR */
+.marketCommandBar{
+  margin:12px 0 8px;
+  padding:14px;
+  border:1px solid rgba(111,220,255,.18);
+  border-radius:16px;
+  background:linear-gradient(160deg,#0d1218,#080b0f);
+}
+.marketCommandHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.marketCommandHead h3{margin:4px 0 0;font-size:16px}
+.presetRail,.marketChipRail{display:flex;gap:7px;overflow:auto;scrollbar-width:none}
+.presetRail::-webkit-scrollbar,.marketChipRail::-webkit-scrollbar{display:none}
+.presetRail button,.marketChipRail button{
+  flex:0 0 auto;
+  min-height:40px;
+  padding:8px 11px;
+  border:1px solid var(--ef-line-strong);
+  border-radius:11px;
+  background:#0c1116;
+  color:var(--ef-muted);
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer;
+}
+.presetRail button{color:var(--ef-gold-soft);border-color:rgba(224,182,90,.24)}
+.marketChipRail{margin-top:10px;padding-bottom:3px}
+.marketChipRail button{display:grid;grid-template-columns:auto auto;gap:8px;align-items:center}
+.marketChipRail button b{font-size:9px}
+.marketChipRail button span{min-width:24px;padding:3px 6px;border-radius:999px;background:#151b22;color:var(--ef-gold-soft);font-size:8px}
+.marketChipRail button.active{border-color:rgba(111,220,255,.34);background:rgba(111,220,255,.07);color:#a9eaff}
+.presetRail button:focus-visible,.marketChipRail button:focus-visible,.advancedBoardFilters>summary:focus-visible{outline:2px solid var(--ef-cyan);outline-offset:2px}
+.presetSummary{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.presetSummary span{padding:5px 8px;border:1px solid var(--ef-line);border-radius:999px;background:#090d11;color:var(--ef-muted);font-size:8px}
+.advancedBoardFilters{
+  margin:0 0 12px;
+  border:1px solid var(--ef-line);
+  border-radius:14px;
+  background:#090d11;
+  overflow:hidden;
+}
+.advancedBoardFilters>summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  min-height:52px;
+  padding:11px 14px;
+  cursor:pointer;
+  list-style:none;
+}
+.advancedBoardFilters>summary::-webkit-details-marker{display:none}
+.advancedBoardFilters>summary b{display:block;margin-top:3px;font-size:11px}
+.advancedBoardFilters>summary>span{padding:5px 8px;border:1px solid var(--ef-line-strong);border-radius:999px;color:var(--ef-gold-soft);font-size:8px}
+.advancedBoardFilters[open]>summary{border-bottom:1px solid var(--ef-line)}
+.advancedBoardFilters .v21ControlPanel{margin:0;border:0;border-radius:0}
+@media(max-width:700px){
+  .marketCommandBar{padding:12px}
+  .marketCommandHead{display:block}
+  .presetRail{margin-top:10px}
+  .presetRail button,.marketChipRail button{min-height:46px}
+}
