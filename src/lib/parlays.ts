@@ -374,3 +374,9 @@ export function buildMixedSportProbabilitySet(rows:Scanned[],size:number,learned
  if(seed.length<target)return buildProbabilitySet(rows,target,learned);
  return summarize(seed.slice(0,target),target+'-LEG MULTI-SPORT SET',learned);
 }
+
+/** V198 user-built, manual research slip using the existing learned-correlation joint engine. */
+export function analyzeCustomParlay(rows:Scanned[],learned?:LearnedSgpMap):Parlay|null{
+ if(rows.length<2||rows.length>6||new Set(rows.map(x=>x.id)).size!==rows.length)return null;
+ return summarize(rows,'CUSTOM CORRELATION-AWARE RESEARCH SLIP',learned,'WATCH_FALLBACK');
+}
