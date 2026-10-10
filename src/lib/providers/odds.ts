@@ -90,7 +90,7 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
   };
  }
 
- const providerDeadlineMs=Math.max(2500,Math.min(10000,config.timeoutMs||8000));
+ const providerDeadlineMs=Math.max(2500,Math.min(7000,config.timeoutMs||7000));
  let raw:ProviderFetchResult<unknown>;
  try{
   raw=await withDeadline(
