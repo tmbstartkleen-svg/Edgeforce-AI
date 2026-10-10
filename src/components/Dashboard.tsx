@@ -33,6 +33,7 @@ import VercelGovernorPanel from './VercelGovernorPanel';
 import ProductionTopologyWatchdogPanel from './ProductionTopologyWatchdogPanel';
 import SloGovernorPanel from './SloGovernorPanel';
 import {buildTradeSignal,findCrossVenueOpportunity} from '@/lib/tradeSignals';
+import {buildBoardRobustness,summarizeBoardRobustness,type BoardRobustnessClass} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
   dailyScore:number;
@@ -643,6 +644,7 @@ export default function Dashboard(){
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
+  const [robustnessFilter,setRobustnessFilter]=useState<'ALL'|'RESILIENT'|'ROBUST'>('ALL');
   const [minSim,setMinSim]=useState(0);
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
@@ -835,7 +837,9 @@ export default function Dashboard(){
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
 
-  const filtered=useMemo(()=>board.rows.filter(x=>{
+  const robustnessMap=useMemo(()=>new Map(board.rows.map(x=>[x.id,buildBoardRobustness(x)])),[board.rows]);
+
+  const rawFiltered=useMemo(()=>board.rows.filter(x=>{
     if(effectiveSport!=='ALL'&&x.sport!==effectiveSport)return false;
     if(period!=='ALL'&&x.period!==period)return false;
     if(market!=='ALL'&&x.market!==market)return false;
@@ -843,6 +847,15 @@ export default function Dashboard(){
     if(x.odds<minOdds||x.odds>maxOdds)return false;
     return true;
   }),[board.rows,effectiveSport,period,market,minSim,minOdds,maxOdds]);
+
+  const filtered=useMemo(()=>rawFiltered.filter(x=>{
+    if(robustnessFilter==='ALL')return true;
+    const classification=robustnessMap.get(x.id)?.classification;
+    if(robustnessFilter==='ROBUST')return classification==='ROBUST';
+    return classification==='ROBUST'||classification==='RESILIENT';
+  }),[rawFiltered,robustnessFilter,robustnessMap]);
+
+  const robustnessSummary=useMemo(()=>summarizeBoardRobustness(rawFiltered),[rawFiltered]);
 
   const probabilitySet=useMemo(()=>buildProbabilitySet(filtered,parlaySize,board.learnedSgpCorrelations),[filtered,parlaySize,board.learnedSgpCorrelations]);
   const mixedSet=useMemo(()=>buildMixedSportProbabilitySet(board.rows.filter(x=>x.simProbability>=minSim/100&&x.odds>=minOdds&&x.odds<=maxOdds),parlaySize,board.learnedSgpCorrelations),[board.rows,parlaySize,minSim,minOdds,maxOdds,board.learnedSgpCorrelations]);
@@ -987,6 +1000,14 @@ export default function Dashboard(){
         </select>
       </div>
       <div className="controlGroup">
+        <label>V120 robustness</label>
+        <select value={robustnessFilter} onChange={e=>setRobustnessFilter(e.target.value as 'ALL'|'RESILIENT'|'ROBUST')}>
+          <option value="ALL">All qualified</option>
+          <option value="RESILIENT">Resilient+</option>
+          <option value="ROBUST">Robust only</option>
+        </select>
+      </div>
+      <div className="controlGroup">
         <label>Sport</label>
         <select value={effectiveSport} onChange={e=>setSport(e.target.value)}>
           <option value="ALL">All sports</option>
@@ -1027,6 +1048,7 @@ export default function Dashboard(){
       <div><small>AVG SIM</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.simProbability,0)/filtered.length):'—'}</strong><span>filtered board</span></div>
       <div><small>AVG CONSENSUS</small><strong>{filtered.length?fmtPct(filtered.reduce((s,x)=>s+x.noVigProbability,0)/filtered.length):'—'}</strong><span>{board.consensusCoverage?.averageAgreement!==undefined?`${fmtPct(board.consensusCoverage.averageAgreement)} avg agreement`:'cross-book baseline'}</span></div>
       <div><small>DYNAMIC CONF</small><strong>{filtered.length?fmtPct(filtered.reduce((sum,x)=>sum+x.dynamicConfidence,0)/filtered.length):'—'}</strong><span>{board.regimeCoverage?.dislocated??0} dislocated • {board.regimeCoverage?.volatile??0} volatile</span></div>
+      <div><small>V120 ROBUSTNESS</small><strong>{rawFiltered.length?fmtPct(robustnessSummary.averageScore):'—'}</strong><span>{robustnessSummary.robust} robust • {robustnessSummary.reviewRequired} review • 0 extra calls</span></div>
     </section>
 
     <section className="edgeCommand" id="edge">
@@ -1042,6 +1064,8 @@ export default function Dashboard(){
           <div><small>QUALIFIED</small><b>{boardLoading?'—':filtered.length}</b></div>
           <div><small>+EV</small><b>{edgeScanner?.positiveEvCount??0}</b></div>
           <div><small>ARBS</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
+          <div><small>ROBUST</small><b>{robustnessSummary.robust}</b></div>
+          <div><small>REVIEW</small><b>{robustnessSummary.reviewRequired}</b></div>
         </div>
       </div>
 
@@ -1059,7 +1083,7 @@ export default function Dashboard(){
                 <small>{x.sport} • {x.event} • {x.market}</small>
               </div>
               <div className="edgeMetric"><strong>{fmtPct(x.simProbability)}</strong><small>SIM</small></div>
-              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel}</small></div>
+              <div className="edgePrice"><strong>{fmtOdds(x.odds)}</strong><small>{x.confidenceLabel} • {robustnessMap.get(x.id)?.classification||'—'}</small></div>
             </button>)}
             {!filtered.length&&<div className="edgeEmpty">No qualified simulation rows under the current filters.</div>}
           </div>
@@ -1134,7 +1158,7 @@ export default function Dashboard(){
       <div className="tableWrap">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
             {filtered.map((x,i)=><tr key={x.id}>
@@ -1149,6 +1173,7 @@ export default function Dashboard(){
               <td><b>{x.predictionMarketProbability!==undefined?fmtPct(x.predictionMarketProbability):'—'}</b><small>{x.predictionMarketStatus==='MATCHED'?(x.predictionMarketVolume!==undefined?`vol ${Math.round(x.predictionMarketVolume).toLocaleString()}`:'matched'):x.predictionMarketStatus.replaceAll('_',' ')}</small></td>
               <td className="lime"><b>{fmtPct(x.simProbability)}</b><small>raw {fmtPct(x.rawSimProbability)} • CI {fmtPct(x.simCi[0])}–{fmtPct(x.simCi[1])}</small></td>
               <td><b>{fmtPct(x.dynamicConfidence)}</b><small>{x.confidenceLabel} • {x.regime}</small></td>
+              <td>{(()=>{const r=robustnessMap.get(x.id);return r?<><span className={'robustnessBadge '+r.classification.toLowerCase()}>{r.classification}</span><small>{fmtPct(r.score)}{r.reasons[0]?` • ${r.reasons[0]}`:''}</small></>:<span>—</span>})()}</td>
               <td className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</td>
               <td className={(x.predictionEdge??0)>=0?'lime':'negative'}>{x.predictionEdge===undefined?'—':`${x.predictionEdge>=0?'+':''}${fmtPct(x.predictionEdge)}`}</td>
               <td><b>{x.bestExecutionVenue?.venue||'—'}</b><small>{x.bestExecutionVenue?`${x.bestExecutionVenue.type.replaceAll('_',' ')} • EV ${x.bestExecutionVenue.expectedValue>=0?'+':''}${fmtPct(x.bestExecutionVenue.expectedValue)}${x.bestExecutionVenue.feeAdjusted?'':' • gross before fees'}`:'no route'}</small></td>
@@ -1157,7 +1182,7 @@ export default function Dashboard(){
               <td>{x.simulationRuns.toLocaleString()}</td>
               <td><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span><button className="ackBtn" onClick={()=>setSelectedMarket({id:x.id,market:x.market,selection:x.selection})}>EXPLAIN</button></td>
             </tr>)}
-            {!filtered.length&&<tr><td colSpan={18} className="emptyRow">No qualified rows match the current filters. Edgeforce will not pad the Top 30 with lower-grade plays.</td></tr>}
+            {!filtered.length&&<tr><td colSpan={19} className="emptyRow">No qualified rows match the current filters. Edgeforce will not pad the Top 30 with lower-grade plays.</td></tr>}
           </tbody>
         </table>
       </div>
