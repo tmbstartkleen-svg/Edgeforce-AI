@@ -1,21 +1,5 @@
 import type {Market} from './types';
-import {canonicalConsensusMarket,canonicalConsensusSelection,normalizeConsensusText} from './marketConsensus';
 import {decimalOdds,impliedProbability,ev,kelly,fairAmerican} from './math';
-
-export type EdgeScannerQuote={
- marketId:string;
- sport:string;
- league:string;
- event:string;
- market:string;
- selection:string;
- startTime:string;
- book:string;
- providerId?:string;
- odds:number;
- decimal:number;
- impliedProbability:number;
-};
 
 export type ArbitrageOpportunity={
  key:string;
@@ -64,6 +48,8 @@ export type EdgeScannerResult={
  positiveEvCount:number;
  sharpReferenceGroups:number;
  consensusReferenceGroups:number;
+ rejectedSuspiciousArbitrage:number;
+ rejectedSuspiciousEv:number;
  arbitrage:ArbitrageOpportunity[];
  positiveEv:PositiveEvOpportunity[];
  methodology:{
@@ -72,186 +58,152 @@ export type EdgeScannerResult={
   expectedValue:string;
   kellyFraction:number;
   extraProviderRequests:number;
+  playerProps:string;
  };
 };
 
-type OutcomeSetKind='OVER_UNDER'|'YES_NO'|'MONEYLINE_2WAY'|'MONEYLINE_3WAY'|'SPREAD_2WAY'|'UNSUPPORTED';
+type MarketKind='MONEYLINE_2WAY'|'MONEYLINE_3WAY'|'TOTAL_2WAY'|'SPREAD_2WAY';
 
-type GroupedQuote=EdgeScannerQuote&{
+type Quote={
+ marketId:string;
+ sport:string;
+ league:string;
+ event:string;
+ market:string;
+ selection:string;
+ startTime:string;
+ book:string;
+ odds:number;
+ decimal:number;
+ impliedProbability:number;
  groupKey:string;
  outcomeKey:string;
- setKind:OutcomeSetKind;
- scanEligible:boolean;
+ kind:MarketKind;
 };
 
-const norm=(value:unknown)=>normalizeConsensusText(typeof value==='string'?value:String(value??''));
-const clamp=(x:number,min=0,max=1)=>Math.max(min,Math.min(max,x));
 const SHARP_BOOKS=['pinnacle','circa','bookmaker','bookmaker.eu'];
+const clamp=(x:number,min=0,max=1)=>Math.max(min,Math.min(max,x));
+const text=(v:unknown)=>String(v??'').trim();
+const norm=(v:unknown)=>text(v).toLowerCase().replace(/[^a-z0-9.+-]+/g,' ').replace(/\s+/g,' ').trim();
 
-function cleanSelection(selection:unknown){
- return canonicalConsensusSelection(typeof selection==='string'?selection:String(selection??''))
-  .replace(/\s+/g,' ')
-  .trim();
-}
-
-function lineNumber(selection:string){
- const matches=[...selection.matchAll(/([+-]?\d+(?:\.\d+)?)/g)];
- if(!matches.length)return undefined;
- const n=Number(matches[matches.length-1][1]);
+function numericLine(selection:string){
+ const matches=selection.match(/[+-]?\d+(?:\.\d+)?/g);
+ if(!matches?.length)return undefined;
+ const n=Number(matches[matches.length-1]);
  return Number.isFinite(n)?n:undefined;
 }
 
-function playerBase(m:Market){
- const player=m.playerContext?.name?.trim();
- if(player)return norm(player);
- const selection=cleanSelection(m.selection);
- const overUnder=selection.match(/^(.*?)\s+(over|under)\s+[+-]?\d+(?:\.\d+)?$/i);
- if(overUnder?.[1])return norm(overUnder[1]);
- const yesNo=selection.match(/^(.*?)\s+(yes|no)$/i);
- if(yesNo?.[1])return norm(yesNo[1]);
+function marketKind(m:Market){
+ const raw=norm(m.market);
+ if(raw.startsWith('player')||m.playerContext?.name)return null;
+
+ if(raw==='h2h'||raw==='ml'||raw.includes('moneyline')||raw.includes('money line')){
+  const soccer=/soccer|\bmls\b|\bepl\b|premier league|la liga|bundesliga|serie a|ligue 1/i.test(`${m.sport} ${m.league}`);
+  return soccer?'MONEYLINE_3WAY' as const:'MONEYLINE_2WAY' as const;
+ }
+ if(raw.includes('spread')||raw.includes('run line')||raw.includes('runline')||raw.includes('puck line')||raw.includes('handicap')){
+  return 'SPREAD_2WAY' as const;
+ }
+ if(raw.includes('total')||raw==='totals'){
+  return 'TOTAL_2WAY' as const;
+ }
+ return null;
+}
+
+function teamSide(selection:string,home:string,away:string){
+ const value=norm(selection.replace(/\b(moneyline|money line|ml)\b/ig,'').replace(/\s+[+-]?\d+(?:\.\d+)?\s*$/,''));
+ const h=norm(home);
+ const a=norm(away);
+ if(value&&h&&(value===h||value.includes(h)||h.includes(value)))return 'home';
+ if(value&&a&&(value===a||value.includes(a)||a.includes(value)))return 'away';
+ if(/^(draw|tie|x)$/.test(value))return 'draw';
  return '';
 }
 
-function normalizedTeamOutcome(selection:string,home:string,away:string){
- const value=norm(selection.replace(/\s+[+-]?\d+(?:\.\d+)?\s*$/,''));
- const h=norm(home),a=norm(away);
- if(value===h||value.includes(h)||h.includes(value))return 'home';
- if(value===a||value.includes(a)||a.includes(value))return 'away';
- if(/^(draw|tie|x)$/.test(value))return 'draw';
- return value;
-}
+function parseQuote(m:Market):Quote|null{
+ if(!m||!Number.isFinite(m.odds)||m.odds===0)return null;
+ if(!m.sport||!m.event||!m.market||!m.selection||!m.startTime)return null;
 
-function quoteGrouping(m:Market){
- const market=canonicalConsensusMarket(m.market);
- const selection=cleanSelection(m.selection);
- const line=lineNumber(selection);
- const sport=norm(m.sport);
- const home=norm(m.home);
- const away=norm(m.away);
- const startDate=new Date(m.startTime);
- if(!Number.isFinite(startDate.getTime()))return {
-  groupKey:'',
-  outcomeKey:'',
-  setKind:'UNSUPPORTED' as OutcomeSetKind,
-  scanEligible:false
- };
- const start=startDate.toISOString();
+ const date=new Date(m.startTime);
+ if(!Number.isFinite(date.getTime()))return null;
 
+ const kind=marketKind(m);
+ if(!kind)return null;
+
+ const selection=text(m.selection);
+ const line=numericLine(selection);
+ let outcomeKey='';
  let family='';
- let outcome='';
- let setKind:OutcomeSetKind='UNSUPPORTED';
- let scanEligible=false;
 
- const ou=selection.match(/^(.*?)\s+(over|under)\s+([+-]?\d+(?:\.\d+)?)$/i);
- if(ou){
-  const base=norm(ou[1]||playerBase(m));
-  const lineValue=Math.abs(Number(ou[3]));
-  family=`${base}|${lineValue}`;
-  outcome=ou[2].toLowerCase();
-  setKind='OVER_UNDER';
-  scanEligible=true;
+ if(kind==='TOTAL_2WAY'){
+  outcomeKey=/\bunder\b/i.test(selection)?'under':/\bover\b/i.test(selection)?'over':'';
+  if(!outcomeKey||line===undefined)return null;
+  family=String(Math.abs(line));
+ }else if(kind==='SPREAD_2WAY'){
+  outcomeKey=teamSide(selection,m.home,m.away);
+  if((outcomeKey!=='home'&&outcomeKey!=='away')||line===undefined)return null;
+  family=String(Math.abs(line));
  }else{
-  const yesNo=selection.match(/^(.*?)\s+(yes|no)(?:\s+[+-]?\d+(?:\.\d+)?)?$/i);
-  if(yesNo){
-   family=norm(yesNo[1]);
-   outcome=yesNo[2].toLowerCase();
-   setKind='YES_NO';
-   scanEligible=true;
-  }else if(market==='total'){
-   if(/\bover\b/i.test(selection)||/\bunder\b/i.test(selection)){
-    family=line===undefined?'':String(Math.abs(line));
-    outcome=/\bunder\b/i.test(selection)?'under':'over';
-    setKind='OVER_UNDER';
-    scanEligible=line!==undefined;
-   }
-  }else if(market==='spread'){
-   const side=normalizedTeamOutcome(selection,m.home,m.away);
-   family=line===undefined?'':String(Math.abs(line));
-   outcome=side;
-   setKind='SPREAD_2WAY';
-   scanEligible=line!==undefined&&(side==='home'||side==='away');
-  }else if(market==='moneyline'){
-   const side=normalizedTeamOutcome(selection,m.home,m.away);
-   family='';
-   outcome=side;
-   const soccer=/soccer|\bmls\b|\bepl\b|premier league|la liga|bundesliga|serie a|ligue 1/i.test(`${m.sport} ${m.league}`);
-   setKind=soccer?'MONEYLINE_3WAY':'MONEYLINE_2WAY';
-   scanEligible=side==='home'||side==='away'||(soccer&&side==='draw');
-  }else if(/^player[_\s-]/i.test(m.market)||m.playerContext?.name){
-   // Player markets are only safe to scan when the selection explicitly exposes both sides.
-   // A one-sided price such as "Anytime TD +2200" is NOT an arb leg by itself.
-   const side=/\bover\b/i.test(selection)?'over':/\bunder\b/i.test(selection)?'under':/\byes\b/i.test(selection)?'yes':/\bno\b/i.test(selection)?'no':'';
-   if(side){
-    const base=playerBase(m)||norm(selection.replace(/\b(over|under|yes|no)\b.*$/i,''));
-    family=`${base}|${line===undefined?'':Math.abs(line)}`;
-    outcome=side;
-    setKind=side==='yes'||side==='no'?'YES_NO':'OVER_UNDER';
-    scanEligible=true;
-   }
-  }
+  outcomeKey=teamSide(selection,m.home,m.away);
+  if(kind==='MONEYLINE_2WAY'&&outcomeKey!=='home'&&outcomeKey!=='away')return null;
+  if(kind==='MONEYLINE_3WAY'&&!['home','draw','away'].includes(outcomeKey))return null;
+ }
 
- const groupKey=[sport,home,away,market,family,start,setKind].join('|');
- return {groupKey,outcomeKey:outcome,setKind,scanEligible};
+ const groupKey=[
+  norm(m.sport),
+  norm(m.home),
+  norm(m.away),
+  kind,
+  family,
+  date.toISOString()
+ ].join('|');
+
+ return {
+  marketId:m.id,
+  sport:m.sport,
+  league:m.league,
+  event:m.event,
+  market:m.market,
+  selection:m.selection,
+  startTime:m.startTime,
+  book:text(m.sourceBook||m.sourceProviderId||'unknown'),
+  odds:m.odds,
+  decimal:decimalOdds(m.odds),
+  impliedProbability:impliedProbability(m.odds),
+  groupKey,
+  outcomeKey,
+  kind
+ };
 }
 
-function expectedOutcomeKeys(kind:OutcomeSetKind){
- if(kind==='OVER_UNDER')return ['over','under'];
- if(kind==='YES_NO')return ['yes','no'];
- if(kind==='MONEYLINE_2WAY'||kind==='SPREAD_2WAY')return ['home','away'];
+function expectedOutcomes(kind:MarketKind){
  if(kind==='MONEYLINE_3WAY')return ['home','draw','away'];
- return [];
+ if(kind==='TOTAL_2WAY')return ['over','under'];
+ return ['home','away'];
 }
 
-function completeOutcomeSet(rows:GroupedQuote[]){
+function completeGroup(rows:Quote[]){
  if(!rows.length)return null;
- const kind=rows[0].setKind;
- if(kind==='UNSUPPORTED')return null;
- if(rows.some(x=>!x.scanEligible||x.setKind!==kind))return null;
- const expected=expectedOutcomeKeys(kind);
+ const kind=rows[0].kind;
+ if(rows.some(x=>x.kind!==kind))return null;
+ const expected=expectedOutcomes(kind);
  const present=new Set(rows.map(x=>x.outcomeKey));
  if(expected.some(x=>!present.has(x)))return null;
  if([...present].some(x=>!expected.includes(x)))return null;
  return expected;
 }
 
-function asQuotes(markets:Market[]):GroupedQuote[]{
- const out:GroupedQuote[]=[];
- for(const m of markets){
-  if(!m||typeof m!=='object')continue;
-  if(!Number.isFinite(Number(m.odds))||Number(m.odds)===0)continue;
-  if(!m.market||!m.selection||!m.sport||!m.startTime)continue;
-  const book=String(m.sourceBook||m.sourceProviderId||'unknown').trim();
-  if(!book)continue;
-  const {groupKey,outcomeKey,setKind,scanEligible}=quoteGrouping(m);
-  if(!scanEligible||!outcomeKey)continue;
-  out.push({
-   marketId:m.id,
-   sport:m.sport,
-   league:m.league,
-   event:m.event,
-   market:m.market,
-   selection:m.selection,
-   startTime:m.startTime,
-   book,
-   providerId:m.sourceProviderId,
-   odds:m.odds,
-   decimal:decimalOdds(m.odds),
-   impliedProbability:impliedProbability(m.odds),
-   groupKey,
-   outcomeKey,
-   setKind,
-   scanEligible
-  });
- }
- return out;
+function bestPerOutcome(rows:Quote[],expected:string[]){
+ return expected.map(outcome=>{
+  const candidates=rows.filter(x=>x.outcomeKey===outcome);
+  return [...candidates].sort((a,b)=>b.decimal-a.decimal)[0];
+ }).filter((x):x is Quote=>Boolean(x));
 }
 
 function powerDevig(raw:number[]){
- if(raw.length<2)return raw.map(x=>clamp(x,.001,.999));
- const total=raw.reduce((s,x)=>s+x,0);
- if(total<=1.000001)return raw.map(x=>clamp(x/Math.max(total,.0001),.001,.999));
-
- let low=.05,high=8;
+ if(raw.length<2)return raw;
+ let low=.05;
+ let high=8;
  for(let i=0;i<80;i++){
   const mid=(low+high)/2;
   const sum=raw.reduce((s,p)=>s+Math.pow(clamp(p,.000001,.999999),mid),0);
@@ -259,57 +211,37 @@ function powerDevig(raw:number[]){
   else high=mid;
  }
  const k=(low+high)/2;
- const powered=raw.map(p=>Math.pow(clamp(p,.000001,.999999),k));
- const sum=powered.reduce((s,x)=>s+x,0);
- return powered.map(x=>clamp(x/Math.max(sum,.000001),.001,.999));
+ const adjusted=raw.map(p=>Math.pow(clamp(p,.000001,.999999),k));
+ const sum=adjusted.reduce((s,x)=>s+x,0);
+ return adjusted.map(x=>x/Math.max(sum,.000001));
 }
 
-function bestPerOutcome(rows:GroupedQuote[]){
- const map=new Map<string,GroupedQuote>();
- for(const row of rows){
-  const prior=map.get(row.outcomeKey);
-  if(!prior||row.decimal>prior.decimal)map.set(row.outcomeKey,row);
- }
- return [...map.values()];
-}
-
-function requiredOutcomes(rows:GroupedQuote[]){
- const expected=completeOutcomeSet(rows);
- return expected?.length||0;
-}
-
-function referenceProbabilities(rows:GroupedQuote[]){
- const outcomes=completeOutcomeSet(rows);
- if(!outcomes)return null;
- const required=outcomes.length;
-
+function sharpReference(rows:Quote[],expected:string[]){
  for(const sharp of SHARP_BOOKS){
-  const bookRows=rows.filter(x=>norm(x.book)===sharp||norm(x.book).includes(sharp));
-  const byOutcome=new Map<string,GroupedQuote>();
-  for(const row of bookRows){
-   const prior=byOutcome.get(row.outcomeKey);
-   if(!prior||row.decimal>prior.decimal)byOutcome.set(row.outcomeKey,row);
-  }
-  if(byOutcome.size>=required&&outcomes.every(o=>byOutcome.has(o))){
-   const ordered=outcomes.map(o=>byOutcome.get(o)!);
-   const fair=powerDevig(ordered.map(x=>x.impliedProbability));
-   return {
-    probabilities:new Map(outcomes.map((o,i)=>[o,fair[i]])),
-    reference:'Pinnacle/sharp',
-    books:[...new Set(ordered.map(x=>x.book))]
-   };
-  }
+  const selected=rows.filter(x=>norm(x.book)===sharp||norm(x.book).includes(sharp));
+  const complete=bestPerOutcome(selected,expected);
+  if(complete.length!==expected.length)continue;
+  const fair=powerDevig(complete.map(x=>x.impliedProbability));
+  return {
+   probabilities:new Map(expected.map((key,i)=>[key,fair[i]])),
+   reference:'Pinnacle/sharp',
+   books:[...new Set(complete.map(x=>x.book))]
+  };
  }
+ return null;
+}
 
- const averages=outcomes.map(outcome=>{
+function consensusReference(rows:Quote[],expected:string[]){
+ const books=new Set(rows.map(x=>norm(x.book)).filter(Boolean));
+ if(books.size<2)return null;
+
+ const raw=expected.map(outcome=>{
   const selected=rows.filter(x=>x.outcomeKey===outcome);
-  return selected.length
-   ?selected.reduce((s,x)=>s+x.impliedProbability,0)/selected.length
-   :.5;
+  return selected.reduce((s,x)=>s+x.impliedProbability,0)/Math.max(1,selected.length);
  });
- const fair=powerDevig(averages);
+ const fair=powerDevig(raw);
  return {
-  probabilities:new Map(outcomes.map((o,i)=>[o,fair[i]])),
+  probabilities:new Map(expected.map((key,i)=>[key,fair[i]])),
   reference:'multi-book consensus',
   books:[...new Set(rows.map(x=>x.book))]
  };
@@ -321,8 +253,11 @@ export function scanEdgeOpportunities(
 ):EdgeScannerResult{
  const kellyFraction=clamp(options.kellyFraction??.25,.01,1);
  const minEv=Math.max(0,options.minEv??.01);
- const quotes=asQuotes(panelMarkets);
- const groups=new Map<string,GroupedQuote[]>();
+ const maxArbRoi=clamp(Number(process.env.EDGE_SCANNER_MAX_ARB_ROI||.15),.01,.50);
+ const maxEv=clamp(Number(process.env.EDGE_SCANNER_MAX_EV||.35),.05,1);
+
+ const quotes=panelMarkets.map(parseQuote).filter((x):x is Quote=>Boolean(x));
+ const groups=new Map<string,Quote[]>();
  for(const quote of quotes){
   const list=groups.get(quote.groupKey)||[];
   list.push(quote);
@@ -333,51 +268,63 @@ export function scanEdgeOpportunities(
  const positiveEv:PositiveEvOpportunity[]=[];
  let sharpReferenceGroups=0;
  let consensusReferenceGroups=0;
+ let rejectedSuspiciousArbitrage=0;
+ let rejectedSuspiciousEv=0;
 
  for(const [key,rows] of groups){
-  const outcomes=completeOutcomeSet(rows);
-  if(!outcomes)continue;
-  const required=outcomes.length;
+  const expected=completeGroup(rows);
+  if(!expected)continue;
 
-  const best=bestPerOutcome(rows).filter(x=>outcomes.includes(x.outcomeKey));
-  if(best.length===required){
+  const best=bestPerOutcome(rows,expected);
+  if(best.length===expected.length){
    const inverse=best.map(x=>1/x.decimal);
    const sum=inverse.reduce((s,x)=>s+x,0);
    if(sum>0&&sum<.9995){
-    arbitrage.push({
-     key,
-     sport:rows[0].sport,
-     league:rows[0].league,
-     event:rows[0].event,
-     market:rows[0].market,
-     startTime:rows[0].startTime,
-     outcomeCount:best.length,
-     impliedProbabilitySum:sum,
-     roi:1/sum-1,
-     stakePlan:best.map((x,i)=>({
-      selection:x.selection,
-      book:x.book,
-      odds:x.odds,
-      stakeFraction:inverse[i]/sum,
-      payoutMultiple:1/sum
-     }))
-    });
+    const roi=1/sum-1;
+    if(roi<=maxArbRoi){
+     arbitrage.push({
+      key,
+      sport:rows[0].sport,
+      league:rows[0].league,
+      event:rows[0].event,
+      market:rows[0].market,
+      startTime:rows[0].startTime,
+      outcomeCount:best.length,
+      impliedProbabilitySum:sum,
+      roi,
+      stakePlan:best.map((x,i)=>({
+       selection:x.selection,
+       book:x.book,
+       odds:x.odds,
+       stakeFraction:inverse[i]/sum,
+       payoutMultiple:1/sum
+      }))
+     });
+    }else{
+     rejectedSuspiciousArbitrage++;
+    }
    }
   }
 
-  const ref=referenceProbabilities(rows);
-  if(!ref)continue;
-  if(ref.reference==='Pinnacle/sharp')sharpReferenceGroups++;
+  const reference=sharpReference(rows,expected)||consensusReference(rows,expected);
+  if(!reference)continue;
+  if(reference.reference==='Pinnacle/sharp')sharpReferenceGroups++;
   else consensusReferenceGroups++;
 
-  for(const outcome of outcomes){
-   const fairP=ref.probabilities.get(outcome);
+  for(const outcome of expected){
+   const fairP=reference.probabilities.get(outcome);
    if(!fairP)continue;
    const candidates=rows.filter(x=>x.outcomeKey===outcome);
    const bestQuote=[...candidates].sort((a,b)=>b.decimal-a.decimal)[0];
    if(!bestQuote)continue;
-   const expected=ev(fairP,bestQuote.odds);
-   if(expected<minEv)continue;
+
+   const expectedValue=ev(fairP,bestQuote.odds);
+   if(expectedValue<minEv)continue;
+   if(expectedValue>maxEv){
+    rejectedSuspiciousEv++;
+    continue;
+   }
+
    const fullKelly=kelly(fairP,bestQuote.odds);
    positiveEv.push({
     key,
@@ -392,11 +339,11 @@ export function scanEdgeOpportunities(
     fairProbability:fairP,
     fairOdds:fairAmerican(fairP),
     edge:fairP-bestQuote.impliedProbability,
-    expectedValue:expected,
+    expectedValue,
     fullKelly,
     fractionalKelly:fullKelly*kellyFraction,
-    reference:ref.reference,
-    referenceBooks:ref.books
+    reference:reference.reference,
+    referenceBooks:reference.books
    });
   }
  }
@@ -412,14 +359,17 @@ export function scanEdgeOpportunities(
   positiveEvCount:positiveEv.length,
   sharpReferenceGroups,
   consensusReferenceGroups,
+  rejectedSuspiciousArbitrage,
+  rejectedSuspiciousEv,
   arbitrage:arbitrage.slice(0,options.maxArbitrage??25),
   positiveEv:positiveEv.slice(0,options.maxPositiveEv??50),
   methodology:{
-   arbitrage:'best-price inverse-decimal sum across validated complementary outcome sets only (Over/Under, Yes/No, 2-way ML/spread, 3-way soccer ML)',
-   devig:'power-method devig with Pinnacle/sharp reference when a complete sharp market exists; multi-book consensus fallback otherwise',
-   expectedValue:'fair probability versus best available market price',
+   arbitrage:'validated complete team moneyline, total, and spread outcome sets only',
+   devig:'power-method devig with complete sharp reference when available; multi-book consensus fallback otherwise',
+   expectedValue:'fair probability versus best available price with anomaly caps',
    kellyFraction,
-   extraProviderRequests:0
+   extraProviderRequests:0,
+   playerProps:'temporarily excluded from the edge scanner until player-side normalization is separately certified'
   }
  };
 }
