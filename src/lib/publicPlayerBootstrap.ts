@@ -232,7 +232,72 @@ function gamelogRows(payload:unknown,athlete:{id:string;name:string},spec:EspnSp
  return rows;
 }
 
+async function fetchMlbPlayer(name:string,spec:EspnSpec){
+ const attempts:Array<{name:string;sport:string;stage:string;detail:string}>=[];
+ const cleanName=cleanPlayerLabel(name);
+ const searchUrl=new URL('https://statsapi.mlb.com/api/v1/people/search');
+ searchUrl.searchParams.set('names',cleanName);
+
+ const search=await json(searchUrl.toString(),6*3600000);
+ const people=arr(obj(search).people).map(obj);
+ const exact=people.filter(p=>normalizeSearchName(str(p.fullName||p.name))===normalizeSearchName(cleanName));
+ const person=exact.length===1?exact[0]:people.length===1?people[0]:null;
+
+ attempts.push({
+  name,sport:spec.edgeSport,stage:'mlb-search',
+  detail:`candidates=${people.length}; exact=${exact.length}`
+ });
+
+ if(!person){
+  attempts.push({name,sport:spec.edgeSport,stage:'resolve',detail:'no unique MLB player match'});
+  return {athlete:null,rows:[] as AnyRow[],attempts};
+ }
+
+ const id=str(person.id);
+ const displayName=str(person.fullName||person.name)||cleanName;
+ const athlete={id,name:displayName};
+ attempts.push({name,sport:spec.edgeSport,stage:'resolve',detail:`mlbId=${id}; matched=${displayName}`});
+
+ const year=new Date().getUTCFullYear();
+ for(const season of [year,year-1]){
+  const url=new URL(`https://statsapi.mlb.com/api/v1/people/${encodeURIComponent(id)}/stats/`);
+  url.searchParams.set('stats','gameLog');
+  url.searchParams.set('group','hitting,pitching,fielding');
+  url.searchParams.set('season',String(season));
+  const payload=await json(url.toString(),6*3600000);
+  const rows:AnyRow[]=[];
+  for(const groupValue of arr(obj(payload).stats)){
+   const group=obj(groupValue);
+   for(const splitValue of arr(group.splits)){
+    const split=obj(splitValue);
+    const stat=obj(split.stat);
+    if(!Object.keys(stat).length)continue;
+    const game=obj(split.game);
+    const opponent=obj(split.opponent);
+    const team=obj(split.team);
+    rows.push({
+     playerName:displayName,
+     playerId:id,
+     sport:spec.edgeSport,
+     eventId:str(game.gamePk||game.id)||`mlb-${id}-${str(split.date)}-${rows.length}`,
+     gameDate:str(split.date),
+     opponent:str(opponent.name||opponent.teamName),
+     team:str(team.name||team.teamName),
+     homeAway:split.isHome===true?'home':split.isHome===false?'away':'',
+     stats:stat,
+     source:'mlb-statsapi-gamelog'
+    });
+   }
+  }
+  attempts.push({name,sport:spec.edgeSport,stage:'gamelog',detail:`MLB season ${season}: rows=${rows.length}`});
+  if(rows.length)return {athlete,rows,attempts};
+ }
+
+ return {athlete,rows:[] as AnyRow[],attempts};
+}
+
 async function fetchPlayer(name:string,spec:EspnSpec){
+ if(spec.league==='mlb')return fetchMlbPlayer(name,spec);
  const attempts:Array<{name:string;sport:string;stage:string;detail:string}>=[];
  const cleanName=cleanPlayerLabel(name);
  const buildSearch=()=>{
