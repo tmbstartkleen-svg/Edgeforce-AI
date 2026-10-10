@@ -23,7 +23,9 @@ export async function GET(){
    'edge scanner ingestion'
   );
 
-  const result=scanEdgeOpportunities(ingestion.panelMarkets||[],{
+  const verifiedSource=ingestion.source==='live'&&ingestion.mode==='live'&&!ingestion.degraded&&Boolean(ingestion.panelMarkets?.length);
+  // Stored and demo odds do not establish a live execution price. Fail closed.
+  const result=scanEdgeOpportunities(verifiedSource?(ingestion.panelMarkets||[]):[],{
    kellyFraction:Number(process.env.EDGE_SCANNER_KELLY_FRACTION||.25),
    minEv:Number(process.env.EDGE_SCANNER_MIN_EV||.01),
    maxArbitrage:25,
@@ -31,7 +33,9 @@ export async function GET(){
   });
 
   return Response.json({
-   ok:true,
+   ok:verifiedSource,
+   scanStatus:verifiedSource?'VERIFIED':'SOURCE_UNVERIFIED',
+   scanReason:verifiedSource?'Current timestamped provider quotes checked for independent reference prices':'Live independent bookmaker panel unavailable; no actionable cross-book price signal',
    source:ingestion.source,
    providerMode:ingestion.mode,
    providerName:ingestion.providerName,
