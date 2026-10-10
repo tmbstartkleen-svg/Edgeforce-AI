@@ -198,12 +198,35 @@ export async function GET(req:Request){
       .map(reason=>[reason,rows.filter(x=>(x.downgradeReasons||[]).includes(reason)).length])
   );
 
-  const edgeScanner=scanEdgeOpportunities(ingestion.panelMarkets||[],{
-    kellyFraction:Number(process.env.EDGE_SCANNER_KELLY_FRACTION||.25),
-    minEv:Number(process.env.EDGE_SCANNER_MIN_EV||.01),
-    maxArbitrage:25,
-    maxPositiveEv:50
-  });
+  let edgeScanner:ReturnType<typeof scanEdgeOpportunities>;
+  try{
+    edgeScanner=scanEdgeOpportunities(ingestion.panelMarkets||[],{
+      kellyFraction:Number(process.env.EDGE_SCANNER_KELLY_FRACTION||.25),
+      minEv:Number(process.env.EDGE_SCANNER_MIN_EV||.01),
+      maxArbitrage:25,
+      maxPositiveEv:50
+    });
+  }catch(error){
+    edgeScanner={
+      generatedAt:new Date().toISOString(),
+      quoteCount:0,
+      groupCount:0,
+      arbitrageCount:0,
+      positiveEvCount:0,
+      sharpReferenceGroups:0,
+      consensusReferenceGroups:0,
+      arbitrage:[],
+      positiveEv:[],
+      methodology:{
+        arbitrage:'scanner degraded after runtime exception',
+        devig:'unavailable for this request',
+        expectedValue:'unavailable for this request',
+        kellyFraction:.25,
+        extraProviderRequests:0
+      },
+      error:error instanceof Error?error.message:'edge scanner runtime error'
+    } as ReturnType<typeof scanEdgeOpportunities> & {error:string};
+  }
 
   const consensusRows=rows.filter(x=>x.consensus);
   const consensusCoverage={
