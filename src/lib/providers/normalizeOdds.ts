@@ -33,6 +33,8 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const rawImpliedProb=impliedProbability(odds);
  const suppliedNoVig=num(row.noVigProbability,num(row.no_vig_probability,num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,rawImpliedProb)))));
  const sourceBook=str(row.bookmaker,str(row.book,str(row.sportsbook,'')))||undefined;
+ const playerName=str(row.playerName,str(row.player_name,str(row.athleteName,str(row.athlete_name,'')))).trim();
+ const statKey=str(row.statKey,str(row.stat_key,market)).trim();
  return {
   id,sport,league,event,selection,market,startTime,
   home:home||'Home',away:away||'Away',odds,
@@ -48,7 +50,8 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
    sourceEventId:str(row.eventId)||undefined
   }:{}),
   period:new Date(startTime).getHours()<12?'AM':'PM',
-  sportFeatures:obj(row.sportFeatures) as Record<string,number>
+  sportFeatures:obj(row.sportFeatures) as Record<string,number>,
+  ...(playerName?{playerContext:{name:playerName,statKey:statKey||undefined}}:{})
  };
 }
 
