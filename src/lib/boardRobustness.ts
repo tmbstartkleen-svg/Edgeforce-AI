@@ -106,6 +106,23 @@ export function buildBoardRobustness(row:Scanned):BoardRobustness{
  };
 }
 
+export type BoardPriority={
+ score:number;
+ sim:number;
+ robustness:number;
+ confidence:number;
+ reviewPenalty:number;
+};
+
+export function buildBoardPriority(row:Scanned):BoardPriority{
+ const robustness=buildBoardRobustness(row);
+ const sim=clamp(row.simProbability);
+ const confidence=clamp(row.dynamicConfidence);
+ const reviewPenalty=robustness.reviewRequired?.08:0;
+ const score=clamp(sim*.45+robustness.score*.35+confidence*.20-reviewPenalty);
+ return {score,sim,robustness:robustness.score,confidence,reviewPenalty};
+}
+
 export function summarizeBoardRobustness(rows:Scanned[]){
  const results=rows.map(buildBoardRobustness);
  const count=(classification:BoardRobustnessClass)=>results.filter(x=>x.classification===classification).length;
