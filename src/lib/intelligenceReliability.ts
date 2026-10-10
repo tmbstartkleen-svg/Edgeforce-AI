@@ -150,14 +150,21 @@ export async function loadIntelligenceReliabilityState():Promise<ReliabilitySnap
     from intelligence_reliability_state
     order by required desc,component_id
    `,
-   sql`select system_mode as "systemMode" from intelligence_reliability_runs order by started_at desc limit 1`
+   sql`select system_mode as "systemMode",started_at as "startedAt" from intelligence_reliability_runs order by started_at desc limit 1`
   ]);
   const typed=rows as unknown as ReliabilityStateRow[];
   const openComponents=typed.filter(x=>x.circuitState==='OPEN').map(x=>x.componentId);
   const halfOpenComponents=typed.filter(x=>x.circuitState==='HALF_OPEN').map(x=>x.componentId);
   const rowMode=modeFromRows(typed);
-  const lastMode=String((runs as any[])[0]?.systemMode||'');
-  const mode:ReliabilityMode=lastMode==='PROTECTIVE'?'PROTECTIVE':rowMode==='PROTECTIVE'?'PROTECTIVE':lastMode==='DEGRADED'||rowMode==='DEGRADED'?'DEGRADED':'NORMAL';
+  const latestRun=(runs as any[])[0];
+  const lastMode=String(latestRun?.systemMode||'');
+  const lastRunAt=latestRun?.startedAt ? new Date(latestRun.startedAt).getTime() : 0;
+  const lastRunFresh=lastRunAt>0&&Date.now()-lastRunAt<=120000;
+  const mode:ReliabilityMode=
+   rowMode==='PROTECTIVE'?'PROTECTIVE':
+   lastRunFresh&&lastMode==='PROTECTIVE'?'PROTECTIVE':
+   rowMode==='DEGRADED'||(lastRunFresh&&lastMode==='DEGRADED')?'DEGRADED':
+   'NORMAL';
   return {
    mode,score:snapshotScore(typed),
    criticalOpen:typed.some(x=>x.required&&x.circuitState==='OPEN'),
@@ -166,6 +173,43 @@ export async function loadIntelligenceReliabilityState():Promise<ReliabilitySnap
  }catch{
   return {mode:'DEGRADED',score:.55,criticalOpen:false,openComponents:[],halfOpenComponents:[],rows:[],generatedAt:new Date().toISOString()};
  }
+}
+
+
+let reliabilityRefreshInFlight:Promise<ReliabilitySnapshot>|null=null;
+let lastReliabilityRefreshAttempt=0;
+
+export async function loadFreshIntelligenceReliabilityState():Promise<ReliabilitySnapshot>{
+ const snapshot=await loadIntelligenceReliabilityState();
+ const newestUpdate=snapshot.rows
+  .map(x=>new Date(x.updatedAt).getTime())
+  .filter(Number.isFinite)
+  .sort((a,b)=>b-a)[0]||0;
+ const stale=!newestUpdate||Date.now()-newestUpdate>120000;
+ if(snapshot.mode!=='PROTECTIVE'||!stale)return snapshot;
+ if(Date.now()-lastReliabilityRefreshAttempt<60000)return snapshot;
+
+ lastReliabilityRefreshAttempt=Date.now();
+
+ if(!reliabilityRefreshInFlight){
+  reliabilityRefreshInFlight=(async()=>{
+   let timer:ReturnType<typeof setTimeout>|undefined;
+   try{
+    await Promise.race([
+     runIntelligenceReliabilitySupervisor(),
+     new Promise<never>((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error('reliability refresh timeout')),5000);
+     })
+    ]);
+    return await loadIntelligenceReliabilityState();
+   }finally{
+    if(timer)clearTimeout(timer);
+    reliabilityRefreshInFlight=null;
+   }
+  })();
+ }
+
+ return reliabilityRefreshInFlight.catch(()=>snapshot);
 }
 
 async function persistIncident(component:IntelligenceComponent,transition:CircuitTransition){
