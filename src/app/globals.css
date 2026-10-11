@@ -1506,3 +1506,52 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 @media(max-width:1150px){.efProConnectors{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:970px){.efProColumns,.efProHero{grid-template-columns:1fr}}
 @media(max-width:670px){.efProHero,.efProSurface{padding:16px}.efProFields{grid-template-columns:1fr}.efProTabs button{flex:1 1 145px}.efProConnectors{grid-template-columns:1fr}.efProMetrics>div{padding:11px}.efProMetrics b{font-size:20px}}
+
+
+/* EdgeForce Sports Network v207 — temporal research, strictly source-aware */
+.efChronicle{margin:16px 0 28px;color:#f3f8fa;min-width:0}
+.efChronicleHero{border:1px solid #436f67;background:radial-gradient(ellipse at 15% 10%,#174c45 0%,#10293a 54%,#0b1929 100%);border-radius:22px;padding:30px}
+.efChronicleHero h2{font-size:clamp(29px,3.2vw,46px);line-height:1.17;letter-spacing:-.032em;margin:12px 0 16px}
+.efChronicleHero h2 em{font-style:normal;color:#b7f4aa}
+.efChronicleHero p{font-size:14px;line-height:1.75;color:#b8d2d7;max-width:740px}
+.efChronicleTriad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:25px}
+.efChronicleTriad span{background:#0b202c;border:1px solid #3c695c;padding:15px;border-radius:11px;font-size:12px;color:#bdd5da}
+.efChronicleTriad b{display:block;color:#c6f4a8;letter-spacing:.12em;font-size:11px;margin-bottom:5px}
+.efChronicleAccess{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:17px 0;padding:17px 20px;background:#112536;border:1px solid #365364;border-radius:14px}
+.efChronicleAccess>div{flex:1}.efChronicleAccess b{font-size:15px}.efChronicleAccess p{font-size:12px;line-height:1.6;color:#a5c1d0;max-width:620px;margin:6px 0 0}
+.efChronicleAccess label,.efChronicleFilters label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700;color:#ccdfeb}
+.efChronicleAccess label{width:min(100%,320px)}
+.efChronicleAccess input,.efChronicleFilters input,.efChronicleFilters select{background:#0b1927;color:#f1f8ff;border:1px solid #527184;border-radius:9px;min-height:44px;padding:10px 12px;font-size:14px;box-sizing:border-box;width:100%}
+.efChronicleTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+.efChronicleTabs button{padding:15px 11px;background:#142637;border:1px solid #425d6f;color:#c6d8e3;border-radius:10px;font-weight:750;cursor:pointer;font-size:14px;min-height:50px}
+.efChronicleTabs button[aria-pressed=true]{background:#20413b;border-color:#92cd8a;color:#dcffc9}
+.efChronicleFilters{display:flex;justify-content:space-between;align-items:end;gap:15px;margin:17px 0}
+.efChronicleFilters label{width:230px}
+.efChronicleFilters button{min-height:44px;padding:11px 22px;border:1px solid #8ac776;background:#bff0a0;color:#193f2c;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer}
+.efChronicleFilters button:disabled{opacity:.45;cursor:default}
+.efChronicleAlert{border:1px solid #cba36b;border-radius:10px;background:#302b20;color:#f1debe;padding:14px;font-size:13px}
+.efChronicleResults{border:1px solid #344f60;border-radius:17px;background:linear-gradient(125deg,#101f2e,#0e1b2b);padding:21px}
+.efChronicleResultHead{display:flex;justify-content:space-between;align-items:center;gap:15px}
+.efChronicleResultHead h3{font-size:21px;margin:9px 0}.efChronicleResultHead small{color:#afc5d4}
+.efChronicleResultHead>span{font-weight:800;letter-spacing:.05em;font-size:11px;color:#b5e5a6}
+.efChronicleCoverage{display:grid;grid-template-columns:repeat(auto-fit,minmax(133px,1fr));gap:9px;margin:17px 0}
+.efChronicleCoverage>div{border:1px solid #304a5c;background:#0d202e;border-radius:10px;padding:14px}
+.efChronicleCoverage small{display:block;color:#a6c1ce;font-size:11px;line-height:1.5;margin-bottom:8px}
+.efChronicleCoverage b{font-size:25px;font-variant-numeric:tabular-nums}
+.efChronicleNotice{border-left:3px solid #a8b788;padding:5px 12px;color:#bed1d7;font-size:12px;line-height:1.7;margin:17px 0}
+.efChronicleCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.efChronicleCards article{border:1px solid #344d5d;border-radius:13px;background:#0c1d2c;padding:17px;min-width:0}
+.efChronicleCardTop{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;color:#9ebfcb}
+.efChronicleCardTop small{font-size:11px}
+.efChronicleCards h4{font-size:16px;line-height:1.5;margin:10px 0}
+.efChronicleCards h4 span{font-size:12px;color:#a4b9c9}
+.efChronicleCards article>p{font-size:12px;color:#b1c7d4;line-height:1.5}
+.efChronicleCards article>strong{display:block;font-size:25px;margin:11px 0;color:#c4efae;font-variant-numeric:tabular-nums}
+.efChronicleCards article>small{color:#aecbd5;font-size:11px;line-height:1.65}
+.efChronicleEvidence{font-size:12px;margin-top:14px;padding:10px;border:1px solid #42605f;border-radius:8px;color:#d5ddd0;line-height:1.5}
+.efChronicleCards details{margin-top:12px;font-size:12px;color:#d0c8b9}
+.efChronicleCards summary{cursor:pointer}
+.efChronicleCards details p{border-left:2px solid #927959;padding:4px 8px;line-height:1.5}
+.efChronicleFooter{font-size:12px;color:#a5bdca;line-height:1.6;margin:18px 0}
+@media(max-width:830px){.efChronicleCards{grid-template-columns:1fr}.efChronicleAccess{flex-direction:column;align-items:stretch}.efChronicleAccess label{width:100%}}
+@media(max-width:600px){.efChronicleHero,.efChronicleResults{padding:17px}.efChronicleTriad{grid-template-columns:1fr}.efChronicleFilters{align-items:stretch;flex-direction:column}.efChronicleFilters label,.efChronicleFilters button{width:100%}.efChronicleTabs button{font-size:12px;padding:10px 6px}}

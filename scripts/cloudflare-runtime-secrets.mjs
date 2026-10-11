@@ -26,6 +26,16 @@ export function runtimeSecrets(env){
  }else if(env.SHARP_API_ENABLED!==undefined&&env.SHARP_API_ENABLED!==''&&env.SHARP_API_ENABLED!=='false'){
   throw new Error('SharpAPI opt-in must be exactly true or false');
  }
+ // The first-party network stores only a SHA-256 digest of an operator-issued token.
+ // Explicit presence is optional, but malformed data must block deployment rather than
+ // silently turn off authentication or accidentally ship a raw bearer token.
+ const networkHash=env.EDGEFORCE_NETWORK_TOKEN_SHA256;
+ if(networkHash!==undefined&&networkHash!==''){
+  if(typeof networkHash!=='string'||!/^[a-f0-9]{64}$/i.test(networkHash.trim())){
+   throw new Error('EdgeForce Network authentication hash is invalid');
+  }
+  secrets.EDGEFORCE_NETWORK_TOKEN_SHA256=networkHash.trim().toLowerCase();
+ }
  for(const key of optional){
   const value=env[key];
   if(value===undefined||value==='')continue;
