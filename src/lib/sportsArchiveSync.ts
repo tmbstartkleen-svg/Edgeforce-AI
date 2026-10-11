@@ -57,7 +57,7 @@ export async function syncSportsArchive(kind:ArchiveKind,sourceAllowlist:string[
       jsonb_build_object('bookmaker',bookmaker,'market',market_key,
        'selection',selection_key,'odds',american_odds,
        'sourceTimestamp',native_timestamp,'receivedAt',pulled_at)
-     from batch on conflict(record_type,source_record_id) do nothing
+     from batch where true on conflict(record_type,source_record_id) do nothing
      returning id
     )
     select (select max(id)::text from batch) as highest,
@@ -84,7 +84,7 @@ export async function syncSportsArchive(kind:ArchiveKind,sourceAllowlist:string[
        'selection',selection_key,'modelProbability',model_probability,
        'simulationProbability',simulation_probability,'ciLow',simulation_ci_low,
        'ciHigh',simulation_ci_high,'runs',run_count)
-     from batch on conflict(record_type,source_record_id) do nothing
+     from batch where true on conflict(record_type,source_record_id) do nothing
      returning id
     )
     select (select max(id)::text from batch) as highest,
@@ -108,7 +108,7 @@ export async function syncSportsArchive(kind:ArchiveKind,sourceAllowlist:string[
       event_id,start_time,sport,league,athlete_id,
       jsonb_build_object('athleteId',athlete_id,'statDate',stat_date,
        'importedAt',imported_at,'stats',stats)
-     from batch on conflict(record_type,source_record_id) do nothing
+     from batch where true on conflict(record_type,source_record_id) do nothing
      returning id
     )
     select (select max(id)::text from batch) as highest,
