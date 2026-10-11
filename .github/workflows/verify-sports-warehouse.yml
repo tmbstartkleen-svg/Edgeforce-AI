@@ -7,6 +7,10 @@ on:
       - 'src/app/api/network/v1/archive/**'
       - 'db/v208.sql'
       - 'tests/sports-warehouse.postgres.mjs'
+      - 'db/v209.sql'
+      - 'tests/sports-outcomes.postgres.mjs'
+      - 'src/app/api/network/v1/outcomes/**'
+      - 'src/app/api/network/v1/plays/**'
       - '.github/workflows/verify-sports-warehouse.yml'
   push:
     branches: [main]
@@ -15,6 +19,10 @@ on:
       - 'src/app/api/network/v1/archive/**'
       - 'db/v208.sql'
       - 'tests/sports-warehouse.postgres.mjs'
+      - 'db/v209.sql'
+      - 'tests/sports-outcomes.postgres.mjs'
+      - 'src/app/api/network/v1/outcomes/**'
+      - 'src/app/api/network/v1/plays/**'
 
 concurrency:
   group: edgeforce-sports-warehouse-${{ github.event.pull_request.number || github.ref }}
@@ -46,3 +54,8 @@ jobs:
         run: node --test tests/sports-warehouse.postgres.mjs
         env:
           WAREHOUSE_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test
+
+      - name: Verify sourced final scores and licensed play-by-play in PostgreSQL
+        run: node --test tests/sports-outcomes.postgres.mjs
+        env:
+          OUTCOME_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test

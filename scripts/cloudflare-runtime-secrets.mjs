@@ -51,6 +51,22 @@ export function runtimeSecrets(env){
   }
   secrets.EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS=sources;
  }
+ // V209 scoreboard and operator-imported plays are explicitly opt-in, separately licensed.
+ for(const variable of ['EDGEFORCE_OUTCOME_CAPTURE_ENABLED','EDGEFORCE_PLAY_IMPORT_ENABLED']){
+  const enabled=env[variable];
+  if(enabled!==undefined&&enabled!==''&&enabled!=='false'&&enabled!=='true')
+   throw new Error('Sports history opt-in flag must be exactly true or false');
+  if(enabled==='true')secrets[variable]='true';
+ }
+ for(const variable of ['EDGEFORCE_OUTCOME_ALLOWED_SOURCES','EDGEFORCE_PLAY_ALLOWED_PROVIDERS']){
+  const sources=env[variable];
+  if(sources!==undefined&&sources!==''){
+   if(typeof sources!=='string'||sources.length>1800||
+    sources.split(',').some(s=>!/^[A-Za-z0-9._-]{2,64}$/.test(s.trim())))
+    throw new Error('Sports history source rights allowlist is invalid');
+   secrets[variable]=sources;
+  }
+ }
  for(const key of optional){
   const value=env[key];
   if(value===undefined||value==='')continue;
