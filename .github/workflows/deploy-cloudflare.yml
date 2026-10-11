@@ -168,6 +168,48 @@ jobs:
           echo "Cloudflare Worker never converged to the exact V119 release identity."
           exit 1
 
+      - name: Audit deployed Intelligence Core warehouse and provider evidence
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Read-only audit: never register sources, enable mirroring, or trigger a collector.
+          for CHECK in readiness providers; do
+            if [ "$CHECK" = readiness ]; then
+              ENDPOINT="/api/operations/intelligence-core/readiness"
+            else
+              ENDPOINT="/api/operations/intelligence-core/providers"
+            fi
+            STATUS=$(curl --silent --show-error --connect-timeout 8 --max-time 20 \
+              --output "/tmp/intelligence-$CHECK.json" --write-out "%{http_code}" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Cache-Control: no-store" "$DEPLOYMENT_URL$ENDPOINT") || STATUS=000
+            echo "Intelligence Core $CHECK audit returned HTTP $STATUS"
+            if [ "$STATUS" != 200 ] && [ "$STATUS" != 503 ]; then
+              echo "Unexpected warehouse audit response: $STATUS"
+              exit 1
+            fi
+            if ! jq -e 'type=="object" and has("ok")' "/tmp/intelligence-$CHECK.json" > /dev/null; then
+              echo "Warehouse audit response was not valid diagnostics JSON."
+              exit 1
+            fi
+          done
+          PROVIDERS=$(jq -r '.enabledProviders // 0' /tmp/intelligence-providers.json)
+          OBSERVATIONS=$(jq -r '.storedObservations // 0' /tmp/intelligence-readiness.json)
+          READINESS=$(jq -r '.activationAllowed // false' /tmp/intelligence-readiness.json)
+          CORE_MODE=$(jq -r '.mode // "UNAVAILABLE"' /tmp/intelligence-readiness.json)
+          REASONS=$(jq -r '(.blockers // []) | join(", ")' /tmp/intelligence-readiness.json)
+          {
+            echo "### Intelligence Core warehouse certification (read-only)"
+            echo "- Approved registered providers: **$PROVIDERS**"
+            echo "- Stored observations: **$OBSERVATIONS**"
+            echo "- Activation evidence gate: **$READINESS**"
+            echo "- Core execution mode: **$CORE_MODE**"
+            echo "- Open evidence gaps: ${REASONS:-none}"
+            echo "- No collectors, flags, or cron schedules were changed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Certify recommendation data without blocking platform launch
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
