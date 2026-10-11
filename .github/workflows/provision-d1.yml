@@ -2,6 +2,10 @@ name: Provision EdgeForce D1 Pilot
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/provision-d1.yml'
 
 permissions:
   contents: read
