@@ -55,6 +55,27 @@ test('V208 archive remains disabled unless explicitly enabled and licensed',()=>
  assert.match(workflow,/EDGEFORCE_ARCHIVE_WRITES_ENABLED:.*vars.EDGEFORCE_ARCHIVE_WRITES_ENABLED/);
  assert.match(workflow,/EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS:.*vars.EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS/);
 });
+test('V209 historical score and licensed play retention requires explicit operator opt-in',()=>{
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_OUTCOME_CAPTURE_ENABLED:'false',
+  EDGEFORCE_PLAY_IMPORT_ENABLED:'false'}),env);
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_OUTCOME_CAPTURE_ENABLED:'true',
+  EDGEFORCE_OUTCOME_ALLOWED_SOURCES:'espn-scoreboard',
+  EDGEFORCE_PLAY_IMPORT_ENABLED:'true',
+  EDGEFORCE_PLAY_ALLOWED_PROVIDERS:'licensed-event-tape'}),{
+  ...env,EDGEFORCE_OUTCOME_CAPTURE_ENABLED:'true',
+  EDGEFORCE_OUTCOME_ALLOWED_SOURCES:'espn-scoreboard',
+  EDGEFORCE_PLAY_IMPORT_ENABLED:'true',
+  EDGEFORCE_PLAY_ALLOWED_PROVIDERS:'licensed-event-tape'
+ });
+ for(const bad of ['yes','1','[SENSITIVE]'])
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_OUTCOME_CAPTURE_ENABLED:bad}),/Sports history opt-in/);
+ for(const bad of ['unlicensed feed','www.bad.url',',,'])
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_PLAY_ALLOWED_PROVIDERS:bad}),/source rights allowlist/);
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+ assert.match(workflow,/EDGEFORCE_OUTCOME_CAPTURE_ENABLED:.*vars.EDGEFORCE_OUTCOME_CAPTURE_ENABLED/);
+ assert.match(workflow,/EDGEFORCE_PLAY_IMPORT_ENABLED:.*vars.EDGEFORCE_PLAY_IMPORT_ENABLED/);
+});
+
 test('missing, placeholder and control-character values fail without reflecting credentials',()=>{
  for(const key of Object.keys(env)){
   for(const value of [undefined,'',' ','[SENSITIVE]','private\nsecret','private\0secret']){
