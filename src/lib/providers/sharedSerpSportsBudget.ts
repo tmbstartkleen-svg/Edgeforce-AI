@@ -7,7 +7,7 @@ import type {SerpSportsGame,SerpSportsTarget} from './serpGoogleSports';
  */
 export const SERP_GOOGLE_RESEARCH_INTERVAL_MS=8*60*60*1000;
 export const SERP_GOOGLE_MAX_MONTHLY=90;
-export const SERP_GOOGLE_CACHE_MS=48*60*60*1000;
+export const SERP_GOOGLE_CACHE_MS=SERP_GOOGLE_RESEARCH_INTERVAL_MS;
 export type ResearchSnapshot={schema:1;target:SerpSportsTarget;games:SerpSportsGame[];observedAt:string;fetchedAt:string};
 export type SerpSportsLease=
  |{kind:'fetch';hash:string;token:string;target:SerpSportsTarget;remaining:number}
