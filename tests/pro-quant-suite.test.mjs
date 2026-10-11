@@ -21,7 +21,7 @@ test('V203 American odds, no-vig probability and sportsbook hold use executable 
  assert.ok(Math.abs(fair.a-.5)<1e-10);
  assert.ok(Math.abs(fair.hold-(220/210-1))<1e-10);
  assert.equal(twoWayNoVig(+9999,+9999),null);
- assert.equal(expectedValue(.6,+120),.32);
+ assert.ok(Math.abs(expectedValue(.6,+120)-.32)<1e-12);
 });
 test('V203 manual reference values cannot claim verified execution without independent books and recent quote',()=>{
  const base={referenceA:-110,referenceB:-110,offered:+120,estimate:.6,books:2,quoteAgeMin:1};
@@ -39,12 +39,12 @@ test('V203 settled returns, CLV and win-rate exclude open and pushed bets where 
   {id:'3',date:'2026-10-01',sport:'NFL',selection:'C',book:'B',stake:30,odds:110,closingOdds:null,result:'PUSH'},
   {id:'4',date:'2026-10-01',sport:'NFL',selection:'D',book:'B',stake:40,odds:-120,closingOdds:null,result:'OPEN'}
  ];
- assert.equal(betProfit(rows[0]),120);
+ assert.ok(Math.abs(betProfit(rows[0])-120)<1e-10);
  const summary=summarizeBets(rows);
  assert.equal(summary.settled,3);
  assert.equal(summary.open,1);
  assert.equal(summary.stake,180);
- assert.equal(summary.profit,70);
+ assert.ok(Math.abs(summary.profit-70)<1e-10);
  assert.ok(Math.abs(summary.roi-70/180)<1e-10);
  assert.equal(summary.winRate,.5);
  assert.equal(summary.clvCount,2);
