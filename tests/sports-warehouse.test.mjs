@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+const ts=createRequire(import.meta.url)('typescript');
+const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');
+const src=read('../src/lib/sportsArchiveSync.ts').replace("import {db} from '@/lib/db';","const db=()=>null;");
+const compiled=ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022},reportDiagnostics:true});
+assert.equal(compiled.diagnostics?.length??0,0);
+const {archiveAllowedSources}=await import('data:text/javascript,'+encodeURIComponent(compiled.outputText));
+test('V208 provider rights allowlist rejects invalid aliases, de-duplicates, and cannot auto-authorize any feed',()=>{
+ assert.deepEqual(archiveAllowedSources(undefined),[]);
+ assert.deepEqual(archiveAllowedSources('sharp-api,espn-core-odds,sharp-api'),['sharp-api','espn-core-odds']);
+ assert.deepEqual(archiveAllowedSources('unknown provider,https://fake.example,ok-one'),['ok-one']);
+ assert.equal(archiveAllowedSources('a,b,c').length,0);
+});
+test('V208 migration records immutable source identity and idempotent append-only uniqueness',()=>{
+ const sql=read('../db/v208.sql');
+ assert.match(sql,/create table if not exists public.edgeforce_sports_archive_v208/);
+ assert.match(sql,/unique\(record_type,source_record_id\)/);
+ assert.match(sql,/first_archived_at timestamptz not null default now\(\)/);
+ assert.match(sql,/create table if not exists public.edgeforce_sports_archive_sync_v208/);
+ assert.match(sql,/next_allowed_at/);
+ assert.match(sql,/source_observed_at/);
+});
+test('V208 archive rows are source-bounded, opt-in and exclude upstream polling',()=>{
+ const sync=read('../src/lib/sportsArchiveSync.ts');
+ const route=read('../src/app/api/network/v1/archive/sync/route.ts');
+ const readRoute=read('../src/app/api/network/v1/archive/route.ts');
+ for(const s of [route,readRoute])assert.match(s,/authorizeNetwork\(request\)/);
+ assert.match(route,/EDGEFORCE_ARCHIVE_WRITES_ENABLED/);
+ assert.match(route,/EDGEFORCE_ARCHIVE_PLAYER_STATS_ENABLED/);
+ assert.match(route,/ARCHIVE_SOURCE_RIGHTS_NOT_CONFIGURED/);
+ assert.match(sync,/for update/);
+ assert.match(sync,/order by ms.id asc limit 80/);
+ assert.match(sync,/order by mr.id asc limit 80/);
+ assert.match(sync,/order by ps.id asc limit 80/);
+ assert.match(sync,/on conflict\(record_type,source_record_id\) do nothing/g);
+ assert.match(sync,/next_allowed_at=clock_timestamp\(\)\+interval '60 seconds'/);
+ assert.match(sync,/ms.provider=any/);
+ assert.match(sync,/ps.source=any/);
+ assert.doesNotMatch(sync,/\bfetch\(/);
+ assert.doesNotMatch(route,/\bfetch\(/);
+ assert.doesNotMatch(readRoute,/\bfetch\(/);
+ assert.match(readRoute,/id<\$\{before\}::bigint/);
+ assert.match(readRoute,/limit \$\{Number\(limit\)\}/);
+});
+test('V208 operator UI uses one manual batch without auto-poll or storage of private tokens',()=>{
+ const ui=read('../src/components/SportsArchiveWarehouse.tsx');
+ const parent=read('../src/components/SportsNetworkChronicle.tsx');
+ assert.match(ui,/Archive next 80/);
+ assert.match(ui,/readRecords/);
+ assert.match(ui,/kind==='PLAYER_STAT'/);
+ assert.match(parent,/SportsArchiveWarehouse token=\{token\}/);
+ assert.doesNotMatch(ui,/setInterval|localStorage|sessionStorage/);
+});
