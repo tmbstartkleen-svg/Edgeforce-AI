@@ -3,6 +3,7 @@ import {saveMarketSnapshots,saveConsensusMarketSnapshots} from '../persistence';
 import {latestStoredMarkets} from '../persistence';
 import {demoMarkets} from '../demo';
 import type {Market} from '../types';
+import {mirrorLiveOddsToIntelligence} from '../intelligence-core/live-odds-adapter';
 
 async function withDeadline<T>(promise:Promise<T>,ms:number,label:string):Promise<T>{
  let timer:ReturnType<typeof setTimeout>|undefined;
@@ -99,6 +100,10 @@ export async function ingestOdds(options:IngestOddsOptions={}){
     'consensus snapshot write'
    ).catch(()=>undefined)
   ]);
+  // Best-effort mirror: cannot block the existing sportsbook feed.
+  if(process.env.INTELLIGENCE_WAREHOUSE_MIRROR_ENABLED==='true'){
+   await withDeadline(mirrorLiveOddsToIntelligence({source:'live',providerId:live.providerId,markets:live.markets}),1000,'warehouse mirror').catch(()=>undefined);
+  }
   return {...live,source:'live' as const,reuseAgeMin:reuseAge,liveRefreshMs,nextLiveRefreshMs:liveRefreshMs};
  }
 
