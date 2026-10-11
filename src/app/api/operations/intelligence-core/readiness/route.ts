@@ -24,7 +24,7 @@ export async function GET(request:Request){
   const [providers,agents,observations,runStats]=await Promise.all([
    sql`select count(*)::int as count from intelligence_sources where enabled=true`,
    sql`select status,count(*)::int as count from intelligence_agent_runs group by status`,
-   sql`select max(ingested_at) as latest,count(*)::int as count from intelligence_observations`,
+   sql`select max(observed_at) as latest,max(ingested_at) as last_ingested,\n       count(*)::int as count from intelligence_observations`,
    sql`select max(finished_at) filter(where status='SUCCEEDED') as last_success,
        count(*) filter(where status='FAILED' and finished_at>now()-interval '1 day')::int as failed_runs,
        count(*) filter(where status='RUNNING' and lease_until<now())::int as stuck_runs
@@ -47,6 +47,7 @@ export async function GET(request:Request){
    enabledProviders:Number(providers[0]?.count??0),
    storedObservations:Number(observations[0]?.count??0),
    latestObservation:observations[0]?.latest??null,
+   latestIngestion:observations[0]?.last_ingested??null,
    agentRuns:agents.map(x=>({status:x.status,count:Number(x.count)}))
   },{status:evidence.activationAllowed?200:503,headers:{'Cache-Control':'no-store'}});
 
