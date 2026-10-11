@@ -21,19 +21,23 @@ export async function POST(request:Request){
  if(!records)return fail('INVALID_OR_AMBIGUOUS_PLAY_BATCH',400);
  const sql=db();if(!sql)return fail('DATABASE_NOT_CONFIGURED',503);
  try{
+  // ONE PostgreSQL statement for a maximum of 30 validated plays.
   const inserted=await sql.begin(async tx=>{
-   let count=0;
-   for(const p of records){
-    const saved=await tx`insert into public.edgeforce_sports_plays_v209(
+   const rows=await tx`
+    insert into public.edgeforce_sports_plays_v209(
      source,source_event_key,source_play_key,sport,observed_at,event_time,
-     period_label,clock_label,description,player_name,team_name,raw_stats)
-     values(${p.source},${p.sourceEventKey},${p.sourcePlayKey},${p.sport},
-      ${p.observedAt},${p.eventTime},${p.periodLabel},${p.clockLabel},
-      ${p.description},${p.playerName},${p.teamName},${tx.json(p.rawStats)})
-     on conflict(source,source_event_key,source_play_key) do nothing returning id`;
-    count+=saved.length;
-   }
-   return count;
+     period_label,clock_label,description,player_name,team_name,raw_stats
+    )
+    select r.source,r."sourceEventKey",r."sourcePlayKey",r.sport,
+     r."observedAt"::timestamptz,r."eventTime"::timestamptz,r."periodLabel",
+     r."clockLabel",r.description,r."playerName",r."teamName",
+     r."rawStats"
+    from jsonb_to_recordset(${tx.json(records)}::jsonb)
+     as r(source text,"sourceEventKey" text,"sourcePlayKey" text,sport text,
+      "observedAt" text,"eventTime" text,"periodLabel" text,"clockLabel" text,
+      description text,"playerName" text,"teamName" text,"rawStats" jsonb)
+    where true on conflict(source,source_event_key,source_play_key) do nothing returning id`;
+   return rows.length;
   });
   return Response.json({ok:true,network:'EdgeForce Sports Network',
    dataRole:'LICENSED_DECLARED_PLAY_HISTORY',requested:records.length,inserted,
