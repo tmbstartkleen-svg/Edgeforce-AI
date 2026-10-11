@@ -46,7 +46,7 @@ export default function GoogleSportsResearch(){
    {payload?.status==='TARGETS_MISSING'&&<p>Configure verified league Knowledge Graph IDs under SERPAPI_SPORTS_TARGETS_JSON.</p>}
    {payload?.status==='DISABLED'&&<p>Google Sports research is intentionally off until explicitly enabled in the Worker configuration.</p>}
   </div>}
-  {payload?.games?.length>0&&<div className="efGoogleResearchGames">
+  {payload&&payload.games.length>0&&<div className="efGoogleResearchGames">
    {payload.games.slice(0,24).map(game=><article key={game.id}>
     <div><small>{game.league}</small><small>{showTime(game.startTime)}</small></div>
     <h4>{game.teamA.name} <span>vs.</span> {game.teamB.name}</h4>
@@ -54,7 +54,7 @@ export default function GoogleSportsResearch(){
     <strong>{game.teamA.score===null?'—':game.teamA.score} : {game.teamB.score===null?'—':game.teamB.score}</strong>
    </article>)}
   </div>}
-  {payload?.ok&&!payload.games.length&&<p className="efGoogleResearchNote">No supported matchups were available for this configured league and the current source response.</p>}
+  {payload&&payload.ok&&!payload.games.length&&<p className="efGoogleResearchNote">No supported matchups were available for this configured league and the current source response.</p>}
   <p className="efGoogleResearchFoot">Research source only. Google’s team ordering does not certify home/away; games are not merged into live trading, sportsbook odds, player-prop pricing or betting execution. Free SerpApi searches are limited and cannot deliver sub-second coverage.</p>
  </section>;
 }
