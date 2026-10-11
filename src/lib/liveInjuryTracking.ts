@@ -1,4 +1,5 @@
 import {db} from './db';
+import {mirrorInjuryReports} from './intelligence-core/injury-adapter';
 import {fetchInjuryContext} from './providers/context';
 import type {FailoverResult} from './providers/failover';
 
@@ -13,6 +14,9 @@ const rows=(payload:unknown)=>{
 
 export async function refreshLiveInjuryTracking(){
  const result=await fetchInjuryContext(true);
+ if(result.ok&&result.data!==undefined&&process.env.INTELLIGENCE_WAREHOUSE_INJURY_MIRROR==='true'){
+  await mirrorInjuryReports(result.data,result.providerId,Boolean(result.degraded)).catch(()=>undefined);
+ }
  const sql=db();
  if(result.ok&&result.data!==undefined&&sql){
   const observedAt=new Date();
