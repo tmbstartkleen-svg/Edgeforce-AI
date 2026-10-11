@@ -41,6 +41,7 @@ export async function POST(request:Request){
  if((type==='TEAM'||type==='ATHLETE')&&
   (typeof sourceLabel!=='string'||sourceLabel.length>160||normalizedIdentity(sourceLabel).length<3))
   return fail('SOURCE_LABEL_REQUIRED',400);
+ const typeValue=type as 'EVENT'|'TEAM'|'ATHLETE';
  const canonicalValue=canonicalId as string;
  const sourceValue=source as string;
  const sourceEntityValue=sourceEntityId as string;
@@ -86,7 +87,7 @@ export async function POST(request:Request){
   const inserted=await sql<LinkRow[]>`
    insert into public.edgeforce_identity_links_v210(
     entity_type,canonical_id,source,source_entity_id,review_status,evidence)
-   values(${type},${canonicalValue},${sourceValue},${sourceEntityValue},
+   values(${typeValue},${canonicalValue},${sourceValue},${sourceEntityValue},
     ${status},${sql.json(evidence)})
    on conflict(entity_type,source,source_entity_id) do nothing
    returning id::text as id,entity_type as "entityType",canonical_id as "canonicalId",
