@@ -1,3 +1,4 @@
+import {mirrorCollectorPayload} from './intelligence-core/multisport-adapter';
 import {createHash} from 'node:crypto';
 import {db} from './db';
 import type {Market} from './types';
@@ -270,6 +271,17 @@ export async function syncPlayerWarehouseFromStatsProvider(){
    rowsSeen:0,gamesWritten:0,athletesTouched:0,featureSnapshotsWritten:0,
    error:result.error||'stats provider unavailable'
   } satisfies PlayerWarehouseSyncResult;
+ }
+ // Mirror verified provider-dated player stats without changing the existing player warehouse.
+ // Never infer source dates from collection time or reclassify degraded payloads.
+ if(process.env.INTELLIGENCE_MULTISPORT_MIRROR==='true'){
+  const mirror=mirrorCollectorPayload('player-stat',result.data,result.providerId,{
+   degraded:Boolean(result.degraded)
+  });
+  await Promise.race([
+   mirror.catch(()=>undefined),
+   new Promise<void>(resolve=>setTimeout(resolve,900))
+  ]);
  }
  return ingestPlayerHistoryPayload(result.data,result.providerId||result.providerName||'stats-provider');
 }
