@@ -264,7 +264,9 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
   ...panel.flatMap(x=>x.warnings.map(w=>`${x.config.name}: ${w}`)),
   ...attempts.filter(x=>!x.ok&&!x.skipped).map(x=>`${x.providerId}: ${x.error||'provider rejected'}`),
   ...(targetCoverage===1?[]:[`Target bookmaker ${targetBook} present on ${targetRows}/${markets.length} consensus markets; best/reference price displayed where missing`]),
-  ...(accepted.length<2?['Only one acceptable odds provider available; cross-provider consensus depth is limited']:[])
+  ...(accepted.length<2?[configured.length===1
+   ?'Only one odds provider is configured. A second independent sportsbook odds feed is needed for provider redundancy; game-score APIs do not count.'
+   :'Only one acceptable odds provider available; at least one configured provider failed or was rejected. Inspect provider attempts.']:[])
  ];
 
  const quality=aggregateQuality(panel);
