@@ -4,8 +4,8 @@ import {planAgentRuns,AGENTS} from './agent-planner.mjs';
 /** Durable, opt-in orchestration. Never schedules unsupported adapter identities. */
 const SUPPORTED=['injuries-lineups','sportsbook-odds'];
 const byId=new Map(AGENTS.map(agent=>[agent.id,agent]));
-const interval=agent=>Math.max(agent.activeMs,60000);
-const keyFor=(agent,at)=>'core:'+agent.id+':'+Math.floor(at/interval(agent));
+const interval=(agent:typeof AGENTS[number])=>Math.max(agent.activeMs,60000);
+const keyFor=(agent:typeof AGENTS[number],at:number)=>'core:'+agent.id+':'+Math.floor(at/interval(agent));
 
 export async function enqueueIntelligenceAgents(now=Date.now()){
  const sql=db();
@@ -20,6 +20,7 @@ export async function enqueueIntelligenceAgents(now=Date.now()){
  let enqueued=0;
  for(const task of p.tasks){
   const spec=byId.get(task.agentId);
+  if(!spec)continue;
   const runKey=keyFor(spec,now);
   const inserted=await sql`
    insert into intelligence_agent_runs(agent_id,run_key,status,scheduled_at,budget_units)
@@ -53,7 +54,7 @@ export async function leaseIntelligenceAgent(now=Date.now()){
 }
 
 /** Explicitly whitelist existing first-party collection paths. */
-export async function executeIntelligenceAgent(agentId,secret){
+export async function executeIntelligenceAgent(agentId:string,secret:string){
  if(!secret)throw new Error('CRON_SECRET_REQUIRED');
  const req=new Request('https://edgeforce.internal/api/cron/'+(agentId==='injuries-lineups'?'injuries':'scan'),{
   headers:{authorization:'Bearer '+secret}
@@ -70,7 +71,7 @@ export async function executeIntelligenceAgent(agentId,secret){
  return {status:response.status};
 }
 
-export async function completeIntelligenceAgent(runId,ok,error=''){
+export async function completeIntelligenceAgent(runId:number,ok:boolean,error=''){
  const sql=db();
  if(!sql)throw new Error('DATABASE_UNAVAILABLE');
  const status=ok?'SUCCEEDED':'FAILED';
@@ -81,7 +82,7 @@ export async function completeIntelligenceAgent(runId,ok,error=''){
  `;
 }
 
-export async function runIntelligenceCoreOnce({now=Date.now(),secret}={}){
+export async function runIntelligenceCoreOnce({now=Date.now(),secret=''}:{now?:number;secret?:string}={}){
  if(process.env.INTELLIGENCE_CORE_ENABLED!=='true')return {ok:false,reason:'DISABLED'};
  const queued=await enqueueIntelligenceAgents(now);
  if(!queued.ok)return queued;
