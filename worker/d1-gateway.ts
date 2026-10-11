@@ -17,7 +17,11 @@ export async function d1IngestGateway(request:Request,env:D1GatewayEnv):Promise<
  if(!db||typeof db.prepare!=='function')return reply({ok:false,reason:'D1_BINDING_MISSING'},503);
  if(Number(request.headers.get('content-length')||0)>524288)return reply({ok:false,reason:'PAYLOAD_TOO_LARGE'},413);
  let items:unknown;
- try{items=await request.json();}catch{return reply({ok:false,reason:'INVALID_JSON'},400);}
+ try{
+  const body=await request.text();
+  if(new TextEncoder().encode(body).length>524288)return reply({ok:false,reason:'PAYLOAD_TOO_LARGE'},413);
+  items=JSON.parse(body);
+ }catch{return reply({ok:false,reason:'INVALID_JSON'},400);}
  if(!Array.isArray(items)||items.length>25)return reply({ok:false,reason:'INVALID_BATCH'},400);
  try{
   const report=await appendD1Observations(db,items as D1Observation[]);
