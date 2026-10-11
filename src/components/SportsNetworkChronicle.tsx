@@ -41,10 +41,9 @@ export default function SportsNetworkChronicle(){
    {([['past','Past / 90 days'],['present','Present / 36 hours'],['future','Future / 7 days']] as const).map(([v,title])=><button type="button" key={v} aria-pressed={era===v} onClick={()=>select(v)}>{title}</button>)}
   </nav>
   <div className="efChronicleFilters">
-   <label>Sport
-    <select value={sport} onChange={e=>{setSport(e.target.value);setResult(null)}}>
-     {['ALL','NFL','NCAAF','NBA','WNBA','NCAAB','MLB','NHL','MLS','EPL','UFC','TENNIS'].map(v=><option key={v} value={v}>{v==='ALL'?'Every recorded sport':v}</option>)}
-    </select>
+   <label>Sport or league (ALL = every stored sport)
+    <input list="efChronicleSports" maxLength={28} value={sport} onChange={e=>{setSport(e.target.value);setResult(null)}} placeholder="ALL or any stored league"/>
+    <datalist id="efChronicleSports">{['ALL','NFL','NCAAF','NBA','WNBA','NCAAB','MLB','NHL','MLS','EPL','UFC','TENNIS','TABLE TENNIS','CRICKET','ESPORTS'].map(v=><option key={v} value={v}/>)}</datalist>
    </label>
    <button type="button" onClick={()=>void load()} disabled={busy||token.length!==64}>{busy?'Checking archive…':'Inspect '+era+' records'}</button>
   </div>
