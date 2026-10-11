@@ -1555,3 +1555,34 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .efChronicleFooter{font-size:12px;color:#a5bdca;line-height:1.6;margin:18px 0}
 @media(max-width:830px){.efChronicleCards{grid-template-columns:1fr}.efChronicleAccess{flex-direction:column;align-items:stretch}.efChronicleAccess label{width:100%}}
 @media(max-width:600px){.efChronicleHero,.efChronicleResults{padding:17px}.efChronicleTriad{grid-template-columns:1fr}.efChronicleFilters{align-items:stretch;flex-direction:column}.efChronicleFilters label,.efChronicleFilters button{width:100%}.efChronicleTabs button{font-size:12px;padding:10px 6px}}
+
+
+/* EdgeForce V208: long-running private sports warehouse */
+.efWarehouse{margin:25px 0;border:1px solid #375568;border-radius:18px;background:linear-gradient(145deg,#102234,#0b1928);padding:23px;min-width:0}
+.efWarehouseHead{display:flex;justify-content:space-between;gap:16px;align-items:start}
+.efWarehouseHead h3{font-size:24px;margin:9px 0}.efWarehouseHead p{font-size:13px;color:#b5cad7;line-height:1.65;max-width:690px}
+.efWarehouseTag{border:1px solid #6b907a;color:#c2f0ab;padding:9px 11px;border-radius:9px;font-size:10px;font-weight:760;white-space:nowrap;letter-spacing:.035em}
+.efWarehouseActions{display:flex;align-items:center;gap:16px;margin:20px 0}
+.efWarehouseActions button,.efWarehouseToolbar>button,.efWarehouseBackfill button,.efWarehouseRecords>button{border:1px solid #a6d993;background:#c3f0a9;color:#172f23;border-radius:9px;padding:11px 15px;font-size:13px;min-height:44px;font-weight:790;cursor:pointer}
+.efWarehouseActions button:disabled,.efWarehouseToolbar>button:disabled,.efWarehouseBackfill button:disabled,.efWarehouseRecords>button:disabled{opacity:.45;cursor:default}
+.efWarehouseActions span{font-size:12px;color:#b3d1ce;line-height:1.5}
+.efWarehouseCounters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:15px 0 19px}
+.efWarehouseCounters>div{border:1px solid #3b5b69;border-radius:12px;background:#0c1c2d;padding:16px;display:flex;flex-direction:column;gap:7px}
+.efWarehouseCounters small{color:#a5bbcc;font-size:11px}.efWarehouseCounters b{font-size:27px;font-variant-numeric:tabular-nums}
+.efWarehouseCounters span{font-size:11px;color:#aac9c7}
+.efWarehouseToolbar{display:flex;justify-content:space-between;align-items:center;gap:13px;margin:18px 0}
+.efWarehouseToolbar>div{display:flex;flex-wrap:wrap;gap:6px}
+.efWarehouseToolbar>div button{border:1px solid #435d6d;border-radius:8px;background:#152637;color:#c3dbe7;padding:11px 12px;font-size:12px;font-weight:760;min-height:43px;cursor:pointer}
+.efWarehouseToolbar>div button[aria-pressed="true"]{background:#1e423f;color:#cefabd;border-color:#89c887}
+.efWarehouseBackfill{border:1px solid #546757;background:#132923;border-radius:11px;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px;margin:16px 0}
+.efWarehouseBackfill p{color:#c1d6c8;max-width:710px;line-height:1.6;font-size:12px;margin:0}
+.efWarehouseBackfill button{white-space:nowrap}
+.efWarehouseNotice{font-size:12px;line-height:1.6;color:#bde4af;padding:10px 13px;border-left:3px solid #96d28a}
+.efWarehouseRecords>p{font-size:12px;color:#b7ced8;line-height:1.6}
+.efWarehouseRecords article{border:1px solid #334b5b;border-radius:10px;padding:13px;margin:9px 0;background:#0a1a29}
+.efWarehouseRecords article>div{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.efWarehouseRecords strong{font-size:14px}.efWarehouseRecords small{font-size:11px;color:#aecad5;line-height:1.6}
+.efWarehouseRecords article p{font-size:12px;color:#bdcfdb;margin:8px 0}
+.efWarehouseFooter{margin-top:17px;color:#a3bac8;font-size:12px;line-height:1.7}
+@media(max-width:820px){.efWarehouseCounters{grid-template-columns:1fr}.efWarehouseHead,.efWarehouseBackfill,.efWarehouseToolbar{flex-direction:column;align-items:stretch}}
+@media(max-width:620px){.efWarehouse{padding:16px}.efWarehouseActions{flex-direction:column;align-items:stretch}.efWarehouseToolbar>div button{flex:1}}
