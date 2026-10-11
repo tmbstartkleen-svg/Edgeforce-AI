@@ -86,7 +86,8 @@ export function chroniclePresent(rows:readonly ChronicleNowRow[],now=Date.now())
   const source=iso(r.sourceObservedAt),received=iso(r.pulledAt);
   const age=source&&received?Math.max(0,(now-clock(source))/1000,(now-clock(received))/1000):null;
   const quoteValid=Number.isSafeInteger(r.odds)&&r.odds!==null&&Math.abs(r.odds)>=100;
-  const valid=Boolean(source&&received&&quoteValid&&label(r.bookmaker)&&label(r.provider));
+  const valid=Boolean(source&&received&&quoteValid&&label(r.bookmaker)&&label(r.provider)&&
+   clock(source)<=now+60000&&clock(received)<=now+60000&&clock(received)>=clock(source)-60000);
   const status=valid&&age!==null&&age<=120?'RECENT_OBSERVATION':valid?'STALE_OBSERVATION':'NO_VERIFIED_QUOTE';
   return {eventId:label(r.eventId),sport:label(r.sport),league:label(r.league),
    home:label(r.home),away:label(r.away),startTime:iso(r.startTime),
