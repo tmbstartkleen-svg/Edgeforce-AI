@@ -13,7 +13,21 @@ test('atomic payload includes only required secrets and an explicitly configured
  assert.deepEqual(runtimeSecrets({...env,SPORTS_GAME_ODDS_API_KEY:''}),env);
 });
 
-test('missing, placeholder and control-character values fail without reflecting credentials',()=>{
+test('SharpAPI deploy opt-in requires BOTH a genuine configured key and explicit switch',()=>{
+ assert.deepEqual(runtimeSecrets({...env,SHARP_API_KEY:'real-looking-test-key'}),env);
+ assert.deepEqual(runtimeSecrets({...env,SHARP_API_ENABLED:'false',SHARP_API_KEY:'real-looking-test-key'}),env);
+ assert.deepEqual(runtimeSecrets({...env,SHARP_API_ENABLED:'true',SHARP_API_KEY:'fixture-sharp'}),{
+  ...env,SHARP_API_KEY:'fixture-sharp',SHARP_API_ENABLED:'true'
+ });
+ for(const key of [undefined,'',' ','[SENSITIVE]','bad\\nkey']){
+  assert.throws(()=>runtimeSecrets({...env,SHARP_API_ENABLED:'true',SHARP_API_KEY:key}),/SharpAPI/);
+ }
+ assert.throws(()=>runtimeSecrets({...env,SHARP_API_ENABLED:'yes',SHARP_API_KEY:'fixture'}),/SharpAPI/);
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+ assert.match(workflow,/SHARP_API_KEY:.*secrets.SHARP_API_KEY/);
+ assert.match(workflow,/SHARP_API_ENABLED:.*vars.SHARP_API_ENABLED/);
+});
+\ntest('missing, placeholder and control-character values fail without reflecting credentials',()=>{
  for(const key of Object.keys(env)){
   for(const value of [undefined,'',' ','[SENSITIVE]','private\nsecret','private\0secret']){
    assert.throws(()=>runtimeSecrets({...env,[key]:value}),error=>
