@@ -5,7 +5,7 @@ export const dynamic='force-dynamic';
 export async function GET(){
  try{
   const result=await fetchLiveScoreMesh();
-  return Response.json(result,{headers:{
+  return Response.json(result,{status:result.ok?200:503,headers:{
    'Cache-Control':'no-store, max-age=0',
    'CDN-Cache-Control':'no-store',
    'Cloudflare-CDN-Cache-Control':'no-store'

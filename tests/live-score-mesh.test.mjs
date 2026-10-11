@@ -234,3 +234,12 @@ test('V166 malformed backup-provider scores cannot count toward freshness or con
   assert.equal(runtime.evaluateLiveScoreFreshness([item],now).scoreCoverage,0);
  }
 });
+
+
+test('V167 all-provider outage is reported without marking idle schedules down',()=>{
+ assert.ok(sourceRaw.includes('allPrimaryFailed=settled.length>0'));
+ assert.ok(sourceRaw.includes('totalProviderOutage=allPrimaryFailed'));
+ assert.ok(sourceRaw.includes('ok:!totalProviderOutage'));
+ const route=readFileSync(new URL('../src/app/api/live-scores/route.ts',import.meta.url),'utf8');
+ assert.ok(route.includes('status:result.ok?200:503'));
+});
