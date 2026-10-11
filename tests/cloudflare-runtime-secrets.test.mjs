@@ -69,7 +69,7 @@ test('V209 historical score and licensed play retention requires explicit operat
  });
  for(const bad of ['yes','1','[SENSITIVE]'])
   assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_OUTCOME_CAPTURE_ENABLED:bad}),/Sports history opt-in/);
- for(const bad of ['unlicensed feed','www.bad.url',',,'])
+ for(const bad of ['unlicensed feed','https://bad.url',',,'])
   assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_PLAY_ALLOWED_PROVIDERS:bad}),/source rights allowlist/);
  const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
  assert.match(workflow,/EDGEFORCE_OUTCOME_CAPTURE_ENABLED:.*vars.EDGEFORCE_OUTCOME_CAPTURE_ENABLED/);
