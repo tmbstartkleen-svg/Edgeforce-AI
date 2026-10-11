@@ -13,6 +13,8 @@ test('observations require event and provenance timestamps',()=>{
 });
 test('does not pretend a bookmaker is an independent upstream',()=>{
  assert.match(src,/upstreamId:m.sourceProviderId/);
+ assert.match(src,/provider:m.sourceProviderId/);
+ assert.doesNotMatch(src,/provider:batch.providerId/);
  assert.doesNotMatch(src,/upstreamId:m.sourceBook/);
 });
 
@@ -22,4 +24,9 @@ test('reports why genuine sportsbook observations are excluded',()=>{
  assert.match(src,/staleTimestamp/);
  assert.match(src,/invalidOdds/);
  assert.match(src,/diagnostic\.eligible=candidates\.length/);
+});
+
+test('aggregator-level batch id cannot replace the individual upstream source',()=>{
+ assert.match(src,/provider:m.sourceProviderId!/);
+ assert.doesNotMatch(src,/batch.source!=='live'\|\|!batch.providerId/);
 });
