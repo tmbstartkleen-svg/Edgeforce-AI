@@ -1,5 +1,5 @@
 export function evaluateIntelligenceReadiness(x){
- const blockers:string[]=[];
+ const blockers=[];
  if(!x.schemaReady)blockers.push('MIGRATION_REQUIRED');
  if(x.approvedProviders<1)blockers.push('NO_APPROVED_PROVIDERS');
  if(x.observationCount<1)blockers.push('NO_PERSISTED_OBSERVATIONS');
