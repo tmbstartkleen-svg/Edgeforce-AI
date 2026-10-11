@@ -1,4 +1,5 @@
 import {recordAutomationRun} from '@/lib/automationHealth';
+import {mirrorCollectorPayload} from '@/lib/intelligence-core/multisport-adapter';
 import {fetchPredictionMarkets} from '@/lib/predictionMarkets';
 import {fetchKalshiTrades,fetchPolymarketTrades,enrichKalshiTradeTitles,summarizeFlow,marketMovers,crossVenueGaps} from '@/lib/predictionFlow';
 import {buildTraderSignals,fetchPolymarketLeaderboard} from '@/lib/predictionTraderIntelligence';
@@ -56,6 +57,26 @@ export async function GET(req:Request){
     .sort((a,b)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime()),
    predictions.contracts
   );
+
+  // Existing prediction collector remains the sole upstream request owner.
+  // Mirror only vendor-dated contracts with explicit event and contract IDs.
+  if(process.env.INTELLIGENCE_MULTISPORT_MIRROR==='true'&&predictions.mode!=='failed'){
+   const bySource=new Map<string,unknown[]>();
+   for(const contract of predictions.contracts.slice(0,100)){
+    if(!contract.sourceObservedAt||!contract.sourceEventId||!contract.id||!contract.source)continue;
+    const rows=bySource.get(contract.source)??[];
+    rows.push({eventId:contract.sourceEventId,contractId:contract.id,
+      observedAt:contract.sourceObservedAt,yesProbability:contract.yesProbability,
+      noProbability:contract.noProbability,title:contract.title});
+    bySource.set(contract.source,rows);
+   }
+   for(const [source,rows] of Array.from(bySource).slice(0,3)){
+    await Promise.race([
+     mirrorCollectorPayload('prediction-market',rows,source).catch(()=>undefined),
+     new Promise<void>(resolve=>setTimeout(resolve,700))
+    ]);
+   }
+  }
 
   const flow4h=summarizeFlow(trades,'4H');
   const movers=marketMovers(trades,'4H',analysisLimit);
