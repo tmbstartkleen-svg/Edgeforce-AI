@@ -14,6 +14,18 @@ export function runtimeSecrets(env){
   }
   secrets[key]=value;
  }
+ // Sharp is a strictly opt-in provider. Do not silently copy a key into Cloudflare
+ // or activate delayed third-party feeds without explicit operator intent.
+ if(env.SHARP_API_ENABLED==='true'){
+  const key=env.SHARP_API_KEY;
+  if(typeof key!=='string'||!key.trim()||key==='[SENSITIVE]'||/[\\r\\n\\0]/.test(key)){
+   throw new Error('SharpAPI was enabled but its GitHub secret is missing or invalid');
+  }
+  secrets.SHARP_API_KEY=key;
+  secrets.SHARP_API_ENABLED='true';
+ }else if(env.SHARP_API_ENABLED!==undefined&&env.SHARP_API_ENABLED!==''&&env.SHARP_API_ENABLED!=='false'){
+  throw new Error('SharpAPI opt-in must be exactly true or false');
+ }
  for(const key of optional){
   const value=env[key];
   if(value===undefined||value==='')continue;
