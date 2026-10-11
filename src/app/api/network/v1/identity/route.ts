@@ -41,21 +41,24 @@ export async function POST(request:Request){
  if((type==='TEAM'||type==='ATHLETE')&&
   (typeof sourceLabel!=='string'||sourceLabel.length>160||normalizedIdentity(sourceLabel).length<3))
   return fail('SOURCE_LABEL_REQUIRED',400);
+ const canonicalValue=canonicalId as string;
+ const sourceValue=source as string;
+ const sourceEntityValue=sourceEntityId as string;
  const sql=db();if(!sql)return fail('DATABASE_NOT_CONFIGURED',503);
  try{
   let status:'NAME_AND_TIME_MATCHED'|'SOURCE_OBSERVED'='SOURCE_OBSERVED';
-  let evidence:Record<string,unknown>={};
+  let evidence:Record<string,string|boolean>={};
   if(type==='EVENT'){
    const [canonical]=await sql<EventRow[]>`
     select e.id,e.sport,e.league,coalesce(t1.name,e.home_team_id) as home,
      coalesce(t2.name,e.away_team_id) as away,e.start_time as "startsAt"
     from events e left join teams t1 on t1.id=e.home_team_id
     left join teams t2 on t2.id=e.away_team_id
-    where e.id=${canonicalId} limit 1`;
+    where e.id=${canonicalValue} limit 1`;
    const [score]=await sql<ScoreRow[]>`
     select source,source_event_key as "sourceEventKey",sport,league,
      home_name as home,away_name as away,scheduled_at as "startsAt"
-    from public.edgeforce_sports_outcomes_v209 where source=${source} and source_event_key=${sourceEntityId}
+    from public.edgeforce_sports_outcomes_v209 where source=${sourceValue} and source_event_key=${sourceEntityValue}
     order by collected_at desc,id desc limit 1`;
    if(!canonical||!score)return fail('NO_MATCHING_CANONICAL_EVENT_OR_SOURCE_SCORE',404);
    const check=evaluateEventIdentity({
@@ -68,21 +71,22 @@ export async function POST(request:Request){
    status='NAME_AND_TIME_MATCHED';
    evidence={method:check.method,sourceRecorded:true};
   }else{
-   const rows=type==='TEAM'?await sql<CanonicalRow[]>`
-    select id,name as label,sport,league from teams where id=${canonicalId} limit 1`:
-    await sql<CanonicalRow[]>`select id,full_name as label,sport,league from athletes
-     where id=${canonicalId} limit 1`;
+   let rows:CanonicalRow[];
+   if(type==='TEAM')rows=await sql<CanonicalRow[]>`
+    select id,name as label,sport,league from teams where id=${canonicalValue} limit 1`;
+   else rows=await sql<CanonicalRow[]>`
+    select id,full_name as label,sport,league from athletes where id=${canonicalValue} limit 1`;
    const entity=rows[0];
    if(!entity)return fail('CANONICAL_IDENTITY_NOT_FOUND',404);
    if(normalizedIdentity(entity.label)!==normalizedIdentity(sourceLabel))
     return fail('SOURCE_NAME_MISMATCH',409);
    // Declared alias only. No independent provider identity lookup is implied.
-   evidence={sourceLabel,method:'EXACT_DECLARED_NAME_ONLY'};
+   evidence={sourceLabel:String(sourceLabel),method:'EXACT_DECLARED_NAME_ONLY'};
   }
   const inserted=await sql<LinkRow[]>`
    insert into public.edgeforce_identity_links_v210(
     entity_type,canonical_id,source,source_entity_id,review_status,evidence)
-   values(${type},${canonicalId},${source},${sourceEntityId},
+   values(${type},${canonicalValue},${sourceValue},${sourceEntityValue},
     ${status},${sql.json(evidence)})
    on conflict(entity_type,source,source_entity_id) do nothing
    returning id::text as id,entity_type as "entityType",canonical_id as "canonicalId",
