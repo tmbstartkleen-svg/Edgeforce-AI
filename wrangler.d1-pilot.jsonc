@@ -1,0 +1,10 @@
+{
+ "$schema":"node_modules/wrangler/config-schema.json",
+ "name":"edgeforce-d1-pilot",
+ "main":"worker/d1-standalone.ts",
+ "compatibility_date":"2026-10-03",
+ "compatibility_flags":["nodejs_compat"],
+ "workers_dev":true,
+ "d1_databases":[{"binding":"INTELLIGENCE_DB","database_name":"edgeforce-intelligence","database_id":"335bcda1-8603-4bdf-8e27-acefdf0d8069"}],
+ "vars":{"INTELLIGENCE_D1_WRITE_ENABLED":"false"}
+}

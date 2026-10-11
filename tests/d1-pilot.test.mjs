@@ -6,7 +6,8 @@ const sql=fs.readFileSync('db/d1/0001_intelligence_pilot.sql','utf8');
 const worker=fs.readFileSync('worker/index.ts','utf8');
 const handler=fs.readFileSync('worker/d1-pilot.ts','utf8');
 test('D1 pilot is opt-in and does not replace postgres',()=>{
- assert.doesNotMatch(wrangler,/"d1_databases"\s*:/);
+ const config=JSON.parse(wrangler);
+ assert.equal(config.d1_databases?.[0]?.binding,"INTELLIGENCE_DB");
  assert.match(worker,/d1PilotReadiness/);
  assert.match(worker,/\/api\/operations\/d1-pilot\/readiness/);
  assert.match(handler,/UNAUTHORIZED/);
