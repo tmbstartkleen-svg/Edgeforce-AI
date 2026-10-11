@@ -18,7 +18,7 @@ export function runtimeSecrets(env){
  // or activate delayed third-party feeds without explicit operator intent.
  if(env.SHARP_API_ENABLED==='true'){
   const key=env.SHARP_API_KEY;
-  if(typeof key!=='string'||!key.trim()||key==='[SENSITIVE]'||/[\\r\\n\\0]/.test(key)){
+  if(typeof key!=='string'||!key.trim()||key==='[SENSITIVE]'||/[\r\n\0]/.test(key)){
    throw new Error('SharpAPI was enabled but its GitHub secret is missing or invalid');
   }
   secrets.SHARP_API_KEY=key;
