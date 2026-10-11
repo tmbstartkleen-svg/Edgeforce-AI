@@ -64,6 +64,10 @@ test('V207 present quote age is source-conservative and no external score is fab
   odds:null,bookmaker:null,provider:null,sourceObservedAt:null,pulledAt:null}],now);
  assert.equal(missing.entries[0].status,'NO_VERIFIED_QUOTE');
  assert.equal(missing.coverage.uniqueUpstreams,0);
+ const futureClock=chroniclePresent([{...base,market:'h2h',selection:'Buffalo Bills',
+  odds:-115,bookmaker:'DraftKings',provider:'espn-core-odds',
+  sourceObservedAt:'2026-10-10T21:05:00Z',pulledAt:'2026-10-10T20:59:55Z'}],now);
+ assert.equal(futureClock.entries[0].status,'NO_VERIFIED_QUOTE');
 });
 test('V207 API must require owner token, bound SQL result sizes, and separate eras',()=>{
  const api=source('../src/app/api/network/v1/intelligence/route.ts');
