@@ -239,8 +239,18 @@ async function buildBoard(req:Request){
       .map(reason=>[reason,rows.filter(x=>(x.downgradeReasons||[]).includes(reason)).length])
   );
 
-  const consensusRows=rows.filter(x=>x.consensus);;
+  const consensusRows=rows.filter(x=>x.consensus);
+  const bookmakerNames=[...new Set((ingestion.panelMarkets||[])
+   .map(x=>(x.sourceBook||'').trim())
+   .filter(book=>book.length>0&&book.toLowerCase()!=='unknown'))].sort();
+  const sourceProviders=[...new Set((ingestion.providerPanel||[])
+   .filter(x=>x.acceptedMarkets>0)
+   .map(x=>x.providerId))];
   const consensusCoverage={
+    independentlyAcceptedProviders:sourceProviders.length,
+    distinctBookmakers:bookmakerNames.length,
+    bookmakerNames:bookmakerNames.slice(0,20),
+    independentReferenceMarkets:consensusRows.filter(x=>(x.consensus?.bookCount||0)>=2).length,
     targetBook:ingestion.targetBook||process.env.TARGET_BOOKMAKER||'DraftKings',
     configuredFeeds:ingestion.providerPanel?.length||0,
     acceptedFeeds:(ingestion.providerPanel||[]).filter(x=>x.acceptedMarkets>0).length,
