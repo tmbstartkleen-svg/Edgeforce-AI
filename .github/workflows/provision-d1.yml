@@ -56,8 +56,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler d1 execute "$DATABASE_NAME" --remote \
-            --file=db/d1/0001_intelligence_pilot.sql --yes
+          jq -nc --arg id "$D1_DATABASE_ID" --arg name "$DATABASE_NAME" \
+            '{name:"edgeforce-d1-provision",compatibility_date:"2026-10-03",d1_databases:[{binding:"INTELLIGENCE_DB",database_name:$name,database_id:$id}]}' \
+            > .d1-provision.wrangler.json
+          npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
+            --remote --file=db/d1/0001_intelligence_pilot.sql
+          rm -f .d1-provision.wrangler.json
       - name: Print binding instructions
         shell: bash
         run: |
