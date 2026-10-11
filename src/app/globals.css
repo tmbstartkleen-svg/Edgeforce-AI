@@ -1609,3 +1609,32 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .efCoverageCapture input,.efCoverageCapture select{border:1px solid #557269;background:#0b211d;border-radius:8px;color:#f3fff5;min-height:42px;padding:9px;min-width:115px}
 @media(max-width:1050px){.efCoverageMetrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.efCoverage{padding:16px}.efCoverageMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.efCoverageRows article{grid-template-columns:1fr;gap:5px}.efCoverageRows small{text-align:left}.efCoverageCapture label,.efCoverageCapture button{width:100%}.efCoverageCapture input,.efCoverageCapture select{width:100%}}
+
+
+/* V210: Institutional-grade retrospective accuracy / identity desk */
+.efAccuracy{margin:24px 0;border:1px solid #3a5b69;border-radius:19px;background:linear-gradient(130deg,#0e2131,#0a1a2a);padding:23px;min-width:0;color:#f1f8f7}
+.efAccuracyActions{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0}
+.efAccuracyActions button,.efAccuracyReview>button{background:#bde9a3;border:1px solid #9ddc89;color:#143529;min-height:46px;padding:10px 18px;font-weight:750;font-size:13px;border-radius:9px;cursor:pointer}
+.efAccuracyActions button:disabled,.efAccuracyReview button:disabled{opacity:.4;cursor:default}
+.efAccuracyReport{border:1px solid #385565;border-radius:14px;background:#101d2c;padding:16px;margin:17px 0}
+.efAccuracyReport .efCoverageMetrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.efAccuracyRows{display:grid;gap:10px}
+.efAccuracyRows article{display:grid;grid-template-columns:minmax(160px,2fr) repeat(4,minmax(80px,1fr));gap:12px;align-items:center;background:#0a1a29;border:1px solid #335268;border-radius:12px;padding:15px}
+.efAccuracyRows article>div{min-width:0}
+.efAccuracyRows b{display:block;font-size:13px;line-height:1.5}
+.efAccuracyRows small,.efAccuracyRows span{display:block;font-size:11px;color:#aec4cf;margin-bottom:5px;line-height:1.5}
+.efAccuracyRows strong{font-size:20px;color:#cff4b5;font-variant-numeric:tabular-nums}
+.efAccuracyRejected{border-top:1px solid #3a5a66;margin-top:15px;padding-top:12px;font-size:12px;color:#c2d6dc;line-height:1.6}
+.efAccuracyRejected summary{cursor:pointer;font-weight:750}
+.efAccuracyIdentity{padding:14px;border-radius:13px;background:#101f2e;border:1px solid #37586a;margin:18px 0}
+.efAccuracyIdentity h4{font-size:16px;margin:3px 0 13px}
+.efAccuracyIdentity>div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #304b59;padding:12px 0;flex-wrap:wrap}
+.efAccuracyIdentity strong{font-size:13px}.efAccuracyIdentity span,.efAccuracyIdentity small{font-size:12px;color:#b6ccdb}
+.efAccuracyReview{border:1px solid #456655;background:#102d2b;border-radius:13px;padding:18px;margin:15px 0}
+.efAccuracyReview h4{font-size:18px;margin:0 0 7px}
+.efAccuracyReview p{font-size:12px;line-height:1.7;color:#bfd6cb;max-width:820px}
+.efAccuracyReview>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin:18px 0}
+.efAccuracyReview label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#d9eee3}
+.efAccuracyReview input,.efAccuracyReview select{min-height:44px;box-sizing:border-box;width:100%;padding:10px;border-radius:8px;background:#0d2222;color:#f7fff4;border:1px solid #5a7d75;font-size:13px}
+@media(max-width:1020px){.efAccuracyRows article{grid-template-columns:repeat(4,minmax(0,1fr))}.efAccuracyRows article>div:first-child{grid-column:1/-1}}
+@media(max-width:670px){.efAccuracy{padding:16px}.efAccuracyRows article{grid-template-columns:repeat(2,minmax(0,1fr))}.efAccuracyReport .efCoverageMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.efAccuracyActions button{flex:1}}
