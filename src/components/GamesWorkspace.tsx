@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {ESPN_SCOREBOARD_FEEDS} from '@/lib/sportRegistry';
 import type {ScheduleGame,ScheduleResult} from '@/lib/gameSchedule';
 import GoogleSportsResearch from './GoogleSportsResearch';
+import ApiFootballResearch from './ApiFootballResearch';
 const batches=Math.ceil(ESPN_SCOREBOARD_FEEDS.length/7);
 const time=(value:string)=>new Date(value).toLocaleString('en-US',{timeZone:'America/New_York',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 const price=(n:number)=>n>0?`+${n}`:String(n);
@@ -46,6 +47,7 @@ export default function GamesWorkspace(){
   {loading&&<div className="gamesLoading" role="status">Loading {range===7?'the next seven days':'today’s schedule'}… Matchups appear as each feed returns.</div>}
   {!loading&&!visible.length&&<div className="gamesEmpty">{failed||failedFeeds.length?'Some schedules could not be loaded. See coverage details or try Refresh.':'No games match these filters in the returned schedules.'}</div>}
   {[...grouped].map(([date,rows])=><section className="gamesDay" key={date}><h3>{date}<span>{rows.length} games</span></h3><div className="gamesGrid">{rows.map(game=><article className="matchupCard" key={game.id}><div className="matchupMeta"><span>{game.sport}</span><b className={game.state==='in'?'gameLive':''}>{game.state==='pre'?time(game.startTime):game.status}</b></div><div className="matchupTeams"><div><strong>{game.away}</strong>{game.state!=='pre'&&<b>{game.awayScore}</b>}</div><div><strong>{game.home}</strong>{game.state!=='pre'&&<b>{game.homeScore}</b>}</div></div><div className="matchupVenue">{game.venue||'Venue to be announced'}</div><div className="matchupPrices">{game.quotes.length>0?['h2h','spreads','totals'].map(m=><div key={m}><small>{m==='h2h'?'Moneyline':m==='spreads'?'Spread':'Total'}</small>{game.quotes.filter(q=>q.market===m).map((q,i)=><div className="gameQuote" key={i}><span>{q.selection}</span><b>{price(q.odds)}</b></div>)}{!game.quotes.some(q=>q.market===m)&&<span className="noQuote">Not quoted</span>}</div>):<div className="noGameOdds">Odds not supplied · game remains on the schedule</div>}</div>{game.quotes.length>0&&<footer>{[...new Set(game.quotes.map(q=>q.bookmaker))].join(', ')} via ESPN · quoted prices, not recommendations</footer>}</article>)}</div></section>)}
+  <ApiFootballResearch/>
   <GoogleSportsResearch/>
  </section>;
 }
