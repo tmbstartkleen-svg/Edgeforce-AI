@@ -44,27 +44,30 @@ export async function POST(request:Request){
   const feedHealth=result.feeds.find(f=>f.id===feed.id);
   if(!feedHealth?.ok)return error('SCORE_SOURCE_UNAVAILABLE',503);
   const normalized=normalizeFinals(result.games,SOURCE,feed.label,Date.now());
+  // At most 60 final events per invocation; ONE SQL insert, no per-game DB fanout.
   const saved=await sql.begin(async tx=>{
-   let inserted=0;
-   for(const item of normalized.games.slice(0,100)){
-    const records=await tx`insert into public.edgeforce_sports_outcomes_v209(
+   const batch=normalized.games.slice(0,60);
+   const added=batch.length?await tx`
+    insert into public.edgeforce_sports_outcomes_v209(
      source,source_event_key,sport,league,home_name,away_name,
      scheduled_at,home_score,away_score,source_observed_at
-    )values(${item.source},${item.sourceEventKey},${item.sport},${item.league},
-      ${item.homeName},${item.awayName},${item.scheduledAt},
-      ${item.homeScore},${item.awayScore},null)
-    on conflict(source,source_event_key,home_score,away_score) do nothing returning id`;
-    inserted+=records.length;
-   }
+    )
+    select r.source,r."sourceEventKey",r.sport,r.league,r."homeName",r."awayName",
+     r."scheduledAt"::timestamptz,r."homeScore",r."awayScore",null
+    from jsonb_to_recordset(${tx.json(batch)}::jsonb)
+     as r(source text,"sourceEventKey" text,sport text,league text,
+      "homeName" text,"awayName" text,"scheduledAt" text,
+      "homeScore" int,"awayScore" int)
+    where true on conflict(source,source_event_key,home_score,away_score) do nothing returning id`:[];
    await tx`update public.edgeforce_sports_outcome_sync_v209
-    set observed_final_games=observed_final_games+${normalized.games.length},
-     inserted_revisions=inserted_revisions+${inserted}
+    set observed_final_games=observed_final_games+${batch.length},
+     inserted_revisions=inserted_revisions+${added.length}
     where source=${SOURCE} and feed_id=${feed.id}`;
-   return inserted;
+   return added.length;
   });
   return Response.json({
    ok:true,network:'EdgeForce Sports Network',dataRole:'SINGLE_SOURCE_FINAL_SCORE_HISTORY',
-   feed:feed.label,date,examined:normalized.examined,finalScoreObservations:normalized.games.length,
+   feed:feed.label,date,examined:normalized.examined,finalScoreObservations:normalized.games.length,storedBatchCount:Math.min(60,normalized.games.length),
    rejected:normalized.rejected,newRevisions:saved,
    sourceTimestampAvailable:false,sourceCount:1,officiallyVerified:false,
    warning:'A scoreboard FINAL is a single provider observation. Collection time is not the provider publication time; no independent final-score consensus, player stats, or play-by-play was inferred.'
