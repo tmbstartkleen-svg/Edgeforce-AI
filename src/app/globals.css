@@ -1521,7 +1521,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .efChronicleAccess>div{flex:1}.efChronicleAccess b{font-size:15px}.efChronicleAccess p{font-size:12px;line-height:1.6;color:#a5c1d0;max-width:620px;margin:6px 0 0}
 .efChronicleAccess label,.efChronicleFilters label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700;color:#ccdfeb}
 .efChronicleAccess label{width:min(100%,320px)}
-.efChronicleAccess input,.efChronicleFilters select{background:#0b1927;color:#f1f8ff;border:1px solid #527184;border-radius:9px;min-height:44px;padding:10px 12px;font-size:14px;box-sizing:border-box;width:100%}
+.efChronicleAccess input,.efChronicleFilters input,.efChronicleFilters select{background:#0b1927;color:#f1f8ff;border:1px solid #527184;border-radius:9px;min-height:44px;padding:10px 12px;font-size:14px;box-sizing:border-box;width:100%}
 .efChronicleTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
 .efChronicleTabs button{padding:15px 11px;background:#142637;border:1px solid #425d6f;color:#c6d8e3;border-radius:10px;font-weight:750;cursor:pointer;font-size:14px;min-height:50px}
 .efChronicleTabs button[aria-pressed=true]{background:#20413b;border-color:#92cd8a;color:#dcffc9}
