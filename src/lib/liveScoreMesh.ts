@@ -27,6 +27,8 @@ export type LiveGameState={
  home:{name:string;score:number|null};
  away:{name:string;score:number|null};
  observedAt:string;
+ /** Original provider update timestamp, never inferred from local fetch time. */
+ sourceObservedAt?:string;
  consensus?:LiveScoreConsensus;
 };
 
