@@ -27,6 +27,17 @@ test('SharpAPI deploy opt-in requires BOTH a genuine configured key and explicit
  assert.match(workflow,/SHARP_API_KEY:.*secrets.SHARP_API_KEY/);
  assert.match(workflow,/SHARP_API_ENABLED:.*vars.SHARP_API_ENABLED/);
 });
+test('first-party network hash is validated and survives atomic Worker deployment',()=>{
+ const hash='ab'.repeat(32);
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_NETWORK_TOKEN_SHA256:hash}),{...env,EDGEFORCE_NETWORK_TOKEN_SHA256:hash});
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_NETWORK_TOKEN_SHA256:''}),env);
+ for(const bad of ['token-with-no-hash','[SENSITIVE]','01'.repeat(31),'nothex'.repeat(11)]){
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_NETWORK_TOKEN_SHA256:bad}),/Network authentication hash/);
+ }
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+ assert.match(workflow,/EDGEFORCE_NETWORK_TOKEN_SHA256:.*secrets.EDGEFORCE_NETWORK_TOKEN_SHA256/);
+});
+
 test('missing, placeholder and control-character values fail without reflecting credentials',()=>{
  for(const key of Object.keys(env)){
   for(const value of [undefined,'',' ','[SENSITIVE]','private\nsecret','private\0secret']){
