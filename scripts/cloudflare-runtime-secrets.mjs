@@ -67,6 +67,11 @@ export function runtimeSecrets(env){
    secrets[variable]=sources;
   }
  }
+ // Human-reviewed source identity mappings must be explicitly enabled.
+ const review=env.EDGEFORCE_IDENTITY_REVIEW_ENABLED;
+ if(review!==undefined&&review!==''&&review!=='true'&&review!=='false')
+  throw new Error('Identity review opt-in must be exactly true or false');
+ if(review==='true')secrets.EDGEFORCE_IDENTITY_REVIEW_ENABLED='true';
  for(const key of optional){
   const value=env[key];
   if(value===undefined||value==='')continue;
