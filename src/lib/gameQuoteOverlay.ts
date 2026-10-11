@@ -3,9 +3,23 @@ import type {ScheduleGame} from './gameSchedule';
 /** A prior published, timestamped, read-only sportsbook quote. NEVER an executable offer. */
 export type StoredGameQuote={
  home:string;away:string;sport:string;startTime:string;selection:string;market:string;
- odds:number;bookmaker:string;sourceTimestamp:string;ageMinutes:number;
+ odds:number;bookmaker:string;sourceTimestamp:string;ageMinutes:number;liveEligible?:boolean;
 };
 export type GameQuoteState='MATCHED'|'NOT_FOUND'|'STALE_ONLY'|'MATCH_UNVERIFIED';
+const leagueAliases:Record<string,string>={
+ nfl:'NFL',ncaaf:'NCAAF',ncaafb:'NCAAF','college football':'NCAAF',
+ 'ncaa football':'NCAAF',fbs:'NCAAF',fcs:'NCAAF',
+ nba:'NBA',wnba:'WNBA',ncaab:'NCAAB','ncaa basketball':'NCAAB',
+ 'college basketball':'NCAAB',ncaaw:'NCAAW',mlb:'MLB',nhl:'NHL',
+ mls:'MLS',epl:'EPL','english premier league':'EPL','premier league':'EPL',
+ laliga:'LaLiga','la liga':'LaLiga',bundesliga:'Bundesliga','serie a':'Serie A',
+ 'ligue 1':'Ligue 1',ucl:'UCL','champions league':'UCL',ufc:'UFC'
+};
+export function strictLeagueMatch(a:string,b:string){
+ const normalize=(x:string)=>x.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const x=normalize(a),y=normalize(b);
+ return Boolean(x&&y&&(leagueAliases[x]||x)===(leagueAliases[y]||y));
+}
 
 export function normalizeTeam(value:string){
  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
@@ -31,13 +45,14 @@ function side(name:string,game:ScheduleGame){
 export function verifiedGameQuote(
  game:ScheduleGame,q:StoredGameQuote,now=Date.now()
 ):null|{selection:string;market:'h2h'|'spreads'|'totals';odds:number;bookmaker:string;origin:'stored';ageMinutes:number}{
- if(game.state!=='pre'||!namesMatch(game,q))return null;
+ if(game.state!=='pre'||!strictLeagueMatch(game.sport,q.sport)||!namesMatch(game,q))return null;
  if(!Number.isFinite(q.odds)||!Number.isInteger(q.odds)||Math.abs(q.odds)<100||Math.abs(q.odds)>100000)return null;
  const start=Date.parse(q.startTime),gameStart=Date.parse(game.startTime),observed=Date.parse(q.sourceTimestamp);
  if(![start,gameStart,observed].every(Number.isFinite)||Math.abs(start-gameStart)>8*60000||
   start<=now||observed>now+60000||observed<now-10*60000||
   !Number.isFinite(q.ageMinutes)||q.ageMinutes<0||q.ageMinutes>10)return null;
- if(!q.bookmaker?.trim()||q.bookmaker.toLowerCase()==='unknown'||q.bookmaker.toLowerCase()==='provider')return null;
+ if(!q.bookmaker?.trim()||['unknown','provider'].includes(q.bookmaker.toLowerCase()))return null;
+ // A known delayed/non-executable source remains informative only, never a trade approval.
  const market=q.market.toLowerCase();
  const selection=q.selection.trim();
  if(market==='h2h'||market==='moneyline'||market==='ml'){
@@ -62,7 +77,9 @@ export function verifiedGameQuote(
 export function enrichSchedulePrices(
  game:ScheduleGame,stored:StoredGameQuote[],now=Date.now()
 ){
- const valid=stored.map(x=>verifiedGameQuote(game,x,now)).filter((x):x is NonNullable<typeof x>=>x!==null);
+ const related=stored.filter(q=>strictLeagueMatch(game.sport,q.sport)&&namesMatch(game,q)&&
+  Number.isFinite(Date.parse(q.startTime))&&Math.abs(Date.parse(q.startTime)-Date.parse(game.startTime))<=8*60000);
+ const valid=related.map(x=>verifiedGameQuote(game,x,now)).filter((x):x is NonNullable<typeof x>=>x!==null);
  const existing=game.quotes.filter(q=>Number.isInteger(q.odds)&&Math.abs(q.odds)>=100);
  const combined=new Map<string,(typeof valid)[number] | (typeof existing)[number]>();
  // Source-specific records are kept distinct, never treated as independent execution venues.
@@ -70,5 +87,5 @@ export function enrichSchedulePrices(
  for(const quote of valid)combined.set([quote.bookmaker,quote.market,quote.selection].join('|').toLowerCase(),quote);
  return {...game,quotes:[...combined.values()].slice(0,32),
   extraQuoteCount:valid.length,
-  quoteCoverage:combined.size?'PUBLISHED':stored.some(q=>namesMatch(game,q))?'MATCH_UNVERIFIED':'NOT_FOUND'} as const;
+  quoteCoverage:combined.size?'MATCHED':related.length?'STALE_ONLY':'NOT_FOUND'} as const;
 }
