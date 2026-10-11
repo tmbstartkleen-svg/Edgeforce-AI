@@ -5,13 +5,13 @@ export type LiveOddsBatch={source:string;providerId?:string;markets:Market[]};
 
 /**
  * Mirror only fresh LIVE observations emitted by an existing provider.
- * Registry must independently approve the exact provider and upstream ID.
+ * Each quote retains its original configured upstream ID; batch aggregation\n * IDs must never overwrite individual quote provenance. The registry\n * independently approves the exact upstream identity.
  * Stored snapshots, demo markets and inferred timestamps never enter this feed.
  */
 export async function mirrorLiveOddsToIntelligence(batch:LiveOddsBatch,now=Date.now()){
  if(process.env.INTELLIGENCE_WAREHOUSE_MIRROR_ENABLED!=='true')
   return {status:'DISABLED',accepted:0};
- if(batch.source!=='live'||!batch.providerId)
+ if(batch.source!=='live')
   return {status:'NOT_LIVE',accepted:0};
  const diagnostic={input:batch.markets.length,missingProvenance:0,invalidTimestamp:0,
   staleTimestamp:0,invalidOdds:0,eligible:0};
@@ -31,7 +31,7 @@ export async function mirrorLiveOddsToIntelligence(batch:LiveOddsBatch,now=Date.
  if(!candidates.length)return {status:'NO_ELIGIBLE_OBSERVATIONS',accepted:0,diagnostic};
 
  const observations=candidates.map(m=>({
-  provider:batch.providerId!,
+  provider:m.sourceProviderId!,
   upstreamId:m.sourceProviderId!,
   eventId:m.sourceEventId!,
   marketId:m.id,
