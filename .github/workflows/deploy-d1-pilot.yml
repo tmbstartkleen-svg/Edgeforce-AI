@@ -38,6 +38,17 @@ jobs:
           node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
+      - name: Install isolated gateway credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          CRON_SECRET=$(openssl rand -hex 32)
+          INGEST_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$CRON_SECRET"
+          echo "::add-mask::$INGEST_SECRET"
+          printf '%s' "$CRON_SECRET" | npx wrangler secret put CRON_SECRET --config wrangler.d1-pilot.jsonc
+          printf '%s' "$INGEST_SECRET" | npx wrangler secret put INGEST_SECRET --config wrangler.d1-pilot.jsonc
+          echo "D1_PILOT_CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
       - name: Certify D1 readiness and reject unauthorized access
         shell: bash
         run: |
@@ -46,4 +57,7 @@ jobs:
           CODE=$(curl -sS -L -o /tmp/d1-unauthorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness")
           test "$CODE" = 401 || { echo "Unexpected public readiness status: $CODE"; exit 1; }
           jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-unauthorized.json > /dev/null
-          echo "Isolated D1 pilot Worker deployed; unauthorized access denied." >> "$GITHUB_STEP_SUMMARY"
+          AUTH_CODE=$(curl -sS -L -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/d1-authorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness")
+          test "$AUTH_CODE" = 200 || { echo "D1 readiness status: $AUTH_CODE"; cat /tmp/d1-authorized.json; exit 1; }
+          jq -e '.ok==true and .schemaReady==true' /tmp/d1-authorized.json > /dev/null
+          echo "Isolated D1 pilot Worker operational: authenticated schema read succeeded, unauthorized access denied." >> "$GITHUB_STEP_SUMMARY"
