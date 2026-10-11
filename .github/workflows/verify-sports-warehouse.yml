@@ -1,0 +1,48 @@
+name: Verify EdgeForce Sports Warehouse
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/sportsArchiveSync.ts'
+      - 'src/app/api/network/v1/archive/**'
+      - 'db/v208.sql'
+      - 'tests/sports-warehouse.postgres.mjs'
+      - '.github/workflows/verify-sports-warehouse.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/lib/sportsArchiveSync.ts'
+      - 'src/app/api/network/v1/archive/**'
+      - 'db/v208.sql'
+      - 'tests/sports-warehouse.postgres.mjs'
+
+concurrency:
+  group: edgeforce-sports-warehouse-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      warehouse-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fixture
+          POSTGRES_PASSWORD: warehouse-test-${{ github.run_id }}
+          POSTGRES_DB: edgeforce_snapshot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fixture -d edgeforce_snapshot_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Verify real PostgreSQL archive ingestion and concurrent deduplication
+        run: node --test tests/sports-warehouse.postgres.mjs
+        env:
+          WAREHOUSE_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test

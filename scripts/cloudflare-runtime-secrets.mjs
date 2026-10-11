@@ -36,6 +36,21 @@ export function runtimeSecrets(env){
   }
   secrets.EDGEFORCE_NETWORK_TOKEN_SHA256=networkHash.trim().toLowerCase();
  }
+ // Archive access is always opt-in and depends on explicit source retention rights.
+ for(const variable of ['EDGEFORCE_ARCHIVE_WRITES_ENABLED','EDGEFORCE_ARCHIVE_PLAYER_STATS_ENABLED']){
+  const flag=env[variable];
+  if(flag!==undefined&&flag!==''&&flag!=='false'&&flag!=='true')
+   throw new Error('Archive opt-in variable must be exactly true or false');
+  if(flag==='true')secrets[variable]='true';
+ }
+ const sources=env.EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS;
+ if(sources!==undefined&&sources!==''){
+  if(typeof sources!=='string'||sources.length>1800||
+   sources.split(',').some(x=>!/^[A-Za-z0-9._-]{2,64}$/.test(x.trim()))){
+   throw new Error('Archive source allowlist contains invalid provider IDs');
+  }
+  secrets.EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS=sources;
+ }
  for(const key of optional){
   const value=env[key];
   if(value===undefined||value==='')continue;

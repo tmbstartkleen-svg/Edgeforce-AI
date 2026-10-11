@@ -38,6 +38,23 @@ test('first-party network hash is validated and survives atomic Worker deploymen
  assert.match(workflow,/EDGEFORCE_NETWORK_TOKEN_SHA256:.*secrets.EDGEFORCE_NETWORK_TOKEN_SHA256/);
 });
 
+test('V208 archive remains disabled unless explicitly enabled and licensed',()=>{
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_ARCHIVE_WRITES_ENABLED:'false'}),env);
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_ARCHIVE_WRITES_ENABLED:'true',
+  EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS:'espn-core-odds,sharp-api'}),{
+  ...env,EDGEFORCE_ARCHIVE_WRITES_ENABLED:'true',
+  EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS:'espn-core-odds,sharp-api'
+ });
+ for(const bad of ['yes','1','[SENSITIVE]']){
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_ARCHIVE_WRITES_ENABLED:bad}),/Archive opt-in/);
+ }
+ for(const bad of ['book 1','bad provider','evil\\nvalue']){
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS:bad}),/Archive source allowlist/);
+ }
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+ assert.match(workflow,/EDGEFORCE_ARCHIVE_WRITES_ENABLED:.*vars.EDGEFORCE_ARCHIVE_WRITES_ENABLED/);
+ assert.match(workflow,/EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS:.*vars.EDGEFORCE_ARCHIVE_ALLOWED_PROVIDERS/);
+});
 test('missing, placeholder and control-character values fail without reflecting credentials',()=>{
  for(const key of Object.keys(env)){
   for(const value of [undefined,'',' ','[SENSITIVE]','private\nsecret','private\0secret']){
