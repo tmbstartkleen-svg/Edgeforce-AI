@@ -76,6 +76,22 @@ test('V209 historical score and licensed play retention requires explicit operat
  assert.match(workflow,/EDGEFORCE_PLAY_IMPORT_ENABLED:.*vars.EDGEFORCE_PLAY_IMPORT_ENABLED/);
 });
 
+test('V211 requires explicit owned-network and score-collector enablement',()=>{
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_AGENT_TEAM_ENABLED:'false'}),env);
+ assert.deepEqual(runtimeSecrets({...env,EDGEFORCE_AGENT_TEAM_ENABLED:'true',
+  EDGEFORCE_AGENT_SCORE_SOURCE_ENABLED:'true',EDGEFORCE_AGENT_SCORE_FEEDS:'nfl,nba,nhl'}),{
+  ...env,EDGEFORCE_AGENT_TEAM_ENABLED:'true',
+  EDGEFORCE_AGENT_SCORE_SOURCE_ENABLED:'true',EDGEFORCE_AGENT_SCORE_FEEDS:'nfl,nba,nhl'
+ });
+ for(const bad of ['yes','1','[SENSITIVE]'])
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_AGENT_TEAM_ENABLED:bad}),/Sports agent enablement/);
+ for(const bad of ['NFL Football','/etc/passwd','nfl, ,nba'])
+  assert.throws(()=>runtimeSecrets({...env,EDGEFORCE_AGENT_SCORE_FEEDS:bad}),/Sports agent scoreboard league list/);
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+ assert.match(workflow,/EDGEFORCE_AGENT_TEAM_ENABLED:.*vars.EDGEFORCE_AGENT_TEAM_ENABLED/);
+ assert.match(workflow,/EDGEFORCE_AGENT_SCORE_FEEDS:.*vars.EDGEFORCE_AGENT_SCORE_FEEDS/);
+});
+
 test('missing, placeholder and control-character values fail without reflecting credentials',()=>{
  for(const key of Object.keys(env)){
   for(const value of [undefined,'',' ','[SENSITIVE]','private\nsecret','private\0secret']){
