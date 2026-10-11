@@ -84,7 +84,7 @@ export function enrichSchedulePrices(
  const combined=new Map<string,(typeof valid)[number] | (typeof existing)[number]>();
  // Source-specific records are kept distinct, never treated as independent execution venues.
  for(const quote of existing)combined.set([quote.bookmaker,quote.market,quote.selection].join('|').toLowerCase(),quote);
- for(const quote of valid)combined.set([quote.bookmaker,quote.market,quote.selection].join('|').toLowerCase(),quote);
+ for(const quote of valid){const key=[quote.bookmaker,quote.market,quote.selection].join('|').toLowerCase();if(!combined.has(key))combined.set(key,quote)}
  return {...game,quotes:[...combined.values()].slice(0,32),
   extraQuoteCount:valid.length,
   quoteCoverage:combined.size?'MATCHED':related.length?'STALE_ONLY':'NOT_FOUND'} as const;
