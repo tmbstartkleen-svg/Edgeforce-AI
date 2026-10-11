@@ -19,7 +19,7 @@ test('SharpAPI deploy opt-in requires BOTH a genuine configured key and explicit
  assert.deepEqual(runtimeSecrets({...env,SHARP_API_ENABLED:'true',SHARP_API_KEY:'fixture-sharp'}),{
   ...env,SHARP_API_KEY:'fixture-sharp',SHARP_API_ENABLED:'true'
  });
- for(const key of [undefined,'',' ','[SENSITIVE]','bad\\nkey']){
+ for(const key of [undefined,'',' ','[SENSITIVE]','bad\nkey']){
   assert.throws(()=>runtimeSecrets({...env,SHARP_API_ENABLED:'true',SHARP_API_KEY:key}),/SharpAPI/);
  }
  assert.throws(()=>runtimeSecrets({...env,SHARP_API_ENABLED:'yes',SHARP_API_KEY:'fixture'}),/SharpAPI/);
