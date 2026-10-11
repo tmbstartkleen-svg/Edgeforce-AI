@@ -8,6 +8,10 @@ on:
       - 'db/v208.sql'
       - 'tests/sports-warehouse.postgres.mjs'
       - 'db/v209.sql'
+      - 'db/v210.sql'
+      - 'tests/identity-reconciliation.postgres.mjs'
+      - 'src/app/api/network/v1/identity/**'
+      - 'src/app/api/network/v1/backtests/**'
       - 'tests/sports-outcomes.postgres.mjs'
       - 'src/app/api/network/v1/outcomes/**'
       - 'src/app/api/network/v1/plays/**'
@@ -20,6 +24,10 @@ on:
       - 'db/v208.sql'
       - 'tests/sports-warehouse.postgres.mjs'
       - 'db/v209.sql'
+      - 'db/v210.sql'
+      - 'tests/identity-reconciliation.postgres.mjs'
+      - 'src/app/api/network/v1/identity/**'
+      - 'src/app/api/network/v1/backtests/**'
       - 'tests/sports-outcomes.postgres.mjs'
       - 'src/app/api/network/v1/outcomes/**'
       - 'src/app/api/network/v1/plays/**'
@@ -59,3 +67,8 @@ jobs:
         run: node --test tests/sports-outcomes.postgres.mjs
         env:
           OUTCOME_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test
+
+      - name: Verify cross-source canonical identity and corrected finals in PostgreSQL
+        run: node --test tests/identity-reconciliation.postgres.mjs
+        env:
+          IDENTITY_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test
