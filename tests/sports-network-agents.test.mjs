@@ -37,7 +37,7 @@ test('V211 PostgreSQL schedule uses short leases, cross-instance locks, 2-agent 
  assert.match(team,/for update skip locked/);
  assert.match(team,/interval '4 minutes'/);
  assert.match(team,/Math\.min\(2,Math\.floor\(limit\)\)/);
- assert.match(team,/tx\.json\(result\.facts\)/);
+ assert.match(team,/tx\.json\(result\.facts(?: as any)?\)/);
  assert.match(team,/collectNetworkAgent/);
  assert.match(run,/authorizeNetwork\(request\)/);
  assert.match(run,/EDGEFORCE_AGENT_TEAM_ENABLED/);
