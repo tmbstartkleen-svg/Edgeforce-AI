@@ -27,7 +27,7 @@ test('SharpAPI deploy opt-in requires BOTH a genuine configured key and explicit
  assert.match(workflow,/SHARP_API_KEY:.*secrets.SHARP_API_KEY/);
  assert.match(workflow,/SHARP_API_ENABLED:.*vars.SHARP_API_ENABLED/);
 });
-\ntest('missing, placeholder and control-character values fail without reflecting credentials',()=>{
+test('missing, placeholder and control-character values fail without reflecting credentials',()=>{
  for(const key of Object.keys(env)){
   for(const value of [undefined,'',' ','[SENSITIVE]','private\nsecret','private\0secret']){
    assert.throws(()=>runtimeSecrets({...env,[key]:value}),error=>
