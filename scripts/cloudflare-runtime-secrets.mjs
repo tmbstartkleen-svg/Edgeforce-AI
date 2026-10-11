@@ -72,6 +72,20 @@ export function runtimeSecrets(env){
  if(review!==undefined&&review!==''&&review!=='true'&&review!=='false')
   throw new Error('Identity review opt-in must be exactly true or false');
  if(review==='true')secrets.EDGEFORCE_IDENTITY_REVIEW_ENABLED='true';
+ // First-party agents are opt-in. Never begin external polling from release defaults.
+ for(const variable of ['EDGEFORCE_AGENT_TEAM_ENABLED','EDGEFORCE_AGENT_SCORE_SOURCE_ENABLED']){
+  const enabled=env[variable];
+  if(enabled!==undefined&&enabled!==''&&enabled!=='true'&&enabled!=='false')
+   throw new Error('Sports agent enablement must be exactly true or false');
+  if(enabled==='true')secrets[variable]='true';
+ }
+ const ids=env.EDGEFORCE_AGENT_SCORE_FEEDS;
+ if(ids!==undefined&&ids!==''){
+  if(typeof ids!=='string'||ids.length>300||
+   ids.split(',').some(x=>!/^[a-z0-9-]{2,40}$/.test(x.trim())))
+   throw new Error('Sports agent scoreboard league list invalid');
+  secrets.EDGEFORCE_AGENT_SCORE_FEEDS=ids;
+ }
  for(const key of optional){
   const value=env[key];
   if(value===undefined||value==='')continue;

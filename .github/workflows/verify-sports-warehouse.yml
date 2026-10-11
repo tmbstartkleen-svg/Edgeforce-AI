@@ -9,6 +9,10 @@ on:
       - 'tests/sports-warehouse.postgres.mjs'
       - 'db/v209.sql'
       - 'db/v210.sql'
+      - 'db/v211.sql'
+      - 'tests/sports-network-agents.postgres.mjs'
+      - 'src/lib/networkAgentTeam.ts'
+      - 'src/app/api/network/v1/agents/**'
       - 'tests/identity-reconciliation.postgres.mjs'
       - 'src/app/api/network/v1/identity/**'
       - 'src/app/api/network/v1/backtests/**'
@@ -25,6 +29,10 @@ on:
       - 'tests/sports-warehouse.postgres.mjs'
       - 'db/v209.sql'
       - 'db/v210.sql'
+      - 'db/v211.sql'
+      - 'tests/sports-network-agents.postgres.mjs'
+      - 'src/lib/networkAgentTeam.ts'
+      - 'src/app/api/network/v1/agents/**'
       - 'tests/identity-reconciliation.postgres.mjs'
       - 'src/app/api/network/v1/identity/**'
       - 'src/app/api/network/v1/backtests/**'
@@ -72,3 +80,8 @@ jobs:
         run: node --test tests/identity-reconciliation.postgres.mjs
         env:
           IDENTITY_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test
+
+      - name: Verify durable sports agent claim and evidence persistence in PostgreSQL
+        run: node --test tests/sports-network-agents.postgres.mjs
+        env:
+          AGENT_TEAM_TEST_DATABASE_URL: postgres://fixture:warehouse-test-${{ github.run_id }}@127.0.0.1:5432/edgeforce_snapshot_test

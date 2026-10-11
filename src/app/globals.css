@@ -1638,3 +1638,23 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .efAccuracyReview input,.efAccuracyReview select{min-height:44px;box-sizing:border-box;width:100%;padding:10px;border-radius:8px;background:#0d2222;color:#f7fff4;border:1px solid #5a7d75;font-size:13px}
 @media(max-width:1020px){.efAccuracyRows article{grid-template-columns:repeat(4,minmax(0,1fr))}.efAccuracyRows article>div:first-child{grid-column:1/-1}}
 @media(max-width:670px){.efAccuracy{padding:16px}.efAccuracyRows article{grid-template-columns:repeat(2,minmax(0,1fr))}.efAccuracyReport .efCoverageMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.efAccuracyActions button{flex:1}}
+
+
+/* V211 — autonomous EdgeForce Sports Network specialist workspaces */
+.efAgents{border:1px solid #426379;border-radius:20px;padding:23px;margin:23px 0;background:radial-gradient(ellipse at top right,#194035 0%,#102838 42%,#0c1c2c 100%);min-width:0;color:#eff9f6}
+.efAgentsStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.efAgentsStats>div{background:#0c202c;border:1px solid #456374;border-radius:11px;padding:15px}
+.efAgentsStats small{display:block;color:#b0cbd2;font-size:11px;line-height:1.5;margin-bottom:8px}
+.efAgentsStats strong{color:#d6f6c5;font-size:27px;font-variant-numeric:tabular-nums}
+.efAgentsGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.efAgentsGrid article{border-radius:14px;border:1px solid #426073;background:#0b1d2c;padding:17px;min-width:0}
+.efAgentsCardTop{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.efAgentsCardTop span{font-size:10px;font-weight:800;color:#abd9a6;letter-spacing:.07em}
+.efAgentsCardTop b{font-size:11px;border:1px solid #647c67;color:#dae8d6;border-radius:999px;padding:6px 9px;font-weight:680}
+.efAgentsGrid h4{font-size:18px;margin:11px 0}.efAgentsGrid p{font-size:12px;line-height:1.6;color:#b4cbd6;margin:9px 0}
+.efAgentsFacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}
+.efAgentsFacts>div{background:#112d31;padding:10px;border:1px solid #315b61;border-radius:8px;min-width:0}
+.efAgentsFacts small{font-size:11px;color:#b6cad0;line-height:1.45;display:block;margin-bottom:5px}
+.efAgentsFacts b{font-size:13px;font-weight:760;color:#e2f7e1;display:block;overflow-wrap:anywhere;line-height:1.45}
+.efAgentsGrid footer{border-top:1px solid #3b5362;color:#a6bdc9;margin-top:14px;padding-top:12px;font-size:11px;line-height:1.6}
+@media(max-width:750px){.efAgentsGrid{grid-template-columns:1fr}.efAgentsStats{grid-template-columns:repeat(2,minmax(0,1fr))}.efAgents{padding:15px}}
