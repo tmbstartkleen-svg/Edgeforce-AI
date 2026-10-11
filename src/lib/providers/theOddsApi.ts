@@ -115,12 +115,15 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const started=Date.now();
  const deadlineMs=5500;
  const timeoutMs=Math.max(500,Math.min(1800,int(process.env.THE_ODDS_API_TIMEOUT_MS,1800)));
- const configuredCacheMs=Math.max(60000,int(process.env.THE_ODDS_API_CACHE_MS,600000));
+ const freeMode=process.env.THE_ODDS_API_FREE_MODE==='true';
+ // Free research mode conserves credits; cached prices are never made artificially fresh.
+ const configuredCacheMs=freeMode?Math.max(10800000,int(process.env.THE_ODDS_API_CACHE_MS,10800000)):Math.max(60000,int(process.env.THE_ODDS_API_CACHE_MS,600000));
  const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
- const configuredMaxSports=Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
+ const configuredMaxSports=freeMode?0:Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
  const expansionMarkets=String(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h');
- const markets=String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
- const bookmakers=String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us');
+ const markets=freeMode?'h2h':String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
+ // Prediction exchanges use separate, settlement-aware connectors, not sportsbook bookmaker IDs.
+ const bookmakers=String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,betmgm');
  const regions=String(process.env.THE_ODDS_API_REGIONS||'us');
  const warnings:string[]=[];
  const attempts:TheOddsApiAttempt[]=[];
@@ -194,7 +197,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const expanded:unknown[]=[];
  // Props require the event endpoint; a sport-level odds call cannot return them.
  const propEvents=bootstrapData.filter(x=>defaultProps[String((x as OddsEventRow).sport_key)]);
- const propLimit=Math.max(0,Math.min(3,int(process.env.THE_ODDS_API_PROP_EVENTS,1)));
+ const propLimit=freeMode?0:Math.max(0,Math.min(3,int(process.env.THE_ODDS_API_PROP_EVENTS,1)));
  for(let i=0;i<Math.min(propLimit,propEvents.length);i++){
   if(Date.now()-started>deadlineMs-timeoutMs||remaining!==undefined&&remaining<=reserve)break;
   const event=propEvents[(Math.floor(Date.now()/configuredCacheMs)+i)%propEvents.length] as OddsEventRow;
@@ -246,7 +249,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOdd
  const actualExpansionSports=attempts.slice(1).map(x=>x.sportKey);
 
  warnings.unshift(
-  `Adaptive full-slate ${policy.mode}: bootstrap ${bootstrapData.length} event(s) + ${actualExpansionSports.length} sport expansion request(s) (${expansionMarkets}); refresh target ${policy.refreshMinutes}m`
+  `Adaptive full-slate ${freeMode?'FREE_RESEARCH':policy.mode}: bootstrap ${bootstrapData.length} event(s) + ${actualExpansionSports.length} sport expansion request(s) (${expansionMarkets}); refresh target ${policy.refreshMinutes}m`
  );
  if(data.length)warnings.push(`Live board contains ${data.length} unique event(s) across bootstrap and prioritized expansion`);
  if(policy.reasons.length)warnings.push(`Refresh policy: ${policy.reasons.join('; ')}`);
