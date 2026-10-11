@@ -26,6 +26,8 @@ jobs:
       EDGEFORCE_DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
       THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
       SPORTS_GAME_ODDS_API_KEY: ${{ secrets.SPORTS_GAME_ODDS_API_KEY }}
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+      SHARP_API_ENABLED: ${{ vars.SHARP_API_ENABLED || 'false' }}
       FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
       API_SPORTS_KEY: ${{ secrets.API_SPORTS_KEY }}
       BIGBALLS_API_KEY: ${{ secrets.BIGBALLS_API_KEY }}
