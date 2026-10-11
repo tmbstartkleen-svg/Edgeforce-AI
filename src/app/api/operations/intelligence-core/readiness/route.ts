@@ -46,7 +46,8 @@ export async function GET(request:Request){
    schema:tables[0],
    enabledProviders:Number(providers[0]?.count??0),
    storedObservations:Number(observations[0]?.count??0),
-   latestObservation:observations[0]?.latest??null,\n   latestIngestion:observations[0]?.last_ingested??null,
+   latestObservation:observations[0]?.latest??null,
+   latestIngestion:observations[0]?.last_ingested??null,
    agentRuns:agents.map(x=>({status:x.status,count:Number(x.count)}))
   },{status:evidence.activationAllowed?200:503,headers:{'Cache-Control':'no-store'}});
 
