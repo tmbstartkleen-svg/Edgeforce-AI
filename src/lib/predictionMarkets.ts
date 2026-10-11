@@ -19,6 +19,8 @@ export type PredictionContract={
   expiresAt?:string;
   source:string;
   venueType?:PredictionVenueType;
+  sourceObservedAt?:string;
+  sourceEventId?:string;
 };
 
 export type PredictionSourceStatus={
@@ -70,6 +72,8 @@ export function normalizePredictionMarkets(payload:unknown,source='prediction-pr
       askProbability:Number.isFinite(askRaw)?probability(askRaw,yes):undefined,
       expiresAt:str(row.expiresAt,str(row.expires_at,str(row.closeTime,str(row.close_time,''))))||undefined,
       source,
+      sourceObservedAt:str(row.observedAt,str(row.updatedAt,str(row.timestamp,'')))||undefined,
+      sourceEventId:str(row.eventId,str(row.gameId,''))||undefined,
       venueType:'PREDICTION_PROVIDER'
     };
   });
