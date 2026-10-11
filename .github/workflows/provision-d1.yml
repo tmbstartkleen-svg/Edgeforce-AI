@@ -2,6 +2,10 @@ name: Provision EdgeForce D1 Pilot
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/provision-d1.yml'
 
 permissions:
   contents: read
@@ -59,9 +63,23 @@ jobs:
           jq -nc --arg id "$D1_DATABASE_ID" --arg name "$DATABASE_NAME" \
             '{name:"edgeforce-d1-provision",compatibility_date:"2026-10-03",d1_databases:[{binding:"INTELLIGENCE_DB",database_name:$name,database_id:$id}]}' \
             > .d1-provision.wrangler.json
+          trap 'rm -f .d1-provision.wrangler.json' EXIT
           npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
             --remote --file=db/d1/0001_intelligence_pilot.sql
-          rm -f .d1-provision.wrangler.json
+      - name: Certify remote D1 tables using Cloudflare API
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query"
+          SQL="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('intelligence_sources','intelligence_observations') ORDER BY name"
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -nc --arg sql "$SQL" '{sql:$sql}')" \
+            "$BASE" -o /tmp/d1-schema-evidence.json
+          jq -e '.success == true and ([.result[]?.results[]?.name] | sort == ["intelligence_observations","intelligence_sources"])' \
+            /tmp/d1-schema-evidence.json > /dev/null
+          echo 'D1 remote schema certified: 2 required intelligence tables are present.' >> "$GITHUB_STEP_SUMMARY"
       - name: Print binding instructions
         shell: bash
         run: |
