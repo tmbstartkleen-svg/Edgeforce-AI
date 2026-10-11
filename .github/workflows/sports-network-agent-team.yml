@@ -1,0 +1,51 @@
+name: EdgeForce Sports Network Agent Team
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edgeforce-sports-agent-production
+  cancel-in-progress: false
+
+jobs:
+  bounded-network-dispatch:
+    if: github.repository == 'tmbstartkleen-svg/Edgeforce-AI' && vars.EDGEFORCE_AGENT_TEAM_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      EDGEFORCE_NETWORK_TOKEN_RAW: ${{ secrets.EDGEFORCE_NETWORK_TOKEN_RAW }}
+      EDGEFORCE_NETWORK_TARGET_URL: https://edgeforce-ai.tmbstartkleen.workers.dev/api/network/v1/agents/dispatch
+    steps:
+      - name: Check owner authorization is available
+        shell: bash
+        run: |
+          if [ -z "$EDGEFORCE_NETWORK_TOKEN_RAW" ]; then
+            echo 'Private network owner token is not configured; dispatch skipped.'
+            exit 0
+          fi
+          if ! [[ "$EDGEFORCE_NETWORK_TOKEN_RAW" =~ ^[a-fA-F0-9]{64}$ ]]; then
+            echo 'Private network owner token has invalid format.'
+            exit 1
+          fi
+      - name: Dispatch two bounded database-owned agents
+        if: env.EDGEFORCE_NETWORK_TOKEN_RAW != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --show-error --max-time 35 --retry 0 \
+            --output "$RUNNER_TEMP/edgeforce-network-dispatch.json" \
+            --write-out '%{http_code}' -X POST \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $EDGEFORCE_NETWORK_TOKEN_RAW" \
+            --data '{"maxJobs":2}' "$EDGEFORCE_NETWORK_TARGET_URL")
+          if [ "$code" != '200' ]; then
+            echo "Sports Network agent dispatch failed: HTTP $code; no token or private payload logged."
+            exit 1
+          fi
+          node -e "const fs=require('node:fs');const f=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!f.ok||f.executedCount>2)process.exit(1);console.log('Bounded network agents recorded:',f.executedCount)" "$RUNNER_TEMP/edgeforce-network-dispatch.json"
+          rm -f "$RUNNER_TEMP/edgeforce-network-dispatch.json"
