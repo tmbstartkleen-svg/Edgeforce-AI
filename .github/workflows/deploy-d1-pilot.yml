@@ -1,0 +1,49 @@
+name: Deploy EdgeForce D1 Pilot
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/d1-standalone.ts'
+      - 'worker/d1-pilot.ts'
+      - 'worker/d1-gateway.ts'
+      - 'worker/d1-observations.ts'
+      - 'wrangler.d1-pilot.jsonc'
+      - '.github/workflows/deploy-d1-pilot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: edgeforce-d1-isolated-pilot
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate credentials
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || exit 1
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || exit 1
+      - run: npm ci
+      - name: Typecheck and validate D1 pilot
+        run: |
+          npm run typecheck
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs
+      - name: Deploy isolated D1 Worker (no Neon or production changes)
+        run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
+      - name: Certify D1 readiness and reject unauthorized access
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev"
+          CODE=$(curl -sS -L -o /tmp/d1-unauthorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness")
+          test "$CODE" = 401 || { echo "Unexpected public readiness status: $CODE"; exit 1; }
+          jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-unauthorized.json > /dev/null
+          echo "Isolated D1 pilot Worker deployed; unauthorized access denied." >> "$GITHUB_STEP_SUMMARY"
