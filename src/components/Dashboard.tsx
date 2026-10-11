@@ -39,6 +39,7 @@ import {buildInstitutionalDesk} from '@/lib/institutionalDesk';
 import InstitutionalTradeDesk from './InstitutionalTradeDesk';
 import ParlayStudio from './ParlayStudio';
 import SportsCommandCenter from './SportsCommandCenter';
+import ProQuantSuite from './ProQuantSuite';
 import {buildBoardPriority,buildBoardPriorityMap,buildBoardRankDeltas,buildBoardRobustness,summarizeBoardRankDeltaMap,summarizeBoardRobustness} from '@/lib/boardRobustness';
 
 type BoardRow=Scanned & {
@@ -648,7 +649,7 @@ export default function Dashboard(){
   const [catalogue,setCatalogue]=useState(false);
   const [cataloguePage,setCataloguePage]=useState(0);
   const [catalogueKind,setCatalogueKind]=useState('ALL');
-  const [workspace,setWorkspace]=useState<'command'|'games'|'desk'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('command');
+  const [workspace,setWorkspace]=useState<'command'|'quant'|'games'|'desk'|'board'|'live'|'parlays'|'predictions'|'signals'|'research'|'operator'>('command');
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
@@ -1078,6 +1079,7 @@ export default function Dashboard(){
       <a href="#command" aria-current={workspace==='command'?'page':undefined} onClick={()=>setWorkspace('command')}>◈ &nbsp; Command Center</a>
       <a href="#trade-desk" aria-current={workspace==='desk'?'page':undefined} onClick={()=>{setWorkspace('desk');setView('week');setLimit(50);setCatalogue(false);}}>⌁ &nbsp; Edge Scanner</a>
       <a href="#parlays" aria-current={workspace==='parlays'?'page':undefined} onClick={()=>{setWorkspace('parlays');setView('week');setLimit(50);}}>◇ &nbsp; Parlay Lab</a>
+      <a href="#pro-quant" aria-current={workspace==='quant'?'page':undefined} onClick={()=>setWorkspace('quant')}>▥ &nbsp; Pro Quant Suite</a>
       <a href="#games" aria-current={workspace==='games'?'page':undefined} onClick={()=>setWorkspace('games')}>▣ &nbsp; Games & Schedules</a>
       <small className="workspaceNavLabel">MARKETS & RESEARCH</small>
       <a href="#board" aria-current={!catalogue&&workspace==='board'&&view==='today'&&limit===30?'page':undefined} onClick={()=>{setWorkspace('board');setCatalogue(false);setView('today');setLimit(30);}}>Daily Top 30</a>
@@ -1132,6 +1134,7 @@ export default function Dashboard(){
     {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     {workspace==='command'&&<SportsCommandCenter rows={board.rows} source={board.source} degraded={Boolean(board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE')} generatedAt={board.generatedAt} acceptedFeeds={board.consensusCoverage?.acceptedFeeds??0} configuredFeeds={board.consensusCoverage?.configuredFeeds??0} bookmakerCount={board.consensusCoverage?.distinctBookmakers??0} onNavigate={section=>{setWorkspace(section);if(section==='desk'||section==='parlays'){setView('week');setLimit(50);setCatalogue(false);}}}/>}
+    {workspace==='quant'&&<ProQuantSuite/>}
     {workspace==='games'&&<GamesWorkspace/>}
     {workspace==='desk'&&<InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'} generatedAt={board.generatedAt} scanner={edgeScanner} scannerStatus={scannerStatus} onInspect={setSelectedMarket}/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>

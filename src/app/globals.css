@@ -1453,3 +1453,56 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .efGoogleResearchGames strong{font-size:22px;color:#d5ffa8;font-variant-numeric:tabular-nums}
 .efGoogleResearchFoot,.efGoogleResearchNote{font-size:12px;color:#a5bbcb;line-height:1.6;margin:17px 0 0}
 @media(max-width:700px){.efGoogleResearch{padding:16px}.efGoogleResearchHead{flex-direction:column;align-items:stretch}.efGoogleResearchHead button{width:100%}.efGoogleResearchGames{grid-template-columns:1fr}}
+
+
+/* V203 — Professional Quantitative Sports Laboratory */
+.efProQuant{min-width:0;color:#eef7ff;margin:15px 0 25px}
+.efProHero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(210px,.62fr);gap:26px;align-items:center;border:1px solid #385569;border-radius:21px;background:radial-gradient(ellipse at 0% 0%,#173d35 0,#112638 45%,#0b1825 100%);padding:30px}
+.efProHero h2{margin:9px 0 12px;font-size:clamp(29px,3.5vw,47px);letter-spacing:-.038em;line-height:1.16}
+.efProHero h2 em{color:#b3f484;font-style:normal}
+.efProHero p{font-size:14px;line-height:1.7;color:#bad0db;max-width:770px;margin:0}
+.efProHeroSignal{padding:22px;border:1px solid #43695f;border-radius:15px;background:rgba(0,0,0,.24);display:flex;flex-direction:column;gap:9px}
+.efProHeroSignal span{font-size:11px;letter-spacing:.12em;color:#95c6b6;font-weight:750}
+.efProHeroSignal b{font-size:23px;letter-spacing:-.025em;line-height:1.3}
+.efProHeroSignal small{font-size:12px;color:#bad2d9;line-height:1.5}
+.efProTabs{display:flex;flex-wrap:wrap;gap:9px;margin:21px 0 18px}
+.efProTabs button{border:1px solid #385266;border-radius:11px;padding:12px 16px;min-height:48px;background:#152333;color:#bdd2e0;font-size:14px;font-weight:750;cursor:pointer}
+.efProTabs button[aria-pressed="true"]{background:rgba(173,255,114,.13);border-color:#91c773;color:#d8ffb8}
+.efProColumns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.efProSurface{min-width:0;border:1px solid #324b5f;background:linear-gradient(145deg,#132435,#101c2b);border-radius:18px;padding:23px}
+.efProSurface h3{font-size:22px;line-height:1.25;margin:8px 0 11px}
+.efProSurface>p,.efProAi p{font-size:13px;line-height:1.65;color:#b9cddd}
+.efProFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:18px 0}
+.efProFields label,.efProAi label{display:flex;flex-direction:column;gap:8px;font-size:12px;color:#c3d9e6;font-weight:690;line-height:1.45}
+.efProFields input,.efProAi input{width:100%;min-height:44px;border:1px solid #435f70;background:#071723;border-radius:9px;padding:10px 12px;color:#eef9ff;font-size:16px;font-variant-numeric:tabular-nums;box-sizing:border-box}
+.efProNote{background:rgba(229,172,86,.065);border:1px solid #645537;color:#d8c8ab;padding:13px;border-radius:10px;font-size:12px;line-height:1.7}
+.efProMetrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:17px 0}
+.efProMetrics>div{min-width:0;padding:15px;background:#0c1927;border-radius:12px;border:1px solid #2d4557}
+.efProMetrics small{display:block;font-size:11px;line-height:1.5;color:#9ebbc9;margin-bottom:8px}
+.efProMetrics b{display:block;font-size:22px;line-height:1.22;font-variant-numeric:tabular-nums;color:#f3fbfd;overflow-wrap:anywhere}
+.efProMetrics b.efProStatus{font-size:13px;color:#d7ecb9}
+.efProReasons{border-top:1px solid #364d5a;padding-top:15px}
+.efProReasons b,.efProAi>b{font-size:13px}
+.efProReasons p{border-left:2px solid #c1a468;padding:4px 10px;margin:9px 0;color:#dcc7a5;font-size:12px;line-height:1.55}
+.efProAi{border-top:1px solid #364d5a;padding-top:16px;margin-top:19px}
+.efProAi label{margin:10px 0}
+.efProAi button,.efProLoad{background:#b4ed92;color:#19301b;border:1px solid #97d37a;border-radius:9px;min-height:43px;padding:11px 15px;font-weight:820;font-size:13px;cursor:pointer}
+.efProAi button:disabled{opacity:.45;cursor:default}
+.efProAiResult{white-space:pre-wrap;overflow-wrap:anywhere;color:#d2e2e9;font-size:13px;line-height:1.7;border:1px solid #4d6872;padding:14px;margin-top:13px;border-radius:11px}
+.efProSurface textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:165px;padding:13px;font:13px/1.55 ui-monospace,SFMono-Regular,monospace;border-radius:11px;border:1px solid #445c6d;background:#0b1826;color:#dceff7;overflow-wrap:anywhere}
+.efProSurface>small{display:block;margin:10px 0;color:#a6bfce;font-size:12px}
+.efProEpaTable{display:grid;gap:9px;margin:14px 0}
+.efProEpaTable>div{display:grid;grid-template-columns:minmax(0,.45fr) minmax(0,.8fr) minmax(0,1.2fr);gap:8px;align-items:center;background:#0c1a29;border:1px solid #304a58;border-radius:10px;padding:13px}
+.efProEpaTable b{font-size:15px}.efProEpaTable span{font-size:12px;color:#aac2d0}
+.efProEpaTable strong{font-size:14px;font-variant-numeric:tabular-nums;color:#d7f6bd}
+.efProEpaTable small{grid-column:1/-1;color:#a9c8d3;font-size:11px}
+.efProConnectors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.efProConnectors article{padding:16px;border:1px solid #344a5d;background:#0e1c2b;border-radius:13px;min-width:0}
+.efProConnectors h4{font-size:17px;margin:7px 0}
+.efProConnectors strong{display:block;font-size:11px;letter-spacing:.03em;color:#dbf1b9;margin:13px 0}
+.efProConnectors p{font-size:12px;color:#b9d0dd;line-height:1.55}
+.efProConnectors small{color:#e0c7a4;font-size:12px;line-height:1.55;display:block}
+.efProFooter{margin:18px 0;color:#9eb6c3;font-size:12px;line-height:1.6}
+@media(max-width:1150px){.efProConnectors{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:970px){.efProColumns,.efProHero{grid-template-columns:1fr}}
+@media(max-width:670px){.efProHero,.efProSurface{padding:16px}.efProFields{grid-template-columns:1fr}.efProTabs button{flex:1 1 145px}.efProConnectors{grid-template-columns:1fr}.efProMetrics>div{padding:11px}.efProMetrics b{font-size:20px}}
