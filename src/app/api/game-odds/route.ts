@@ -10,7 +10,6 @@ type StoredRow={
 const MAX_ROWS=900;
 const ttlMs=60000;
 let cache:{at:number;value:unknown}|null=null;
-let inflight:Promise<unknown>|null=null;
 async function load(){
  const sql=db();
  if(!sql)return {ok:false,status:'NO_SHARED_DATABASE',quotes:[],considered:0,
@@ -63,9 +62,10 @@ async function load(){
 export async function GET(){
  const now=Date.now();
  if(cache&&now-cache.at<ttlMs)return Response.json(cache.value,{headers:{'Cache-Control':'private, no-store'}});
- if(!inflight)inflight=load().finally(()=>{inflight=null});
+ // Never share an in-flight PostgreSQL promise between request-scoped Cloudflare contexts.
+ // Await this scoped read to completion; failures do not trigger new provider calls.
  try{
-  const response=await Promise.race([inflight,new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('timeout')),2800))]);
+  const response=await load();
   cache={at:Date.now(),value:response};
   return Response.json(response,{headers:{'Cache-Control':'private, no-store'}});
  }catch{
