@@ -1,0 +1,76 @@
+name: Provision EdgeForce D1 Pilot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edgeforce-d1-provision
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_NAME: edgeforce-intelligence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate Cloudflare credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+      - name: Find or create D1 database
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database"
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "$BASE?per_page=100" -o /tmp/d1-list.json
+          jq -e '.success == true' /tmp/d1-list.json > /dev/null
+          ID=$(jq -r --arg name "$DATABASE_NAME" '.result[]? | select(.name==$name) | .uuid' /tmp/d1-list.json | head -n 1)
+          if [ -z "$ID" ]; then
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -nc --arg name "$DATABASE_NAME" '{name:$name}')" \
+              "$BASE" -o /tmp/d1-created.json
+            jq -e '.success == true and .result.uuid != null' /tmp/d1-created.json > /dev/null
+            ID=$(jq -r '.result.uuid' /tmp/d1-created.json)
+          fi
+          echo "D1_DATABASE_ID=$ID" >> "$GITHUB_ENV"
+          echo "D1 database '$DATABASE_NAME' ID: $ID" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install D1 tooling
+        run: npm ci
+      - name: Initialize isolated D1 schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -nc --arg id "$D1_DATABASE_ID" --arg name "$DATABASE_NAME" \
+            '{name:"edgeforce-d1-provision",compatibility_date:"2026-10-03",d1_databases:[{binding:"INTELLIGENCE_DB",database_name:$name,database_id:$id}]}' \
+            > .d1-provision.wrangler.json
+          npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
+            --remote --file=db/d1/0001_intelligence_pilot.sql
+          rm -f .d1-provision.wrangler.json
+      - name: Print binding instructions
+        shell: bash
+        run: |
+          {
+            echo '### D1 pilot provisioned; production not switched'
+            echo
+            echo 'Add the following binding to wrangler.jsonc in a reviewed PR:'
+            echo '```json'
+            echo "{\"binding\":\"INTELLIGENCE_DB\",\"database_name\":\"$DATABASE_NAME\",\"database_id\":\"$D1_DATABASE_ID\"}"
+            echo '```'
+            echo 'Do not disable Neon migrations or change production storage until preview certification.'
+          } >> "$GITHUB_STEP_SUMMARY"
