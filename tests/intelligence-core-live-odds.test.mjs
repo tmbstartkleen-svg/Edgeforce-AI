@@ -7,11 +7,19 @@ test('mirroring is opt-in and rejects stored or demo sources',()=>{
  assert.match(src,/batch.source!=='live'/);
 });
 test('observations require event and provenance timestamps',()=>{
- assert.match(src,/m.sourceEventId&&m.sourceTimestamp&&m.sourceProviderId/);
- assert.match(src,/<=300000/);
- assert.match(src,/\.slice\(0,100\)/);
+ assert.match(src,/!m.sourceEventId\|\|!m.sourceTimestamp\|\|!m.sourceProviderId/);
+ assert.match(src,/>300000/);
+ assert.match(src,/candidates.length>=100/);
 });
 test('does not pretend a bookmaker is an independent upstream',()=>{
  assert.match(src,/upstreamId:m.sourceProviderId/);
  assert.doesNotMatch(src,/upstreamId:m.sourceBook/);
+});
+
+test('reports why genuine sportsbook observations are excluded',()=>{
+ assert.match(src,/missingProvenance/);
+ assert.match(src,/invalidTimestamp/);
+ assert.match(src,/staleTimestamp/);
+ assert.match(src,/invalidOdds/);
+ assert.match(src,/diagnostic\.eligible=candidates\.length/);
 });
