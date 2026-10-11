@@ -1431,3 +1431,25 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 /* V199: distinguish one upstream from multiple bookmakers without decorative warnings */
 .v21 .providerCoverageSummary{margin:10px 0 8px!important;font-size:13px!important;line-height:1.7!important;color:#f1dab7!important}
 .v21 .providerCoverageSummary b{color:#fff;font-variant-numeric:tabular-nums}
+
+
+/* V200: bounded Google Sports research workspace, not a live betting signal */
+.efGoogleResearch{margin:24px 0;padding:22px;border-radius:18px;border:1px solid #365467;background:linear-gradient(125deg,#112637,#0c1723);color:#eff9ff}
+.efGoogleResearchHead{display:flex;justify-content:space-between;align-items:center;gap:20px}
+.efGoogleResearchHead h3{font-size:23px;margin:7px 0}
+.efGoogleResearchHead p{font-size:13px;line-height:1.6;color:#b9ceda;max-width:720px}
+.efGoogleResearchHead button{min-height:45px;padding:10px 16px;border-radius:11px;border:1px solid #88c678;background:#b9eb9c;color:#15331b;font-size:13px;font-weight:750;cursor:pointer}
+.efGoogleResearchHead button:disabled{opacity:.5;cursor:default}
+.efGoogleResearchStatus{display:flex;flex-wrap:wrap;gap:8px 16px;padding:15px;margin-top:17px;border:1px solid #4c6572;border-radius:12px;background:#122331;font-size:12px;line-height:1.5}
+.efGoogleResearchStatus b{font-size:13px;color:#e0f6ff}
+.efGoogleResearchStatus span{color:#a9c1d1}
+.efGoogleResearchStatus p{width:100%;margin:2px 0;color:#e4d2a5;line-height:1.55}
+.efGoogleResearchGames{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:18px}
+.efGoogleResearchGames article{background:#0a1825;border:1px solid #31495c;border-radius:12px;padding:15px}
+.efGoogleResearchGames article>div{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#94b9cd;font-size:11px}
+.efGoogleResearchGames h4{font-size:16px;line-height:1.5;margin:8px 0 5px}
+.efGoogleResearchGames h4 span{font-size:12px;color:#8da8b7}
+.efGoogleResearchGames article p{font-size:12px;line-height:1.5;color:#afc7d2;margin:0 0 8px}
+.efGoogleResearchGames strong{font-size:22px;color:#d5ffa8;font-variant-numeric:tabular-nums}
+.efGoogleResearchFoot,.efGoogleResearchNote{font-size:12px;color:#a5bbcb;line-height:1.6;margin:17px 0 0}
+@media(max-width:700px){.efGoogleResearch{padding:16px}.efGoogleResearchHead{flex-direction:column;align-items:stretch}.efGoogleResearchHead button{width:100%}.efGoogleResearchGames{grid-template-columns:1fr}}
