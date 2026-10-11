@@ -41,7 +41,7 @@ export async function appendIntelligenceObservations(
      source_id,upstream_id,event_id,market_id,observation_kind,observed_at,payload_hash,payload
     ) values(
      ${obs.provider},${obs.upstreamId},${obs.eventId},${obs.marketId},${obs.kind},
-     to_timestamp(${obs.observedAt}/1000.0),${hash},${sql.json(obs.value as object)}
+     to_timestamp(${obs.observedAt}/1000.0),${hash},${sql.json(JSON.parse(payload))}
     )
     on conflict (source_id,event_id,observation_kind,observed_at,payload_hash)
     do nothing returning observation_id
