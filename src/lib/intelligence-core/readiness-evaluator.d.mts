@@ -1,0 +1,2 @@
+export type IntelligenceReadinessInput={schemaReady:boolean;approvedProviders:number;observationCount:number;latestObservationMs:number|null;lastSuccessfulRunMs:number|null;failedRuns:number;stuckRuns:number;coreEnabled:boolean;mirrorEnabled:boolean;now:number};
+export function evaluateIntelligenceReadiness(x:IntelligenceReadinessInput):{activationAllowed:boolean;runtimeHealthy:boolean;mode:string;mirrorEnabled:boolean;blockers:string[];note:string};
