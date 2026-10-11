@@ -1,6 +1,7 @@
 'use client';
 import {useState} from 'react';
 import SportsArchiveWarehouse from './SportsArchiveWarehouse';
+import SportsOutcomeCoverage from './SportsOutcomeCoverage';
 type Era='past'|'present'|'future';
 type Item={eventId:string;sport:string;league:string;home:string;away:string;startTime:string|null;market?:string|null;selection?:string|null;bookmaker?:string|null;provider?:string|null;observedAt?:string|null;ageSeconds?:number|null;status?:string;odds?:number|null;offeredOdds?:number|null;settlementReferenceAvailable?:boolean;probability?:number|null;forecastEvidence?:string;monteCarloInterval?:[number,number]|null;modelVersion?:string;calibrationSample?:number|null;reasons?:string[]};
 type Result={ok:boolean;era?:Era;status?:string;entries?:Item[];coverage?:Record<string,number>;asOf?:string;warning?:string};
@@ -64,6 +65,7 @@ export default function SportsNetworkChronicle(){
    {!result.entries?.length&&<p className="efChronicleNotice">No records are available for this period and sport. That is a data coverage gap, not proof of no games.</p>}
   </div>}
   <SportsArchiveWarehouse token={token} sport={sport}/>
+  <SportsOutcomeCoverage token={token} sport={sport}/>
   <p className="efChronicleFooter">Authorized external sources remain necessary for official game results and bookmaker quotes. Our network owns the storage and analysis, not the upstream data licenses.</p>
  </section>;
 }
