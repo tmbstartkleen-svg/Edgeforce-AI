@@ -12,12 +12,13 @@ type Props={
  generatedAt?:string;
  acceptedFeeds:number;
  configuredFeeds:number;
+ bookmakerCount:number;
  onNavigate:(section:'desk'|'parlays'|'board'|'games')=>void;
 };
 const fmt=(n:number)=>Number.isFinite(n)?(n*100).toFixed(1)+'%':'—';
 const odds=(n:number)=>Number.isFinite(n)?(n>0?'+':'')+Math.round(n):'—';
 
-export default function SportsCommandCenter({rows,source,degraded,generatedAt,acceptedFeeds,configuredFeeds,onNavigate}:Props){
+export default function SportsCommandCenter({rows,source,degraded,generatedAt,acceptedFeeds,configuredFeeds,bookmakerCount,onNavigate}:Props){
  const desk=useMemo(()=>buildInstitutionalDesk({rows,source,providerDegraded:degraded,generatedAt}),[rows,source,degraded,generatedAt]);
  const boardReady=desk.boardHealthy&&acceptedFeeds>=2;
  const research=useMemo(()=>rankResearchPool(rows).slice(0,5),[rows]);
@@ -40,9 +41,9 @@ export default function SportsCommandCenter({rows,source,degraded,generatedAt,ac
    <div className="efCommandFeature">
     <span>MARKET INTELLIGENCE PULSE</span>
     <strong>{boardReady?'LIVE / INDEPENDENT':'VERIFY DATA COVERAGE'}</strong>
-    <p>{acceptedFeeds} of {configuredFeeds} configured feeds accepted · {desk.totalAnalyzed} scored markets in the next seven days</p>
+    <p>{acceptedFeeds} / {configuredFeeds} odds providers · {bookmakerCount} unique bookmakers · {desk.totalAnalyzed} scored markets in the next seven days</p>
     <div className="efPulseRail"><span style={{width:configuredFeeds>0?Math.min(100,acceptedFeeds/configuredFeeds*100)+'%':'0%'}}/></div>
-    <small>{boardReady?'Live data available. Entry qualification still depends on every market’s own checks.':'Until independent source coverage and quote freshness recover, all selections are for research only.'}</small>
+    <small>{boardReady?'Live data available. Entry qualification still depends on every market’s own checks.':'Until independent source coverage and quote freshness recover, all selections are for research only. Free scores can stay active without validating bookmaker prices.'}</small>
    </div>
   </div>
 

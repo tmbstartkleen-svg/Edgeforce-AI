@@ -166,6 +166,7 @@ type LiveBoardResponse={
   }>;
   consensusCoverage?:{
     targetBook:string;configuredFeeds:number;acceptedFeeds:number;rows:number;multiBookRows:number;
+    independentlyAcceptedProviders?:number;distinctBookmakers?:number;bookmakerNames?:string[];independentReferenceMarkets?:number;
     targetBookRows:number;averageAgreement:number;averageDispersion:number;priceShopOpportunities:number;
     outlierRows:number;classifiedRows:number;sharpOverPublic:number;publicOverSharp:number;aligned:number;
   };
@@ -1113,7 +1114,8 @@ export default function Dashboard(){
     {workspace!=='games'&&workspace!=='live'&&board.providerDegraded&&<div className="v21Alert" role="status">
       <b>Provider coverage limited.</b> {board.providerQuality?.grade?`Accepted feed quality: ${board.providerQuality.grade} (not cross-book verification). `:''}
       {(board.consensusCoverage?.acceptedFeeds??0)} accepted of {(board.consensusCoverage?.configuredFeeds??0)} configured feeds.
-      {' '}{board.warnings?.find(w=>w.includes('Only one acceptable odds provider'))||board.warnings?.[0]||'Available price sources need verification.'}
+      {' '}{board.warnings?.find(w=>/Only one odds provider is configured|Only one acceptable odds provider/.test(w))||board.warnings?.[0]||'Available price sources need verification.'}
+      <p className="providerCoverageSummary">Independent upstreams: <b>{board.consensusCoverage?.independentlyAcceptedProviders??0}</b> · Sportsbooks quoted: <b>{board.consensusCoverage?.distinctBookmakers??0}</b> · Markets with multiple books: <b>{board.consensusCoverage?.independentReferenceMarkets??0}</b>. Multiple books from one aggregator do not equal independent upstream providers.</p>
       <details className="providerFailureDetails"><summary>Inspect provider diagnostics</summary>
         {(board.providerAttempts||[]).map(p=><div key={p.providerId}>
           <b>{p.providerId}</b>: {p.skipped?'quarantined':p.ok?'accepted':'failed'}
@@ -1122,12 +1124,14 @@ export default function Dashboard(){
           {p.error?` · ${p.error.slice(0,170)}`:''}
         </div>)}
         {!board.providerAttempts?.length&&<div>No provider-attempt diagnostics are available in this board response.</div>}
+        <div>Available bookmakers: {(board.consensusCoverage?.bookmakerNames||[]).join(', ')||'None in current verified odds panel'}</div>
+        <div>To add a second provider, configure a valid THE_ODDS_API_KEY (free quota) or SPORTS_GAME_ODDS_API_KEY in Cloudflare Worker Secrets. API feeds for scores do not count as sportsbook reference prices. Quotas and contractual terms still apply.</div>
       </details>
     </div>}
     {workspace!=='live'&&board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {workspace!=='live'&&board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
-    {workspace==='command'&&<SportsCommandCenter rows={board.rows} source={board.source} degraded={Boolean(board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE')} generatedAt={board.generatedAt} acceptedFeeds={board.consensusCoverage?.acceptedFeeds??0} configuredFeeds={board.consensusCoverage?.configuredFeeds??0} onNavigate={section=>{setWorkspace(section);if(section==='desk'||section==='parlays'){setView('week');setLimit(50);setCatalogue(false);}}}/>}
+    {workspace==='command'&&<SportsCommandCenter rows={board.rows} source={board.source} degraded={Boolean(board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE')} generatedAt={board.generatedAt} acceptedFeeds={board.consensusCoverage?.acceptedFeeds??0} configuredFeeds={board.consensusCoverage?.configuredFeeds??0} bookmakerCount={board.consensusCoverage?.distinctBookmakers??0} onNavigate={section=>{setWorkspace(section);if(section==='desk'||section==='parlays'){setView('week');setLimit(50);setCatalogue(false);}}}/>}
     {workspace==='games'&&<GamesWorkspace/>}
     {workspace==='desk'&&<InstitutionalTradeDesk rows={board.rows} source={board.source} providerDegraded={board.providerDegraded||board.refreshStatus?.mode==='STALE_CACHE'} generatedAt={board.generatedAt} scanner={edgeScanner} scannerStatus={scannerStatus} onInspect={setSelectedMarket}/>}
     <div className="workspaceContent" hidden={workspace!=='live'}>

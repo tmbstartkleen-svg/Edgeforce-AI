@@ -25,7 +25,9 @@ const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isA
 const arr=(v:unknown)=>Array.isArray(v)?v:[];
 const str=(v:unknown)=>typeof v==='string'?v:'';
 const entries=(v:unknown)=>Object.entries(obj(v));
-const cacheMs=()=>Math.max(60000,Number(process.env.SPORTS_GAME_ODDS_CACHE_MS||300000));
+const freeMode=()=>process.env.SPORTS_GAME_ODDS_FREE_MODE==='true';
+// Free-mode caps are deliberately conservative: SGO meters objects/events, not just calls.
+const cacheMs=()=>freeMode()?Math.max(21600000,Number(process.env.SPORTS_GAME_ODDS_CACHE_MS||21600000)):Math.max(60000,Number(process.env.SPORTS_GAME_ODDS_CACHE_MS||300000));
 const timeoutMs=()=>Math.max(1000,Math.min(5500,Number(process.env.SPORTS_GAME_ODDS_TIMEOUT_MS||5500)));
 
 function teamName(v:unknown){
@@ -134,7 +136,7 @@ export function flattenSportsGameOdds(payload:unknown){
 
 async function load(apiKey:string){
  const leagues=(process.env.SPORTS_GAME_ODDS_LEAGUES||'').split(',').map(x=>x.trim()).filter(Boolean).join(',');
- const limit=Math.max(10,Math.min(250,Number(process.env.SPORTS_GAME_ODDS_EVENT_LIMIT||100)));
+ const limit=freeMode()?10:Math.max(10,Math.min(250,Number(process.env.SPORTS_GAME_ODDS_EVENT_LIMIT||100)));
  const url=new URL((process.env.SPORTS_GAME_ODDS_BASE_URL||'https://api.sportsgameodds.com/v2').replace(/\/$/,'')+'/events/');
  if(leagues)url.searchParams.set('leagueID',leagues);
  url.searchParams.set('finalized','false');
@@ -151,7 +153,7 @@ async function load(apiKey:string){
   const first=await res.json();
   const parsed=flattenSportsGameOdds(first);
   let cursor=String(obj(first).nextCursor||'');
-  for(let page=1;cursor&&page<3;page++){
+  for(let page=1;cursor&&!freeMode()&&page<3;page++){
    url.searchParams.set('cursor',cursor);
    try{
    const next=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','x-api-key':apiKey}});
