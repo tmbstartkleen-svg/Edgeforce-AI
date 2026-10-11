@@ -1427,3 +1427,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
  .efCommandActions button{flex:1 1 180px}
  .efCommandFeature{padding:16px}
 }
+
+/* V199: distinguish one upstream from multiple bookmakers without decorative warnings */
+.v21 .providerCoverageSummary{margin:10px 0 8px!important;font-size:13px!important;line-height:1.7!important;color:#f1dab7!important}
+.v21 .providerCoverageSummary b{color:#fff;font-variant-numeric:tabular-nums}
