@@ -208,7 +208,7 @@ export async function dispatchNetworkAgents(limit=2){
      agent_id,source_role,source_ids,result_status,event_count,payload,run_id)
     values(${lease.agentId},${result.sourceRole},
      ${tx.array(result.sources)},${result.status},${result.rowCount},
-     ${tx.json(result.facts)},${lease.leaseToken})`;
+     ${tx.json(result.facts as any)},${lease.leaseToken})`;
    return true;
   });
   executed.push({agentId:lease.agentId,recorded:finished,
