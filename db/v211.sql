@@ -36,5 +36,6 @@ values
  ('injury-watch','INJURIES',60),
  ('player-watch','PLAYERS',90),
  ('forecast-audit','MODELS',90),
- ('book-comparison','MARKET_COMPARISON',90)
+ ('book-comparison','MARKET_COMPARISON',90),
+ ('score-scout','AUTHORIZED_SCORE_COLLECTION',120)
 on conflict (agent_id) do nothing;
