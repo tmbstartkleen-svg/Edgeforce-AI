@@ -13,14 +13,23 @@ export async function mirrorLiveOddsToIntelligence(batch:LiveOddsBatch,now=Date.
   return {status:'DISABLED',accepted:0};
  if(batch.source!=='live'||!batch.providerId)
   return {status:'NOT_LIVE',accepted:0};
- const candidates=batch.markets.filter(m=>
-  Boolean(m.sourceEventId&&m.sourceTimestamp&&m.sourceProviderId) &&
-  Number.isFinite(new Date(m.sourceTimestamp!).getTime()) &&
-  now-new Date(m.sourceTimestamp!).getTime()>=0 &&
-  now-new Date(m.sourceTimestamp!).getTime()<=300000 &&
-  Number.isFinite(m.odds)
- ).slice(0,100);
- if(!candidates.length)return {status:'NO_ELIGIBLE_OBSERVATIONS',accepted:0};
+ const diagnostic={input:batch.markets.length,missingProvenance:0,invalidTimestamp:0,
+  staleTimestamp:0,invalidOdds:0,eligible:0};
+ const candidates:Market[]=[];
+ for(const m of batch.markets){
+  if(candidates.length>=100)break;
+  if(!m.sourceEventId||!m.sourceTimestamp||!m.sourceProviderId){
+   diagnostic.missingProvenance++;continue;
+  }
+  const observedAt=Date.parse(m.sourceTimestamp);
+  if(!Number.isFinite(observedAt)||observedAt>now){diagnostic.invalidTimestamp++;continue;}
+  if(now-observedAt>300000){diagnostic.staleTimestamp++;continue;}
+  if(!Number.isFinite(m.odds)){diagnostic.invalidOdds++;continue;}
+  candidates.push(m);
+ }
+ diagnostic.eligible=candidates.length;
+ if(!candidates.length)return {status:'NO_ELIGIBLE_OBSERVATIONS',accepted:0,diagnostic};
+
  const observations=candidates.map(m=>({
   provider:batch.providerId!,
   upstreamId:m.sourceProviderId!,
@@ -32,5 +41,5 @@ export async function mirrorLiveOddsToIntelligence(batch:LiveOddsBatch,now=Date.
    odds:m.odds,book:m.sourceBook??null,event:m.event,startTime:m.startTime}
  }));
  const report=await appendIntelligenceObservations(observations,now);
- return {status:'RECORDED',...report};
+ return {status:'RECORDED',...report,diagnostic};
 }
