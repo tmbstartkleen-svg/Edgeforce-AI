@@ -1,9 +1,6 @@
 name: Deploy Edgeforce to Cloudflare
 
 on:
-  workflow_run:
-    workflows: ["Verify Edgeforce"]
-    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -16,9 +13,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: >-
-      ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-          (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

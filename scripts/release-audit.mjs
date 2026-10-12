@@ -959,7 +959,16 @@ add('V105 Vercel verified-main trigger',(
  read('config/vercel-team-governor.json').includes('"standbyRole": "manual-disaster-recovery"')&&
  read('.github/workflows/deploy-cloudflare.yml').includes('Require both exact-main certification workflows')
 ),'Vercel production is either exact-main auto-verified or intentionally manual-only standby behind Cloudflare exact-main certification');
-add('V105 Cloudflare verified-main trigger',read('.github/workflows/deploy-cloudflare.yml').includes('workflows: ["Verify Edgeforce"]')&&read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha'),'Cloudflare production deploy is pinned to the successful verified main SHA');
+add('V105 Cloudflare verified-main trigger',(
+ read('.github/workflows/deploy-cloudflare.yml').includes('workflows: ["Verify Edgeforce"]')&&
+ read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&
+ read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha')
+)||(
+ read('.github/workflows/deploy-cloudflare.yml').includes('on:\n  workflow_dispatch:')&&
+ read('.github/workflows/deploy-cloudflare.yml').includes("github.ref == 'refs/heads/main'")&&
+ read('.github/workflows/deploy-cloudflare.yml').includes('Require both exact-main certification workflows')&&
+ read('.github/workflows/deploy-cloudflare.yml').includes('Reject a superseded production commit')
+),'Cloudflare production deploy requires exact verified main identity, with manual-only trigger allowed during Neon to D1 cutover');
 add('V105 cross-platform source parity',(
  read('.github/workflows/deploy-production.yml').includes('DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}')||
  (
