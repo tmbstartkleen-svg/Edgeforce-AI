@@ -8,6 +8,7 @@ on:
       - 'worker/d1-pilot.ts'
       - 'worker/d1-gateway.ts'
       - 'worker/d1-observations.ts'
+      - 'worker/d1-persistence-cert.ts'
       - 'wrangler.d1-pilot.jsonc'
       - '.github/workflows/deploy-d1-pilot.yml'
 permissions:
@@ -35,7 +36,7 @@ jobs:
       - name: Typecheck and validate D1 pilot
         run: |
           npm run typecheck
-          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
@@ -93,3 +94,14 @@ jobs:
           test "$CODE" = 503
           jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/d1-write-disabled.json > /dev/null
           echo "D1 writes explicitly disabled until approved sources and rollout certification." >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify limited D1 persistence round trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/certify-persistence"
+          CODE=$(curl --silent --show-error --connect-timeout 5 --max-time 20 -X POST \
+            -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" \
+            -o /tmp/d1-write-read.json -w '%{http_code}' "$URL")
+          test "$CODE" = "200" || { echo "D1 persistence certification status: $CODE"; cat /tmp/d1-write-read.json; exit 1; }
+          jq -e '.ok==true and .synthetic==true and .sportsObservationsVerified==false' /tmp/d1-write-read.json > /dev/null
+          echo "D1 persistence read-back certified with explicit synthetic test source (not real sports ingestion)." >> "$GITHUB_STEP_SUMMARY"
