@@ -1,4 +1,4 @@
-import {appendSportsMarketSnapshot} from '../src/lib/intelligence-core/d1-sports-market-store.mjs';
+import {appendSportsMarketSnapshot,type D1SportsMarketQuote,type D1SportsDb} from '../src/lib/intelligence-core/d1-sports-market-store.mjs';
 type Env={INGEST_SECRET?:unknown;INTELLIGENCE_D1_WRITE_ENABLED?:unknown;INTELLIGENCE_DB?:unknown};
 const headers={'Cache-Control':'no-store'};
 export async function d1SportsIngest(request:Request,env:Env):Promise<Response>{
@@ -8,7 +8,7 @@ export async function d1SportsIngest(request:Request,env:Env):Promise<Response>{
   return Response.json({ok:false,reason:'UNAUTHORIZED'},{status:401,headers});
  if(env.INTELLIGENCE_D1_WRITE_ENABLED!=='true')
   return Response.json({ok:false,reason:'D1_WRITE_DISABLED'},{status:503,headers});
- const db=env.INTELLIGENCE_DB as {prepare(query:string):unknown}|undefined;
+ const db=env.INTELLIGENCE_DB as D1SportsDb|undefined;
  if(!db||typeof db.prepare!=='function')
   return Response.json({ok:false,reason:'D1_BINDING_MISSING'},{status:503,headers});
  if(Number(request.headers.get('content-length')||0)>32768)
@@ -21,7 +21,7 @@ export async function d1SportsIngest(request:Request,env:Env):Promise<Response>{
   if(!quote||Array.isArray(quote)||typeof quote!=='object')throw Error('INVALID_QUOTE');
  }catch{return Response.json({ok:false,reason:'INVALID_QUOTE'},{status:400,headers});}
  try{
-  const report=await appendSportsMarketSnapshot(db,quote,{sourceApproved:true});
+  const report=await appendSportsMarketSnapshot(db,quote as D1SportsMarketQuote,{sourceApproved:true});
   return Response.json({ok:true,...report},{headers});
  }catch(e){
   const reason=e instanceof Error?e.message:'UNKNOWN';
