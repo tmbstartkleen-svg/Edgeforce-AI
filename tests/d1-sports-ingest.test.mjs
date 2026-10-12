@@ -11,3 +11,10 @@ test('no unsafe Neon mutations or automatic collector execution',()=>{
  assert.doesNotMatch(source,/DELETE FROM|DROP TABLE|postgres\(/i);
  assert.doesNotMatch(source,/setInterval|scheduled\(/);
 });
+
+test('sports writes require an independent, disabled-by-default enablement gate',()=>{
+ assert.match(source,/SPORTS_D1_WRITE_ENABLED/);
+ assert.doesNotMatch(source,/env\.INTELLIGENCE_D1_WRITE_ENABLED/);
+ const config=fs.readFileSync('wrangler.d1-pilot.jsonc','utf8');
+ assert.equal(JSON.parse(config).vars.SPORTS_D1_WRITE_ENABLED,'false');
+});
