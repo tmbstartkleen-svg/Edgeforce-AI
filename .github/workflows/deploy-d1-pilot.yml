@@ -220,11 +220,23 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/sports-coverage"
-          CODE=$(curl --silent --show-error --max-time 15 -o /tmp/sports-coverage-denied.json -w '%{http_code}' "$URL")
-          test "$CODE" = "401"
-          CODE=$(curl --silent --show-error --max-time 15 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/sports-coverage.json -w '%{http_code}' "$URL")
-          test "$CODE" = "200"
-          jq -e '.ok==true and .store=="D1" and .productionSportsDataReady==false and .historicalNeonParityCertified==false and (.totalObservations|type)=="number"' /tmp/sports-coverage.json > /dev/null
+          VERIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            PUB=$(curl -sS --max-time 15 -o /tmp/sports-coverage-denied.json -w '%{http_code}' "$URL" || true)
+            AUTH=$(curl -sS --max-time 15 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/sports-coverage.json -w '%{http_code}' "$URL" || true)
+            if [ "$PUB" = "401" ] && jq -e '.reason=="UNAUTHORIZED"' /tmp/sports-coverage-denied.json >/dev/null 2>&1 &&
+               [ "$AUTH" = "200" ] && jq -e '.ok==true and .store=="D1" and .productionSportsDataReady==false and .historicalNeonParityCertified==false and (.totalObservations|type)=="number"' /tmp/sports-coverage.json >/dev/null 2>&1; then
+              VERIFIED=1
+              break
+            fi
+            echo "Sports coverage certification attempt $ATTEMPT: public $PUB authenticated $AUTH"
+            sleep 5
+          done
+          if [ "$VERIFIED" != "1" ]; then
+            echo "::error::Hosted D1 sports coverage could not be certified."
+            jq -r '.reason // .error // "UNAVAILABLE"' /tmp/sports-coverage.json 2>/dev/null || true
+            exit 1
+          fi
           echo 'D1 sports coverage evidence retrieved without claiming production readiness.' >> "$GITHUB_STEP_SUMMARY"
       - name: Certify scoreboard collector disabled
         shell: bash
