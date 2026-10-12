@@ -26,16 +26,19 @@ export async function collectNflScores(request:Request,env:Env):Promise<Response
   const events=Array.isArray(data.events)?data.events.slice(0,15):[];
   const now=Date.now();
   const observations:D1Observation[]=[];
+  let skippedWithoutScore=0;
   for(const event of events){
    if(typeof event.id!=='string'||!event.id||!event.competitions?.[0]?.competitors?.length)continue;
-   const players=event.competitions[0].competitors.slice(0,2).map(x=>({team:x.team?.displayName||null,score:x.score||null}));
+   const competitors=event.competitions[0].competitors.slice(0,2);
+   if(competitors.length!==2||competitors.some(x=>typeof x.score!=='string'||!/^\\d{1,3}$/.test(x.score))){skippedWithoutScore++;continue;}
+   const players=competitors.map(x=>({team:x.team?.displayName||null,score:x.score}));
    observations.push({provider:sourceId,upstreamId,eventId:event.id,observedAt:now,kind:'score',
     value:{sport:'NFL',eventId:event.id,eventDate:event.date||null,status:event.status?.type?.name||null,teams:players,
      source:'ESPN_PUBLIC_SCOREBOARD',observedAt:new Date(now).toISOString()}});
   }
   const report=await appendD1Observations(env.INTELLIGENCE_DB,observations,now);
-  return Response.json({ok:true,source:sourceId,kind:'SCORE_ONLY',upstreamOddsProvider:false,
-   fetchedEvents:events.length,attempted:observations.length,...report},{headers});
+  return Response.json({ok:true,source:sourceId,kind:'SCORE_ONLY',upstreamOddsProvider:false,observationTimeIsCollectionTime:true,
+   fetchedEvents:events.length,attempted:observations.length,skippedWithoutScore,...report},{headers});
  }catch{
   return Response.json({ok:false,reason:'SCORE_COLLECTION_FAILED'},{status:503,headers});
  }
