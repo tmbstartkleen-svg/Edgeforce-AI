@@ -10,6 +10,8 @@ on:
       - 'worker/d1-observations.ts'
       - 'worker/d1-persistence-cert.ts'
       - 'worker/d1-workspaces.ts'
+      - 'worker/polymarket-probe.ts'
+      - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
       - '.github/workflows/deploy-d1-pilot.yml'
 permissions:
@@ -115,3 +117,20 @@ jobs:
           test "$CODE" = "200" || { echo "Workspace summary HTTP $CODE"; cat /tmp/d1-public-workspaces.json; exit 1; }
           jq -e '.ok==true and .actualLiveCoverageCertified==false and .predictionMarkets.nonSportsContractCount==null' /tmp/d1-public-workspaces.json > /dev/null
           echo 'Public D1 read-only workspace summary verified; no real-market coverage claimed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify authenticated Polymarket upstream connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/polymarket-probe"
+          PUBLIC_CODE=$(curl --silent --show-error --max-time 15 -o /tmp/market-probe-denied.json -w '%{http_code}' "$URL")
+          test "$PUBLIC_CODE" = "401"
+          jq -e '.reason=="UNAUTHORIZED"' /tmp/market-probe-denied.json > /dev/null
+          AUTH_CODE=$(curl --silent --show-error --max-time 20 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/market-probe.json -w '%{http_code}' "$URL")
+          if [ "$AUTH_CODE" = "200" ]; then
+            jq -e '.ok==true and .actualLiveUpstreamFetch==true and .persisted==false' /tmp/market-probe.json > /dev/null
+            echo 'Live Polymarket public API connectivity verified (no D1 storage or sport categorization).' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Polymarket upstream not reachable; source probe returned HTTP $AUTH_CODE"
+            cat /tmp/market-probe.json
+            echo 'Polymarket external connectivity not certified; release should not claim market coverage.' >> "$GITHUB_STEP_SUMMARY"
+          fi
