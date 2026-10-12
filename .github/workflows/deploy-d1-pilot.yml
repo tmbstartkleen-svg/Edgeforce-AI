@@ -52,10 +52,20 @@ jobs:
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
         shell: bash
+        env:
+          D1_STABLE_CRON_SECRET: ${{ secrets.D1_PILOT_CRON_SECRET }}
+          D1_STABLE_INGEST_SECRET: ${{ secrets.D1_PILOT_INGEST_SECRET }}
         run: |
           set -euo pipefail
-          CRON_SECRET=$(openssl rand -hex 32)
-          INGEST_SECRET=$(openssl rand -hex 32)
+          # Prefer stable secrets supplied by GitHub Actions; do not rotate them
+          # on every deployment. Legacy random fallback stays isolated and masked.
+          CRON_SECRET="${D1_STABLE_CRON_SECRET:-}"
+          INGEST_SECRET="${D1_STABLE_INGEST_SECRET:-}"
+          if [ -z "$CRON_SECRET" ]; then CRON_SECRET=$(openssl rand -hex 32); echo "::warning::D1_PILOT_CRON_SECRET not configured; rotating a temporary credential"; fi
+          if [ -z "$INGEST_SECRET" ]; then INGEST_SECRET=$(openssl rand -hex 32); echo "::warning::D1_PILOT_INGEST_SECRET not configured; rotating a temporary credential"; fi
+          test "${#CRON_SECRET}" -ge 32
+          test "${#INGEST_SECRET}" -ge 32
+          test "$CRON_SECRET" != "$INGEST_SECRET"
           echo "::add-mask::$CRON_SECRET"
           echo "::add-mask::$INGEST_SECRET"
           printf '%s' "$CRON_SECRET" | npx wrangler secret put CRON_SECRET --config wrangler.d1-pilot.jsonc
