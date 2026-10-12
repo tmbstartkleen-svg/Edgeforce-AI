@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/provision-d1.yml'
+      - 'db/d1/0002_agent_tasks.sql'
 
 permissions:
   contents: read
@@ -66,6 +67,8 @@ jobs:
           trap 'rm -f .d1-provision.wrangler.json' EXIT
           npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
             --remote --file=db/d1/0001_intelligence_pilot.sql
+          npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
+            --remote --file=db/d1/0002_agent_tasks.sql
       - name: Certify remote D1 tables using Cloudflare API
         shell: bash
         run: |
@@ -80,6 +83,20 @@ jobs:
           jq -e '.success == true and ([.result[]?.results[]?.name] | sort == ["intelligence_observations","intelligence_sources"])' \
             /tmp/d1-schema-evidence.json > /dev/null
           echo 'D1 remote schema certified: 2 required intelligence tables are present.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify additive specialist-agent ledger in remote D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query"
+          SQL="SELECT name FROM sqlite_master WHERE type='table' AND name IN ('specialist_tasks','specialist_task_events') ORDER BY name"
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -nc --arg sql "$SQL" '{sql:$sql}')" \
+            "$BASE" -o /tmp/d1-agents-schema-evidence.json
+          jq -e '.success == true and ([.result[]?.results[]?.name] | sort == ["specialist_task_events","specialist_tasks"])' \
+            /tmp/d1-agents-schema-evidence.json > /dev/null
+          echo 'D1 remote agent task ledger certified: both required tables exist; no existing data deleted.' >> "$GITHUB_STEP_SUMMARY"
       - name: Print binding instructions
         shell: bash
         run: |
