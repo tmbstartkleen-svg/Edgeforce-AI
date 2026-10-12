@@ -5,7 +5,7 @@ import {d1WorkspaceSummary} from './d1-workspaces';
 import {hostedPolymarketProbe} from './polymarket-probe';
 import {d1SportsSnapshots} from './d1-sports-snapshots';
 import {d1SportsIngest} from './d1-sports-ingest';
-type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;INTELLIGENCE_DB?:unknown};
+type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;INTELLIGENCE_DB?:unknown};
 export default {
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;

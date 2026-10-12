@@ -1,12 +1,12 @@
 import {appendSportsMarketSnapshot,type D1SportsMarketQuote,type D1SportsDb} from '../src/lib/intelligence-core/d1-sports-market-store.mjs';
-type Env={INGEST_SECRET?:unknown;INTELLIGENCE_D1_WRITE_ENABLED?:unknown;INTELLIGENCE_DB?:unknown};
+type Env={INGEST_SECRET?:unknown;SPORTS_D1_WRITE_ENABLED?:unknown;INTELLIGENCE_DB?:unknown};
 const headers={'Cache-Control':'no-store'};
 export async function d1SportsIngest(request:Request,env:Env):Promise<Response>{
  if(request.method!=='POST')return new Response(null,{status:405,headers:{Allow:'POST'}});
  if(typeof env.INGEST_SECRET!=='string'||!env.INGEST_SECRET||
  request.headers.get('authorization')!==`Bearer ${env.INGEST_SECRET}`)
   return Response.json({ok:false,reason:'UNAUTHORIZED'},{status:401,headers});
- if(env.INTELLIGENCE_D1_WRITE_ENABLED!=='true')
+ if(env.SPORTS_D1_WRITE_ENABLED!=='true')
   return Response.json({ok:false,reason:'D1_WRITE_DISABLED'},{status:503,headers});
  const db=env.INTELLIGENCE_DB as D1SportsDb|undefined;
  if(!db||typeof db.prepare!=='function')
