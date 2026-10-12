@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {proposeSpecialist,planTeamExpansion} from '../src/lib/intelligence-core/team-expansion.mjs';
+const proposal={id:'archive-reconciliation',division:'PLATFORM',role:'ARCHIVE_RECONCILIATION',mission:'Check import parity between prior storage and append only archival records',reason:'Historic Neon records need checksummed reconciliation prior to transition',taskTypes:['COMPARE_CHECKSUMS']};
+test('additional specialist is proposed but not activated',()=>{const p=proposeSpecialist(proposal);assert.equal(p.status,'PROPOSED_REQUIRES_REVIEW');assert.equal(p.execution,'DISABLED');assert.equal(p.costBudget,0);});
+test('preexisting agents and privileged roles cannot be silently duplicated',()=>{assert.throws(()=>proposeSpecialist({...proposal,id:'sport-nfl'}),/INVALID_OR_DUPLICATE_AGENT/);assert.throws(()=>proposeSpecialist({...proposal,permissions:['DELETE_DATABASE']}),/PRIVILEGED_PERMISSION_NOT_ALLOWED/);});
+test('budgets and duplicate requests are enforced',()=>{const p=planTeamExpansion({requests:[proposal,proposal],maxProposals:1});assert.equal(p.proposed.length,1);assert.equal(p.rejected.length,1);assert.equal(p.activeNewAgents,0);});
