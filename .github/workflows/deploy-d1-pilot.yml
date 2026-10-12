@@ -49,6 +49,7 @@ jobs:
           printf '%s' "$CRON_SECRET" | npx wrangler secret put CRON_SECRET --config wrangler.d1-pilot.jsonc
           printf '%s' "$INGEST_SECRET" | npx wrangler secret put INGEST_SECRET --config wrangler.d1-pilot.jsonc
           echo "D1_PILOT_CRON_SECRET=$CRON_SECRET" >> "$GITHUB_ENV"
+          echo "D1_PILOT_INGEST_SECRET=$INGEST_SECRET" >> "$GITHUB_ENV"
       - name: Certify D1 readiness and reject unauthorized access
         shell: bash
         run: |
@@ -80,3 +81,15 @@ jobs:
             exit 1
           fi
           echo "Isolated D1 pilot Worker operational: authenticated schema read succeeded, unauthorized access denied." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Certify disabled-by-default writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev"
+          CODE=$(curl --silent --show-error --connect-timeout 5 --max-time 12 -o /tmp/d1-write-disabled.json -w '%{http_code}' \
+            -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" \
+            -H "Content-Type: application/json" --data '[]' "$URL/api/operations/d1-pilot/ingest")
+          test "$CODE" = 503
+          jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/d1-write-disabled.json > /dev/null
+          echo "D1 writes explicitly disabled until approved sources and rollout certification." >> "$GITHUB_STEP_SUMMARY"
