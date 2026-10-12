@@ -13,6 +13,7 @@ on:
       - 'worker/polymarket-probe.ts'
       - 'worker/d1-sports-snapshots.ts'
       - 'worker/d1-sports-ingest.ts'
+      - 'worker/d1-sports-coverage.ts'
       - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
@@ -161,3 +162,14 @@ jobs:
           test "$CODE" = "503"
           jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/sports-ingest-disabled.json > /dev/null
           echo "D1 sportsbook ingestion remains disabled by default; no unverified data written." >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify hosted D1 sports coverage evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/sports-coverage"
+          CODE=$(curl --silent --show-error --max-time 15 -o /tmp/sports-coverage-denied.json -w '%{http_code}' "$URL")
+          test "$CODE" = "401"
+          CODE=$(curl --silent --show-error --max-time 15 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/sports-coverage.json -w '%{http_code}' "$URL")
+          test "$CODE" = "200"
+          jq -e '.ok==true and .store=="D1" and .productionSportsDataReady==false and .historicalNeonParityCertified==false and (.totalObservations|type)=="number"' /tmp/sports-coverage.json > /dev/null
+          echo 'D1 sports coverage evidence retrieved without claiming production readiness.' >> "$GITHUB_STEP_SUMMARY"
