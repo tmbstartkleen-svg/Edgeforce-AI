@@ -15,6 +15,8 @@ on:
       - 'worker/d1-sports-ingest.ts'
       - 'worker/d1-sports-coverage.ts'
       - 'worker/d1-nfl-score-collector.ts'
+      - 'worker/d1-multi-sport-collector.ts'
+      - 'src/lib/intelligence-core/score-source-catalog.mjs'
       - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
@@ -44,7 +46,7 @@ jobs:
       - name: Typecheck and validate D1 pilot
         run: |
           npm run typecheck
-          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs tests/d1-score-collector.test.mjs
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs tests/d1-score-collector.test.mjs tests/d1-multi-sport-collector.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
@@ -224,3 +226,15 @@ jobs:
           test "$CODE" = "503"
           jq -e '.reason=="COLLECTION_DISABLED"' /tmp/score-disabled.json >/dev/null
           echo 'NFL source-approval collector exists but remains disabled; no requests made to ESPN.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify multi-sport collection is disabled by default
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/collect-scores?sport=nhl"
+          CODE=$(curl -sS --max-time 15 -X POST -o /tmp/collect-sports-public.json -w '%{http_code}' "$URL")
+          test "$CODE" = "401"
+          jq -e '.reason=="UNAUTHORIZED"' /tmp/collect-sports-public.json >/dev/null
+          CODE=$(curl -sS --max-time 15 -X POST -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/collect-sports-disabled.json -w '%{http_code}' "$URL")
+          test "$CODE" = "503"
+          jq -e '.reason=="COLLECTION_DISABLED"' /tmp/collect-sports-disabled.json >/dev/null
+          echo 'Eight-sport collection route deployed; upstream scans disabled until provider review.' >> "$GITHUB_STEP_SUMMARY"

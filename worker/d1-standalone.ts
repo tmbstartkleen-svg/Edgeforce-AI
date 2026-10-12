@@ -7,10 +7,12 @@ import {d1SportsSnapshots} from './d1-sports-snapshots';
 import {d1SportsIngest} from './d1-sports-ingest';
 import {sportsCoverageEvidence} from './d1-sports-coverage';
 import {collectNflScores} from './d1-nfl-score-collector';
+import {collectMultiSportScores} from './d1-multi-sport-collector';
 type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;INTELLIGENCE_DB?:any};
 export default {
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/d1-pilot/collect-scores')return collectMultiSportScores(request,env);
   if(pathname==='/api/operations/d1-pilot/collect-nfl-scores')return collectNflScores(request,env);
   if(pathname==='/api/operations/d1-pilot/sports-coverage')return sportsCoverageEvidence(request,env);
   if(pathname==='/api/operations/d1-pilot/sports-ingest')return d1SportsIngest(request,env);
