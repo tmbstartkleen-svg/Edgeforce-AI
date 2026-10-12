@@ -170,12 +170,23 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/sports-snapshots?limit=5"
-          CODE=$(curl --silent --show-error --max-time 15 -o /tmp/d1-sports-unauthorized.json -w '%{http_code}' "$URL")
-          test "$CODE" = "401"
-          jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-sports-unauthorized.json > /dev/null
-          CODE=$(curl --silent --show-error --max-time 15 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/d1-sports-read.json -w '%{http_code}' "$URL")
-          test "$CODE" = "200" || { echo "D1 sportsbook read HTTP $CODE"; cat /tmp/d1-sports-read.json; exit 1; }
-          jq -e '.ok==true and .kind=="SPORTS_MARKETS" and .neonHistoricalRecordsMigrated==false and (.records|type)=="array"' /tmp/d1-sports-read.json > /dev/null
+          CERTIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            PUBLIC_CODE=$(curl -sS --max-time 15 -o /tmp/d1-sports-unauthorized.json -w '%{http_code}' "$URL" || true)
+            AUTH_CODE=$(curl -sS --max-time 15 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/d1-sports-read.json -w '%{http_code}' "$URL" || true)
+            if [ "$PUBLIC_CODE" = "401" ] && jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-sports-unauthorized.json >/dev/null 2>&1 &&
+               [ "$AUTH_CODE" = "200" ] && jq -e '.ok==true and .kind=="SPORTS_MARKETS" and .neonHistoricalRecordsMigrated==false and (.records|type)=="array"' /tmp/d1-sports-read.json >/dev/null 2>&1; then
+              CERTIFIED=1
+              break
+            fi
+            echo "D1 sportsbook read propagation attempt $ATTEMPT: public $PUBLIC_CODE, authenticated $AUTH_CODE"
+            sleep 5
+          done
+          if [ "$CERTIFIED" != "1" ]; then
+            echo "::error::Authenticated D1 sports snapshot reads failed after bounded retries."
+            jq -r '.reason // .error // "UNAVAILABLE"' /tmp/d1-sports-read.json 2>/dev/null || true
+            exit 1
+          fi
           echo 'Authenticated D1 sports snapshot read certified; no actual sportsbook records claimed.' >> "$GITHUB_STEP_SUMMARY"
       - name: Certify sportsbook ingest remains disabled
         shell: bash
