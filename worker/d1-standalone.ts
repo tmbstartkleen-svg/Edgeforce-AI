@@ -5,10 +5,12 @@ import {d1WorkspaceSummary} from './d1-workspaces';
 import {hostedPolymarketProbe} from './polymarket-probe';
 import {d1SportsSnapshots} from './d1-sports-snapshots';
 import {d1SportsIngest} from './d1-sports-ingest';
+import {sportsCoverageEvidence} from './d1-sports-coverage';
 type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;INTELLIGENCE_DB?:unknown};
 export default {
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/d1-pilot/sports-coverage')return sportsCoverageEvidence(request,env);
   if(pathname==='/api/operations/d1-pilot/sports-ingest')return d1SportsIngest(request,env);
   if(pathname==='/api/operations/d1-pilot/sports-snapshots')return d1SportsSnapshots(request,env);
   if(pathname==='/api/operations/d1-pilot/polymarket-probe')return hostedPolymarketProbe(request,env);
