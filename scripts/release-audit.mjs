@@ -964,7 +964,7 @@ add('V105 Cloudflare verified-main trigger',(
  read('.github/workflows/deploy-cloudflare.yml').includes("head_branch == 'main'")&&
  read('.github/workflows/deploy-cloudflare.yml').includes('workflow_run.head_sha')
 )||(
- read('.github/workflows/deploy-cloudflare.yml').includes('on:\\n  workflow_dispatch:')&&
+ read('.github/workflows/deploy-cloudflare.yml').includes('on:\n  workflow_dispatch:')&&
  read('.github/workflows/deploy-cloudflare.yml').includes("github.ref == 'refs/heads/main'")&&
  read('.github/workflows/deploy-cloudflare.yml').includes('Require both exact-main certification workflows')&&
  read('.github/workflows/deploy-cloudflare.yml').includes('Reject a superseded production commit')
