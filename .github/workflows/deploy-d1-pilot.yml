@@ -54,10 +54,29 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev"
-          CODE=$(curl -sS -L -o /tmp/d1-unauthorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness")
-          test "$CODE" = 401 || { echo "Unexpected public readiness status: $CODE"; exit 1; }
-          jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-unauthorized.json > /dev/null
-          AUTH_CODE=$(curl -sS -L -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/d1-authorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness")
-          test "$AUTH_CODE" = 200 || { echo "D1 readiness status: $AUTH_CODE"; cat /tmp/d1-authorized.json; exit 1; }
-          jq -e '.ok==true and .schemaReady==true' /tmp/d1-authorized.json > /dev/null
+          # Cloudflare workers.dev routing may lag an otherwise successful publish.
+          # Fail closed: never mistake a platform 404 or 503 for healthy D1.
+          READY=0
+          for ATTEMPT in $(seq 1 12); do
+            CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-unauthorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness" || true)
+            if [ "$CODE" = "401" ] && jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-unauthorized.json > /dev/null 2>&1; then
+              AUTH_CODE=$(curl -sS --connect-timeout 5 --max-time 12 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/d1-authorized.json -w '%{http_code}' "$URL/api/operations/d1-pilot/readiness" || true)
+              if [ "$AUTH_CODE" = "200" ] && jq -e '.ok==true and .schemaReady==true' /tmp/d1-authorized.json > /dev/null 2>&1; then
+                READY=1
+                break
+              fi
+              echo "D1 readiness attempt $ATTEMPT: authenticated HTTP $AUTH_CODE"
+            else
+              echo "D1 readiness attempt $ATTEMPT: unauthenticated HTTP $CODE"
+            fi
+            sleep 5
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo "::error::D1 Worker route or remote DB not certified after bounded retries"
+            echo "Public response excerpt:"
+            head -c 400 /tmp/d1-unauthorized.json || true
+            echo
+            echo "Check workers.dev route activation and zone/account settings."
+            exit 1
+          fi
           echo "Isolated D1 pilot Worker operational: authenticated schema read succeeded, unauthorized access denied." >> "$GITHUB_STEP_SUMMARY"
