@@ -11,6 +11,10 @@ export async function appendSportsMarketSnapshot(db,quote,{sourceApproved=false,
  }
  if(!Number.isInteger(quote.odds)||Math.abs(quote.odds)>100000)throw Error('INVALID_AMERICAN_ODDS');
  if(!Number.isFinite(quote.observedAt)||quote.observedAt>now+30000||now-quote.observedAt>86400000)throw Error('STALE_OR_INVALID_SOURCE_TIMESTAMP');
+ // Caller approval is insufficient: D1's active source registry is authoritative.
+ const registered=await db.prepare('SELECT upstream_id FROM intelligence_sources WHERE source_id=? AND enabled=1')
+  .bind(quote.sourceId).first();
+ if(!registered||registered.upstream_id!==quote.upstreamId)throw Error('SOURCE_NOT_REGISTERED_IN_D1');
  const raw=JSON.stringify(quote);
  if(new TextEncoder().encode(raw).length>32768)throw Error('PAYLOAD_TOO_LARGE');
  const sha256=createHash('sha256').update(raw).digest('hex');
