@@ -14,6 +14,7 @@ on:
       - 'worker/d1-sports-snapshots.ts'
       - 'worker/d1-sports-ingest.ts'
       - 'worker/d1-sports-coverage.ts'
+      - 'worker/d1-nfl-score-collector.ts'
       - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
@@ -43,7 +44,7 @@ jobs:
       - name: Typecheck and validate D1 pilot
         run: |
           npm run typecheck
-          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs tests/d1-score-collector.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
@@ -211,3 +212,15 @@ jobs:
           test "$CODE" = "200"
           jq -e '.ok==true and .store=="D1" and .productionSportsDataReady==false and .historicalNeonParityCertified==false and (.totalObservations|type)=="number"' /tmp/sports-coverage.json > /dev/null
           echo 'D1 sports coverage evidence retrieved without claiming production readiness.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify scoreboard collector disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/collect-nfl-scores"
+          CODE=$(curl --silent --show-error --max-time 15 -X POST -o /tmp/score-public.json -w '%{http_code}' "$URL")
+          test "$CODE" = "401"
+          jq -e '.reason=="UNAUTHORIZED"' /tmp/score-public.json >/dev/null
+          CODE=$(curl --silent --show-error --max-time 15 -X POST -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/score-disabled.json -w '%{http_code}' "$URL")
+          test "$CODE" = "503"
+          jq -e '.reason=="COLLECTION_DISABLED"' /tmp/score-disabled.json >/dev/null
+          echo 'NFL source-approval collector exists but remains disabled; no requests made to ESPN.' >> "$GITHUB_STEP_SUMMARY"
