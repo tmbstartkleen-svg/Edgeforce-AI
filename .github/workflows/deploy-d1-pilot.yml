@@ -12,6 +12,8 @@ on:
       - 'worker/d1-workspaces.ts'
       - 'worker/polymarket-probe.ts'
       - 'worker/d1-sports-snapshots.ts'
+      - 'worker/d1-sports-ingest.ts'
+      - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
       - '.github/workflows/deploy-d1-pilot.yml'
@@ -40,7 +42,7 @@ jobs:
       - name: Typecheck and validate D1 pilot
         run: |
           npm run typecheck
-          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
@@ -147,3 +149,15 @@ jobs:
           test "$CODE" = "200" || { echo "D1 sportsbook read HTTP $CODE"; cat /tmp/d1-sports-read.json; exit 1; }
           jq -e '.ok==true and .kind=="SPORTS_MARKETS" and .neonHistoricalRecordsMigrated==false and (.records|type)=="array"' /tmp/d1-sports-read.json > /dev/null
           echo 'Authenticated D1 sports snapshot read certified; no actual sportsbook records claimed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify sportsbook ingest remains disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/sports-ingest"
+          CODE=$(curl --silent --show-error --max-time 15 -X POST -H "Content-Type: application/json" -d '{}' -o /tmp/sports-ingest-denied.json -w '%{http_code}' "$URL")
+          test "$CODE" = "401"
+          jq -e '.reason=="UNAUTHORIZED"' /tmp/sports-ingest-denied.json > /dev/null
+          CODE=$(curl --silent --show-error --max-time 15 -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" -H "Content-Type: application/json" -d '{}' -o /tmp/sports-ingest-disabled.json -w '%{http_code}' "$URL")
+          test "$CODE" = "503"
+          jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/sports-ingest-disabled.json > /dev/null
+          echo "D1 sportsbook ingestion remains disabled by default; no unverified data written." >> "$GITHUB_STEP_SUMMARY"
