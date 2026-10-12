@@ -9,6 +9,7 @@ on:
       - 'worker/d1-gateway.ts'
       - 'worker/d1-observations.ts'
       - 'worker/d1-persistence-cert.ts'
+      - 'worker/d1-workspaces.ts'
       - 'wrangler.d1-pilot.jsonc'
       - '.github/workflows/deploy-d1-pilot.yml'
 permissions:
@@ -36,7 +37,7 @@ jobs:
       - name: Typecheck and validate D1 pilot
         run: |
           npm run typecheck
-          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
@@ -105,3 +106,12 @@ jobs:
           test "$CODE" = "200" || { echo "D1 persistence certification status: $CODE"; cat /tmp/d1-write-read.json; exit 1; }
           jq -e '.ok==true and .synthetic==true and .sportsObservationsVerified==false' /tmp/d1-write-read.json > /dev/null
           echo "D1 persistence read-back certified with explicit synthetic test source (not real sports ingestion)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify public read-only workspace metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/intelligence/workspaces/summary"
+          CODE=$(curl --silent --show-error --connect-timeout 5 --max-time 15 -o /tmp/d1-public-workspaces.json -w '%{http_code}' "$URL")
+          test "$CODE" = "200" || { echo "Workspace summary HTTP $CODE"; cat /tmp/d1-public-workspaces.json; exit 1; }
+          jq -e '.ok==true and .actualLiveCoverageCertified==false and .predictionMarkets.nonSportsContractCount==null' /tmp/d1-public-workspaces.json > /dev/null
+          echo 'Public D1 read-only workspace summary verified; no real-market coverage claimed.' >> "$GITHUB_STEP_SUMMARY"
