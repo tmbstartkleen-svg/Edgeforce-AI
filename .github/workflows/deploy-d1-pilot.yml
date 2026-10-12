@@ -21,6 +21,7 @@ on:
       - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
+      - 'scripts/d1-activation-gate.mjs'
       - '.github/workflows/deploy-d1-pilot.yml'
 permissions:
   contents: read
@@ -48,6 +49,11 @@ jobs:
         run: |
           npm run typecheck
           node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs tests/d1-score-collector.test.mjs tests/d1-multi-sport-collector.test.mjs tests/d1-score-coverage.test.mjs
+      - name: Gate D1 collection activation on stable credentials
+        env:
+          D1_PILOT_CRON_SECRET: ${{ secrets.D1_PILOT_CRON_SECRET }}
+          D1_PILOT_INGEST_SECRET: ${{ secrets.D1_PILOT_INGEST_SECRET }}
+        run: node scripts/d1-activation-gate.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
