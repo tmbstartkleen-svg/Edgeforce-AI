@@ -9,3 +9,9 @@ test('real NFL scoreboard collector is disabled until licensed source approval',
  assert.match(handler,/upstreamOddsProvider:false/);
  assert.match(handler,/AbortSignal\.timeout\(6500\)/);
 });
+
+test('score observations exclude schedule-only placeholders',()=>{
+ assert.match(handler,/competitors\.length!==2/);
+ assert.match(handler,/skippedWithoutScore/);
+ assert.match(handler,/observationTimeIsCollectionTime:true/);
+});
