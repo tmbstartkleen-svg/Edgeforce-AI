@@ -6,5 +6,5 @@
  "compatibility_flags":["nodejs_compat"],
  "workers_dev":true,
  "d1_databases":[{"binding":"INTELLIGENCE_DB","database_name":"edgeforce-intelligence","database_id":"335bcda1-8603-4bdf-8e27-acefdf0d8069"}],
- "vars":{"INTELLIGENCE_D1_WRITE_ENABLED":"false","SPORTS_D1_WRITE_ENABLED":"false"}
+ "vars":{"INTELLIGENCE_D1_WRITE_ENABLED":"false","SPORTS_D1_WRITE_ENABLED":"false","SPORTS_SCORE_COLLECT_ENABLED":"false"}
 }
