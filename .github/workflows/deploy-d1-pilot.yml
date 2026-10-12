@@ -16,6 +16,7 @@ on:
       - 'worker/d1-sports-coverage.ts'
       - 'worker/d1-nfl-score-collector.ts'
       - 'worker/d1-multi-sport-collector.ts'
+      - 'worker/d1-score-coverage.ts'
       - 'src/lib/intelligence-core/score-source-catalog.mjs'
       - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
@@ -46,7 +47,7 @@ jobs:
       - name: Typecheck and validate D1 pilot
         run: |
           npm run typecheck
-          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs tests/d1-score-collector.test.mjs tests/d1-multi-sport-collector.test.mjs
+          node --test tests/d1-pilot.test.mjs tests/d1-observations.test.mjs tests/d1-gateway.test.mjs tests/d1-persistence-cert.test.mjs tests/d1-workspaces.test.mjs tests/d1-sports-snapshots.test.mjs tests/d1-sports-ingest.test.mjs tests/d1-verified-sports-coverage.test.mjs tests/d1-score-collector.test.mjs tests/d1-multi-sport-collector.test.mjs tests/d1-score-coverage.test.mjs
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
@@ -249,3 +250,22 @@ jobs:
           test "$CODE" = "503"
           jq -e '.reason=="COLLECTION_DISABLED"' /tmp/collect-sports-disabled.json >/dev/null
           echo 'Eight-sport collection route deployed; upstream scans disabled until provider review.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify hosted score-only observation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/score-coverage"
+          VERIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            PUB=$(curl -sS --max-time 12 -o /tmp/score-evidence-denied.json -w '%{http_code}' "$URL" || true)
+            AUTH=$(curl -sS --max-time 12 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/score-evidence.json -w '%{http_code}' "$URL" || true)
+            if [ "$PUB" = "401" ] && jq -e '.reason=="UNAUTHORIZED"' /tmp/score-evidence-denied.json >/dev/null 2>&1 &&
+               [ "$AUTH" = "200" ] && jq -e '.ok==true and .classification=="SCORES_NOT_ODDS" and .independentSportsbookOddsCertified==false and .automatedCollectionCertified==false' /tmp/score-evidence.json >/dev/null 2>&1; then
+              VERIFIED=1
+              break
+            fi
+            echo "Score evidence certification attempt $ATTEMPT: public $PUB authenticated $AUTH"
+            sleep 5
+          done
+          test "$VERIFIED" = "1"
+          echo 'D1 score-only observation coverage endpoint certified without falsely certifying odds or automatic collection.' >> "$GITHUB_STEP_SUMMARY"
