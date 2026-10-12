@@ -95,11 +95,23 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev"
-          CODE=$(curl --silent --show-error --connect-timeout 5 --max-time 12 -o /tmp/d1-write-disabled.json -w '%{http_code}' \
-            -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" \
-            -H "Content-Type: application/json" --data '[]' "$URL/api/operations/d1-pilot/ingest")
-          test "$CODE" = 503
-          jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/d1-write-disabled.json > /dev/null
+          CERTIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-write-disabled.json -w '%{http_code}' \
+              -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" \
+              -H "Content-Type: application/json" --data '[]' "$URL/api/operations/d1-pilot/ingest" || true)
+            if [ "$CODE" = "503" ] && jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/d1-write-disabled.json > /dev/null 2>&1; then
+              CERTIFIED=1
+              break
+            fi
+            echo "D1 write-disabled propagation attempt $ATTEMPT: HTTP $CODE"
+            sleep 5
+          done
+          if [ "$CERTIFIED" != "1" ]; then
+            echo "::error::D1 write-disabled security contract did not converge."
+            jq -r '.reason // .error // "UNAVAILABLE"' /tmp/d1-write-disabled.json 2>/dev/null || true
+            exit 1
+          fi
           echo "D1 writes explicitly disabled until approved sources and rollout certification." >> "$GITHUB_STEP_SUMMARY"
       - name: Certify limited D1 persistence round trip
         shell: bash
@@ -155,13 +167,27 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/sports-ingest"
-          CODE=$(curl --silent --show-error --max-time 15 -X POST -H "Content-Type: application/json" -d '{}' -o /tmp/sports-ingest-denied.json -w '%{http_code}' "$URL")
-          test "$CODE" = "401"
-          jq -e '.reason=="UNAUTHORIZED"' /tmp/sports-ingest-denied.json > /dev/null
-          CODE=$(curl --silent --show-error --max-time 15 -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" -H "Content-Type: application/json" -d '{}' -o /tmp/sports-ingest-disabled.json -w '%{http_code}' "$URL")
-          test "$CODE" = "503"
-          jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/sports-ingest-disabled.json > /dev/null
-          echo "D1 sportsbook ingestion remains disabled by default; no unverified data written." >> "$GITHUB_STEP_SUMMARY"
+          # Two secret-put operations issue separate Worker versions. Wait for the
+          # fully propagated version with the newest INGEST_SECRET, not any HTTP 503.
+          CERTIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            PUBLIC_CODE=$(curl -sS --connect-timeout 5 --max-time 12 -X POST -H "Content-Type: application/json" -d '{}' -o /tmp/sports-ingest-denied.json -w '%{http_code}' "$URL" || true)
+            AUTH_CODE=$(curl -sS --connect-timeout 5 --max-time 12 -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" -H "Content-Type: application/json" -d '{}' -o /tmp/sports-ingest-disabled.json -w '%{http_code}' "$URL" || true)
+            if [ "$PUBLIC_CODE" = "401" ] && jq -e '.reason=="UNAUTHORIZED"' /tmp/sports-ingest-denied.json > /dev/null 2>&1 &&
+               [ "$AUTH_CODE" = "503" ] && jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/sports-ingest-disabled.json > /dev/null 2>&1; then
+              CERTIFIED=1
+              break
+            fi
+            echo "Sports ingest propagation attempt $ATTEMPT: public HTTP $PUBLIC_CODE; credentialed HTTP $AUTH_CODE"
+            sleep 5
+          done
+          if [ "$CERTIFIED" != "1" ]; then
+            echo "::error::Sports ingestion deny-by-default contract failed after bounded retries."
+            echo "Public response:"; jq -r '.reason // .error // "UNAVAILABLE"' /tmp/sports-ingest-denied.json 2>/dev/null || true
+            echo "Credentialed response:"; jq -r '.reason // .error // "UNAVAILABLE"' /tmp/sports-ingest-disabled.json 2>/dev/null || true
+            exit 1
+          fi
+          echo "D1 sportsbook ingestion remains disabled by default; unauthorized requests denied." >> "$GITHUB_STEP_SUMMARY"
       - name: Certify hosted D1 sports coverage evidence
         shell: bash
         run: |
