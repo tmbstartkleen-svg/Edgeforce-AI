@@ -4,7 +4,7 @@ const now=Date.now();
 const quote={sourceId:'feed',upstreamId:'upstream',sourceEventId:'game1',sport:'NFL',league:'NFL',home:'TeamA',away:'TeamB',startTime:new Date(now).toISOString(),market:'h2h',selection:'TeamA',bookmaker:'book',odds:-110,observedAt:now};
 test('D1 quote writer requires approval and preserves exact upstream timestamp',async()=>{
  const calls=[];
- const db={prepare(sql){calls.push(sql);return {bind(...args){this.args=args;return this},async run(){return {meta:{changes:1}}}}}};
+ const db={prepare(sql){calls.push(sql);return {bind(...args){this.args=args;return this},async first(){return {upstream_id:'upstream'}},async run(){return {meta:{changes:1}}}}}};
  await assert.rejects(appendSportsMarketSnapshot(db,quote),/SOURCE_APPROVAL_REQUIRED/);
  const x=await appendSportsMarketSnapshot(db,quote,{sourceApproved:true,now});
  assert.equal(x.written,1);assert.equal(x.legacyNeonModified,false);
@@ -21,4 +21,11 @@ test('D1 migration is additive and reads stay bounded',async()=>{
  assert.match(sql,/CREATE TABLE IF NOT EXISTS sports_market_snapshots/);
  assert.doesNotMatch(sql,/\bDROP\s+TABLE\b|\bTRUNCATE\b|\bDELETE\s+FROM\b/i);
  await assert.rejects(recentSportsMarketSnapshots({prepare(){}},{limit:10000}),/INVALID_READ_LIMIT/);
+});
+
+test('caller approval cannot bypass active D1 source registry',async()=>{
+ const db={prepare(){return {bind(){return this},async first(){return null}}}};
+ await assert.rejects(appendSportsMarketSnapshot(db,quote,{sourceApproved:true,now}),/SOURCE_NOT_REGISTERED_IN_D1/);
+ const mismatch={prepare(){return {bind(){return this},async first(){return {upstream_id:'wrong-upstream'}}}}};
+ await assert.rejects(appendSportsMarketSnapshot(mismatch,quote,{sourceApproved:true,now}),/SOURCE_NOT_REGISTERED_IN_D1/);
 });
