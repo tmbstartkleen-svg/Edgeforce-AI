@@ -118,11 +118,23 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/certify-persistence"
-          CODE=$(curl --silent --show-error --connect-timeout 5 --max-time 20 -X POST \
-            -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" \
-            -o /tmp/d1-write-read.json -w '%{http_code}' "$URL")
-          test "$CODE" = "200" || { echo "D1 persistence certification status: $CODE"; cat /tmp/d1-write-read.json; exit 1; }
-          jq -e '.ok==true and .synthetic==true and .sportsObservationsVerified==false' /tmp/d1-write-read.json > /dev/null
+          CERTIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            CODE=$(curl -sS --connect-timeout 5 --max-time 20 -X POST \
+              -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" \
+              -o /tmp/d1-write-read.json -w '%{http_code}' "$URL" || true)
+            if [ "$CODE" = "200" ] && jq -e '.ok==true and .synthetic==true and .sportsObservationsVerified==false' /tmp/d1-write-read.json >/dev/null 2>&1; then
+              CERTIFIED=1
+              break
+            fi
+            echo "D1 persistence certification attempt $ATTEMPT: HTTP $CODE"
+            sleep 5
+          done
+          if [ "$CERTIFIED" != "1" ]; then
+            echo "::error::D1 persistence readback not certified after bounded retries."
+            jq -r '.reason // .error // "UNAVAILABLE"' /tmp/d1-write-read.json 2>/dev/null || true
+            exit 1
+          fi
           echo "D1 persistence read-back certified with explicit synthetic test source (not real sports ingestion)." >> "$GITHUB_STEP_SUMMARY"
       - name: Certify public read-only workspace metadata
         shell: bash
