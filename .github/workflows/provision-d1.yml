@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/provision-d1.yml'
       - 'db/d1/0002_agent_tasks.sql'
+      - 'db/d1/0003_sports_market_snapshots.sql'
 
 permissions:
   contents: read
@@ -69,6 +70,8 @@ jobs:
             --remote --file=db/d1/0001_intelligence_pilot.sql
           npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
             --remote --file=db/d1/0002_agent_tasks.sql
+          npx wrangler d1 execute INTELLIGENCE_DB --config .d1-provision.wrangler.json \
+            --remote --file=db/d1/0003_sports_market_snapshots.sql
       - name: Certify remote D1 tables using Cloudflare API
         shell: bash
         run: |
@@ -97,6 +100,18 @@ jobs:
           jq -e '.success == true and ([.result[]?.results[]?.name] | sort == ["specialist_task_events","specialist_tasks"])' \
             /tmp/d1-agents-schema-evidence.json > /dev/null
           echo 'D1 remote agent task ledger certified: both required tables exist; no existing data deleted.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Certify D1 sports archive table
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$D1_DATABASE_ID/query"
+          SQL="SELECT name FROM sqlite_master WHERE type='table' AND name='sports_market_snapshots'"
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -nc --arg sql "$SQL" '{sql:$sql}')" "$BASE" -o /tmp/d1-sports-archive.json
+          jq -e '.success == true and ([.result[]?.results[]?.name] | index("sports_market_snapshots") != null)' /tmp/d1-sports-archive.json > /dev/null
+          echo "D1 sports market snapshot table verified; historical records unchanged." >> "$GITHUB_STEP_SUMMARY"
       - name: Print binding instructions
         shell: bash
         run: |
