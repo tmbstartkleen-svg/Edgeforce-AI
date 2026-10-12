@@ -95,11 +95,23 @@ jobs:
         run: |
           set -euo pipefail
           URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev"
-          CODE=$(curl --silent --show-error --connect-timeout 5 --max-time 12 -o /tmp/d1-write-disabled.json -w '%{http_code}' \
-            -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" \
-            -H "Content-Type: application/json" --data '[]' "$URL/api/operations/d1-pilot/ingest")
-          test "$CODE" = 503
-          jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/d1-write-disabled.json > /dev/null
+          CERTIFIED=0
+          for ATTEMPT in $(seq 1 12); do
+            CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-write-disabled.json -w '%{http_code}' \
+              -X POST -H "Authorization: Bearer $D1_PILOT_INGEST_SECRET" \
+              -H "Content-Type: application/json" --data '[]' "$URL/api/operations/d1-pilot/ingest" || true)
+            if [ "$CODE" = "503" ] && jq -e '.reason=="D1_WRITE_DISABLED"' /tmp/d1-write-disabled.json > /dev/null 2>&1; then
+              CERTIFIED=1
+              break
+            fi
+            echo "D1 write-disabled propagation attempt $ATTEMPT: HTTP $CODE"
+            sleep 5
+          done
+          if [ "$CERTIFIED" != "1" ]; then
+            echo "::error::D1 write-disabled security contract did not converge."
+            jq -r '.reason // .error // "UNAVAILABLE"' /tmp/d1-write-disabled.json 2>/dev/null || true
+            exit 1
+          fi
           echo "D1 writes explicitly disabled until approved sources and rollout certification." >> "$GITHUB_STEP_SUMMARY"
       - name: Certify limited D1 persistence round trip
         shell: bash
