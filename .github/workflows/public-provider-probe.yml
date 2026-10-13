@@ -1,0 +1,29 @@
+name: EdgeForce Public Provider Probe
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test read-only provider scanner
+        run: node --test tests/public-provider-probe-agent.test.mjs
+      - name: Check public market endpoint availability
+        run: |
+          node scripts/public-provider-probe-agent.mjs > provider-report.json
+          node --input-type=module -e "import fs from 'node:fs'; const d=JSON.parse(fs.readFileSync('provider-report.json')); fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'## Prediction Exchange Public Feed Probe\n\n'+d.checks.map(x=>'- '+x.provider+': '+(x.healthy?'reachable':'unavailable')+', '+x.latencyMs+' ms measured on this runner').join('\n')+'\n\nNo sportsbook odds license, trade execution, or persistent data collection is implied.\n');"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-provider-availability
+          path: provider-report.json
+          if-no-files-found: ignore
+          retention-days: 2
