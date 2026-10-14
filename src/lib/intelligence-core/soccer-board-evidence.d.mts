@@ -1,0 +1,2 @@
+export type SoccerEvidenceReport={boardSoccerRows:number;fixtureLinksVerified:number;marketLinksVerified:number;incompleteRows:number;details:Array<{marketId:string;league:string|null;event:string|null;providerEventId:string|null;book:string|null;scoreObservationLinked:boolean;licensedBookEvidenceLinked:boolean;status:string}>;gateEnforced:boolean;note:string};
+export function soccerBoardEvidence(rows:Array<{id:string;sport:string;league?:string;event?:string;sourceEventId?:string;sourceBook?:string}>):SoccerEvidenceReport;
