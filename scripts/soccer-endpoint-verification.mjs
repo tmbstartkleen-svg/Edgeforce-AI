@@ -18,7 +18,10 @@ export async function probeSoccerLeagues({fetcher=fetch,clock=Date.now,candidate
  // Sequentially throttle across bounded candidate list; stay off Worker cron subrequest budget.
  for(const candidate of candidates.slice(0,24))results.push(await probeSoccerLeague(candidate,{fetcher,clock}));
  return {checkedAt:new Date().toISOString(),mode:'PUBLIC_SCOREBOARD_AVAILABILITY_ONLY',draftKingsFixturesCertified:false,licensedSportsbookOdds:false,
-  attempted:results.length,reachable:results.filter(x=>x.reachable).length,results};
+  attempted:results.length,reachable:results.filter(x=>x.reachable).length,
+  observedFixtures:results.reduce((sum,x)=>sum+x.fixtures,0),
+  reachableEmptyLeagues:results.filter(x=>x.reachable&&x.fixtures===0).map(x=>x.league),
+  unavailableLeagues:results.filter(x=>!x.reachable).map(x=>x.league),results};
 }
 if(import.meta.url===`file://${process.argv[1]}`){
  const fs=await import('node:fs');

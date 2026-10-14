@@ -4,7 +4,7 @@ import {soccerCandidates} from '../src/lib/intelligence-core/soccer-fixture-regi
 const manifest=JSON.parse(readFileSync(new URL('../config/soccer-coverage-targets.json',import.meta.url),'utf8'));
 export function auditSoccerCoverage({targets=manifest.draftKingsLeagueSeed,approved=scoreSports}={}){
  const current=approved.filter(x=>x.id.startsWith('soccer-'));
- const normal=x=>x.toLowerCase().replace(/[^a-z0-9]/g,'');
+ const normal=x=>x.toLowerCase().replace(/^english /,'').replace(/[^a-z0-9]/g,'');
  const recognized=new Set(current.map(x=>normal(x.label)));
  const uncovered=targets.filter(x=>!recognized.has(normal(x)));
  return {persona:manifest.persona,verifiedComplete:false,targetLeagueCount:targets.length,
