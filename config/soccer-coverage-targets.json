@@ -1,0 +1,15 @@
+{
+  "persona": "SOCCER_COVERAGE_INTELLIGENCE",
+  "target": "all soccer competitions and games offered by DraftKings in the approved jurisdiction",
+  "coverageDisclaimer": "This manifest is a partial seed, not an exhaustive current DraftKings sportsbook inventory.",
+  "draftKingsLeagueSeed": [
+    "English Premier League","Spain - La Liga","Germany - Bundesliga","Italy - Serie A","France - Ligue 1",
+    "MLS","Mexico - Liga MX","Brazil - Serie A","Brazil - Serie B","Argentina - Liga Profesional",
+    "Champions League","Champions League (W)","England - Championship","England - League One",
+    "England - League Two","Spain - La Liga 2","Germany - 2. Bundesliga","Portugal - Primeira Liga",
+    "Netherlands - Eredivisie","Saudi Arabia - Pro League","USA - USL Championship",
+    "USA - USL League One","Australia - League A","Australia - A-League (W)",
+    "UEFA Nations League","Scotland - Premiership","Japan - J1 League","Turkey - Super Lig",
+    "Belgium - Jupiler Pro League","Norway - Eliteserien","Sweden - Allsvenskan","NWSL"
+  ]
+}
