@@ -20,6 +20,7 @@ import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {fetchLiveScoreMesh} from '@/lib/liveScoreMesh';
 import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
 import {soccerBoardEvidence} from '@/lib/intelligence-core/soccer-board-evidence.mjs';
+import {enforceSoccerEvidence} from '@/lib/intelligence-core/soccer-live-board-gate.mjs';
 
 export const dynamic='force-dynamic';
 
@@ -169,9 +170,11 @@ export async function GET(req:Request){
     grade:x.grade,
     simEngine:x.simEngine
   }));
-  const boardCandidates=view==='today'?scanned.filter(x=>x.bucket==='TODAY'):scanned;
+  const soccerGate=enforceSoccerEvidence(scanned);
+  const rankableScanned=soccerGate.eligible;
+  const boardCandidates=view==='today'?rankableScanned.filter(x=>x.bucket==='TODAY'):rankableScanned;
   const qualifiedCandidates=boardCandidates.filter(qualifiesForTopBoard);
-  const strictRanked=view==='today'?rankDaily(scanned,limit):rankWeekly(scanned,limit);
+  const strictRanked=view==='today'?rankDaily(rankableScanned,limit):rankWeekly(rankableScanned,limit);
   const fallbackRanked=strictRanked.length?[]:scoreBoardRows(boardCandidates)
     .filter(x=>x.freshness!=='STALE')
     .filter(x=>x.simProbability>=.50)
@@ -277,7 +280,7 @@ export async function GET(req:Request){
       downgradeCounts
     },
     rows,
-    soccerCoverageEvidence:soccerBoardEvidence(rows),
+    soccerCoverageEvidence:{...soccerBoardEvidence(scanned),withheldSoccerCount:soccerGate.withheldSoccerCount,gateEnforced:soccerGate.gateEnforced,gateReason:soccerGate.reason},
     sports,
     predictions,
     predictionCoverage,
