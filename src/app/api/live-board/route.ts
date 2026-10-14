@@ -19,6 +19,7 @@ import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {fetchLiveScoreMesh} from '@/lib/liveScoreMesh';
 import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
+import {soccerBoardEvidence} from '@/lib/intelligence-core/soccer-board-evidence.mjs';
 
 export const dynamic='force-dynamic';
 
@@ -276,6 +277,7 @@ export async function GET(req:Request){
       downgradeCounts
     },
     rows,
+    soccerCoverageEvidence:soccerBoardEvidence(rows),
     sports,
     predictions,
     predictionCoverage,
