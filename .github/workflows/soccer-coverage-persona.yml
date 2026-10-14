@@ -1,0 +1,26 @@
+name: EdgeForce Soccer Coverage Persona
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '29 */6 * * *'
+permissions:
+  contents: read
+jobs:
+  soccer-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/soccer-coverage-audit.test.mjs
+      - name: Audit soccer league coverage
+        run: |
+          node scripts/soccer-coverage-audit.mjs soccer-coverage-report.json
+          node --input-type=module -e "import fs from 'node:fs';const r=JSON.parse(fs.readFileSync('soccer-coverage-report.json'));fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'## Soccer Coverage Persona\n\nTracked seed: '+r.targetLeagueCount+' leagues; Missing: '+r.missingLeagueCount+'; Live DraftKings odds verified: NO; All fixtures verified: NO.\n');"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soccer-coverage-audit
+          path: soccer-coverage-report.json
+          retention-days: 7
