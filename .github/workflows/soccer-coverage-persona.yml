@@ -1,5 +1,14 @@
 name: EdgeForce Soccer Coverage Persona
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/soccer-coverage-persona.yml'
+      - 'scripts/soccer-coverage-audit.mjs'
+      - 'scripts/soccer-endpoint-verification.mjs'
+      - 'src/lib/intelligence-core/soccer-fixture-registry.mjs'
+      - 'src/lib/intelligence-core/score-source-catalog.mjs'
+      - 'config/soccer-coverage-targets.json'
   workflow_dispatch:
   schedule:
     - cron: '29 */6 * * *'
