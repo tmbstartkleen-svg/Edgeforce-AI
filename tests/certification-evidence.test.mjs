@@ -81,11 +81,14 @@ function executeStep({ body = JSON.stringify(report()), status = '200', code = 0
   try {
     const payload = path.join(temp, 'payload'); fs.writeFileSync(payload, body);
     const calls = path.join(temp, 'calls');
+    // GitHub Actions supplies GITHUB_ENV, but local test processes must provide
+    // their own isolated environment file rather than inheriting the caller's.
+    const githubEnv = path.join(temp, 'github-env'); fs.writeFileSync(githubEnv, '');
     const mock = `#!/usr/bin/env node\nconst fs=require('fs');\nconst a=process.argv.slice(2);\nfs.appendFileSync(process.env.MOCK_CALLS,'one-call\\n');\nconst i=a.indexOf('--output');\nif(i>=0)fs.writeFileSync(a[i+1],fs.readFileSync(process.env.MOCK_BODY));\nprocess.stderr.write('UNTRUSTED_TRANSPORT_SECRET');\nprocess.stdout.write(process.env.MOCK_STATUS);\nprocess.exit(Number(process.env.MOCK_EXIT));\n`;
     fs.writeFileSync(path.join(temp, 'vercel'), mock, { mode: 0o755 });
     const run = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', workflowBody() + '\necho PROMOTION_SENTINEL\n' + extra], {
       encoding: 'utf8', timeout: 10000,
-      env: { ...process.env, PATH: temp + path.delimiter + process.env.PATH, TMPDIR: temp,
+      env: { ...process.env, PATH: temp + path.delimiter + process.env.PATH, TMPDIR: temp, GITHUB_ENV: githubEnv,
         MOCK_BODY: payload, MOCK_CALLS: calls, MOCK_STATUS: status, MOCK_EXIT: String(code),
         PRODUCTION_URL: 'https://example.vercel.app', INGEST_SECRET: 'fake-test-secret', DEPLOY_COMMIT: commit,
         EXPECTED_APP_VERSION: expected.version, EXPECTED_MODEL_VERSION: expected.modelVersion,
