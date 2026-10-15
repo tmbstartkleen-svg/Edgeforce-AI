@@ -7,9 +7,14 @@ export function auditSoccerCoverage({targets=manifest.draftKingsLeagueSeed,appro
  const normal=x=>x.toLowerCase().replace(/^english /,'').replace(/[^a-z0-9]/g,'');
  const recognized=new Set(current.map(x=>normal(x.label)));
  const uncovered=targets.filter(x=>!recognized.has(normal(x)));
+ const candidatesByName=new Map(soccerCandidates.map(x=>[normal(x.league),x]));
+ const unapprovedCandidates=uncovered.filter(x=>candidatesByName.has(normal(x))).map(x=>({target:x,candidateId:candidatesByName.get(normal(x)).id,verification:'CANDIDATE_NOT_APPROVED'}));
+ const noCandidate=uncovered.filter(x=>!candidatesByName.has(normal(x)));
  return {persona:manifest.persona,verifiedComplete:false,targetLeagueCount:targets.length,
    activeApprovedScoreboardLeagues:current.map(x=>x.label),uncoveredTargets:uncovered,
-   missingLeagueCount:uncovered.length,candidateSoccerLeagues:soccerCandidates.map(x=>x.league),
+   missingLeagueCount:uncovered.length,unapprovedCandidateTargets:unapprovedCandidates,
+   targetsWithoutCandidate:noCandidate,unapprovedCandidateTargetCount:unapprovedCandidates.length,
+   targetsWithoutCandidateCount:noCandidate.length,candidateSoccerLeagues:soccerCandidates.map(x=>x.league),
    candidateLeaguesNotEnabled:soccerCandidates.filter(x=>!current.some(s=>s.id===x.id)).map(x=>x.league),
    evidence:'STATIC_SEED_ONLY_NOT_LIVE_DRAFTKINGS_INVENTORY',
    liveDraftKingsOddsVerified:false,allFixturesVerified:false};

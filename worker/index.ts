@@ -62,10 +62,8 @@ async function runHourlyShard(controller:ScheduledControllerLike,env:EdgeforceEn
  if(minute===23)return callScheduledRoute('/api/cron/settle',runSettleCron,env,'CRON_SECRET');
  if(minute===33)return callScheduledRoute('/api/cron/predictions',runPredictionCron,env,'CRON_SECRET');
  if(minute===43)return callScheduledRoute('/api/cron/heartbeat',runHeartbeatCron,env,'CRON_SECRET');
- if(minute===53){
-  await callScheduledRoute('/api/cron/slo-governor',runSloCron,env,'CRON_SECRET');
-  return callScheduledRoute('/api/cron/topology-watchdog',runTopologyCron,env,'CRON_SECRET');
- }
+ if(minute===53)return callScheduledRoute('/api/cron/slo-governor',runSloCron,env,'CRON_SECRET');
+ if(minute===54)return callScheduledRoute('/api/cron/topology-watchdog',runTopologyCron,env,'CRON_SECRET');
 }
 
 async function runDailyShard(controller:ScheduledControllerLike,env:EdgeforceEnv){
