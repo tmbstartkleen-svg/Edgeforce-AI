@@ -10,8 +10,9 @@ test('D1 coverage reports baseline PostgreSQL tables and missing migrations',()=
  assert.ok(d.postgresTables.includes('bet_results'));
  assert.ok(d.d1Tables.includes('intelligence_observations'));
 });
-test('strict D1 parity cannot be certified while baseline tables are missing',()=>{
- const x=run(['--require-parity']);assert.notEqual(x.status,0);
- const d=JSON.parse(x.stdout);assert.equal(d.complete,false);
- assert.ok(d.missing.includes('model_runs'));
+test('baseline table-name coverage is complete but is not full migration parity',()=>{
+ const x=run(['--require-parity']);assert.equal(x.status,0,x.stderr);
+ const d=JSON.parse(x.stdout);assert.equal(d.complete,true);
+ assert.equal(d.missing.length,0);
+ assert.match(d.scope,/baseline PostgreSQL schema only/);
 });
