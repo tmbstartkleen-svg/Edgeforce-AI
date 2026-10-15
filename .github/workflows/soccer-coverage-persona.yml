@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate soccer coverage audit and endpoint parser
-        run: node --test tests/soccer-coverage-audit.test.mjs tests/soccer-endpoint-verification.test.mjs tests/soccer-evidence-reconciliation.test.mjs tests/soccer-fixture-evidence-gate.test.mjs tests/soccer-live-board-gate.test.mjs tests/soccer-market-identity-join.test.mjs
+        run: node --test tests/soccer-coverage-audit.test.mjs tests/soccer-endpoint-verification.test.mjs tests/soccer-evidence-reconciliation.test.mjs tests/soccer-fixture-evidence-gate.test.mjs tests/soccer-live-board-gate.test.mjs tests/soccer-market-identity-join.test.mjs tests/soccer-board-identity-adapter.test.mjs
       - name: Audit soccer league coverage
         run: |
           node scripts/soccer-coverage-audit.mjs soccer-coverage-report.json
