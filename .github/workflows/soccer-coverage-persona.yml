@@ -13,6 +13,7 @@ on:
       - 'src/lib/intelligence-core/soccer-runtime-evidence.mjs'
       - 'src/lib/intelligence-core/soccer-market-identity-join.mjs'
       - 'src/lib/intelligence-core/score-source-catalog.mjs'
+      - 'src/lib/intelligence-core/soccer-score-observation.mjs'
       - 'config/soccer-coverage-targets.json'
   workflow_dispatch:
   schedule:
@@ -29,7 +30,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate soccer coverage audit and endpoint parser
-        run: node --test tests/soccer-coverage-audit.test.mjs tests/soccer-endpoint-verification.test.mjs tests/soccer-evidence-reconciliation.test.mjs tests/soccer-fixture-evidence-gate.test.mjs tests/soccer-live-board-gate.test.mjs tests/soccer-market-identity-join.test.mjs tests/soccer-board-identity-adapter.test.mjs tests/soccer-provider-readiness.test.mjs tests/soccer-runtime-evidence.test.mjs
+        run: node --test tests/soccer-coverage-audit.test.mjs tests/soccer-endpoint-verification.test.mjs tests/soccer-evidence-reconciliation.test.mjs tests/soccer-fixture-evidence-gate.test.mjs tests/soccer-live-board-gate.test.mjs tests/soccer-market-identity-join.test.mjs tests/soccer-board-identity-adapter.test.mjs tests/soccer-provider-readiness.test.mjs tests/soccer-runtime-evidence.test.mjs tests/soccer-score-observation.test.mjs
       - name: Audit soccer league coverage
         run: |
           node scripts/soccer-coverage-audit.mjs soccer-coverage-report.json
