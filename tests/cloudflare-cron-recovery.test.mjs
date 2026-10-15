@@ -21,10 +21,10 @@ test('Cloudflare cron runs source handlers directly instead of routing scheduled
 test('hourly automation is sharded across separate scheduled invocations',()=>{
  assert.deepEqual(wrangler.triggers.crons,[
   '*/15 * * * *',
-  '3,13,23,33,43,53 * * * *',
+  '3,13,23,33,43,53,54 * * * *',
   '15,45 6 * * *'
  ]);
- for(const minute of [3,13,23,33,43,53])assert.match(worker,new RegExp(`minute===${minute}`));
+ for(const minute of [3,13,23,33,43,53,54])assert.match(worker,new RegExp(`minute===${minute}`));
 });
 
 test('decision cron degrades cleanly when no fresh sportsbook markets exist',()=>{
@@ -85,4 +85,12 @@ test('V158 hosted preview distinguishes Cloudflare hostname 404 from application
  assert.match(preview,/platform404Count>=3/);
  assert.match(preview,/Cloudflare preview hostname is not serving the deployed Worker/);
  assert.match(preview,/content-type/);
+});
+
+
+test('topology watchdog gets its own Worker invocation instead of sharing SLO CPU budget',()=>{
+ const hourly=worker.slice(worker.indexOf('async function runHourlyShard'),worker.indexOf('async function runDailyShard'));
+ assert.match(hourly,/if\(minute===53\)return callScheduledRoute\('\/api\/cron\/slo-governor'/);
+ assert.match(hourly,/if\(minute===54\)return callScheduledRoute\('\/api\/cron\/topology-watchdog'/);
+ assert.doesNotMatch(hourly,/if\(minute===53\)\{/);
 });
