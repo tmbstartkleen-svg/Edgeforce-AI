@@ -6,6 +6,11 @@ const tables={
  events:['id','provider_event_id','sport','league','home_team_id','away_team_id','start_time','venue','status'],
  player_game_stats:['id','athlete_id','event_id','stat_date','stats','source','imported_at'],
  weather_snapshots:['id','event_id','temp_f','wind_mph','precip_prob','humidity','roof_status','payload','pulled_at'],
+ market_snapshots:['id','event_id','provider','bookmaker','market_key','selection_key','american_odds','point','pulled_at','raw'],
+ injury_snapshots:['id','athlete_id','team_id','status','detail','source','reported_at','pulled_at'],
+ model_runs:['id','event_id','market_key','selection_key','model_version','run_count','market_probability','model_probability','fair_american_odds','expected_value','full_kelly','fractional_kelly','agreement','confidence','grade','feature_snapshot','created_at'],
+ bet_results:['id','model_run_id','event_id','market_key','selection_key','offered_odds','closing_odds','result','clv','pnl','settled_at'],
+ calibration_metrics:['id','model_version','sport','market_key','sample_size','brier_score','log_loss','calibration_error','period_start','period_end','created_at'],
 };
 const usage='USAGE: node scripts/d1-offline-import.mjs TABLE INPUT.jsonl OUTPUT.sql';
 const fail=msg=>{console.error(msg);process.exit(1)};
@@ -16,18 +21,20 @@ const cols=tables[table];
 const quote=v=>v===null?'NULL':typeof v==='number'?(Number.isFinite(v)?String(v):fail('NONFINITE_NUMBER')):typeof v==='string'?"'"+v.replaceAll("'","''")+"'":fail('INVALID_SCALAR');
 const normalize=(k,v)=>{
  if(v===null)return null;
- if(['metadata','stats','payload'].includes(k)){
+ if(['metadata','stats','payload','raw','feature_snapshot'].includes(k)){
   if(typeof v==='string'){try{JSON.parse(v)}catch{fail('INVALID_JSON_'+k)}return v;}
   if(typeof v==='object'&&v!==null)return JSON.stringify(v);
   fail('INVALID_JSON_'+k);
  }
  if(k==='active'){if(typeof v!=='boolean'&&v!==0&&v!==1)fail('INVALID_ACTIVE');return v===true||v===1?1:0;}
  if(typeof v==='boolean')fail('UNSUPPORTED_BOOLEAN_'+k);
+ if(typeof v==='number'&&Number.isInteger(v)&&!Number.isSafeInteger(v))fail('UNSAFE_INTEGER_'+k);
+ if(['id','model_run_id'].includes(k)&&typeof v==='number'&&(!Number.isSafeInteger(v)||v<1))fail('INVALID_INTEGER_ID_'+k);
  if(typeof v==='number'&&!Number.isFinite(v))fail('INVALID_NUMBER_'+k);
  if(typeof v!=='string'&&typeof v!=='number')fail('INVALID_VALUE_'+k);
  return v;
 };
-const required={teams:['id','sport','name'],athletes:['id','sport','full_name'],events:['id','sport','start_time'],player_game_stats:['id','athlete_id','event_id','stat_date','stats'],weather_snapshots:['id','event_id']}[table];
+const required={teams:['id','sport','name'],athletes:['id','sport','full_name'],events:['id','sport','start_time'],player_game_stats:['id','athlete_id','event_id','stat_date','stats'],weather_snapshots:['id','event_id'],market_snapshots:['id','event_id','provider','bookmaker','market_key','selection_key','american_odds'],injury_snapshots:['id'],model_runs:['id','event_id','market_key','selection_key','run_count','market_probability','model_probability'],bet_results:['id'],calibration_metrics:['id']}[table];
 const data=fs.readFileSync(input,'utf8');if(Buffer.byteLength(data)>10*1024*1024)fail('INPUT_EXCEEDS_10MB');
 const lines=data.split(/\r?\n/).filter(s=>s.trim());if(lines.length>10000)fail('INPUT_EXCEEDS_10000_ROWS');
 const statements=[];let i=0;
