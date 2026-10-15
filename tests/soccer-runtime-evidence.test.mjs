@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {certifySoccerRuntimeEvidence} from '../src/lib/intelligence-core/soccer-runtime-evidence.mjs';
 const now=Date.parse('2026-10-14T20:00:00Z');
-const markets=[{id:'m1',leagueId:'eng.1',eventId:'1',sourceBook:'DraftKings'}];
+const markets=[{id:'m1',leagueId:'eng.1',eventId:'1',sourceBook:'DraftKings',sourceProviderId:'opt'}];
 const scores=[{leagueId:'eng.1',eventId:'1',sourceApproved:true,observedAt:'2026-10-14T19:59:00Z'}];
 const quotes=[{leagueId:'eng.1',eventId:'1',marketId:'m1',providerId:'opt',book:'DraftKings',licensed:true,providerApproved:true,observedAt:'2026-10-14T19:59:00Z'}];
 const sources=[{providerId:'opt',upstreamId:'data.example',enabled:true,licenseVerified:true,providerApproved:true}];
