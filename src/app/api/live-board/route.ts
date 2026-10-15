@@ -20,7 +20,7 @@ import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {fetchLiveScoreMesh} from '@/lib/liveScoreMesh';
 import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
 import {soccerBoardEvidence} from '@/lib/intelligence-core/soccer-board-evidence.mjs';
-import {enforceSoccerEvidence} from '@/lib/intelligence-core/soccer-live-board-gate.mjs';
+import {resolveSoccerBoardMarkets} from '@/lib/intelligence-core/soccer-board-identity-adapter.mjs';
 
 export const dynamic='force-dynamic';
 
@@ -170,7 +170,7 @@ export async function GET(req:Request){
     grade:x.grade,
     simEngine:x.simEngine
   }));
-  const soccerGate=enforceSoccerEvidence(scanned);
+  const soccerGate=resolveSoccerBoardMarkets(scanned);
   const rankableScanned=soccerGate.eligible;
   const boardCandidates=view==='today'?rankableScanned.filter(x=>x.bucket==='TODAY'):rankableScanned;
   const qualifiedCandidates=boardCandidates.filter(qualifiesForTopBoard);
@@ -280,7 +280,7 @@ export async function GET(req:Request){
       downgradeCounts
     },
     rows,
-    soccerCoverageEvidence:{...soccerBoardEvidence(scanned),withheldSoccerCount:soccerGate.withheldSoccerCount,gateEnforced:soccerGate.gateEnforced,gateReason:soccerGate.reason},
+    soccerCoverageEvidence:{...soccerBoardEvidence(scanned),withheldSoccerCount:soccerGate.withheldSoccerCount,gateEnforced:soccerGate.gateEnforced,gateReason:soccerGate.evidenceMode},
     sports,
     predictions,
     predictionCoverage,
