@@ -1,3 +1,4 @@
+import {extractSoccerScoreObservations} from '../src/lib/intelligence-core/soccer-score-observation.mjs';
 import {soccerCandidates} from '../src/lib/intelligence-core/soccer-fixture-registry.mjs';
 export async function probeSoccerLeague(candidate,{fetcher=fetch,clock=Date.now}={}){
  const url='https://site.api.espn.com/apis/site/v2/sports/soccer/'+encodeURIComponent(candidate.code)+'/scoreboard';
@@ -10,7 +11,7 @@ export async function probeSoccerLeague(candidate,{fetcher=fetch,clock=Date.now}
   const data=JSON.parse(body);
   if(!Array.isArray(data.events))return {league:candidate.league,id:candidate.id,reachable:false,reason:'INVALID_EVENTS_SCHEMA',latencyMs:clock()-started,fixtures:0};
   const events=data.events.slice(0,100).filter(x=>typeof x.id==='string'&&!!x.id&&typeof x.date==='string');
-  return {league:candidate.league,id:candidate.id,reachable:true,latencyMs:clock()-started,fixtures:events.length,fixtureIds:events.map(x=>x.id),oddsLicensed:false,approvedSource:false};
+  return {league:candidate.league,id:candidate.id,reachable:true,latencyMs:clock()-started,fixtures:events.length,fixtureIds:events.map(x=>x.id),scoreObservations:extractSoccerScoreObservations(data,{leagueId:candidate.code,observedAt:new Date().toISOString()}),oddsLicensed:false,approvedSource:false};
  }catch{return {league:candidate.league,id:candidate.id,reachable:false,reason:'FETCH_OR_PARSE_ERROR',latencyMs:clock()-started,fixtures:0};}
 }
 export async function probeSoccerLeagues({fetcher=fetch,clock=Date.now,candidates=soccerCandidates}={}){
@@ -20,6 +21,8 @@ export async function probeSoccerLeagues({fetcher=fetch,clock=Date.now,candidate
  return {checkedAt:new Date().toISOString(),mode:'PUBLIC_SCOREBOARD_AVAILABILITY_ONLY',draftKingsFixturesCertified:false,licensedSportsbookOdds:false,
   attempted:results.length,reachable:results.filter(x=>x.reachable).length,
   observedFixtures:results.reduce((sum,x)=>sum+x.fixtures,0),
+  scoreObservations:results.flatMap(x=>x.scoreObservations||[]),
+  scoreObservationsApprovedForMarketRanking:false,
   reachableEmptyLeagues:results.filter(x=>x.reachable&&x.fixtures===0).map(x=>x.league),
   unavailableLeagues:results.filter(x=>!x.reachable).map(x=>x.league),results};
 }
