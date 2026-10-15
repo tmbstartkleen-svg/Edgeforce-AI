@@ -12,5 +12,5 @@ export function resolveSoccerBoardMarkets(rows,{scores=[],quotes=[],now=Date.now
  const eligible=rows.filter(row=>!isSoccerBoardRow(row)||approved.has(row.id));
  return {eligible,withheldSoccerCount:soccer.length-join.approved,approvedSoccerCount:join.approved,
   evidenceMode:'EXPLICIT_APPROVED_FIXTURE_AND_LICENSED_MARKET_ONLY',joins:join.results,
-  fullDraftKingsInventoryCertified:false};
+  gateEnforced:true,fullDraftKingsInventoryCertified:false};
 }
