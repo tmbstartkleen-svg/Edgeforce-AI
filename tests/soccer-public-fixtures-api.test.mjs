@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {soccerCandidates} from '../src/lib/intelligence-core/soccer-fixture-registry.mjs';import {extractSoccerScoreObservations} from '../src/lib/intelligence-core/soccer-score-observation.mjs';
+test('league allowlist is bounded and has unique codes',()=>{assert.ok(soccerCandidates.length>=10);assert.equal(new Set(soccerCandidates.map(x=>x.code)).size,soccerCandidates.length)});
+test('public fixture data is explicitly unapproved for betting',()=>{const items=extractSoccerScoreObservations({events:[{id:'5',date:'2026-10-14T20:00:00Z'}]},{leagueId:'eng.1',observedAt:'2026-10-14T19:00:00Z'});assert.equal(items[0].sourceApproved,false);assert.equal(items[0].licensedOdds,false)});
