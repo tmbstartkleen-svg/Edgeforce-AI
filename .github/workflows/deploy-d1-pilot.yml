@@ -303,3 +303,21 @@ jobs:
           done
           test "$VERIFIED" = "1"
           echo 'D1 score-only observation coverage endpoint certified without falsely certifying odds or automatic collection.' >> "$GITHUB_STEP_SUMMARY"
+
+
+      - name: Inventory authenticated hosted D1 sports schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://edgeforce-d1-pilot.tmbstartkleen.workers.dev/api/operations/d1-pilot/schema-coverage"
+          PUBLIC_CODE=$(curl --silent --show-error --max-time 15 -o /tmp/d1-schema-denied.json -w '%{http_code}' "$URL")
+          test "$PUBLIC_CODE" = "401"
+          jq -e '.reason=="UNAUTHORIZED"' /tmp/d1-schema-denied.json >/dev/null
+          AUTH_CODE=$(curl --silent --show-error --max-time 15 -H "Authorization: Bearer $D1_PILOT_CRON_SECRET" -o /tmp/d1-schema-coverage.json -w '%{http_code}' "$URL")
+          test "$AUTH_CODE" = "200"
+          jq -e '.ok==true and .productionPrimary==false and .historyMigrated==false and .queryParityCertified==false and .baselineTablesRequired==10 and (.baselineTablesPresent|type=="number") and (.missing|type=="array")' /tmp/d1-schema-coverage.json >/dev/null
+          echo "### Hosted D1 sports schema inventory" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"Present: \(.baselineTablesPresent) of \(.baselineTablesRequired); missing: \(.missing | join(", "))"' /tmp/d1-schema-coverage.json >> "$GITHUB_STEP_SUMMARY"
+          if ! jq -e '.baselineSchemaComplete==true' /tmp/d1-schema-coverage.json >/dev/null; then
+            echo "::warning::Some D1 sports tables are absent on remote pilot; historical migration and cutover remain blocked."
+          fi
