@@ -1,7 +1,10 @@
 import {getRecentMarketSnapshots,type D1Store} from './d1-market-snapshots';
 /** Read-only, pilot-only market evidence. Never emits invented prices. */
-type Env={INTELLIGENCE_DB?:D1Store};
+type Env={INTELLIGENCE_DB?:D1Store;CRON_SECRET?:string};
 export async function d1PilotMarketRead(request:Request,env:Env):Promise<Response>{
+ const secret=typeof env.CRON_SECRET==='string'?env.CRON_SECRET:'';
+ if(!secret)return Response.json({ok:false,reason:'AUTH_NOT_CONFIGURED'},{status:503,headers:{'Cache-Control':'no-store'}});
+ if(request.headers.get('authorization')!==`Bearer ${secret}`)return Response.json({ok:false,reason:'UNAUTHORIZED'},{status:401,headers:{'Cache-Control':'no-store'}});
  if(request.method!=='GET')return Response.json({ok:false,reason:'METHOD_NOT_ALLOWED'},{status:405,headers:{Allow:'GET'}});
  const url=new URL(request.url);
  const eventId=url.searchParams.get('event_id');
