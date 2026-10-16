@@ -87,8 +87,8 @@ jobs:
           # on every deployment. Legacy random fallback stays isolated and masked.
           CRON_SECRET="${D1_STABLE_CRON_SECRET:-}"
           INGEST_SECRET="${D1_STABLE_INGEST_SECRET:-}"
-          if [ -z "$CRON_SECRET" ]; then CRON_SECRET=$(openssl rand -hex 32); echo "::warning::D1_PILOT_CRON_SECRET not configured; rotating a temporary credential"; fi
-          if [ -z "$INGEST_SECRET" ]; then INGEST_SECRET=$(openssl rand -hex 32); echo "::warning::D1_PILOT_INGEST_SECRET not configured; rotating a temporary credential"; fi
+          if [ -z "$CRON_SECRET" ]; then echo "::error::D1_PILOT_CRON_SECRET is required to keep authenticated pilot access stable across deployments."; exit 1; fi
+          if [ -z "$INGEST_SECRET" ]; then echo "::error::D1_PILOT_INGEST_SECRET is required to keep authenticated pilot access stable across deployments."; exit 1; fi
           test "${#CRON_SECRET}" -ge 32
           test "${#INGEST_SECRET}" -ge 32
           test "$CRON_SECRET" != "$INGEST_SECRET"
