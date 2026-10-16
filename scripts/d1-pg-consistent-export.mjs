@@ -1,3 +1,15 @@
+const allowedColumns={
+teams:['id','sport','league','name','city','venue','metadata'],
+athletes:['id','sport','league','full_name','team_id','position','active','metadata','created_at','updated_at'],
+events:['id','provider_event_id','sport','league','home_team_id','away_team_id','start_time','venue','status'],
+market_snapshots:['id','event_id','provider','bookmaker','market_key','selection_key','american_odds','point','pulled_at','raw'],
+player_game_stats:['id','athlete_id','event_id','stat_date','stats','source','imported_at'],
+injury_snapshots:['id','athlete_id','team_id','status','detail','source','reported_at','pulled_at'],
+weather_snapshots:['id','event_id','temp_f','wind_mph','precip_prob','humidity','roof_status','payload','pulled_at'],
+model_runs:['id','event_id','market_key','selection_key','model_version','run_count','market_probability','model_probability','fair_american_odds','expected_value','full_kelly','fractional_kelly','agreement','confidence','grade','feature_snapshot','created_at'],
+bet_results:['id','model_run_id','event_id','market_key','selection_key','offered_odds','closing_odds','result','clv','pnl','settled_at'],
+calibration_metrics:['id','model_version','sport','market_key','sample_size','brier_score','log_loss','calibration_error','period_start','period_end','created_at']
+};
 import postgres from 'postgres';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +32,10 @@ else{
        if(!Number.isSafeInteger(count)||count>10000)throw new Error('ROW_LIMIT_EXCEEDED_'+table);
        // Stable whole-row JSON ordering avoids assuming every legacy table has an id column.
        // At most 10,000 source rows can pass the count gate above.
+       const sourceColumns=await tx.unsafe("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$1",[table]);
+       const sourceNames=sourceColumns.map(x=>x.column_name);
+       const accepted=allowedColumns[table];
+       if(!sourceNames.length||sourceNames.some(name=>!accepted.includes(name)))throw new Error('UNMAPPED_SOURCE_COLUMNS_'+table);
        const rows=await tx.unsafe('SELECT * FROM "'+table+'" AS t ORDER BY to_jsonb(t)::text LIMIT 10001');
        if(rows.length!==count)throw new Error('ROW_COUNT_MISMATCH_'+table);
        const file=path.join(dir,table+'.jsonl');
