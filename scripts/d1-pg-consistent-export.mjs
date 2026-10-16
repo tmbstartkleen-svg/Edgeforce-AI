@@ -18,7 +18,9 @@ else{
        const total=await tx.unsafe('SELECT count(*)::text AS n FROM "'+table+'"');
        const count=Number(total[0]?.n);
        if(!Number.isSafeInteger(count)||count>10000)throw new Error('ROW_LIMIT_EXCEEDED_'+table);
-       const rows=await tx.unsafe('SELECT * FROM "'+table+'" ORDER BY id LIMIT 10001');
+       // Stable whole-row JSON ordering avoids assuming every legacy table has an id column.
+       // At most 10,000 source rows can pass the count gate above.
+       const rows=await tx.unsafe('SELECT * FROM "'+table+'" AS t ORDER BY to_jsonb(t)::text LIMIT 10001');
        if(rows.length!==count)throw new Error('ROW_COUNT_MISMATCH_'+table);
        const file=path.join(dir,table+'.jsonl');
        const fd=fs.openSync(file,'wx',0o600);staged.push(file);
