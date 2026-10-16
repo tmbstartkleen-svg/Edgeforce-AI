@@ -60,6 +60,20 @@ jobs:
           D1_PILOT_CRON_SECRET: ${{ secrets.D1_PILOT_CRON_SECRET }}
           D1_PILOT_INGEST_SECRET: ${{ secrets.D1_PILOT_INGEST_SECRET }}
         run: node scripts/d1-activation-gate.mjs
+      - name: Initialize isolated D1 schema (additive only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          node scripts/d1-pilot-schema-preflight.mjs
+          for migration in \
+            db/d1/0001_intelligence_pilot.sql \
+            db/d1/0002_agent_tasks.sql \
+            db/d1/0003_sports_market_snapshots.sql \
+            db/d1/0002_reference_entities.sql \
+            db/d1/0003_baseline_sports.sql; do
+            npx wrangler d1 execute edgeforce-d1-pilot-isolated --remote --config wrangler.d1-pilot.jsonc --file="$migration" --yes
+          done
       - name: Deploy isolated D1 Worker (no Neon or production changes)
         run: npx wrangler deploy --config wrangler.d1-pilot.jsonc
       - name: Install isolated gateway credentials
