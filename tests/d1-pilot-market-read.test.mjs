@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const router=fs.readFileSync('worker/d1-standalone.ts','utf8');const handler=fs.readFileSync('worker/d1-pilot-market-read.ts','utf8');
+test('standalone D1 pilot routes only one read-only market endpoint',()=>{assert.match(router,/d1PilotMarketRead/);assert.match(router,/\/api\/operations\/d1-pilot\/market-snapshots/);assert.doesNotMatch(fs.readFileSync('worker/index.ts','utf8'),/d1PilotMarketRead/);});
+test('market endpoint is read-only and fails closed without a D1 binding',()=>{assert.match(handler,/request.method!=='GET'/);assert.match(handler,/D1_UNAVAILABLE/);assert.match(handler,/productionPrimary:false/);assert.match(handler,/independentOddsVerification:false/);assert.doesNotMatch(handler,/insertMarketSnapshot|\.run\(/);});
