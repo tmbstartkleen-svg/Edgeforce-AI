@@ -1,4 +1,5 @@
 import {d1PilotModelHistory} from './d1-pilot-model-history';
+import {d1SportsSchemaCoverage} from './d1-sports-schema-coverage';
 import {d1PilotMarketRead} from './d1-pilot-market-read';
 import {d1PilotReadiness} from './d1-pilot';
 import {d1IngestGateway,d1RecentGateway} from './d1-gateway';
@@ -15,6 +16,7 @@ type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLE
 export default {
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/d1-pilot/schema-coverage')return d1SportsSchemaCoverage(request,env);
   if(pathname==='/api/operations/d1-pilot/model-history')return d1PilotModelHistory(request,env);
   if(pathname==='/api/operations/d1-pilot/market-snapshots')return d1PilotMarketRead(request,env);
   if(pathname==='/api/operations/d1-pilot/score-coverage')return d1ScoreCoverage(request,env);
