@@ -318,6 +318,8 @@ jobs:
           jq -e '.ok==true and .productionPrimary==false and .historyMigrated==false and .queryParityCertified==false and .baselineTablesRequired==10 and (.baselineTablesPresent|type=="number") and (.missing|type=="array")' /tmp/d1-schema-coverage.json >/dev/null
           echo "### Hosted D1 sports schema inventory" >> "$GITHUB_STEP_SUMMARY"
           jq -r '"Present: \(.baselineTablesPresent) of \(.baselineTablesRequired); missing: \(.missing | join(", "))"' /tmp/d1-schema-coverage.json >> "$GITHUB_STEP_SUMMARY"
+          # Table identifiers are fixed schema names, not secrets; surface them in logs.
+          jq -r '"D1 SPORTS SCHEMA COVERAGE: \(.baselineTablesPresent)/\(.baselineTablesRequired); missing: \(.missing | join(", "))"' /tmp/d1-schema-coverage.json
           if ! jq -e '.baselineSchemaComplete==true' /tmp/d1-schema-coverage.json >/dev/null; then
             echo "::warning::Some D1 sports tables are absent on remote pilot; historical migration and cutover remain blocked."
           fi
