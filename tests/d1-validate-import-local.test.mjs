@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawnSync} from 'node:child_process';
+const tables=['teams','athletes','events','market_snapshots','player_game_stats','injury_snapshots','weather_snapshots','model_runs','bet_results','calibration_metrics'];
+const rows={teams:{id:'t',sport:'soccer',name:'T'},athletes:{id:'a',sport:'soccer',full_name:'A'},events:{id:'e',sport:'soccer',start_time:'2026-10-16T12:00:00Z'},market_snapshots:{id:1,event_id:'e',provider:'p',bookmaker:'b',market_key:'ml',selection_key:'home',american_odds:-110},player_game_stats:{id:2,athlete_id:'a',event_id:'e',stat_date:'2026-10-16',stats:{}},injury_snapshots:{id:3},weather_snapshots:{id:'w',event_id:'e'},model_runs:{id:4,event_id:'e',market_key:'ml',selection_key:'home',run_count:10,market_probability:0.5,model_probability:0.6},bet_results:{id:5,model_run_id:4},calibration_metrics:{id:6}};
+test('full ten-table batch validates against actual SQLite constraints without D1 access',()=>{const root=mkdtempSync(join(tmpdir(),'d1-local-')),src=join(root,'src'),out=join(root,'out');mkdirSync(src);mkdirSync(out);try{
+ for(const table of tables)writeFileSync(join(src,table+'.jsonl'),JSON.stringify(rows[table])+'\n');
+ const p=spawnSync(process.execPath,['scripts/d1-plan-offline-import.mjs',src,out],{encoding:'utf8'});assert.equal(p.status,0,p.stderr);
+ const r=spawnSync(process.execPath,['scripts/d1-validate-import-local.mjs',out],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+ const result=JSON.parse(r.stdout);assert.equal(result.ok,true);assert.equal(result.productionTouched,false);assert.equal(result.counts.model_runs,1);
+}finally{rmSync(root,{recursive:true,force:true})}});
+test('local validator fails closed for non-existent plan',()=>{const r=spawnSync(process.execPath,['scripts/d1-validate-import-local.mjs','/does/not/exist'],{encoding:'utf8'});assert.notEqual(r.status,0);});
