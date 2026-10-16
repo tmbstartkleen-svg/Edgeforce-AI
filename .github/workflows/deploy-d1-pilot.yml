@@ -44,6 +44,12 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || exit 1
           test -n "$CLOUDFLARE_ACCOUNT_ID" || exit 1
+          # Validate the actual value before Wrangler runs. Do not print secret values.
+          # GitHub secrets may contain whitespace or an entire pasted assignment.
+          if ! [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID must contain exactly 32 hexadecimal characters; correct the GitHub Actions secret."
+            exit 1
+          fi
       - run: npm ci
       - name: Typecheck and validate D1 pilot
         run: |
