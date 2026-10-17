@@ -1,0 +1,31 @@
+'use client';
+import {useEffect,useMemo,useState} from 'react';
+import {GLOBAL_SPORT_REGISTRY,SPORT_FAMILIES,sportCoverageSummary} from '@/lib/sportRegistry';
+type Game={id?:string;sport?:string;league?:string;source?:string;status?:string;startTime?:string;home?:{name?:string;score?:number|null};away?:{name?:string;score?:number|null};sourceObservedAt?:string};
+type Live={ok?:boolean;generatedAt?:string;games?:Game[];error?:string};
+const summary=sportCoverageSummary();
+export default function LeagueCoverageDashboard(){
+ const [data,setData]=useState<Live|null>(null),[family,setFamily]=useState('all'),[search,setSearch]=useState(''),[refresh,setRefresh]=useState(0);
+ useEffect(()=>{let active=true;fetch('/api/live-scores',{cache:'no-store'}).then(async r=>{const x=await r.json();if(!r.ok)throw new Error(x.error||'Live score mesh unavailable');return x as Live}).then(x=>{if(active)setData(x)}).catch(e=>{if(active)setData({ok:false,error:e instanceof Error?e.message:'Unavailable',games:[]})});return()=>{active=false}},[refresh]);
+ const filtered=useMemo(()=>GLOBAL_SPORT_REGISTRY.filter(s=>(family==='all'||s.family===family)&&(!search||[s.label,s.id,s.family,s.scope].join(' ').toLowerCase().includes(search.toLowerCase()))),[family,search]);
+ const games=data?.games||[];
+ const observed=new Set(games.map(g=>(g.league||'').toLowerCase()));
+ const observedFeeds=GLOBAL_SPORT_REGISTRY.filter(s=>games.some(g=>(g.league||'').toLowerCase().includes(s.label.toLowerCase())||(g.sport||'').toLowerCase()===s.family.toLowerCase())).length;
+ const providerGroups=useMemo(()=>GLOBAL_SPORT_REGISTRY.reduce((acc,s)=>{acc[s.scoreProvider]=(acc[s.scoreProvider]||0)+1;return acc},{} as Record<string,number>),[]);
+ return <section className="coverageWorkspace">
+  <div className="coverageKpis">
+   <article><small>REGISTERED LEAGUE FEEDS</small><strong>{summary.feeds}</strong><span>Catalog entries, not guaranteed live coverage</span></article>
+   <article><small>SPORT FAMILIES</small><strong>{summary.families}</strong><span>Across pro, college and global sports</span></article>
+   <article><small>LIVE GAMES OBSERVED</small><strong>{data?.ok?games.length:'—'}</strong><span>{data?.ok?'Latest live-score mesh response':'Live feed unavailable'}</span></article>
+   <article><small>ODDS MARKETS VERIFIED</small><strong>Not certified</strong><span>Requires per-bookmaker price evidence</span></article>
+  </div>
+  <div className="coverageTools"><input aria-label="Search leagues" placeholder="Search league, sport or scope…" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Filter sport family" value={family} onChange={e=>setFamily(e.target.value)}><option value="all">All sport families</option>{SPORT_FAMILIES.map(f=><option key={f} value={f}>{f}</option>)}</select><button onClick={()=>setRefresh(x=>x+1)}>Refresh live evidence</button></div>
+  <div className="coverageGrid">
+   <article className="coveragePanel"><div className="coveragePanelHead"><div><div className="eyebrow">SOURCE MIX</div><h2>Registry by provider class</h2></div></div>{Object.entries(providerGroups).map(([k,v])=><div className="coverageBarRow" key={k}><span>{k}</span><div><i style={{width:(v/Math.max(1,summary.feeds)*100)+'%'}}/></div><b>{v}</b></div>)}<p className="coverageNote">Provider class describes the registry configuration only; it does not certify access, rights, uptime, or odds availability.</p></article>
+   <article className="coveragePanel"><div className="coveragePanelHead"><div><div className="eyebrow">LIVE EVIDENCE</div><h2>Latest scoreboard scan</h2></div><button onClick={()=>setRefresh(x=>x+1)}>Refresh</button></div><div className="coverageLiveValue">{data?.ok?games.length:'—'} <span>games returned</span></div><p>{data?.generatedAt?'Fetched '+new Date(data.generatedAt).toLocaleString():data?.error||'Waiting for first response.'}</p><p className="coverageNote">Live score availability is separate from odds, player props, historical lines and model edges.</p></article>
+  </div>
+  <div className="coverageTableHead"><div><div className="eyebrow">LEAGUE INVENTORY</div><h2>Coverage status by league</h2></div><span>{filtered.length} entries</span></div>
+  <div className="coverageTableWrap"><table><thead><tr><th>League / competition</th><th>Sport family</th><th>Scope</th><th>Configured provider</th><th>Live games</th><th>Odds / props</th><th>Status</th></tr></thead><tbody>{filtered.map(s=>{const matches=games.filter(g=>(g.league||'').toLowerCase().includes(s.label.toLowerCase())||(g.sport||'').toLowerCase()===s.family.toLowerCase());const has=matches.length>0;return <tr key={s.id}><td><strong>{s.label}</strong><small>{s.id}</small></td><td>{s.family}</td><td>{s.scope}</td><td>{s.scoreProvider}</td><td>{data?.ok?matches.length:'Unknown'}</td><td><span className="coverageStatus pending">Unverified</span></td><td><span className={'coverageStatus '+(has?'partial':'pending')}>{has?'Score evidence':'Not observed'}</span></td></tr>})}</tbody></table></div>
+  <p className="coverageNote">The current live mesh may use different league naming than the registry; counts are provisional and intentionally do not imply full coverage. Odds-market status remains unverified until a bookmaker-specific scan confirms event, market, price, and timestamp.</p>
+ </section>
+}
