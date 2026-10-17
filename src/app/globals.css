@@ -1180,3 +1180,31 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* Sports research workspace: responsive, evidence-first visual hierarchy. */
+.sportsResearchPage{max-width:1480px;margin:0 auto;padding:clamp(18px,3vw,42px);color:var(--text)}
+.sportsResearchHero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,.7fr);gap:clamp(18px,3vw,42px);align-items:stretch;padding:24px 0 30px;border-bottom:1px solid var(--line)}
+.sportsResearchHero h1{font-size:clamp(36px,5.2vw,68px);letter-spacing:-.045em;line-height:.99;margin:18px 0}
+.sportsResearchHero h1 span{color:var(--gold2)}
+.sportsResearchHero p{max-width:760px;color:var(--muted);font-size:clamp(14px,1.3vw,17px);line-height:1.7}
+.sportsResearchActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.sportsResearchActions a{display:inline-flex;padding:10px 14px;border:1px solid var(--line);border-radius:10px;color:var(--gold2);text-decoration:none;font-weight:750;font-size:13px}
+.sportsResearchActions a:hover{border-color:var(--gold);background:#d8ad4a12}
+.sportsResearchGuard{border:1px solid var(--line);border-radius:18px;padding:clamp(18px,2vw,28px);background:linear-gradient(145deg,#17140d,#0b0b0b)}
+.sportsResearchGuard small,.sportsResearchMetrics article small{color:var(--gold);font-weight:850;letter-spacing:.14em;font-size:10px}
+.sportsResearchGuard strong{display:block;font-size:clamp(22px,2.3vw,30px);margin:12px 0}
+.sportsResearchGuard div{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px;margin-top:12px}
+.sportsResearchGuard div span{width:7px;height:7px;border-radius:50%;background:var(--lime);flex-shrink:0}
+.sportsResearchMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:24px 0 34px}
+.sportsResearchMetrics article{min-width:0;border:1px solid var(--line);border-radius:15px;padding:18px;background:linear-gradient(145deg,#14120d,#0b0b0b)}
+.sportsResearchMetrics h2{font-size:17px;line-height:1.25;margin:12px 0}
+.sportsResearchMetrics p,.sportsResearchFoot p{font-size:12px;line-height:1.65;color:var(--muted)}
+.sportsResearchSection{margin:28px 0}
+.sportsResearchSectionHead{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:14px}
+.sportsResearchSectionHead h2{font-size:clamp(22px,3vw,34px);margin:7px 0}
+.sportsResearchSectionHead>span{color:var(--muted);font-size:11px}
+.sportsResearchFoot{padding:22px;border:1px solid #5a4820;border-radius:16px;background:#d8ad4a0a;margin:30px 0}
+.sportsResearchFoot strong{color:var(--gold2);font-size:17px}
+@media(max-width:1000px){.sportsResearchMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sportsResearchHero{grid-template-columns:1fr}}
+@media(max-width:560px){.sportsResearchPage{padding:16px}.sportsResearchMetrics{grid-template-columns:1fr}.sportsResearchSectionHead{align-items:start;flex-direction:column}.sportsResearchHero h1{font-size:39px}}
