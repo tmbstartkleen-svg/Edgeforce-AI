@@ -21,6 +21,7 @@ on:
       - 'src/lib/intelligence-core/d1-sports-market-store.mjs'
       - 'src/lib/intelligence-core/polymarket-source.mjs'
       - 'wrangler.d1-pilot.jsonc'
+      - 'db/d1/0004_pilot_score_sources.sql'
       - 'scripts/d1-activation-gate.mjs'
       - '.github/workflows/deploy-d1-pilot.yml'
 permissions:
@@ -71,7 +72,8 @@ jobs:
             db/d1/0002_agent_tasks.sql \
             db/d1/0003_sports_market_snapshots.sql \
             db/d1/0002_reference_entities.sql \
-            db/d1/0003_baseline_sports.sql; do
+            db/d1/0003_baseline_sports.sql \
+            db/d1/0004_pilot_score_sources.sql; do
             npx wrangler d1 execute edgeforce-d1-pilot-isolated --remote --config wrangler.d1-pilot.jsonc --file="$migration" --yes
           done
       - name: Deploy isolated D1 Worker (no Neon or production changes)
