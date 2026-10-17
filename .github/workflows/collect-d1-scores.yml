@@ -1,8 +1,6 @@
 name: Collect isolated D1 sports scores
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 */6 * * *'
 permissions:
   contents: read
 concurrency:
