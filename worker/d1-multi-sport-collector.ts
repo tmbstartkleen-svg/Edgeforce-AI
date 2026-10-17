@@ -28,7 +28,7 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
   for(const event of events){
    const competitors=event.competitions?.[0]?.competitors?.slice(0,2)||[];
    if(typeof event.id!=='string'||!event.id||competitors.length!==2||
-     competitors.some(x=>typeof x.score!=='string'||!/^\\d{1,3}$/.test(x.score)))continue;
+     competitors.some(x=>typeof x.score!=='string'||!/^\d{1,3}$/.test(x.score)))continue;
    observations.push({provider:source.sourceId,upstreamId:source.upstreamId,eventId:event.id,observedAt,
     kind:'score',value:{sport:source.sport,sourceEventId:event.id,eventDate:event.date||null,
       status:event.status?.type?.name||null,teams:competitors.map(x=>({name:x.team?.displayName||null,score:x.score})),

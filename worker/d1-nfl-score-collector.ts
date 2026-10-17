@@ -30,7 +30,7 @@ export async function collectNflScores(request:Request,env:Env):Promise<Response
   for(const event of events){
    if(typeof event.id!=='string'||!event.id||!event.competitions?.[0]?.competitors?.length)continue;
    const competitors=event.competitions[0].competitors.slice(0,2);
-   if(competitors.length!==2||competitors.some(x=>typeof x.score!=='string'||!/^\\d{1,3}$/.test(x.score))){skippedWithoutScore++;continue;}
+   if(competitors.length!==2||competitors.some(x=>typeof x.score!=='string'||!/^\d{1,3}$/.test(x.score))){skippedWithoutScore++;continue;}
    const players=competitors.map(x=>({team:x.team?.displayName||null,score:x.score}));
    observations.push({provider:sourceId,upstreamId,eventId:event.id,observedAt:now,kind:'score',
     value:{sport:'NFL',eventId:event.id,eventDate:event.date||null,status:event.status?.type?.name||null,teams:players,
