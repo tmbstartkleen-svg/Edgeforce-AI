@@ -1,10 +1,22 @@
 {
- "$schema":"node_modules/wrangler/config-schema.json",
- "name":"edgeforce-d1-pilot",
- "main":"worker/d1-standalone.ts",
- "compatibility_date":"2026-10-03",
- "compatibility_flags":["nodejs_compat"],
- "workers_dev":true,
- "d1_databases":[{"binding":"INTELLIGENCE_DB","database_name":"edgeforce-d1-pilot-isolated","database_id":"a0a52a55-0e2e-42c5-b9c0-a2bc906bb32a"}],
- "vars":{"INTELLIGENCE_D1_WRITE_ENABLED":"false","SPORTS_D1_WRITE_ENABLED":"false","SPORTS_SCORE_COLLECT_ENABLED":"true"}
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgeforce-d1-pilot",
+  "main": "worker/d1-standalone.ts",
+  "compatibility_date": "2026-10-03",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "INTELLIGENCE_DB",
+      "database_name": "edgeforce-d1-pilot-isolated",
+      "database_id": "a0a52a55-0e2e-42c5-b9c0-a2bc906bb32a"
+    }
+  ],
+  "vars": {
+    "INTELLIGENCE_D1_WRITE_ENABLED": "false",
+    "SPORTS_D1_WRITE_ENABLED": "false",
+    "SPORTS_SCORE_COLLECT_ENABLED": "false"
+  }
 }
