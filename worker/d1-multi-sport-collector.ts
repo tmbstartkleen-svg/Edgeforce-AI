@@ -1,3 +1,4 @@
+import {assessIngestEvidence} from './d1-ingest-quality-gate';
 import {appendD1Observations,type D1Database,type D1Observation} from './d1-observations';
 import {scoreboardSource} from '../src/lib/intelligence-core/score-source-catalog.mjs';
 type Env={CRON_SECRET?:string;INTELLIGENCE_DB?:D1Database;SPORTS_SCORE_COLLECT_ENABLED?:string};
@@ -24,11 +25,16 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
   const data=JSON.parse(raw) as {events?:Array<{id?:string;date?:string;status?:{type?:{name?:string}};competitions?:Array<{competitors?:Array<{team?:{displayName?:string};score?:string}>}>}>};
   const events=Array.isArray(data.events)?data.events.slice(0,15):[];
   const observedAt=Date.now();
+  let qualityRejected=0;
   const observations:D1Observation[]=[];
   for(const event of events){
    const competitors=event.competitions?.[0]?.competitors?.slice(0,2)||[];
    if(typeof event.id!=='string'||!event.id||competitors.length!==2||
      competitors.some(x=>typeof x.score!=='string'||!/^\d{1,3}$/.test(x.score)))continue;
+   const quality=assessIngestEvidence({kind:'score',observedAt,collectedAt:observedAt,
+    sourceId:source.sourceId,upstreamId:source.upstreamId,eventId:event.id,
+    payloadBytes:new TextEncoder().encode(JSON.stringify(event)).length},observedAt);
+   if(!quality.acceptedForPilot){qualityRejected++;continue;}
    observations.push({provider:source.sourceId,upstreamId:source.upstreamId,eventId:event.id,observedAt,
     kind:'score',value:{sport:source.sport,sourceEventId:event.id,eventDate:event.date||null,
       status:event.status?.type?.name||null,teams:competitors.map(x=>({name:x.team?.displayName||null,score:x.score})),
@@ -36,6 +42,6 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
   }
   const report=await appendD1Observations(env.INTELLIGENCE_DB,observations,observedAt);
   return Response.json({ok:report.rejected===0,source:source.sourceId,sport:source.sport,
-   classification:source.classification,attempted:observations.length,fetchedEvents:events.length,...report},{headers,status:report.rejected===0?200:503});
+   classification:source.classification,attempted:observations.length,fetchedEvents:events.length,qualityRejected,...report},{headers,status:report.rejected===0?200:503});
  }catch{return Response.json({ok:false,reason:'SCORE_COLLECTION_FAILED'},{status:503,headers});}
 }
