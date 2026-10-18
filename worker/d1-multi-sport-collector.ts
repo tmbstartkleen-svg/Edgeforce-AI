@@ -29,15 +29,17 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
   const observations:D1Observation[]=[];
   for(const event of events){
    const competitors=event.competitions?.[0]?.competitors?.slice(0,2)||[];
-   if(typeof event.id!=='string'||!event.id||competitors.length!==2||
-     competitors.some(x=>typeof x.score!=='string'||!/^\d{1,3}$/.test(x.score)))continue;
+   if(typeof event.id!=='string'||!event.id||competitors.length!==2)continue;
+   const hasScores=competitors.every(x=>typeof x.score==='string'&&/^\d{1,3}$/.test(x.score));
+   const isScheduled=event.status?.type?.name==='STATUS_SCHEDULED';
+   if(!hasScores&&!isScheduled)continue;
    const quality=assessIngestEvidence({kind:'score',observedAt,collectedAt:observedAt,
     sourceId:source.sourceId,upstreamId:source.upstreamId,eventId:event.id,
     payloadBytes:new TextEncoder().encode(JSON.stringify(event)).length},observedAt);
    if(!quality.acceptedForPilot){qualityRejected++;continue;}
    observations.push({provider:source.sourceId,upstreamId:source.upstreamId,eventId:event.id,observedAt,
     kind:'score',value:{sport:source.sport,sourceEventId:event.id,eventDate:event.date||null,
-      status:event.status?.type?.name||null,teams:competitors.map(x=>({name:x.team?.displayName||null,score:x.score})),
+      status:event.status?.type?.name||null,recordType:hasScores?'SCORE':'SCHEDULE',teams:competitors.map(x=>({name:x.team?.displayName||null,score:hasScores?x.score:null})),
       observationTimeIsCollectionTime:true}});
   }
   const report=await appendD1Observations(env.INTELLIGENCE_DB,observations,observedAt);
