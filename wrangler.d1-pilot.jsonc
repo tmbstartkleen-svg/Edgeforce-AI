@@ -17,6 +17,12 @@
   "vars": {
     "INTELLIGENCE_D1_WRITE_ENABLED": "false",
     "SPORTS_D1_WRITE_ENABLED": "false",
-    "SPORTS_SCORE_COLLECT_ENABLED": "false"
+    "SPORTS_SCORE_COLLECT_ENABLED": "false",
+    "STORAGE_STEWARD_SCHEDULE_ENABLED": "false"
+  },
+  "triggers": {
+    "crons": [
+      "0 * * * *"
+    ]
   }
 }
