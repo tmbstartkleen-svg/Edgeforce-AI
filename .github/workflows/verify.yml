@@ -41,6 +41,8 @@ jobs:
         run: npm run test:network
       - name: Test durable Founder mission journal
         run: npm run test:network-persistence
+      - name: Test director task collaboration
+        run: npm run test:network-director-tasks
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
