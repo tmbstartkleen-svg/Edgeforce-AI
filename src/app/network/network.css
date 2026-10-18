@@ -110,3 +110,21 @@
 .networkMission .networkRestore{margin:7px 0 11px;border:1px solid #548574;background:#163b32;border-radius:8px;color:#c9f5da;padding:10px 13px;cursor:pointer;font-weight:750;font-size:11px}
 .networkMission .networkRestore:hover{background:#234d40}
 .networkMission .networkRestore:disabled{opacity:.5;cursor:not-allowed}
+
+.networkTasksTools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:24px 0;padding:14px;background:#101d2a;border:1px solid var(--line);border-radius:12px}
+.networkTasksTools label{color:var(--mute);font-size:11px;font-weight:700}
+.networkTasksTools select{background:#14293a;border:1px solid #426475;border-radius:8px;color:#e9fff5;font-size:11px;padding:9px 12px}
+.networkTasksTools button{border:1px solid #4c8f74;background:#173b30;border-radius:8px;color:#d0ffe1;font-size:11px;font-weight:800;padding:10px 13px;cursor:pointer}
+.networkTasksTools button:disabled{opacity:.5}
+.networkTaskNotice{padding:17px;color:var(--mute);font-size:12px;line-height:1.7}
+.networkTaskList{display:grid;gap:12px}
+.networkTaskRecord{border:1px solid #29485a;background:#101d2b;border-radius:12px;padding:18px;overflow-wrap:anywhere}
+.networkTaskRecordHead{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}
+.networkTaskRecordHead b{display:block;color:#c1efdc;font-size:12px}
+.networkTaskRecordHead small{display:block;color:var(--mute);font-size:10px;margin-top:5px}
+.networkTaskRecord p{color:#cfdeea;font-size:12px;line-height:1.7}
+.networkTaskRecord p.networkTaskQuestion{font-weight:800;color:#e9f8fd}
+.networkTaskRecord>small{font-size:10px;color:#9bb6c7;line-height:1.5}
+.networkTaskStatus{border:1px solid #66836d;color:#c6eacc;background:#1b392a;font-size:9px;font-weight:800;padding:6px 9px;border-radius:99px}
+.networkTaskStatus.failed,.networkTaskStatus.interrupted{border-color:#916359;color:#ffd5bb;background:#3b2528}
+.networkTaskStatus.running{border-color:#998658;color:#f9e1a4;background:#3f3220}
