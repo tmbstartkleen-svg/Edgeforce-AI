@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 
 type AgentId='scout'|'lines'|'props'|'arb'|'audit'|'captain';
 type Persona={id:AgentId;name:string;specialty:string};
@@ -57,7 +57,6 @@ export default function TeamCommandCenter(){
  useEffect(()=>{bottom.current?.scrollIntoView({behavior:'smooth',block:'nearest'});},[turns,busy,error]);
  const last=turns.at(-1)?.response;
  const stats=last?.coverage;
- const available=useMemo(()=>turns.flatMap(t=>t.response.messages).filter(x=>active==='all'||x.agent===active),[turns,active]);
  const ask=useCallback(async(requested?:string)=>{
   const text=(requested??question).trim();
   if(!text||text.length>500||busy)return;
