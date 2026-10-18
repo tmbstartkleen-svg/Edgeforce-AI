@@ -44,11 +44,17 @@ export default function TeamCommandCenter(){
  const [loaded,setLoaded]=useState(false);
  const bottom=useRef<HTMLDivElement|null>(null);
  useEffect(()=>{
-  try{
-   const saved=JSON.parse(localStorage.getItem(STORE)||'[]') as unknown;
-   if(Array.isArray(saved))setTurns(saved.filter(x=>x&&typeof x==='object'&&'response'in x&&'question'in x).slice(-12) as Turn[]);
-  }catch{ /* invalid client cache is safely ignored */ }
-  setLoaded(true);
+  // Hydrate after paint; avoid synchronous state writes from an effect.
+  let active=true;
+  const task=window.setTimeout(()=>{
+   if(!active)return;
+   try{
+    const saved=JSON.parse(localStorage.getItem(STORE)||'[]') as unknown;
+    if(Array.isArray(saved))setTurns(saved.filter(x=>x&&typeof x==='object'&&'response'in x&&'question'in x).slice(-12) as Turn[]);
+   }catch{ /* invalid client cache is safely ignored */ }
+   setLoaded(true);
+  },0);
+  return()=>{active=false;window.clearTimeout(task);};
  },[]);
  useEffect(()=>{
   if(!loaded)return;
