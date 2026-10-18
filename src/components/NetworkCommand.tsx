@@ -13,6 +13,11 @@ type Reply=DirectorRun&{
 };
 type ErrorReply={ok:false;error:string;message:string};
 type Exchange={key:number;request:string;response:Reply};
+type DirectorTask={
+ id:string;missionId:string;agent:string;question:string;stage:string;
+ status:'RUNNING'|'COMPLETED'|'FAILED'|'INTERRUPTED';
+ createdAt:string;finishedAt?:string;finding?:string;evidence:string[];limitations:string[];
+};
 const setup=[
  'ATLAS: Audit our currently observed sports and league coverage. Tell me what feeds and markets are missing.',
  'ATLAS: Coordinate a cross-sport +EV research briefing and have SENTINEL challenge every claim.',
@@ -36,10 +41,28 @@ export default function NetworkCommand(){
  const [busy,setBusy]=useState(false);
  const [history,setHistory]=useState<Exchange[]>([]);
  const [error,setError]=useState('');
- const [tab,setTab]=useState<'room'|'org'>('room');
+ const [tab,setTab]=useState<'room'|'org'|'tasks'>('room');
+ const [tasks,setTasks]=useState<DirectorTask[]>([]);
+ const [taskAgent,setTaskAgent]=useState('all');
+ const [tasksLoaded,setTasksLoaded]=useState(false);
  const [selected,setSelected]=useState<string>('atlas');
  const [sequence,setSequence]=useState(0);
  const selectedRole=NETWORK_ORG.find(x=>x.id===selected)||NETWORK_ORG[1];
+ const loadTasks=useCallback(async()=>{
+  if(!auth.trim()){setError('Enter the Founder access token to view director tasks.');return;}
+  if(busy)return;
+  setBusy(true);setError('');
+  try{
+   const res=await fetch('/api/network/tasks',{
+    headers:{Authorization:'Bearer '+auth.trim()},cache:'no-store'
+   });
+   const body=await res.json() as {ok?:boolean;tasks?:DirectorTask[];error?:string};
+   if(!res.ok||!body.ok||!Array.isArray(body.tasks))throw new Error(body.error||'Director activity unavailable.');
+   setTasks(body.tasks);
+   setTasksLoaded(true);
+  }catch(e){setError(e instanceof Error?e.message:'Unable to load task history.');}
+  finally{setBusy(false);}
+ },[auth,busy]);
  const loadHistory=useCallback(async()=>{
   if(!auth.trim()){setError('Enter the Founder access token to restore the private mission journal.');return;}
   if(busy)return;
@@ -84,6 +107,7 @@ export default function NetworkCommand(){
     <div className="networkSideTitle">EXECUTIVE COMMAND</div>
     <button type="button" onClick={()=>setTab('room')} className={'networkNav '+(tab==='room'?'current':'')}>◈ <span>ATLAS Command Room</span></button>
     <button type="button" onClick={()=>setTab('org')} className={'networkNav '+(tab==='org'?'current':'')}>▦ <span>Organization Chart</span></button>
+    <button type="button" onClick={()=>{setTab('tasks');void loadTasks();}} className={'networkNav '+(tab==='tasks'?'current':'')}>≡ <span>Director Task Board</span></button>
     <div className="networkSideTitle">DIRECTORS</div>
     {DIRECTORS.map(x=><button type="button" key={x.id} className={'networkMember '+(selected===x.id?'memberSelected':'')} onClick={()=>{setSelected(x.id);setTab('org')}}><span className="networkInitial">{x.name[0]}</span><span><b>{x.name}</b><small>{x.title.replace('Director, ','')}</small></span></button>)}
     <div className="networkAccessNote"><b>FOUNDER CONTROL</b><p>Research only. No deployment, payment, vendor activation, public verified picks, or bets without your explicit approval.</p></div>
@@ -120,6 +144,31 @@ export default function NetworkCommand(){
       <label htmlFor="network-task">DIRECTIVE TO ATLAS</label>
       <div><textarea id="network-task" rows={3} maxLength={500} placeholder="Tell ATLAS what you want the network to research, verify, or plan…" value={question} onChange={e=>setQuestion(e.target.value)} disabled={busy}/><button type="submit" disabled={busy||!question.trim()}>Issue directive ↗</button></div><small>Read-only research. Completed missions are stored in the private Founder journal. Autonomous scheduled agents are not yet enabled.</small>
      </form>
+    </>:tab==='tasks'?<>
+     <div className="networkHero"><div><div className="networkEyebrow">EXECUTIVE OPERATIONS / TASK HISTORY</div><h1>Director <span>Collaboration</span></h1><p>View recorded ATLAS missions and division reports, filtered by director. Tasks are logged during individual research requests; background autonomous execution is not active.</p></div></div>
+     <div className="networkTasksTools">
+      <label htmlFor="director-filter">Filter division</label>
+      <select id="director-filter" value={taskAgent} onChange={event=>setTaskAgent(event.target.value)}>
+       <option value="all">All directors</option>
+       {NETWORK_ORG.filter(x=>x.rank==='director'||x.rank==='division').map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+      </select>
+      <button type="button" disabled={busy} onClick={()=>void loadTasks()}>{busy?'Loading…':'↻ Refresh activity'}</button>
+     </div>
+     {error&&<div role="alert" className="networkError">{error}</div>}
+     {!tasksLoaded&&<p className="networkTaskNotice">Authenticate as Founder and refresh to view private task records.</p>}
+     {tasksLoaded&&!tasks.length&&<p className="networkTaskNotice">No director tasks recorded yet. Issue a mission to ATLAS in the command room.</p>}
+     <div className="networkTaskList">
+      {tasks.filter(item=>taskAgent==='all'||item.agent===taskAgent).slice().reverse().map(item=><article key={item.id} className="networkTaskRecord">
+       <div className="networkTaskRecordHead">
+        <div><b>{item.agent.toUpperCase()}</b><small>{item.stage} · {new Date(item.createdAt).toLocaleString()}</small></div>
+        <span className={'networkTaskStatus '+item.status.toLowerCase()}>{item.status}</span>
+       </div>
+       <p className="networkTaskQuestion">{item.question}</p>
+       <p>{item.finding||'Task awaiting completion or was interrupted before a final report was recorded.'}</p>
+       {!!item.evidence?.length&&<small>Evidence: {item.evidence.join(' · ')}</small>}
+       {!!item.limitations?.length&&<div className="networkLimit">Limitations: {item.limitations.join(' · ')}</div>}
+      </article>)}
+     </div>
     </>:<>
      <div className="networkHero"><div><div className="networkEyebrow">EXECUTIVE OPERATIONS / STAFF STRUCTURE</div><h1>Network <span>Organization</span></h1><p>One line of accountability: Founder → ATLAS → division directors → specialist agents.</p></div></div>
      <section className="networkOrg">
