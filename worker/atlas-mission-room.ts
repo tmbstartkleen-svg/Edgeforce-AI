@@ -11,6 +11,15 @@ type RoomStore={
  transaction<T>(operation:(txn:RoomStore)=>Promise<T>):Promise<T>;
 };
 type RoomState={storage:RoomStore};
+export type DirectorTask={
+ id:string;missionId:string;agent:string;question:string;stage:string;
+ status:'RUNNING'|'COMPLETED'|'FAILED'|'INTERRUPTED';
+ createdAt:string;finishedAt?:string;finding?:string;
+ evidence:string[];limitations:string[];
+};
+const MAX_DIRECTOR_TASKS=120;
+const VALID_DIRECTORS=new Set(['atlas','mercury','vector','pulse','flash','sentinel','forge']);
+
 type Reservation={lastMinute:number[];lastHour:number[]};
 const NO_STORE={'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'};
 const json=(payload:unknown,status=200)=>Response.json(payload,{status,headers:NO_STORE});
@@ -67,6 +76,89 @@ export class AtlasMissionRoom {
     return next.length;
    });
    return json({ok:true,persisted:true,id:entry.id,recordCount:total});
+  }
+  if(request.method==='GET'&&url.pathname==='/tasks'){
+   const all=await this.state.storage.get<DirectorTask[]>('directorTasks')||[];
+   const agent=url.searchParams.get('agent')||'';
+   if(agent&&!VALID_DIRECTORS.has(agent))return json({ok:false,error:'UNKNOWN_DIRECTOR'},400);
+   const limit=Math.min(120,Math.max(1,Number(url.searchParams.get('limit')||40)||40));
+   const now=Date.now();
+   const tasks=all.map(task=>task.status==='RUNNING'&&now-Date.parse(task.createdAt)>300000
+    ?{...task,status:'INTERRUPTED' as const,limitations:[...task.limitations,'Execution was interrupted before durable completion.']}
+    :task).filter(task=>!agent||task.agent===agent).slice(-limit);
+   return json({ok:true,durable:true,owner:'Founder',director:'ATLAS',executionMode:'request-scoped',tasks});
+  }
+  if(request.method==='POST'&&url.pathname==='/tasks/start'){
+   const raw=await request.text();
+   if(raw.length>1200)return json({ok:false,error:'INVALID_TASK'},413);
+   let value:Record<string,unknown>;
+   try{
+    const parsed=JSON.parse(raw) as unknown;
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return json({ok:false,error:'INVALID_TASK'},400);
+    value=parsed as Record<string,unknown>;
+   }catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   const id=typeof value.id==='string'?value.id:'';
+   const question=typeof value.question==='string'?value.question.trim():'';
+   if(!/^[a-z0-9-]{20,90}$/i.test(id)||question.length<3||question.length>500)
+    return json({ok:false,error:'INVALID_TASK'},400);
+   const task:DirectorTask={
+    id,missionId:id,agent:'atlas',question,stage:'PLAN',status:'RUNNING',
+    createdAt:new Date().toISOString(),evidence:[],limitations:[]
+   };
+   const saved=await this.state.storage.transaction(async txn=>{
+    const old=await txn.get<DirectorTask[]>('directorTasks')||[];
+    if(old.some(item=>item.id===id))return false;
+    await txn.put('directorTasks',[...old,task].slice(-MAX_DIRECTOR_TASKS));
+    return true;
+   });
+   return json({ok:saved,id,status:saved?'RUNNING':'DUPLICATE'},saved?201:409);
+  }
+  if(request.method==='POST'&&url.pathname==='/tasks/finish'){
+   let value:Record<string,unknown>;
+   try{
+    const raw=await request.text();
+    if(raw.length>24000)return json({ok:false,error:'TASK_TOO_LARGE'},413);
+    const parsed=JSON.parse(raw) as unknown;
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return json({ok:false,error:'INVALID_TASK'},400);
+    value=parsed as Record<string,unknown>;
+   }catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   const id=typeof value.id==='string'?value.id:'';
+   const status=value.status;
+   if(!/^[a-z0-9-]{20,90}$/i.test(id)||(status!=='COMPLETED'&&status!=='FAILED'))
+    return json({ok:false,error:'INVALID_TASK'},400);
+   const items=Array.isArray(value.reports)?value.reports.slice(0,10):[];
+   const reports:DirectorTask[]=items.flatMap((item,index)=>{
+    if(!item||typeof item!=='object'||Array.isArray(item))return [];
+    const x=item as Record<string,unknown>;
+    const agent=typeof x.agent==='string'?x.agent:'';
+    if(!VALID_DIRECTORS.has(agent))return [];
+    return [{
+     id:id+'-'+index,missionId:id,agent,
+     question:typeof x.question==='string'?x.question.slice(0,500):'Director research assignment',
+     stage:typeof x.stage==='string'?x.stage.slice(0,30):'RESEARCH',
+     status:x.status==='FAILED'?'FAILED' as const:'COMPLETED' as const,
+     createdAt:typeof x.startedAt==='string'&&Number.isFinite(Date.parse(x.startedAt))?x.startedAt:new Date().toISOString(),
+     finishedAt:new Date().toISOString(),
+     finding:typeof x.finding==='string'?x.finding.slice(0,3500):'No report produced',
+     evidence:Array.isArray(x.evidence)?x.evidence.filter(y=>typeof y==='string').slice(0,8).map(y=>(y as string).slice(0,180)):[],
+     limitations:Array.isArray(x.limitations)?x.limitations.filter(y=>typeof y==='string').slice(0,8).map(y=>(y as string).slice(0,180)):[]
+    }];
+   });
+   const changed=await this.state.storage.transaction(async txn=>{
+    const old=await txn.get<DirectorTask[]>('directorTasks')||[];
+    const idx=old.findIndex(item=>item.id===id);
+    if(idx<0||old[idx].status!=='RUNNING')return false;
+    const next=[...old];
+    next[idx]={
+     ...next[idx],status,
+     finishedAt:new Date().toISOString(),
+     finding:typeof value.finding==='string'?value.finding.slice(0,3500):'No executive report recorded',
+     limitations:Array.isArray(value.limitations)?value.limitations.filter(y=>typeof y==='string').slice(0,8).map(y=>(y as string).slice(0,180)):[]
+    };
+    await txn.put('directorTasks',[...next,...reports].slice(-MAX_DIRECTOR_TASKS));
+    return true;
+   });
+   return json({ok:changed,id,reportCount:reports.length},changed?200:409);
   }
   return json({ok:false,error:'NOT_FOUND'},404);
  }
