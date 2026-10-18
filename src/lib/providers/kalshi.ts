@@ -1,3 +1,4 @@
+import {kalshiReadOnlyHeaders} from './kalshi-readonly-auth';
 type KalshiMarket={
  ticker?:string;
  event_ticker?:string;
@@ -67,10 +68,19 @@ async function getPage(cursor?:string){
  url.searchParams.set('mve_filter','exclude');
  if(cursor)url.searchParams.set('cursor',cursor);
 
+ const keyId=process.env.KALSHI_API_KEY_ID;
+ const privateKey=process.env.KALSHI_PRIVATE_KEY;
+ // Partial credentials fail closed rather than falling back silently to public access.
+ if(Boolean(keyId)!==Boolean(privateKey))return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:'Kalshi credentials incomplete',errorKind:'configuration_error'};
+ let authHeaders:Record<string,string>={};
+ if(keyId&&privateKey){
+  try{authHeaders=kalshiReadOnlyHeaders(url,keyId,privateKey);}
+  catch{return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:'Kalshi signing failed',errorKind:'configuration_error'};}
+ }
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),Math.max(3000,Number(process.env.KALSHI_TIMEOUT_MS||8000)));
  try{
-  const res=await fetch(url,{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});
+  const res=await fetch(url,{headers:{Accept:'application/json',...authHeaders},cache:'no-store',signal:controller.signal});
   if(!res.ok){
    const kind=failureKind(res.status);
    lastFailureKind=kind;
