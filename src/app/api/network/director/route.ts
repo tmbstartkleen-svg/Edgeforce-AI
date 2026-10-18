@@ -73,6 +73,12 @@ export async function POST(req:Request){
    question,round,key:aiKey,
    model:process.env.EDGEFORCE_NETWORK_MODEL||'gpt-4.1-mini'
   });
+  if(!result.dispatches.some(task=>task.status==='COMPLETED')){
+   return noStore({
+    ok:false,error:'AI_RUN_UNAVAILABLE',
+    message:'The configured AI models could not complete a director task. Verify the AI key, model access, and provider availability before retrying.'
+   },503);
+  }
   return noStore({
    ok:true,...result,
    coverage:round.coverage,
