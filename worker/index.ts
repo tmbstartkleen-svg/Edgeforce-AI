@@ -88,7 +88,7 @@ const worker={
    if(request.method!=='GET')return Promise.resolve(new Response(null,{status:405,headers:{Allow:'GET'}}));
    return d1PilotReadiness(request,env);
   }
-  if(pathname==='/api/network/missions'||(pathname==='/api/network/director'&&request.method==='POST')){
+  if(pathname==='/api/network/missions'||pathname==='/api/network/tasks'||(pathname==='/api/network/director'&&request.method==='POST')){
    return atlasGateway(request,env as Parameters<typeof atlasGateway>[1],forwarded=>
     withDatabaseScope(scoped=>handler.fetch(forwarded,env as any,scoped as any),env,ctx));
   }
