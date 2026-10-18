@@ -2,6 +2,16 @@ import {kalshiReadOnlyHeaders} from '../src/lib/providers/kalshi-readonly-auth';
 
 type Env={KALSHI_API_KEY_ID?:string;KALSHI_PRIVATE_KEY?:string;INGEST_SECRET?:string};
 
+// Best-effort per-isolate diagnostic cooldown. Production-wide limits also require
+// a shared request budget; this gate prevents repeated manual probes on one isolate.
+let rateLimitedUntil=0;
+const retryDelayMs=(value:string|null,now:number)=>{
+ if(!value)return 60000;
+ const seconds=Number(value);
+ const date=Number.isFinite(seconds)?now+seconds*1000:Date.parse(value);
+ return Number.isFinite(date)?Math.max(1000,Math.min(300000,date-now)):60000;
+};
+
 export async function kalshiConnectionDiagnostic(request:Request,env:Env):Promise<Response>{
  const json=(payload:Record<string,unknown>,status=200)=>Response.json(payload,{status,headers:{'Cache-Control':'no-store'}});
  if(request.method!=='GET')return json({ok:false,error:'method_not_allowed'},405);
@@ -9,13 +19,21 @@ export async function kalshiConnectionDiagnostic(request:Request,env:Env):Promis
  const keyId=env.KALSHI_API_KEY_ID;
  const privateKey=env.KALSHI_PRIVATE_KEY;
  if(!keyId||!privateKey)return json({ok:false,mode:'not_configured',keyIdPresent:Boolean(keyId),privateKeyPresent:Boolean(privateKey)},503);
+ const now=Date.now();
+ if(now<rateLimitedUntil)return json({ok:false,mode:'rate_limited',retryAfterMs:rateLimitedUntil-now},429);
  const url=new URL('https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=1');
  let headers:Record<string,string>;
  try{headers=kalshiReadOnlyHeaders(url,keyId,privateKey);}
  catch{return json({ok:false,mode:'signing_failed'},503);}
  try{
   const response=await fetch(url.toString(),{method:'GET',headers:{Accept:'application/json',...headers},signal:AbortSignal.timeout(7000)});
+  if(response.status===429){
+   const delay=retryDelayMs(response.headers.get('retry-after'),Date.now());
+   rateLimitedUntil=Date.now()+delay;
+   return json({ok:false,mode:'rate_limited',upstreamStatus:429,retryAfterMs:delay},429);
+  }
   if(!response.ok)return json({ok:false,mode:'upstream_rejected',upstreamStatus:response.status},502);
+  rateLimitedUntil=0;
   const payload=await response.json() as {markets?:unknown[]};
   return json({ok:true,mode:'authenticated_readonly',upstreamStatus:response.status,marketCount:Array.isArray(payload.markets)?payload.markets.length:0});
  }catch{return json({ok:false,mode:'upstream_unreachable'},502);}
