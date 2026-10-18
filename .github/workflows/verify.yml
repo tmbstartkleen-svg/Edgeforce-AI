@@ -39,6 +39,8 @@ jobs:
         run: npm run test:team
       - name: Test Founder and Atlas director network
         run: npm run test:network
+      - name: Test durable Founder mission journal
+        run: npm run test:network-persistence
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
