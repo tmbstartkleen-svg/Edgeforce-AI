@@ -35,6 +35,8 @@ jobs:
         run: python3 -m py_compile ml-service/app.py
       - run: npm run lint
       - run: npm run typecheck
+      - name: Test AI research team
+        run: npm run test:team
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
