@@ -1,4 +1,4 @@
-import {storageStewardRoute} from './d1-storage-steward';
+import {inspectStorageSteward,storageStewardRoute} from './d1-storage-steward';
 import {d1PilotModelHistory} from './d1-pilot-model-history';
 import {d1SportsSchemaCoverage} from './d1-sports-schema-coverage';
 import {d1PilotMarketRead} from './d1-pilot-market-read';
@@ -13,8 +13,14 @@ import {sportsCoverageEvidence} from './d1-sports-coverage';
 import {collectNflScores} from './d1-nfl-score-collector';
 import {collectMultiSportScores} from './d1-multi-sport-collector';
 import {d1ScoreCoverage} from './d1-score-coverage';
-type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;INTELLIGENCE_DB?:any};
+type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;STORAGE_STEWARD_SCHEDULE_ENABLED?:string;INTELLIGENCE_DB?:any};
 export default {
+ async scheduled(_event:unknown,env:Env,ctx:{waitUntil(promise:Promise<unknown>):void}){
+  if(env.STORAGE_STEWARD_SCHEDULE_ENABLED!=='true')return;
+  ctx.waitUntil(inspectStorageSteward(env).then(result=>{
+   console.log('EdgeForce storage steward',JSON.stringify(result));
+  }).catch(()=>console.error('EdgeForce storage steward health probe failed')));
+ },
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
   if(pathname==='/api/operations/d1-pilot/storage-steward')return storageStewardRoute(request,env);
