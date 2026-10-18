@@ -34,7 +34,7 @@ export default function ValueDesk(){
  <div className="valueControls">
  <label>Sport<select value={sport} onChange={e=>setSport(e.target.value)}>{sports.map(s=><option value={s} key={s}>{s==='ALL'?'All sports':s}</option>)}</select></label>
  <label>Find market<input type="search" placeholder="Event, league, bet or sportsbook" value={query} onChange={e=>setQuery(e.target.value)}/></label>
- <label>Order by<select value={sort} onChange={e=>setSort(e.target.value)}><option value="roi">Expected ROI</option><option value="edge">Edge (pp)</option><option value="win">Win probability</option></select></label>
+ <label>Order by<select value={sort} onChange={e=>setSort(e.target.value as 'roi'|'edge'|'win')}><option value="roi">Expected ROI</option><option value="edge">Edge (pp)</option><option value="win">Win probability</option></select></label>
  <button type="button" onClick={()=>setTick(n=>n+1)} disabled={busy}>{busy?'Loading…':'Refresh quotes'}</button>
  </div>
  <div className="valueStats"><div><small>Displayed markets</small><strong>{visible.length}</strong></div><div><small>Source status</small><strong>{board?.providerDegraded?'Degraded':board?.ok?'Provisional':'Unavailable'}</strong></div><div><small>Reference method</small><strong>Market-derived</strong></div></div>
