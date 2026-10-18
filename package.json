@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -36,7 +36,8 @@
     "test:production-target": "node --test tests/production-target.test.mjs",
     "write-execution-evidence": "node scripts/write-execution-evidence.mjs",
     "test:team": "node --test tests/team-research.test.mjs",
-    "test:network": "node --test tests/network-director.test.mjs"
+    "test:network": "node --test tests/network-director.test.mjs",
+    "test:network-persistence": "node --test tests/network-persistence.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
