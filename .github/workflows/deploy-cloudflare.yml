@@ -71,6 +71,10 @@ jobs:
           fi
 
       - run: npm install
+      - name: Preflight production database connectivity (read-only)
+        run: node scripts/production-db-preflight.mjs
+        env:
+          DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
       - run: npm run preflight:cloudflare
       - run: npm run typecheck
       - run: npm run check:vinext
