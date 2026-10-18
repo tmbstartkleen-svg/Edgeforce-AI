@@ -48,6 +48,6 @@ test('Founder room provides private agent filters, task status and refresh',()=>
  assert.match(ui,/Refresh activity/);
  assert.match(ui,/taskAgent==='all'\|\|item\.agent===taskAgent/);
  assert.match(ui,/networkTaskStatus/);
- assert.match(ui,/ATLAS.*Command Center/);
+ assert.match(ui,/ATLAS <span>Command Center/);
  assert.doesNotMatch(ui,/localStorage/);
 });
