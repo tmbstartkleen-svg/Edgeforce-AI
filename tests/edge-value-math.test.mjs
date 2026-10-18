@@ -12,7 +12,7 @@ test('New Mexico -117 and 57.1% returns correct edge and ROI', () => {
   const r = calculateEdgeValue(-117, 0.571);
   assert.ok(Math.abs(r.breakEvenProbability * 100 - 53.9170507) < 1e-5);
   assert.ok(Math.abs(r.probabilityEdgePp - 3.1829493) < 1e-5);
-  assert.ok(Math.abs(r.expectedRoiPercent - 5.9025641) < 0.001);
+  assert.ok(Math.abs(r.expectedRoiPercent - 5.9034188) < 0.001);
   assert.equal(r.confidence, 'unverified-model');
 });
 
