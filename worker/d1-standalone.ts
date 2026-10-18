@@ -1,3 +1,4 @@
+import {backupReadinessRoute} from './d1-backup-readiness';
 import {assessSourceFreshness,sourceFreshnessRoute} from './d1-source-freshness-agent';
 import {d1CutoverAuditRoute} from './d1-cutover-audit';
 import {inspectStorageSteward,storageStewardRoute} from './d1-storage-steward';
@@ -27,6 +28,7 @@ export default {
  },
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/d1-pilot/backup-readiness')return backupReadinessRoute(request,env);
   if(pathname==='/api/operations/d1-pilot/source-freshness')return sourceFreshnessRoute(request,env);
   if(pathname==='/api/operations/d1-pilot/cutover-audit')return d1CutoverAuditRoute(request,env);
   if(pathname==='/api/operations/d1-pilot/storage-steward')return storageStewardRoute(request,env);
