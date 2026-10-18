@@ -84,5 +84,21 @@
       "3,13,23,33,43,53,54 * * * *",
       "15,45 6 * * *"
     ]
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ATLAS_MISSION_ROOM",
+        "class_name": "AtlasMissionRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "atlas-mission-room-v1",
+      "new_sqlite_classes": [
+        "AtlasMissionRoom"
+      ]
+    }
+  ]
 }
