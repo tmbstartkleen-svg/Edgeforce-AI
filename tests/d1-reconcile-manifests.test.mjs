@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';import os from 'node:os';import path from 'node:path';import {spawnSync} from 'node:child_process';
+const script=new URL('../scripts/d1-reconcile-manifests.mjs',import.meta.url);
+const names=['teams','athletes','events','market_snapshots','player_game_stats','injury_snapshots','weather_snapshots','model_runs','bet_results','calibration_metrics'];
+const example=()=>names.map(table=>({table,count:1,sha256:'a'.repeat(64)}));
+const run=(left,right)=>{const dir=mkdtempSync(path.join(os.tmpdir(),'edgeforce-reconcile-'));try{const a=path.join(dir,'a.json'),b=path.join(dir,'b.json');writeFileSync(a,JSON.stringify(left));writeFileSync(b,JSON.stringify(right));return spawnSync(process.execPath,[script.pathname,a,b],{encoding:'utf8'});}finally{rmSync(dir,{recursive:true,force:true});}};
+test('equal complete manifest is evidence only, never cutover approval',()=>{const a=example();const x=run(a,a);assert.equal(x.status,0,x.stderr);const report=JSON.parse(x.stdout);assert.equal(report.complete,true);assert.equal(report.cutoverAuthorized,false);assert.equal(report.backupRestoreVerified,false);});
+test('missing or changed table prevents reconciliation',()=>{const a=example(),b=example();b[0].sha256='b'.repeat(64);assert.notEqual(run(a,b).status,0);assert.notEqual(run(a,b.slice(1)).status,0);});
+test('zero-count or duplicate tables fail closed',()=>{const a=example();a[2].count=0;assert.notEqual(run(a,a).status,0);const b=example();b.push(b[0]);assert.notEqual(run(example(),b).status,0);});
