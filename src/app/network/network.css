@@ -1,0 +1,108 @@
+:root{color-scheme:dark}
+.networkShell{--bg:#070d16;--panel:#101b29;--line:#263a4c;--fg:#eef8fb;--mute:#8da6b8;--mint:#b2f0d0;--accent:#53dba3;background:var(--bg);color:var(--fg);min-height:100vh;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.networkShell *{box-sizing:border-box}
+.networkShell input,.networkShell button,.networkShell textarea{font:inherit}
+.networkTop{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:17px 28px;border-bottom:1px solid var(--line);background:#0c1520}
+.networkName,.networkIdentity{display:flex;align-items:center;gap:11px}
+.networkName b{font-size:15px;letter-spacing:.11em}
+.networkName small,.networkIdentity small{display:block;color:var(--mute);font-size:9px;margin-top:3px;letter-spacing:.06em}
+.networkSymbol{background:#173c30;color:#aaf4d2;padding:12px;border:1px solid #397f62;border-radius:10px;font-size:15px;font-weight:900}
+.networkIdentity b{font-size:10px;letter-spacing:.11em}
+.networkOwnerMark{font-size:30px;color:var(--mint)}
+.networkLayout{display:grid;grid-template-columns:245px minmax(0,1fr);min-height:calc(100vh - 76px)}
+.networkSidebar{padding:17px 12px;background:#0c1622;border-right:1px solid var(--line)}
+.networkSideTitle{color:#68859c;font-size:9px;font-weight:850;letter-spacing:.15em;margin:24px 10px 12px}
+.networkSideTitle:first-child{margin-top:10px}
+.networkNav,.networkMember{border:1px solid transparent;color:#d5e8ef;background:transparent;text-align:left;border-radius:9px;width:100%;display:flex;gap:10px;align-items:center;cursor:pointer;padding:11px 12px;font-size:12px}
+.networkNav.current,.networkMember.memberSelected{background:#183028;border-color:#35674e}
+.networkNav:hover,.networkMember:hover{background:#1a2d3d}
+.networkMember span:last-child{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.networkMember b{font-size:11px}
+.networkMember small{font-size:9px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:152px}
+.networkInitial{background:#1e3f37;border:1px solid #3e7a60;border-radius:9px;height:31px;width:31px;min-width:31px;display:grid;place-items:center;color:#cbffe4;font-size:12px;font-weight:900}
+.networkAccessNote{border-top:1px solid var(--line);margin:24px 6px;padding-top:20px}
+.networkAccessNote b{font-size:9px;color:var(--mint);letter-spacing:.13em}
+.networkAccessNote p{font-size:10px;color:var(--mute);line-height:1.7}
+.networkMain{min-width:0;padding:0 32px 50px}
+.networkHero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:40px 0 25px;border-bottom:1px solid var(--line)}
+.networkEyebrow{font-size:10px;letter-spacing:.14em;color:#87c8ad;font-weight:800}
+.networkHero h1{font-size:34px;letter-spacing:-.04em;margin:10px 0 12px}
+.networkHero h1 span{color:var(--mint)}
+.networkHero p{color:#a1b4c3;font-size:13px;line-height:1.7;max-width:740px;margin:0}
+.networkStage{border:1px solid #816b3d;color:#f8d8a0;background:#332719;border-radius:99px;padding:9px 12px;font-size:9px;letter-spacing:.06em;font-weight:850;white-space:nowrap}
+.networkTeamLine{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#112023;border:1px solid #365e4c;padding:14px 18px;border-radius:12px;margin:22px 0}
+.networkTeamLine>div{display:flex;align-items:center;gap:10px}
+.networkTeamLine b{display:block;font-size:13px}
+.networkTeamLine small,.networkTeamLine>span{color:var(--mute);font-size:10px}
+.networkTeamLine>span{text-align:right}
+.networkMission{border:1px solid var(--line);background:#101a28;padding:18px;border-radius:12px}
+.networkMissionTitle{font-size:10px;letter-spacing:.12em;color:var(--mint);font-weight:800}
+.networkMission p,.networkMission small{font-size:10px;color:var(--mute);line-height:1.6;display:block}
+.networkMission input{display:block;background:#0b1620;color:#effaf5;border:1px solid #405c69;border-radius:8px;padding:11px 13px;margin:10px 0;max-width:500px;width:100%;font-size:12px}
+.networkPrompts{padding:48px 0 30px;max-width:940px;margin:auto}
+.networkPrompts h2{font-size:26px;letter-spacing:-.03em;margin:11px 0}
+.networkPrompts>p{font-size:12px;color:var(--mute);line-height:1.65}
+.networkPrompts>div:last-child{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}
+.networkPrompts button{background:#132236;border:1px solid #334c63;color:#e3f3f8;border-radius:12px;padding:16px;text-align:left;font-size:12px;line-height:1.5;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.networkPrompts button span{color:var(--mint)}
+.networkPrompts button:hover{background:#1b3241;border-color:#63a58a}
+.networkPrompts button:disabled{opacity:.5}
+.networkExchange{border-bottom:1px solid var(--line);padding:24px 0}
+.networkFounderCommand{background:#203249;border:1px solid #395d79;border-radius:12px;padding:16px 20px;max-width:850px;margin-left:auto}
+.networkFounderCommand strong{font-size:10px;color:#a9d8ed;letter-spacing:.1em}
+.networkFounderCommand p{line-height:1.7;font-size:13px;margin:8px 0 0}
+.networkTaskHeader{display:flex;justify-content:space-between;gap:16px;margin:25px 0 14px;font-size:10px;color:var(--mint);font-weight:800}
+.networkTaskHeader small{color:var(--mute);font-weight:400}
+.networkMissionStats{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
+.networkMissionStats div{padding:13px;border-right:1px solid var(--line);background:#0f1b27}
+.networkMissionStats div:last-child{border:0}
+.networkMissionStats small{font-size:9px;color:var(--mute);display:block}
+.networkMissionStats b{font-size:19px;margin-top:7px;display:block;font-variant-numeric:tabular-nums}
+.networkStream{display:grid;gap:12px}
+.networkReport{padding:17px 18px;background:#101c29;border:1px solid var(--line);border-radius:12px}
+.networkReport.networkFailed{border-color:#775053}
+.networkReportHead{display:flex;align-items:center;gap:10px}
+.networkReportHead>div{flex:1}
+.networkReportHead b{font-size:13px;display:block}
+.networkReportHead small{font-size:9px;color:#8fb7a9;display:block;margin-top:3px}
+.networkReportHead time{font-size:9px;color:var(--mute)}
+.networkReport p{color:#c9d8e2;font-size:12px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;margin:14px 0}
+.networkLimit{background:#27231b;border-radius:8px;padding:10px;color:#e6ca98;font-size:10px;line-height:1.6}
+.networkLimit strong{display:block;font-size:9px;margin-bottom:2px}
+.networkSources{font-size:9px;color:#88a8bc;margin-top:10px}
+.networkOwnerAsk{font-size:11px;color:var(--mint);margin-top:10px}
+.networkDecision{background:linear-gradient(130deg,#18372e,#122634);border:1px solid #418069;padding:20px;border-radius:12px;margin-top:22px}
+.networkDecision>span{font-size:10px;letter-spacing:.12em;color:var(--mint);font-weight:800}
+.networkDecision p{font-size:13px;line-height:1.75;white-space:pre-wrap}
+.networkDecision strong{display:block;color:#f1d098;font-size:12px;margin-top:8px}
+.networkDecision small{display:block;color:#8ab4a8;font-size:10px}
+.networkBusy{margin:20px 0;display:flex;gap:12px;align-items:center;font-size:12px;color:var(--mint)}
+.networkLoader{width:16px;height:16px;border:2px solid #285140;border-top-color:#bdf3dc;border-radius:50%;animation:networkSpin .7s linear infinite}
+@keyframes networkSpin{to{transform:rotate(360deg)}}
+.networkError{border:1px solid #7c4648;background:#332127;color:#ffd5d5;padding:12px;border-radius:8px;font-size:12px;margin:16px 0}
+.networkComposer{position:sticky;bottom:12px;border:1px solid #3c6155;background:#0d2025;box-shadow:0 14px 45px #02070b;border-radius:14px;padding:16px;margin-top:30px}
+.networkComposer label{font-size:10px;letter-spacing:.12em;color:var(--mint);font-weight:850;display:block;margin-bottom:10px}
+.networkComposer>div{display:flex;gap:10px}
+.networkComposer textarea{flex:1;min-width:0;border:1px solid #426474;border-radius:9px;color:white;background:#0a1722;padding:13px;font-size:12px;resize:vertical}
+.networkComposer button{background:var(--mint);color:#0b291b;border:0;border-radius:9px;font-weight:800;padding:10px 19px;font-size:12px;cursor:pointer}
+.networkComposer button:disabled{opacity:.5;cursor:not-allowed}
+.networkComposer>small{display:block;margin-top:10px;font-size:9px;color:var(--mute)}
+.networkOrg{padding:30px 0 0}
+.networkOrgNode{background:#152435;border:1px solid #3d5e6d;color:#eff8fb;border-radius:11px;display:flex;flex-direction:column;gap:8px;padding:19px;text-align:center}
+.networkOrgNode.top,.networkOrgNode.chief{max-width:470px;margin:auto}
+.networkOrgNode.top{background:#2b3031;border-color:#819d88}
+.networkOrgNode.chief{background:#16372b;border-color:#4ca37b}
+.networkOrgNode b{font-size:12px;letter-spacing:.07em}
+.networkOrgNode small{font-size:10px;color:#a7bdc6;line-height:1.5}
+.networkConnector{text-align:center;color:#a2d8c1;font-size:25px;margin:9px 0}
+.networkDirectorGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.networkDirectorGrid button{cursor:pointer;min-height:135px}
+.networkDirectorGrid button.picked{border-color:#a2f3c4;background:#1a3630}
+.networkDirectorGrid button span{color:#8cc3a9;font-size:10px;line-height:1.5}
+.networkRoleDetail{border:1px solid var(--line);background:#101d2a;padding:20px;border-radius:10px;margin-top:20px;font-size:12px}
+.networkRoleDetail h2{font-size:21px;margin:10px 0}
+.networkRoleDetail p{color:#afc3d2;line-height:1.65}
+.networkRoleDetail>div{margin:8px 0;color:#adbfcb}
+.networkRoleDetail strong{color:var(--mint)}
+@media(max-width:1000px){.networkLayout{grid-template-columns:185px minmax(0,1fr)}.networkMain{padding:0 18px 40px}.networkDirectorGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.networkMember small{max-width:98px}}
+@media(max-width:690px){.networkTop{padding:14px;align-items:flex-start;flex-direction:column}.networkLayout{display:block}.networkSidebar{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:7px;overflow-x:auto;white-space:nowrap}.networkSideTitle,.networkMember,.networkAccessNote{display:none}.networkNav{width:auto;min-width:max-content;font-size:11px}.networkMain{padding:0 14px 35px}.networkHero{padding:25px 0;align-items:flex-start;flex-direction:column}.networkHero h1{font-size:26px}.networkStage{font-size:8px}.networkTeamLine{align-items:flex-start;flex-direction:column}.networkPrompts>div:last-child{grid-template-columns:1fr}.networkMissionStats{grid-template-columns:1fr 1fr}.networkMissionStats div:nth-child(2){border-right:0}.networkTaskHeader{flex-direction:column}.networkComposer>div{flex-direction:column}.networkDirectorGrid{grid-template-columns:1fr}.networkIdentity b{font-size:9px}}
