@@ -77,7 +77,7 @@ export default function NetworkCommand(){
      <div className="networkTeamLine"><div><span className="networkInitial directorMark">A</span><div><strong>ATLAS</strong><small>Chief Director / reports exclusively to you</small></div></div><span>5 research divisions + independent verification</span></div>
      <div className="networkMission">
       <div className="networkMissionTitle">PRIVATE EXECUTIVE AUTHENTICATION</div>
-      <p>Your access token stays in this page's memory; it is not included in research output or saved with conversation history.</p>
+      <p>Your access token stays in this page&apos;s memory; it is not included in research output or saved with conversation history.</p>
       <input value={auth} onChange={e=>setAuth(e.target.value)} type="password" autoComplete="off" placeholder="Founder access token" aria-label="Founder access token"/>
       <small>Requires Worker secrets: EDGEFORCE_NETWORK_OWNER_TOKEN and EDGEFORCE_NETWORK_AI_API_KEY. No default credential exists.</small>
      </div>
