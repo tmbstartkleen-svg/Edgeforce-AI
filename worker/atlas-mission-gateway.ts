@@ -36,10 +36,11 @@ const roomRequest=(path:string,method:'GET'|'POST',body?:unknown)=>new Request('
 export async function atlasGateway(request:Request,env:Env,forward:Forward):Promise<Response>{
  const url=new URL(request.url);
  const isHistory=url.pathname==='/api/network/missions';
+ const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isDirector)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  if(isDirector&&request.method==='GET')return forward(request);
- if((isDirector&&request.method!=='POST')||(isHistory&&request.method!=='GET')){
+ if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
@@ -54,6 +55,18 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isTasks){
+  try{
+   const agent=url.searchParams.get('agent')||'';
+   if(agent&&!['atlas','mercury','vector','pulse','flash','sentinel','forge'].includes(agent))
+    return json({ok:false,error:'UNKNOWN_DIRECTOR'},400);
+   const args=new URLSearchParams({limit:'60'});
+   if(agent)args.set('agent',agent);
+   const reply=await instance.fetch(roomRequest('/tasks?'+args.toString(),'GET'));
+   if(!reply.ok)return json({ok:false,error:'TASKS_UNAVAILABLE'},503);
+   return json(await reply.json());
+  }catch{return json({ok:false,error:'TASKS_UNAVAILABLE'},503);}
+ }
  if(isHistory){
   try{
    const limit=Math.min(30,Math.max(1,Number(url.searchParams.get('limit')||15)||15));
@@ -64,30 +77,73 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  }
  const length=Number(request.headers.get('content-length')||0);
  if(length>4096)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);
+ // Validate the request before charging the director's rate-limit budget.
+ let question='';
+ try{
+  const parsed=await request.clone().json() as {question?:unknown};
+  if(parsed&&typeof parsed.question==='string')question=parsed.question.trim();
+ }catch{return json({ok:false,error:'INVALID_JSON'},400);}
+ if(question.length<3||question.length>500)return json({ok:false,error:'INVALID_QUESTION'},400);
  // Reserve capacity BEFORE dispatching multiple LLM calls.
  try{
   const reservation=await instance.fetch(roomRequest('/reserve','POST',{}));
   if(reservation.status===429)return json({ok:false,error:'MISSION_RATE_LIMIT',message:'Director mission quota reached. Try again after the cooldown.'},429);
   if(!reservation.ok)return json({ok:false,error:'MISSION_RESERVATION_FAILED'},503);
  }catch{return json({ok:false,error:'MISSION_RESERVATION_FAILED'},503);}
+ const id=crypto.randomUUID();
+ try{
+  const started=await instance.fetch(roomRequest('/tasks/start','POST',{id,question}));
+  if(!started.ok)return json({ok:false,error:'TASK_START_FAILED'},503);
+ }catch{return json({ok:false,error:'TASK_START_FAILED'},503);}
+ const finishTask=async(status:'COMPLETED'|'FAILED',finding:string,reports:unknown[]=[],limitations:string[]=[])=>{
+  const finished=await instance.fetch(roomRequest('/tasks/finish','POST',{id,status,finding,reports,limitations}));
+  return finished.ok;
+ };
  try{
   const response=await forward(request);
-  if(!response.ok)return response;
+  if(!response.ok){
+   await finishTask('FAILED','Research request did not complete.');
+   return response;
+  }
   const original=await response.json() as Record<string,unknown>;
-  if(!original||original.ok!==true)return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
-  const question=typeof original.question==='string'?original.question:'';
-  if(!question||question.length>500)return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
-  const id=crypto.randomUUID();
+  if(!original||original.ok!==true){
+   await finishTask('FAILED','No valid director report was produced.');
+   return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
+  }
+  if(original.question!==question)return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
   const entry:AtlasJournalItem={
    id,createdAt:new Date().toISOString(),request:question,response:{...original,missionId:id,durable:true}
   };
   const saved=await instance.fetch(roomRequest('/missions','POST',entry));
-  if(!saved.ok)return json({
-   ok:false,error:'MISSION_PERSISTENCE_FAILED',
-   message:'ATLAS completed the research but could not preserve its report. The result was withheld for integrity.'
-  },503);
+  if(!saved.ok){
+   await finishTask('FAILED','Director report could not be persisted.');
+   return json({ok:false,error:'MISSION_PERSISTENCE_FAILED',
+    message:'ATLAS completed the research but could not preserve its report. The result was withheld for integrity.'
+   },503);
+  }
+  const dispatches=Array.isArray(original.dispatches)?original.dispatches:[];
+  const reports=dispatches.slice(0,10).map(value=>{
+   const item=value&&typeof value==='object'?value as Record<string,unknown>:{};
+   return {
+    agent:typeof item.agentId==='string'?item.agentId:'atlas',
+    stage:typeof item.stage==='string'?item.stage:'RESEARCH',
+    status:item.status==='FAILED'?'FAILED':'COMPLETED',
+    startedAt:typeof item.startedAt==='string'?item.startedAt:entry.createdAt,
+    question:typeof item.instruction==='string'?item.instruction:'',
+    finding:typeof item.finding==='string'?item.finding:'',
+    evidence:Array.isArray(item.sources)?item.sources:[],
+    limitations:Array.isArray(item.limitations)?item.limitations:[]
+   };
+  });
+  if(!await finishTask('COMPLETED',typeof original.summary==='string'?original.summary:'Director research complete.',reports)){
+   return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED',
+    message:'Mission journal exists but the collaboration task could not be finalized.'
+   },503);
+  }
   return json({...original,missionId:id,durable:true,persisted:true});
+
  }catch{
+  try{await finishTask('FAILED','ATLAS request failed or the mission could not be finalized.');}catch{/* preserve primary error */}
   return json({ok:false,error:'ATLAS_GATEWAY_FAILED',message:'Director gateway failed. No completed mission was claimed.'},503);
  }
 }
