@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import crypto from 'node:crypto';
 const names=['teams','athletes','events','market_snapshots','player_game_stats','injury_snapshots','weather_snapshots','model_runs','bet_results','calibration_metrics'];
 const [sourceFile,targetFile]=process.argv.slice(2);
 function fail(reason){console.error('D1_RECONCILIATION_BLOCKED: '+reason);process.exitCode=1}
