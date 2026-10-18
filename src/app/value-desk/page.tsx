@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import ValueDesk from '@/components/ValueDesk';
+import './value-desk.css';
+export const metadata={title:'Value Desk | EdgeForce',description:'Unified all-sports provisional edge, break-even and expected ROI research board.'};
+export default function ValueDeskPage(){return <main className="valueDeskPage"><header className="valueHero"><div className="valueEyebrow">EDGEFORCE AI · MARKET INTELLIGENCE</div><h1>Find the value. <span>Verify the edge.</span></h1><p>Rank every supported sport on one board by estimated return, not just the chance of winning. Understand the break-even point, price, edge in percentage points, and source evidence before considering a wager.</p><nav><Link href="/">Command Center</Link><Link href="/coverage">League Coverage</Link><Link href="/sports-research">Research</Link></nav></header><ValueDesk/></main>}
