@@ -4,7 +4,6 @@ import {buildTeamResearch,TEAM_AGENTS} from '@/lib/teamResearch';
 import {auditMarketBatch} from '@/lib/dataQuality';
 
 export const dynamic='force-dynamic';
-export const runtime='nodejs';
 
 function noStore(payload:unknown,status=200){
  return Response.json(payload,{status,headers:{'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'}});
