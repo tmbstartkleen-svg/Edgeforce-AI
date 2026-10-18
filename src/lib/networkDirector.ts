@@ -1,5 +1,5 @@
 import type {TeamResearchRound} from './teamResearch';
-import {DIRECTORS,NETWORK_ORG,type NetworkMember} from './networkOrganization';
+import {DIRECTORS,NETWORK_ORG} from './networkOrganization';
 
 export type DirectorDispatch={
  id:string;agentId:string;agentName:string;
