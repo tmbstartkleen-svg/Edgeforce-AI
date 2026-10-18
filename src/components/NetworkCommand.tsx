@@ -9,6 +9,7 @@ type Reply=DirectorRun&{
  coverage:{sports:number;leagues:number;events:number;marketSelections:number;panelQuotes:number;bySport:Array<{sport:string;rows:number;leagues:number}>};
  inputSource:{name:string|null;status:string;warnings:string[]};
  dataQualityCaveat:string;persistence:string;
+ durable?:boolean;persisted?:boolean;missionId?:string;
 };
 type ErrorReply={ok:false;error:string;message:string};
 type Exchange={key:number;request:string;response:Reply};
@@ -39,6 +40,22 @@ export default function NetworkCommand(){
  const [selected,setSelected]=useState<string>('atlas');
  const [sequence,setSequence]=useState(0);
  const selectedRole=NETWORK_ORG.find(x=>x.id===selected)||NETWORK_ORG[1];
+ const loadHistory=useCallback(async()=>{
+  if(!auth.trim()){setError('Enter the Founder access token to restore the private mission journal.');return;}
+  if(busy)return;
+  setBusy(true);setError('');
+  try{
+   const response=await fetch('/api/network/missions?limit=15',{
+    headers:{'Authorization':'Bearer '+auth.trim()},cache:'no-store'
+   });
+   const body=await response.json() as {ok:boolean;missions?:Array<{id:string;createdAt:string;request:string;response:Reply}>;message?:string;error?:string};
+   if(!response.ok||!body.ok||!Array.isArray(body.missions))throw new Error(body.message||body.error||'Mission history unavailable.');
+   const entries=body.missions.filter(item=>item.response?.ok&&Array.isArray(item.response.dispatches));
+   setHistory(entries.map((item,index)=>({key:index,request:item.request,response:item.response})));
+   setSequence(entries.length);
+  }catch(e){setError(e instanceof Error?e.message:'Unable to retrieve saved missions.');}
+  finally{setBusy(false);}
+ },[auth,busy]);
  const ask=useCallback(async(value?:string)=>{
   const command=(value??question).trim();
   if(!command||busy)return;
@@ -79,12 +96,13 @@ export default function NetworkCommand(){
       <div className="networkMissionTitle">PRIVATE EXECUTIVE AUTHENTICATION</div>
       <p>Your access token stays in this page&apos;s memory; it is not included in research output or saved with conversation history.</p>
       <input value={auth} onChange={e=>setAuth(e.target.value)} type="password" autoComplete="off" placeholder="Founder access token" aria-label="Founder access token"/>
+      <button type="button" className="networkRestore" disabled={busy||!auth.trim()} onClick={()=>void loadHistory()}>↺ Restore saved missions</button>
       <small>Requires Worker secrets: EDGEFORCE_NETWORK_OWNER_TOKEN and EDGEFORCE_NETWORK_AI_API_KEY. No default credential exists.</small>
      </div>
      {!history.length&&<div className="networkPrompts"><div className="networkEyebrow">DIRECT ATLAS</div><h2>Your strategic mission, their coordinated execution.</h2><p>ATLAS may ask you questions. The director cannot create facts when odds, models, or licensed data are missing.</p><div>{setup.map(x=><button key={x} type="button" disabled={busy} onClick={()=>void ask(x)}>{x}<span>↗</span></button>)}</div></div>}
      {history.map(entry=><section className="networkExchange" key={entry.key}>
       <div className="networkFounderCommand"><strong>FOUNDER DIRECTIVE</strong><p>{entry.request}</p></div>
-      <div className="networkTaskHeader"><span>ATLAS MISSION #{entry.key+1}</span><small>{new Date(entry.response.generatedAt).toLocaleString()} · {entry.response.sourceState} data</small></div>
+      <div className="networkTaskHeader"><span>ATLAS MISSION #{entry.key+1} {entry.response.persisted?'· SAVED':''}</span><small>{new Date(entry.response.generatedAt).toLocaleString()} · {entry.response.sourceState} data</small></div>
       <div className="networkMissionStats">{[
        ['Divisions assigned',entry.response.assignments.length],
        ['Agent reports',entry.response.dispatches.length],
@@ -100,7 +118,7 @@ export default function NetworkCommand(){
      {error&&<div className="networkError" role="alert">{error}</div>}
      <form className="networkComposer" onSubmit={e=>{e.preventDefault();void ask();}}>
       <label htmlFor="network-task">DIRECTIVE TO ATLAS</label>
-      <div><textarea id="network-task" rows={3} maxLength={500} placeholder="Tell ATLAS what you want the network to research, verify, or plan…" value={question} onChange={e=>setQuestion(e.target.value)} disabled={busy}/><button type="submit" disabled={busy||!question.trim()}>Issue directive ↗</button></div><small>Read-only research. Each mission is a bounded AI-assisted run; no persistent always-on agents yet.</small>
+      <div><textarea id="network-task" rows={3} maxLength={500} placeholder="Tell ATLAS what you want the network to research, verify, or plan…" value={question} onChange={e=>setQuestion(e.target.value)} disabled={busy}/><button type="submit" disabled={busy||!question.trim()}>Issue directive ↗</button></div><small>Read-only research. Completed missions are stored in the private Founder journal. Autonomous scheduled agents are not yet enabled.</small>
      </form>
     </>:<>
      <div className="networkHero"><div><div className="networkEyebrow">EXECUTIVE OPERATIONS / STAFF STRUCTURE</div><h1>Network <span>Organization</span></h1><p>One line of accountability: Founder → ATLAS → division directors → specialist agents.</p></div></div>
