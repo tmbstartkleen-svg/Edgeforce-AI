@@ -106,3 +106,7 @@
 .networkRoleDetail strong{color:var(--mint)}
 @media(max-width:1000px){.networkLayout{grid-template-columns:185px minmax(0,1fr)}.networkMain{padding:0 18px 40px}.networkDirectorGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.networkMember small{max-width:98px}}
 @media(max-width:690px){.networkTop{padding:14px;align-items:flex-start;flex-direction:column}.networkLayout{display:block}.networkSidebar{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:7px;overflow-x:auto;white-space:nowrap}.networkSideTitle,.networkMember,.networkAccessNote{display:none}.networkNav{width:auto;min-width:max-content;font-size:11px}.networkMain{padding:0 14px 35px}.networkHero{padding:25px 0;align-items:flex-start;flex-direction:column}.networkHero h1{font-size:26px}.networkStage{font-size:8px}.networkTeamLine{align-items:flex-start;flex-direction:column}.networkPrompts>div:last-child{grid-template-columns:1fr}.networkMissionStats{grid-template-columns:1fr 1fr}.networkMissionStats div:nth-child(2){border-right:0}.networkTaskHeader{flex-direction:column}.networkComposer>div{flex-direction:column}.networkDirectorGrid{grid-template-columns:1fr}.networkIdentity b{font-size:9px}}
+
+.networkMission .networkRestore{margin:7px 0 11px;border:1px solid #548574;background:#163b32;border-radius:8px;color:#c9f5da;padding:10px 13px;cursor:pointer;font-weight:750;font-size:11px}
+.networkMission .networkRestore:hover{background:#234d40}
+.networkMission .networkRestore:disabled{opacity:.5;cursor:not-allowed}
