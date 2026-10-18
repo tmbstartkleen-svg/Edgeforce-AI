@@ -1,3 +1,4 @@
+import {assessIngestEvidence} from './d1-ingest-quality-gate';
 import {appendSportsMarketSnapshot,type D1SportsMarketQuote,type D1SportsDb} from '../src/lib/intelligence-core/d1-sports-market-store.mjs';
 type Env={INGEST_SECRET?:unknown;SPORTS_D1_WRITE_ENABLED?:unknown;INTELLIGENCE_DB?:unknown};
 const headers={'Cache-Control':'no-store'};
@@ -21,7 +22,15 @@ export async function d1SportsIngest(request:Request,env:Env):Promise<Response>{
   if(!quote||Array.isArray(quote)||typeof quote!=='object')throw Error('INVALID_QUOTE');
  }catch{return Response.json({ok:false,reason:'INVALID_QUOTE'},{status:400,headers});}
  try{
-  const report=await appendSportsMarketSnapshot(db,quote as D1SportsMarketQuote,{sourceApproved:true});
+  const q=quote as Record<string,unknown>;
+  const collectedAt=Date.now();
+  const payloadBytes=new TextEncoder().encode(JSON.stringify(quote)).length;
+  const quality=assessIngestEvidence({kind:'odds',observedAt:q.observedAt as number,
+   collectedAt,sourceId:q.sourceId as string,upstreamId:q.upstreamId as string,
+   eventId:q.sourceEventId as string,payloadBytes},collectedAt);
+  if(!quality.acceptedForPilot)return Response.json({ok:false,reason:'INGEST_QUALITY_REJECTED',qualityReasons:quality.reasons},
+   {status:422,headers});
+  const report=await appendSportsMarketSnapshot(db,quote as D1SportsMarketQuote,{sourceApproved:true,now:collectedAt});
   return Response.json({ok:true,...report},{headers});
  }catch(e){
   const reason=e instanceof Error?e.message:'UNKNOWN';
