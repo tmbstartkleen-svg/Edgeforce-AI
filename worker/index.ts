@@ -5,6 +5,7 @@ import {d1RuntimeHealth} from './d1-runtime-health';
 import {d1SchemaInspection} from './d1-schema-inspection';
 import {d1DataReadiness} from './d1-data-readiness';
 import {d1ReferenceIngest} from './d1-reference-ingest';
+import {d1ReferenceIngestStatus} from './d1-reference-ingest-status';
 import {d1IngestGateway,d1RecentGateway} from './d1-gateway';
 import {withDatabaseScope} from '../src/lib/db';
 import {GET as runInjuryCron} from '../src/app/api/cron/injuries/route';
@@ -86,6 +87,7 @@ const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
   const pathname=new URL(request.url).pathname;
   if(pathname==='/api/operations/kalshi/connection')return kalshiConnectionDiagnostic(request,env);
+  if(pathname==='/api/operations/d1-pilot/reference-ingest/status')return d1ReferenceIngestStatus(request,env);
   if(pathname==='/api/operations/d1-pilot/reference-ingest')return d1ReferenceIngest(request,env);
   if(pathname==='/api/operations/d1-pilot/data-readiness')return d1DataReadiness(request,env);
   if(pathname==='/api/operations/d1-pilot/schema')return d1SchemaInspection(request,env);
