@@ -21,3 +21,25 @@ export function previewTennisD1Events(records,{source,observedAt}={}){
   truncated:items.length>25,previewOnly:true,sourceApprovedForMarketRanking:false,
   sportsbookOddsAvailable:false,draftKingsInventoryCertified:false};
 }
+
+/** Partition all normalized source events into bounded, non-writing D1 pilot previews.
+ * Reject malformed source records, preserve source-scoped ids, and signal truncation.
+ */
+export function previewTennisD1Batches(records,context={}){
+ const result=previewTennisD1Events(records,context);
+ if(result.reason)return {...result,batches:[],complete:false};
+ const batches=[];
+ // The underlying normalizer inspects at most 100 events per call.
+ // Slice into 25-record groups to preserve all supplied records.
+ const seen=new Set();let rejected=0;
+ for(let offset=0;offset<records.length;offset+=25){
+  const part=previewTennisD1Events(records.slice(offset,offset+25),context);
+  rejected+=part.rejected;
+  const items=part.items.filter(item=>{if(seen.has(item.id)){rejected++;return false;}seen.add(item.id);return true;});
+  if(items.length)batches.push({type:'events',items,previewOnly:true,
+   sourceApprovedForMarketRanking:false,sportsbookOddsAvailable:false,draftKingsInventoryCertified:false});
+ }
+ return {previewOnly:true,sourceApprovedForMarketRanking:false,sportsbookOddsAvailable:false,
+  draftKingsInventoryCertified:false,batches,totalObserved:seen.size,rejected,
+  complete:true,ingestionEnabled:false};
+}
