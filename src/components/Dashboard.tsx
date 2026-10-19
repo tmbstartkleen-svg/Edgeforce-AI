@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {buildMixedSportProbabilitySet,buildProbabilitySet,type Parlay} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
+import {boardValueMetrics} from '@/lib/boardValueMetrics';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
@@ -1408,6 +1409,7 @@ export default function Dashboard(){
     </section>
 
     <section className="v21Panel" id="board">
+      <p className="panelMeta">Break-even, model probability, edge and expected ROI are estimates from displayed odds; they do not certify live prices, independent providers or model calibration. Unverified values are not betting recommendations.</p>
       <div className="v21PanelHead">
         <div>
           <div className="eyebrow">{view==='today'?'TODAY PROBABILITY BOARD':'WEEKLY SPREAD BOARD'}</div>
@@ -1445,12 +1447,14 @@ export default function Dashboard(){
         </div>
       </div>
       <div className="mobileBoardCards">
-        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
+        {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');const value=boardValueMetrics(x.odds,x.simProbability);return <article className={'mobileBoardCard decision-'+decision.toLowerCase()} key={'mobile-'+x.id}>
           <div className="mobileBoardTop"><span className="edgeRank">{i+1}</span><span className="sportPill">{x.sport}</span><span className={'decisionBadge '+decision.toLowerCase()}>{decision}</span><span className={'grade '+x.grade.toLowerCase()}>{x.grade}</span></div>
           <div className="mobileBoardMain"><b>{x.selection}</b><small>{x.event} • {x.market} • {x.period}</small></div>
           <div className="mobileBoardMetrics">
             <div><small>SIM</small><strong className="lime">{fmtPct(x.simProbability)}</strong></div>
             <div><small>ODDS</small><strong>{fmtOdds(x.odds)}</strong></div>
+            <div><small>BREAK-EVEN</small><strong>{value?fmtPct(value.breakEvenProbability):"—"}</strong></div>
+            <div><small>EV ROI</small><strong>{value?value.expectedRoiPercent.toFixed(1)+"%":"—"}</strong></div>
             <div><small>CONF</small><strong>{fmtPct(x.dynamicConfidence)}</strong></div>
             <div><small>EDGE</small><strong className={x.sportsbookEdge>=0?'lime':'negative'}>{x.sportsbookEdge>=0?'+':''}{fmtPct(x.sportsbookEdge)}</strong></div>
           </div>
@@ -1461,16 +1465,18 @@ export default function Dashboard(){
       <div className="tableWrap desktopBoardTable">
         <table className="v21Table">
           <thead><tr>
-            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
+            <th>#</th><th>Sport</th><th>Event / Selection</th><th>Time</th><th>Market</th><th>Odds</th><th>Break-even %</th><th>EV ROI %</th><th>Raw %</th><th>Consensus %</th><th>PM %</th><th>Sim %</th><th>Confidence</th><th>Robustness</th><th>Target Edge</th><th>PM Edge</th><th>Best Venue</th><th>1/4 Kelly</th><th>Engine</th><th>Sims</th><th>Grade</th>
           </tr></thead>
           <tbody>
-            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
+            {rankedFiltered.map((x,i)=>{const r=robustnessMap.get(x.id);const delta=rankDeltas.get(x.id);const needsReview=r?.reviewRequired||delta?.label==='DOWNGRADED';const decision=needsReview?'REVIEW':(x.sportsbookEdge>0&&x.dynamicConfidence>=.65?'ACTION':'WATCH');const value=boardValueMetrics(x.odds,x.simProbability);return <tr className={'decisionRow decision-'+decision.toLowerCase()} key={x.id}>
               <td className="rankCell">{i+1}</td>
               <td><span className="sportPill">{x.sport}</span></td>
               <td><b>{x.event}</b><small>{x.selection}</small></td>
               <td><b>{x.period}</b><small>{dateLabel(x.startTime)}</small></td>
               <td>{x.market}</td>
               <td><b>{fmtOdds(x.odds)}</b><small>{x.consensus?`${x.consensus.targetBookFound?x.consensus.targetBook:'target missing'} • best ${fmtOdds(x.consensus.bestOdds)} ${x.consensus.bestBook||''}`:x.sourceBook||board.targetBook||'single source'}</small><small>{x.lineMovement?('open '+fmtOdds(x.lineMovement.openerOdds)+' • '+x.lineMovement.direction+(x.lineMovement.steam?' • '+x.lineMovement.steamStrength+' STEAM':'')):'no history'}</small></td>
+              <td>{value?fmtPct(value.breakEvenProbability):"—"}</td>
+              <td>{value?value.expectedRoiPercent.toFixed(1)+"%":"—"}</td>
               <td>{fmtPct(x.rawImpliedProbability)}</td>
               <td><b>{fmtPct(x.noVigProbability)}</b><small>{x.consensus?`${x.consensus.bookCount} books • ${fmtPct(x.consensus.agreement)} agree • ${x.consensus.marketStructure.replaceAll('_',' ')}`:'single-source baseline'}</small></td>
               <td><b>{x.predictionMarketProbability!==undefined?fmtPct(x.predictionMarketProbability):'—'}</b><small>{x.predictionMarketStatus==='MATCHED'?(x.predictionMarketVolume!==undefined?`vol ${Math.round(x.predictionMarketVolume).toLocaleString()}`:'matched'):x.predictionMarketStatus.replaceAll('_',' ')}</small></td>
