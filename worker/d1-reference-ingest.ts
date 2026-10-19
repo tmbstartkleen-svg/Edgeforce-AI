@@ -32,7 +32,7 @@ export async function d1ReferenceIngest(request:Request,env:Env):Promise<Respons
    const metadata=JSON.stringify({source:e.source,observed_at:e.observed_at});
    if(type==='teams')await db.prepare('INSERT OR IGNORE INTO teams(id,sport,league,name,city,venue,metadata) VALUES(?,?,?,?,?,?,?)').bind(e.id,e.sport,e.league??null,e.name,e.city??null,e.venue??null,metadata).run();
    else if(type==='athletes')await db.prepare('INSERT OR IGNORE INTO athletes(id,sport,league,full_name,team_id,position,metadata) VALUES(?,?,?,?,?,?,?)').bind(e.id,e.sport,e.league??null,e.full_name,e.team_id??null,e.position??null,metadata).run();
-   else await db.prepare('INSERT OR IGNORE INTO events(id,provider_event_id,sport,league,home_team_id,away_team_id,start_time,venue,status) VALUES(?,?,?,?,?,?,?,?,?)').bind(e.id,e.provider_event_id??null,e.sport,e.league??null,e.home_team_id??null,e.away_team_id??null,e.start_time,e.venue??null,e.status??'scheduled').run();
+   else await db.prepare('INSERT OR IGNORE INTO events(id,provider_event_id,sport,league,home_team_id,away_team_id,start_time,venue,status,source,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(e.id,e.provider_event_id??null,e.sport,e.league??null,e.home_team_id??null,e.away_team_id??null,e.start_time,e.venue??null,e.status??'scheduled',e.source,e.observed_at).run();
    inserted++;
   }
   return Response.json({ok:true,kind:'D1_REFERENCE_PILOT_INGEST',type,processed:inserted,insertOnly:true,productionCutoverAuthorized:false},{headers});
