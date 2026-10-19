@@ -41,7 +41,11 @@ export async function d1ReferenceIngest(request:Request,env:Env):Promise<Respons
   }
   // D1 batch executes transactionally: reject the whole batch if any statement fails.
   const results=await db.batch(statements);
-  const inserted=results.reduce((total,result)=>total+Number(result.meta?.changes??0),0);
+  // Never report a successful receipt if D1 omits or corrupts change counts.
+  if(results.length!==values.length||results.some(result=>!Number.isInteger(result?.meta?.changes)||!([0,1].includes(result.meta!.changes!)))){
+   return Response.json({ok:false,reason:'D1_UNVERIFIED_WRITE_RESULT',productionCutoverAuthorized:false},{status:503,headers});
+  }
+  const inserted=results.reduce((total,result)=>total+result.meta!.changes!,0);
   return Response.json({ok:true,kind:'D1_REFERENCE_PILOT_INGEST',type,processed:values.length,inserted,ignored:values.length-inserted,insertOnly:true,productionCutoverAuthorized:false},{headers});
  }catch{return Response.json({ok:false,reason:'D1_WRITE_FAILED',productionCutoverAuthorized:false},{status:503,headers})}
 }
