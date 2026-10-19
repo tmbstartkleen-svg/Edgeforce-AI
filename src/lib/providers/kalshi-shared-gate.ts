@@ -1,7 +1,7 @@
 // Shared Kalshi request gate. D1 updates are atomic across Worker isolates.
 // If no D1 binding is available, callers retain their local cooldown fallback.
 export type KalshiGateDb={
- prepare(sql:string):{bind(...values:unknown[]):{run():Promise<{meta?:{changes?:number}}>};first<T>():Promise<T|null>};
+ prepare(sql:string):{bind(...values:unknown[]):{run():Promise<{meta?:{changes?:number}}> ;first<T>():Promise<T|null>}};
 };
 const key='kalshi-readonly';
 const maxDelay=300000;
