@@ -34,7 +34,8 @@
     "test:runtime-repair": "node --test tests/runtime-repair.test.mjs",
     "test:smoke-transport": "node --test tests/smoke-transport.test.mjs",
     "test:production-target": "node --test tests/production-target.test.mjs",
-    "write-execution-evidence": "node scripts/write-execution-evidence.mjs"
+    "write-execution-evidence": "node scripts/write-execution-evidence.mjs",
+    "doctor:d1-reference": "node scripts/d1-reference-production-doctor.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
