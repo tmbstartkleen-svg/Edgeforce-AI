@@ -32,3 +32,26 @@ export function reconcileFixtureCoverage({targetFixtures=[],observedFixtures=[]}
   missingFixtureCount:missing.length,missingFixtures:missing,complete:unique.size>0&&missing.length===0,
   requiresCurrentLicensedDraftKingsInventory:true};
 }
+
+/** An honest league-level inventory audit: missing feeds and zero-event feeds are
+ * distinct. Candidate leagues are not proof of DraftKings market coverage.
+ */
+export function auditSoccerLeagueObservations(observations=[],expected=soccerCandidates){
+ const byCode=new Map();
+ for(const x of observations){
+  if(!x||typeof x.leagueId!=='string'||byCode.has(x.leagueId))continue;
+  byCode.set(x.leagueId,x);
+ }
+ const leagues=expected.map(league=>{
+  const o=byCode.get(league.code);
+  const observed=Boolean(o&&Array.isArray(o.fixtures));
+  const fixtures=observed?o.fixtures:[];
+  const valid=new Set(fixtures.filter(x=>x&&typeof x.eventId==='string'&&x.eventId.trim()).map(x=>x.eventId));
+  return {leagueId:league.id,providerLeagueId:league.code,observed,
+   fixtureCount:valid.size,coverageStatus:!observed?'NOT_OBSERVED':valid.size?'EVENTS_OBSERVED':'ZERO_EVENTS_REPORTED',
+   draftKingsInventoryCertified:false};
+ });
+ return {leagues,expectedLeagueCount:leagues.length,observedLeagueCount:leagues.filter(x=>x.observed).length,
+  missingLeagueIds:leagues.filter(x=>!x.observed).map(x=>x.leagueId),
+  requiresCurrentLicensedDraftKingsInventory:true,allSportsbookMarketsVerified:false};
+}
