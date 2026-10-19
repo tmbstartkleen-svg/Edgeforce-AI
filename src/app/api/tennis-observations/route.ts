@@ -15,7 +15,7 @@ export async function GET(){
   const observedAt=new Date().toISOString();
   const tennis=feed.games.filter(g=>g.sport.toLowerCase()==='tennis');
   const records=tennis.filter(g=>typeof g.startTime==='string'&&!Number.isNaN(Date.parse(g.startTime))).map(g=>({
-   id:g.id,tournament:g.league||'Tennis - tournament unknown',startTime:g.startTime
+   id:g.id,tournament:g.league||'Tennis - tournament unknown',startTime:g.startTime as string
   }));
   const preview=previewTennisD1Batches(records,{source:'sportscore',observedAt});
   return Response.json({ok:true,source:'sportscore',observedAt,tennisObserved:tennis.length,
