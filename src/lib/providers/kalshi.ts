@@ -1,4 +1,5 @@
 import {kalshiReadOnlyHeaders} from './kalshi-readonly-auth';
+import {acquireKalshiSlot,blockKalshiUntil,kalshiRetryMs,type KalshiGateDb} from './kalshi-shared-gate';
 type KalshiMarket={
  ticker?:string;
  event_ticker?:string;
@@ -61,6 +62,9 @@ function contractTitle(row:KalshiMarket,index:number){
 
 async function getPage(cursor?:string){
  if(Date.now()<cooldownUntil)return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:'Kalshi provider cooldown active',errorKind:lastFailureKind||'cooldown',retryAfterMs:cooldownUntil-Date.now()};
+ const db=(process.env as unknown as {INTELLIGENCE_DB?:KalshiGateDb}).INTELLIGENCE_DB;
+ const slot=await acquireKalshiSlot(db);
+ if(!slot.allowed)return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:'Kalshi shared cooldown active',errorKind:'rate_limited',retryAfterMs:slot.retryAfterMs};
  const url=new URL(base()+'/markets');
  url.searchParams.set('status','open');
  const pageLimit=Math.max(50,Math.min(1000,Number(process.env.KALSHI_MARKET_PAGE_LIMIT||1000)));
@@ -85,8 +89,9 @@ async function getPage(cursor?:string){
    const kind=failureKind(res.status);
    lastFailureKind=kind;
    if(res.status===429||res.status===400||res.status===404||res.status===401||res.status===403||res.status>=500){
-    const delay=res.status===429?retryDelay(res.headers.get('retry-after'),Date.now()):res.status>=500?30000:res.status===400||res.status===404?60000:300000;
+    const delay=res.status===429?kalshiRetryMs(res.headers.get('retry-after'),Date.now()):res.status>=500?30000:res.status===400||res.status===404?60000:300000;
     cooldownUntil=Date.now()+delay;
+    if(res.status===429)await blockKalshiUntil(db,delay);
    }
    return {ok:false as const,rows:[] as KalshiMarket[],cursor:'',error:`Kalshi ${kind} (HTTP ${res.status})`,errorKind:kind,retryAfterMs:Math.max(0,cooldownUntil-Date.now())};
   }

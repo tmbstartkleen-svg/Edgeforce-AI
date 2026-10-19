@@ -1,6 +1,7 @@
 import {kalshiReadOnlyHeaders} from '../src/lib/providers/kalshi-readonly-auth';
+import {acquireKalshiSlot,blockKalshiUntil,kalshiRetryMs,type KalshiGateDb} from '../src/lib/providers/kalshi-shared-gate';
 
-type Env={KALSHI_API_KEY_ID?:string;KALSHI_PRIVATE_KEY?:string;INGEST_SECRET?:string};
+type Env={KALSHI_API_KEY_ID?:string;KALSHI_PRIVATE_KEY?:string;INGEST_SECRET?:string;INTELLIGENCE_DB?:KalshiGateDb};
 
 // Best-effort per-isolate diagnostic cooldown. Production-wide limits also require
 // a shared request budget; this gate prevents repeated manual probes on one isolate.
@@ -21,6 +22,8 @@ export async function kalshiConnectionDiagnostic(request:Request,env:Env):Promis
  if(!keyId||!privateKey)return json({ok:false,mode:'not_configured',keyIdPresent:Boolean(keyId),privateKeyPresent:Boolean(privateKey)},503);
  const now=Date.now();
  if(now<rateLimitedUntil)return json({ok:false,mode:'rate_limited',retryAfterMs:rateLimitedUntil-now},429);
+ const slot=await acquireKalshiSlot(env.INTELLIGENCE_DB);
+ if(!slot.allowed)return json({ok:false,mode:'rate_limited',shared:slot.shared,retryAfterMs:slot.retryAfterMs},429);
  const url=new URL('https://external-api.kalshi.com/trade-api/v2/markets?status=open&limit=1');
  let headers:Record<string,string>;
  try{headers=kalshiReadOnlyHeaders(url,keyId,privateKey);}
@@ -28,7 +31,8 @@ export async function kalshiConnectionDiagnostic(request:Request,env:Env):Promis
  try{
   const response=await fetch(url.toString(),{method:'GET',headers:{Accept:'application/json',...headers},signal:AbortSignal.timeout(7000)});
   if(response.status===429){
-   const delay=retryDelayMs(response.headers.get('retry-after'),Date.now());
+   const delay=kalshiRetryMs(response.headers.get('retry-after'),Date.now());
+   await blockKalshiUntil(env.INTELLIGENCE_DB,delay);
    rateLimitedUntil=Date.now()+delay;
    return json({ok:false,mode:'rate_limited',upstreamStatus:429,retryAfterMs:delay},429);
   }
