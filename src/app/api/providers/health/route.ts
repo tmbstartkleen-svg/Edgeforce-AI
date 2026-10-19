@@ -6,6 +6,7 @@ export const dynamic='force-dynamic';
 export async function GET(){
  const sql=db();
  if(!sql)return Response.json({source:'none',providers:[]},{headers:{'Cache-Control':'no-store'}});
+ try {
  const rows=await sql`
   select provider_id as id,name,priority,capabilities,enabled,
    last_success_at as "lastSuccessAt",last_failure_at as "lastFailureAt",
@@ -38,5 +39,10 @@ export async function GET(){
    health:providerHealth(state)
   };
  });
- return Response.json({source:'database',providers},{headers:{'Cache-Control':'no-store'}});
+ return Response.json({ok:true,source:'database',providers},{headers:{'Cache-Control':'no-store'}});
+ } catch(error) {
+  const message=error instanceof Error?error.message:'Database query failed';
+  const quotaExceeded=/exceeded the quota|quota exceeded|resource limit/i.test(message);
+  return Response.json({ok:false,source:'database',providers:[],degraded:true,reason:quotaExceeded?'database_quota_exceeded':'database_unavailable'}, {status:503,headers:{'Cache-Control':'no-store'}});
+ }
 }
