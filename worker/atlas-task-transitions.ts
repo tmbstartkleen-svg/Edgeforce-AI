@@ -40,6 +40,10 @@ export async function transitionAtlasSchedule(
   if(!current||current.id!==params.id)return {ok:false,reason:'TASK_NOT_FOUND'};
   if(current.state!==params.expectedState||current.attempts!==params.expectedAttempts)
    return {ok:false,reason:'STALE_TRANSITION'};
+  // Never mark expired work successful or schedule retries after its deadline.
+  if((params.action==='COMPLETE'||params.action==='RETRY')&&
+    (!Number.isFinite(Date.parse(current.expiresAt))||params.now>=Date.parse(current.expiresAt)))
+   return {ok:false,reason:'TASK_EXPIRED'};
   let next:AtlasScheduleRecord;
   try{
    switch(params.action){
