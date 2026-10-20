@@ -70,8 +70,13 @@ test('manual enqueue requires owner token and strips caller activation flags',as
  const body={id:'scheduled-task-001',createdAt:'2026-10-20T12:00:00Z',nextRunAt:'2026-10-20T12:01:00Z',expiresAt:'2026-10-20T12:20:00Z',enabled:true,ownerAuthorized:true};
  assert.equal((await atlasGateway(request('POST','/api/network/schedule/enqueue',false,body),env,forward)).status,401);
  assert.equal(seen.length,0);
- const response=await atlasGateway(request('POST','/api/network/schedule/enqueue',true,body),env,forward);
+ const forged=await atlasGateway(request('POST','/api/network/schedule/enqueue',true,body),env,forward);
+ assert.equal(forged.status,400);
+ assert.equal((await forged.json()).error,'UNEXPECTED_TASK_FIELD');
+ assert.equal(seen.length,0);
+ const {enabled,ownerAuthorized,...valid}=body;
+ const response=await atlasGateway(request('POST','/api/network/schedule/enqueue',true,valid),env,forward);
  assert.equal(response.status,200);
  assert.equal(seen.length,1);
- assert.deepEqual(await seen[0].json(),{id:body.id,createdAt:body.createdAt,nextRunAt:body.nextRunAt,expiresAt:body.expiresAt});
+ assert.deepEqual(await seen[0].json(),valid);
 });
