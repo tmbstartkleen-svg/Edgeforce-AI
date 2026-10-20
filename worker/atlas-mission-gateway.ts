@@ -40,11 +40,12 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const isScheduleSummary=url.pathname==='/api/network/schedule/summary';
  const isScheduleLifecycle=url.pathname==='/api/network/schedule/lifecycle';
  const isScheduleCancel=url.pathname==='/api/network/schedule/cancel';
+ const isScheduleRecover=url.pathname==='/api/network/schedule/recover';
  const isScheduleEnqueue=url.pathname==='/api/network/schedule/enqueue';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleEnqueue)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleRecover&&!isScheduleEnqueue)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  // Founder authentication also applies to GET director requests.
  // Public metadata must never bypass the owner security boundary.
 
@@ -92,6 +93,24 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
    }));
    return json(await reply.json(),reply.status);
   }catch{return json({ok:false,error:'SCHEDULER_ENQUEUE_UNAVAILABLE'},503);}
+ }
+ if(isScheduleRecover){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  let data:unknown;
+  try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
+  catch{return json({ok:false,error:'INVALID_JSON'},400);}
+  if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_RECOVERY'},400);
+  const input=data as Record<string,unknown>;
+  if(Object.keys(input).some(k=>!['id','expectedAttempts'].includes(k))||
+   typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+   !Number.isSafeInteger(input.expectedAttempts)||Number(input.expectedAttempts)<0)
+   return json({ok:false,error:'INVALID_RECOVERY'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/recover','POST',{
+    id:input.id,expectedAttempts:input.expectedAttempts
+   }));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_RECOVERY_UNAVAILABLE'},503);}
  }
  if(isScheduleCancel){
   if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
