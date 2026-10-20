@@ -80,3 +80,16 @@ test('manual enqueue requires owner token and strips caller activation flags',as
  assert.equal(seen.length,1);
  assert.deepEqual(await seen[0].json(),valid);
 });
+
+test('recovery requires Founder authentication and refuses spoofed permissions',async()=>{
+ seen.length=0;
+ const valid={id:'scheduled-task-001',expectedAttempts:0};
+ assert.equal((await atlasGateway(request('POST','/api/network/schedule/recover',false,valid),env,forward)).status,401);
+ assert.equal(seen.length,0);
+ const forged=await atlasGateway(request('POST','/api/network/schedule/recover',true,{...valid,ownerAuthorized:true}),env,forward);
+ assert.equal(forged.status,400);assert.equal(seen.length,0);
+ const reply=await atlasGateway(request('POST','/api/network/schedule/recover',true,valid),env,forward);
+ assert.equal(reply.status,200);assert.equal(seen.length,1);
+ assert.deepEqual(await seen[0].json(),valid);
+ assert.equal(new URL(seen[0].url).pathname,'/schedule/recover');
+});
