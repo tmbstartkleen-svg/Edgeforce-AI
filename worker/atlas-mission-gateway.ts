@@ -40,10 +40,11 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const isScheduleSummary=url.pathname==='/api/network/schedule/summary';
  const isScheduleLifecycle=url.pathname==='/api/network/schedule/lifecycle';
  const isScheduleCancel=url.pathname==='/api/network/schedule/cancel';
+ const isScheduleEnqueue=url.pathname==='/api/network/schedule/enqueue';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleEnqueue)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  // Founder authentication also applies to GET director requests.
  // Public metadata must never bypass the owner security boundary.
 
@@ -65,6 +66,23 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isScheduleEnqueue){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  let data:unknown;
+  try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
+  catch{return json({ok:false,error:'INVALID_JSON'},400);}
+  if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_TASK'},400);
+  const input=data as Record<string,unknown>;
+  if(typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+   typeof input.createdAt!=='string'||typeof input.nextRunAt!=='string'||typeof input.expiresAt!=='string')
+   return json({ok:false,error:'INVALID_TASK'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/enqueue','POST',{
+    id:input.id,createdAt:input.createdAt,nextRunAt:input.nextRunAt,expiresAt:input.expiresAt
+   }));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_ENQUEUE_UNAVAILABLE'},503);}
+ }
  if(isScheduleCancel){
   if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
   const length=Number(request.headers.get('content-length')||0);
