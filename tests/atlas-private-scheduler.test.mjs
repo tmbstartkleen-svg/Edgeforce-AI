@@ -12,7 +12,8 @@ test('durable scheduler helpers connected only to private mission room',()=>{
  assert.match(gateway,/isScheduleStatus=url.pathname===/);
  assert.match(gateway,/isScheduleStatus\)\{/);
  assert.match(gateway,/request.method!=='GET'/);
- assert.doesNotMatch(gateway,/\/api\/network\/schedule\/enqueue|\/api\/network\/schedule\/claim|\/api\/network\/schedule\/complete/);
+ assert.match(gateway,/isScheduleEnqueue=url.pathname===/);
+ assert.doesNotMatch(gateway,/\/api\/network\/schedule\/(claim|complete)/);
 });
 
 test('scheduler health never claims readiness without an executor',()=>{
@@ -36,7 +37,8 @@ test('scheduler mutation remains blocked despite caller-supplied activation fiel
  const authPos=gateway.indexOf("if(!await validToken(required,supplied))");
  assert.ok(authPos>=0&&lifecyclePos>authPos,'Lifecycle rejection must follow authentication');
  assert.match(room,/if\(url.pathname.startsWith\('\/schedule\/'\)&&request.method!=='GET'\)/);
- assert.doesNotMatch(gateway,/roomRequest\('\/schedule\/(claim|complete|enqueue)'/);
+ assert.match(gateway,/roomRequest\('\/schedule\/enqueue','POST'/);
+ assert.doesNotMatch(gateway,/roomRequest\('\/schedule\/(claim|complete)'/);
 });
 
 test('owner-authenticated task inspection is read-only and excludes lease records',()=>{
