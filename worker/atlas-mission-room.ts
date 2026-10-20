@@ -77,6 +77,22 @@ export class AtlasMissionRoom {
    });
    return json(result,result.ok?200:409);
   }
+  // Owner-authenticated manual queue creation. Dispatch remains disabled.
+  // Request flags cannot grant authorization; gateway owns access control.
+  if(url.pathname==='/schedule/enqueue'&&request.method==='POST'){
+   let value:unknown;
+   try{value=await request.json();}catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(!value||typeof value!=='object'||Array.isArray(value))
+    return json({ok:false,error:'INVALID_TASK'},400);
+   const data=value as Record<string,unknown>;
+   if(typeof data.id!=='string'||typeof data.createdAt!=='string'||
+      typeof data.nextRunAt!=='string'||typeof data.expiresAt!=='string')
+    return json({ok:false,error:'INVALID_TASK'},400);
+   const result=await enqueueAtlasSchedule(this.state.storage,{
+    id:data.id,createdAt:data.createdAt,nextRunAt:data.nextRunAt,expiresAt:data.expiresAt
+   },{ownerAuthorized:true,enabled:true,now:Date.now()});
+   return json(result,result.ok?201:409);
+  }
   // Monitoring is read-only; do not return lease credentials or mutate state.
   if(url.pathname==='/schedule/summary'&&request.method==='GET'){
    const ids=(url.searchParams.get('ids')||'').split(',').filter(Boolean);
