@@ -119,3 +119,11 @@ test('durable cancellation rejects malformed expectations independently of gatew
  }
  assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
 });
+
+test('claim rejects non-integer attempt expectations without changing storage',async()=>{
+ const {data,storage}=setup();
+ const result=await operations.claimAtlasScheduledExecution(storage,{...args,expectedAttempts:Number.NaN});
+ assert.equal(result.reason,'STALE_TRANSITION');
+ assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
+ assert.equal(data.has('atlas-lease:'+id),false);
+});
