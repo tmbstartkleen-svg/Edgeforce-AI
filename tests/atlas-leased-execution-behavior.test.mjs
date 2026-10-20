@@ -106,3 +106,16 @@ test('completion rejects non-finite clock without mutating task',async()=>{
  assert.equal(result.reason,'INVALID_TIME');
  assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('durable cancellation rejects malformed expectations independently of gateway',async()=>{
+ const {data,storage}=setup();
+ for(const params of [
+  {expectedState:'UNKNOWN',expectedAttempts:0},
+  {expectedState:'RUNNING',expectedAttempts:-1},
+  {expectedState:'QUEUED',expectedAttempts:Number.NaN}
+ ]){
+  const result=await operations.cancelAtlasLeasedExecution(storage,{id,ownerAuthorized:true,...params});
+  assert.equal(result.reason,'INVALID_CANCEL_EXPECTATION');
+ }
+ assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
+});
