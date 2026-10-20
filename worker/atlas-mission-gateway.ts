@@ -68,11 +68,18 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
 
  if(isScheduleEnqueue){
   if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  // Never allow browser request bodies to forge platform activation or approvals.
+  // Reject rather than silently ignore these fields, so mistakes are visible.
+  const contentType=request.headers.get('content-type')||'';
+  if(!contentType.toLowerCase().startsWith('application/json'))
+   return json({ok:false,error:'JSON_REQUIRED'},415);
   let data:unknown;
   try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
   catch{return json({ok:false,error:'INVALID_JSON'},400);}
   if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_TASK'},400);
   const input=data as Record<string,unknown>;
+  if(Object.keys(input).some(k=>!['id','createdAt','nextRunAt','expiresAt'].includes(k)))
+   return json({ok:false,error:'UNEXPECTED_TASK_FIELD'},400);
   if(typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
    typeof input.createdAt!=='string'||typeof input.nextRunAt!=='string'||typeof input.expiresAt!=='string')
    return json({ok:false,error:'INVALID_TASK'},400);
