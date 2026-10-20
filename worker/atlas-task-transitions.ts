@@ -34,6 +34,9 @@ export async function transitionAtlasSchedule(
   return {ok:false,reason:'INVALID_EXPECTATION'};
  // Every mutating action requires Founder authorization, not only CLAIM/CANCEL.
  if(!params.ownerAuthorized)return {ok:false,reason:'OWNER_APPROVAL_REQUIRED'};
+ // Execution transitions also require explicit opt-in and a healthy upstream.
+ if(params.action!=='CANCEL'&&!params.enabled)return {ok:false,reason:'SCHEDULER_DISABLED'};
+ if(params.action!=='CANCEL'&&!params.providerHealthy)return {ok:false,reason:'PROVIDER_UNHEALTHY'};
  return storage.transaction(async txn=>{
   const key=PREFIX+params.id;
   const current=await txn.get<AtlasScheduleRecord>(key);
