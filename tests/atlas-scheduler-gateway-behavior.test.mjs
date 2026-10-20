@@ -64,3 +64,14 @@ test('director GET supports only authenticated safe methods',async()=>{
  assert.equal((await atlasGateway(request('GET','/api/network/director',false),env,forward)).status,401);
  assert.equal((await atlasGateway(request('GET','/api/network/director'),env,forward)).status,200);
 });
+
+test('manual enqueue requires owner token and strips caller activation flags',async()=>{
+ seen.length=0;
+ const body={id:'scheduled-task-001',createdAt:'2026-10-20T12:00:00Z',nextRunAt:'2026-10-20T12:01:00Z',expiresAt:'2026-10-20T12:20:00Z',enabled:true,ownerAuthorized:true};
+ assert.equal((await atlasGateway(request('POST','/api/network/schedule/enqueue',false,body),env,forward)).status,401);
+ assert.equal(seen.length,0);
+ const response=await atlasGateway(request('POST','/api/network/schedule/enqueue',true,body),env,forward);
+ assert.equal(response.status,200);
+ assert.equal(seen.length,1);
+ assert.deepEqual(await seen[0].json(),{id:body.id,createdAt:body.createdAt,nextRunAt:body.nextRunAt,expiresAt:body.expiresAt});
+});
