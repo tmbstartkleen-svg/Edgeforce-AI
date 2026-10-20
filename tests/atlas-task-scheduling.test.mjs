@@ -52,3 +52,12 @@ test('Interrupted work cannot be blindly reclaimed without an execution lease',(
  assert.match(source,/recoverable:false,reason:'MISSING_EXECUTION_LEASE'/);
  assert.match(source,/recoverable:false,reason:'TASK_EXPIRED'/);
 });
+
+test('Execution lease policy rejects stale and expired executors',()=>{
+ const lease=fs.readFileSync(new URL('../worker/atlas-execution-lease.ts',import.meta.url),'utf8');
+ for(const gate of ['INVALID_LEASE_TOKEN','INVALID_LEASE_WINDOW','INVALID_LEASE_EPOCH','LEASE_REQUIRED','STALE_EXECUTOR','LEASE_EXPIRED'])
+  assert.ok(lease.includes(gate),gate);
+ assert.match(lease,/previousEpoch\+1/);
+ assert.match(lease,/lease\.token!==token\|\|lease\.epoch!==epoch/);
+ assert.doesNotMatch(lease,/fetch\(|setInterval\(|placeBet/);
+});
