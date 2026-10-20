@@ -20,3 +20,8 @@ test('module does not activate jobs, make external calls, or place wagers',()=>{
  assert.doesNotMatch(source,/setInterval\(|setTimeout\(|fetch\(|\.send\(|placeBet|executeWager/);
  assert.match(source,/Not wired to a cron/);
 });
+
+test('Every state mutation requires Founder authorization before transaction',()=>{
+ assert.match(source,/if\(!params\.ownerAuthorized\)return \{ok:false,reason:'OWNER_APPROVAL_REQUIRED'\}/);
+ assert.ok(source.indexOf("if(!params.ownerAuthorized)return") < source.indexOf('return storage.transaction('));
+});
