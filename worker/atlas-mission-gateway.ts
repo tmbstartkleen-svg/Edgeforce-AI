@@ -66,6 +66,11 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ // Scheduler execution remains server-disabled. Never accept execution
+ // credentials, lease tokens, or activation flags from a public client.
+ // This gate precedes all private durable-object mutations.
+ if(isScheduleLifecycle&&request.method!=='POST')
+  return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  if(isScheduleEnqueue){
   if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
   // Never allow browser request bodies to forge platform activation or approvals.
