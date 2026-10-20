@@ -48,6 +48,17 @@ export class AtlasMissionRoom {
     executorConnected:false,cronConnected:false,liveDispatchVerified:false,
     blockers:['OWNER_ACTIVATION_REQUIRED','EXECUTOR_NOT_CONNECTED','NO_LIVE_DISPATCH_CERTIFICATION']});
   }
+  // Private-only lifecycle wiring. This gate is deliberately constant-false
+  // until a separately reviewed, authenticated scheduler activation exists.
+  // No public Worker route forwards these paths.
+  if(false && request.method==='POST' && url.pathname==='/schedule/claim'){
+   const input=await request.json() as Parameters<typeof claimAtlasScheduledExecution>[1];
+   return json(await claimAtlasScheduledExecution(this.state.storage,input));
+  }
+  if(false && request.method==='POST' && url.pathname==='/schedule/complete'){
+   const input=await request.json() as Parameters<typeof completeAtlasLeasedExecution>[1];
+   return json(await completeAtlasLeasedExecution(this.state.storage,input));
+  }
   if(url.pathname.startsWith('/schedule/')&&request.method!=='GET'){
    return json({ok:false,error:'SCHEDULER_DISABLED'},403);
   }
