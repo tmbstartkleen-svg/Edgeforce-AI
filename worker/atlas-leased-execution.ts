@@ -68,6 +68,9 @@ export async function cancelAtlasLeasedExecution(storage:SchedulerStore,input:{
 }):Promise<{ok:true}|{ok:false;reason:string}>{
  if(!ID.test(input.id))return {ok:false,reason:'INVALID_TASK_ID'};
  if(!input.ownerAuthorized)return {ok:false,reason:'OWNER_APPROVAL_REQUIRED'};
+ if(!['QUEUED','RETRY_WAIT','RUNNING'].includes(input.expectedState)||
+    !Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0)
+  return {ok:false,reason:'INVALID_CANCEL_EXPECTATION'};
  return storage.transaction(async txn=>{
   const task=await txn.get<AtlasScheduleRecord>(TASK+input.id);
   if(!task)return {ok:false,reason:'TASK_NOT_FOUND'};
