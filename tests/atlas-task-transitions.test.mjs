@@ -25,3 +25,9 @@ test('Every state mutation requires Founder authorization before transaction',()
  assert.match(source,/if\(!params\.ownerAuthorized\)return \{ok:false,reason:'OWNER_APPROVAL_REQUIRED'\}/);
  assert.ok(source.indexOf("if(!params.ownerAuthorized)return") < source.indexOf('return storage.transaction('));
 });
+
+test('Expired running tasks cannot be completed or retried',()=>{
+ assert.match(source,/params\.action==='COMPLETE'\|\|params\.action==='RETRY'/);
+ assert.match(source,/params\.now>=Date\.parse\(current\.expiresAt\)/);
+ assert.match(source,/reason:'TASK_EXPIRED'/);
+});
