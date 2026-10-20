@@ -1,5 +1,6 @@
 import {enqueueAtlasSchedule} from './atlas-schedule-enqueue';
 import {transitionAtlasSchedule} from './atlas-task-transitions';
+import {claimAtlasScheduledExecution,completeAtlasLeasedExecution} from './atlas-leased-execution';
 // Build 408: private durable journal for the Founder-led ATLAS mission room.
 // The native Cloudflare Durable Object maintains one serialized room state.
 // It is intentionally NOT public-routed: only the authenticated Worker gateway
@@ -42,6 +43,8 @@ export class AtlasMissionRoom {
     durableStorageAvailable:typeof this.state.storage.transaction==='function',
     enqueueImplemented:typeof enqueueAtlasSchedule==='function',
     transitionsImplemented:typeof transitionAtlasSchedule==='function',
+    fencedClaimImplemented:typeof claimAtlasScheduledExecution==='function',
+    fencedCompletionImplemented:typeof completeAtlasLeasedExecution==='function',
     executorConnected:false,cronConnected:false,liveDispatchVerified:false,
     blockers:['OWNER_ACTIVATION_REQUIRED','EXECUTOR_NOT_CONNECTED','NO_LIVE_DISPATCH_CERTIFICATION']});
   }
