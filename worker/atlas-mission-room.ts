@@ -1,3 +1,4 @@
+import {failInterruptedAtlasTask} from './atlas-interrupted-recovery';
 import {enqueueAtlasSchedule} from './atlas-schedule-enqueue';
 import {transitionAtlasSchedule} from './atlas-task-transitions';
 import {claimAtlasScheduledExecution,completeAtlasLeasedExecution,cancelAtlasLeasedExecution} from './atlas-leased-execution';
@@ -92,6 +93,19 @@ export class AtlasMissionRoom {
     id:data.id,createdAt:data.createdAt,nextRunAt:data.nextRunAt,expiresAt:data.expiresAt
    },{ownerAuthorized:true,enabled:true,now:Date.now()});
    return json(result,result.ok?201:409);
+  }
+  // Founder-authenticated terminal recovery; no replay or dispatch.
+  if(url.pathname==='/schedule/recover'&&request.method==='POST'){
+   let data:unknown;
+   try{data=await request.json();}catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_RECOVERY'},400);
+   const input=data as Record<string,unknown>;
+   if(typeof input.id!=='string'||!Number.isSafeInteger(input.expectedAttempts)||
+      Number(input.expectedAttempts)<0)return json({ok:false,error:'INVALID_RECOVERY'},400);
+   const result=await failInterruptedAtlasTask(this.state.storage,{
+    id:input.id,expectedAttempts:input.expectedAttempts as number,now:Date.now(),ownerAuthorized:true
+   });
+   return json(result,result.ok?200:409);
   }
   // Monitoring is read-only; do not return lease credentials or mutate state.
   if(url.pathname==='/schedule/summary'&&request.method==='GET'){
