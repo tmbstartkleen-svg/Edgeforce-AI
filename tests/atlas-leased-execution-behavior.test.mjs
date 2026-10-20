@@ -98,3 +98,11 @@ test('corrupted persisted epoch fails closed without claiming work',async()=>{
  assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
  assert.equal(data.has('atlas-lease:'+id),false);
 });
+
+test('completion rejects non-finite clock without mutating task',async()=>{
+ const {data,storage}=setup();
+ assert.equal((await operations.claimAtlasScheduledExecution(storage,args)).ok,true);
+ const result=await operations.completeAtlasLeasedExecution(storage,{...args,epoch:1,now:Number.NaN});
+ assert.equal(result.reason,'INVALID_TIME');
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
