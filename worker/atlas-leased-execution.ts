@@ -23,7 +23,11 @@ export async function claimAtlasScheduledExecution(storage:SchedulerStore,input:
   const existing=await txn.get<AtlasExecutionLease>(LEASE+input.id);
   // Fail closed: no automated lease takeover, even after expiry.
   if(existing)return {ok:false,reason:'LEASE_ALREADY_EXISTS'};
-  const epoch=await txn.get<number>(EPOCH+input.id)??0;
+  const persistedEpoch=await txn.get<number>(EPOCH+input.id);
+  // Fencing metadata must be a safe integer; never silently reset corrupt state.
+  if(persistedEpoch!==undefined&&(!Number.isSafeInteger(persistedEpoch)||persistedEpoch<0))
+   return {ok:false,reason:'INVALID_PERSISTED_EPOCH'};
+  const epoch=persistedEpoch??0;
   try{
    const lease=createAtlasExecutionLease(input.id,input.token,input.now,input.durationMs,epoch);
    const next=claimAtlasTask(task,input);
