@@ -77,6 +77,19 @@ export class AtlasMissionRoom {
    });
    return json(result,result.ok?200:409);
   }
+  // Monitoring is read-only; do not return lease credentials or mutate state.
+  if(url.pathname==='/schedule/summary'&&request.method==='GET'){
+   const ids=(url.searchParams.get('ids')||'').split(',').filter(Boolean);
+   if(ids.length===0||ids.length>20||ids.some(id=>!/^[A-Za-z0-9-]{12,90}$/.test(id)))
+    return json({ok:false,error:'INVALID_TASK_IDS'},400);
+   const counts={QUEUED:0,RUNNING:0,RETRY_WAIT:0,COMPLETED:0,FAILED:0,CANCELLED:0,NOT_FOUND:0};
+   for(const id of new Set(ids)){
+    const task=await this.state.storage.get<import('./atlas-task-scheduling').AtlasScheduleRecord>('atlas-schedule:'+id);
+    if(task&&Object.hasOwn(counts,task.state))counts[task.state]++;
+    else counts.NOT_FOUND++;
+   }
+   return json({ok:true,enabled:false,counts});
+  }
   if(url.pathname==='/schedule/lifecycle'&&request.method==='POST'){
    return json({ok:false,error:'SCHEDULER_DISABLED',activationRequired:true},403);
   }
