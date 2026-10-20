@@ -21,7 +21,9 @@ export async function runAtlasScheduledTask(storage:SchedulerStore,input:{
  catch{return {ok:false,stage:'execute',reason:'EXECUTION_FAILED'};}
  if(!executed||executed.ok!==true)
   return {ok:false,stage:'execute',reason:executed?.ok===false?executed.reason:'INVALID_EXECUTION_RESULT'};
- const now=input.clock();
+ let now:number;
+ try{now=input.clock();}catch{return {ok:false,stage:'complete',reason:'CLOCK_UNAVAILABLE'};}
+ if(!Number.isFinite(now))return {ok:false,stage:'complete',reason:'INVALID_TIME'};
  const completed=await completeAtlasLeasedExecution(storage,{
   id:input.id,token:input.token,epoch:claim.lease.epoch,now,
   enabled:input.enabled,ownerAuthorized:input.ownerAuthorized,providerHealthy:input.providerHealthy
