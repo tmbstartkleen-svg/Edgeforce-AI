@@ -35,12 +35,13 @@ const roomRequest=(path:string,method:'GET'|'POST',body?:unknown)=>new Request('
 });
 export async function atlasGateway(request:Request,env:Env,forward:Forward):Promise<Response>{
  const url=new URL(request.url);
+ const isScheduleStatus=url.pathname==='/api/network/schedule/status';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  if(isDirector&&request.method==='GET')return forward(request);
- if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')){
+ if((isDirector&&request.method!=='POST')||((isHistory||isTasks||isScheduleStatus)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
@@ -55,6 +56,13 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isScheduleStatus){
+  try{
+   const result=await instance.fetch(roomRequest('/schedule/status','GET'));
+   if(!result.ok)return json({ok:false,error:'SCHEDULER_STATUS_UNAVAILABLE'},503);
+   return json(await result.json());
+  }catch{return json({ok:false,error:'SCHEDULER_STATUS_UNAVAILABLE'},503);}
+ }
  if(isTasks){
   try{
    const agent=url.searchParams.get('agent')||'';
