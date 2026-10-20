@@ -11,3 +11,9 @@ test('durable scheduler helpers connected only to private mission room',()=>{
  assert.match(room,/error:'SCHEDULER_DISABLED'/);
  assert.doesNotMatch(gateway,/\/api\/network\/schedule/);
 });
+
+test('scheduler health never claims readiness without an executor',()=>{
+ assert.match(room,/ready:false,executionMode:'disabled'/);
+ assert.match(room,/executorConnected:false,cronConnected:false,liveDispatchVerified:false/);
+ assert.match(room,/NO_LIVE_DISPATCH_CERTIFICATION/);
+});
