@@ -57,3 +57,12 @@ test('owner-only scheduler summary is bounded and read-only',()=>{
  assert.match(room,/ids.length>20/);
  assert.match(room,/return json\(\{ok:true,enabled:false,counts\}\)/);
 });
+
+test('terminal recovery is private Founder-gated and never schedules retries',()=>{
+ assert.match(gateway,/isScheduleRecover=url.pathname===/);
+ assert.match(gateway,/roomRequest\('\/schedule\/recover','POST'/);
+ assert.match(gateway,/Number.isSafeInteger\(input.expectedAttempts\)/);
+ assert.match(room,/failInterruptedAtlasTask\(this.state.storage/);
+ assert.match(room,/ownerAuthorized:true/);
+ assert.doesNotMatch(gateway,/roomRequest\('\/schedule\/(claim|complete)'/);
+});
