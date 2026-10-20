@@ -1,3 +1,5 @@
+import {enqueueAtlasSchedule} from './atlas-schedule-enqueue';
+import {transitionAtlasSchedule} from './atlas-task-transitions';
 // Build 408: private durable journal for the Founder-led ATLAS mission room.
 // The native Cloudflare Durable Object maintains one serialized room state.
 // It is intentionally NOT public-routed: only the authenticated Worker gateway
@@ -33,6 +35,16 @@ export class AtlasMissionRoom {
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
+  // Internal-only integration. No public gateway route, cron, or executor exists.
+  // Both mutations are deliberately disabled until a separately reviewed activation.
+  if(url.pathname==='/schedule/status'&&request.method==='GET'){
+   return json({ok:true,enabled:false,executionMode:'disabled',durable:true,
+    enqueueImplemented:typeof enqueueAtlasSchedule==='function',
+    transitionsImplemented:typeof transitionAtlasSchedule==='function'});
+  }
+  if(url.pathname.startsWith('/schedule/')&&request.method!=='GET'){
+   return json({ok:false,error:'SCHEDULER_DISABLED'},403);
+  }
   if(request.method==='GET'&&url.pathname==='/history'){
    const missions=await this.state.storage.get<AtlasJournalItem[]>('missions')||[];
    const max=Math.min(30,Math.max(1,Number(url.searchParams.get('limit')||15)||15));
