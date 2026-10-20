@@ -46,7 +46,7 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  // Founder authentication also applies to GET director requests.
  // Public metadata must never bypass the owner security boundary.
 
- if((isDirector&&request.method!=='POST')||((isHistory||isTasks||isScheduleStatus||isScheduleTask)&&request.method!=='GET')){
+ if((isDirector&&request.method!=='POST'&&request.method!=='GET')||((isHistory||isTasks||isScheduleStatus||isScheduleTask)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
