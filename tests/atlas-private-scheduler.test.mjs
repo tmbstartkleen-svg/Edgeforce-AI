@@ -45,3 +45,12 @@ test('owner-authenticated task inspection is read-only and excludes lease record
  assert.match(room,/this.state.storage.get<import\('\.\/atlas-task-scheduling'\).AtlasScheduleRecord>/);
  assert.doesNotMatch(room,/return json\(\{ok:true,task,lease\}/);
 });
+
+test('owner-only scheduler summary is bounded and read-only',()=>{
+ assert.match(gateway,/isScheduleSummary=url.pathname===/);
+ assert.match(gateway,/parsed.length>20/);
+ assert.match(gateway,/roomRequest\('\/schedule\/summary\?ids='/);
+ assert.match(room,/url.pathname==='\/schedule\/summary'&&request.method==='GET'/);
+ assert.match(room,/ids.length>20/);
+ assert.match(room,/return json\(\{ok:true,enabled:false,counts\}\)/);
+});
