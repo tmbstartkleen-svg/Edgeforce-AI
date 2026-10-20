@@ -69,3 +69,14 @@ test('lease completion rejects wrong token without mutating durable record',asyn
  assert.equal(result.reason,'STALE_EXECUTOR');
  assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('owner cancellation prevents leased worker completion and retains tombstone',async()=>{
+ const {data,storage}=setup();
+ assert.equal((await operations.claimAtlasScheduledExecution(storage,args)).ok,true);
+ assert.equal((await operations.cancelAtlasLeasedExecution(storage,{id,ownerAuthorized:false,expectedState:'RUNNING',expectedAttempts:0})).reason,'OWNER_APPROVAL_REQUIRED');
+ assert.equal((await operations.cancelAtlasLeasedExecution(storage,{id,ownerAuthorized:true,expectedState:'QUEUED',expectedAttempts:0})).reason,'STALE_TRANSITION');
+ assert.equal((await operations.cancelAtlasLeasedExecution(storage,{id,ownerAuthorized:true,expectedState:'RUNNING',expectedAttempts:0})).ok,true);
+ assert.equal(data.get('atlas-schedule:'+id).state,'CANCELLED');
+ assert.ok(data.has('atlas-lease:'+id));
+ assert.equal((await operations.completeAtlasLeasedExecution(storage,{...args,epoch:1,now:now+1000})).reason,'TASK_NOT_RUNNING');
+});
