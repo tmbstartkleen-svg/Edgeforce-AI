@@ -32,6 +32,8 @@ export async function transitionAtlasSchedule(
  if(!VALID_ID.test(params.id))return {ok:false,reason:'INVALID_TASK_ID'};
  if(!Number.isFinite(params.now)||!Number.isInteger(params.expectedAttempts)||params.expectedAttempts<0)
   return {ok:false,reason:'INVALID_EXPECTATION'};
+ // Every mutating action requires Founder authorization, not only CLAIM/CANCEL.
+ if(!params.ownerAuthorized)return {ok:false,reason:'OWNER_APPROVAL_REQUIRED'};
  return storage.transaction(async txn=>{
   const key=PREFIX+params.id;
   const current=await txn.get<AtlasScheduleRecord>(key);
