@@ -39,7 +39,7 @@
     "test:network": "node --test tests/network-director.test.mjs",
     "test:network-persistence": "node --test tests/network-persistence.test.mjs",
     "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs",
-    "test:atlas-scheduling": "node --test tests/atlas-task-scheduling.test.mjs tests/atlas-task-scheduling-behavior.test.mjs tests/atlas-task-transitions.test.mjs tests/atlas-schedule-enqueue.test.mjs"
+    "test:atlas-scheduling": "node --test tests/atlas-task-scheduling.test.mjs tests/atlas-task-scheduling-behavior.test.mjs tests/atlas-task-transitions.test.mjs tests/atlas-schedule-enqueue.test.mjs tests/atlas-schedule-enqueue-behavior.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
