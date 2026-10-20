@@ -50,6 +50,7 @@ export async function completeAtlasLeasedExecution(storage:SchedulerStore,input:
  return storage.transaction(async txn=>{
   const task=await txn.get<AtlasScheduleRecord>(TASK+input.id);
   if(!task||task.state!=='RUNNING')return {ok:false,reason:'TASK_NOT_RUNNING'};
+  if(!Number.isFinite(input.now))return {ok:false,reason:'INVALID_TIME'};
   const lease=await txn.get<AtlasExecutionLease>(LEASE+input.id);
   // Verify the persisted fencing epoch, not just the executor-supplied lease.
   const currentEpoch=await txn.get<number>(EPOCH+input.id);
