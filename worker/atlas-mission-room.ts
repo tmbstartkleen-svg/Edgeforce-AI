@@ -1,6 +1,6 @@
 import {enqueueAtlasSchedule} from './atlas-schedule-enqueue';
 import {transitionAtlasSchedule} from './atlas-task-transitions';
-import {claimAtlasScheduledExecution,completeAtlasLeasedExecution} from './atlas-leased-execution';
+import {claimAtlasScheduledExecution,completeAtlasLeasedExecution,cancelAtlasLeasedExecution} from './atlas-leased-execution';
 // Build 408: private durable journal for the Founder-led ATLAS mission room.
 // The native Cloudflare Durable Object maintains one serialized room state.
 // It is intentionally NOT public-routed: only the authenticated Worker gateway
@@ -54,6 +54,21 @@ export class AtlasMissionRoom {
   // The Durable Object refuses lifecycle execution regardless of any
   // caller-provided authorization flags. The gateway must authorize a future
   // activation independently; request JSON can never activate scheduling.
+  // Owner-authenticated gateway may cancel already-stored work even when
+  // execution is disabled. The ownerAuthorized value is assigned server-side.
+  if(url.pathname==='/schedule/cancel'&&request.method==='POST'){
+   let payload:unknown;
+   try{payload=await request.json();}catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(!payload||typeof payload!=='object'||Array.isArray(payload))return json({ok:false,error:'INVALID_CANCEL'},400);
+   const data=payload as Record<string,unknown>;
+   if(typeof data.id!=='string'||typeof data.expectedState!=='string'||
+      typeof data.expectedAttempts!=='number')return json({ok:false,error:'INVALID_CANCEL'},400);
+   const result=await cancelAtlasLeasedExecution(this.state.storage,{
+    id:data.id,expectedState:data.expectedState as 'QUEUED'|'RUNNING'|'RETRY_WAIT'|'COMPLETED'|'FAILED'|'CANCELLED',
+    expectedAttempts:data.expectedAttempts,ownerAuthorized:true
+   });
+   return json(result,result.ok?200:409);
+  }
   if(url.pathname==='/schedule/lifecycle'&&request.method==='POST'){
    return json({ok:false,error:'SCHEDULER_DISABLED',activationRequired:true},403);
   }
