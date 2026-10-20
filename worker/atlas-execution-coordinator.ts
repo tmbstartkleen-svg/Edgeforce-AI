@@ -14,6 +14,8 @@ export async function runAtlasScheduledTask(storage:SchedulerStore,input:{
  if(!input.ownerAuthorized)return {ok:false,stage:'claim',reason:'OWNER_APPROVAL_REQUIRED'};
  if(!input.enabled)return {ok:false,stage:'claim',reason:'SCHEDULER_DISABLED'};
  if(!input.providerHealthy)return {ok:false,stage:'claim',reason:'PROVIDER_UNHEALTHY'};
+ if(typeof input.execute!=='function'||typeof input.clock!=='function')
+  return {ok:false,stage:'claim',reason:'INVALID_EXECUTOR'};
  const claim=await claimAtlasScheduledExecution(storage,input);
  if(!claim.ok)return {ok:false,stage:'claim',reason:claim.reason};
  // Recheck the clock after the durable claim, before starting any side effect.
