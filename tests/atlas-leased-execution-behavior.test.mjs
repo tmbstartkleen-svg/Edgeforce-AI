@@ -80,3 +80,12 @@ test('owner cancellation prevents leased worker completion and retains tombstone
  assert.ok(data.has('atlas-lease:'+id));
  assert.equal((await operations.completeAtlasLeasedExecution(storage,{...args,epoch:1,now:now+1000})).reason,'TASK_NOT_RUNNING');
 });
+
+test('completion refuses a lease whose persisted fencing epoch has changed',async()=>{
+ const {data,storage}=setup();
+ assert.equal((await operations.claimAtlasScheduledExecution(storage,args)).ok,true);
+ data.set('atlas-lease-epoch:'+id,2);
+ const result=await operations.completeAtlasLeasedExecution(storage,{...args,epoch:1,now:now+1000});
+ assert.equal(result.reason,'STALE_EXECUTOR');
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
