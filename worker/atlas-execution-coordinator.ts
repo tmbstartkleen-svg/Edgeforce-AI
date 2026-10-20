@@ -16,6 +16,12 @@ export async function runAtlasScheduledTask(storage:SchedulerStore,input:{
  if(!input.providerHealthy)return {ok:false,stage:'claim',reason:'PROVIDER_UNHEALTHY'};
  const claim=await claimAtlasScheduledExecution(storage,input);
  if(!claim.ok)return {ok:false,stage:'claim',reason:claim.reason};
+ // Recheck the clock after the durable claim, before starting any side effect.
+ // An expired lease must never initiate a provider call.
+ let startedAt:number;
+ try{startedAt=input.clock();}catch{return {ok:false,stage:'execute',reason:'CLOCK_UNAVAILABLE'};}
+ if(!Number.isFinite(startedAt)||startedAt<claim.lease.acquiredAt||startedAt>=claim.lease.expiresAt)
+  return {ok:false,stage:'execute',reason:'LEASE_NOT_ACTIVE'};
  let executed:{ok:true}|{ok:false;reason:string};
  try{executed=await input.execute();}
  catch{return {ok:false,stage:'execute',reason:'EXECUTION_FAILED'};}
