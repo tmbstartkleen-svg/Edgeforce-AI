@@ -19,7 +19,9 @@ export async function failInterruptedAtlasTask(storage:SchedulerStore,input:{
   const lease=await txn.get<AtlasExecutionLease>('atlas-lease:'+input.id);
   const epoch=await txn.get<number>('atlas-lease-epoch:'+input.id);
   if(!lease||!Number.isSafeInteger(epoch)||epoch!==lease.epoch||
-     lease.taskId!==input.id||!Number.isFinite(lease.expiresAt))
+     lease.taskId!==input.id||!Number.isFinite(lease.acquiredAt)||
+     !Number.isFinite(lease.expiresAt)||lease.expiresAt<=lease.acquiredAt||
+     epoch<1||!Number.isSafeInteger(lease.epoch))
    return {ok:false,reason:'LEASE_INTEGRITY_FAILURE'};
   if(input.now<lease.expiresAt)return {ok:false,reason:'LEASE_STILL_ACTIVE'};
   await txn.put('atlas-schedule:'+input.id,{
