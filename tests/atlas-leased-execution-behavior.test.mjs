@@ -51,3 +51,21 @@ test('persisted lease cannot be overtaken even if task is queued again',async()=
  assert.equal(duplicate.reason,'LEASE_ALREADY_EXISTS');
  assert.equal(data.get('atlas-lease:'+id).token,token);
 });
+
+test('completion requires owner authorization, enablement and provider health',async()=>{
+ const {data,storage}=setup();
+ const claim=await operations.claimAtlasScheduledExecution(storage,args);
+ assert.equal(claim.ok,true);
+ for(const [key,reason] of [['enabled','SCHEDULER_DISABLED'],['ownerAuthorized','OWNER_APPROVAL_REQUIRED'],['providerHealthy','PROVIDER_UNHEALTHY']]){
+  const result=await operations.completeAtlasLeasedExecution(storage,{...args,epoch:1,now:now+1000,[key]:false});
+  assert.equal(result.reason,reason);
+ }
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
+test('lease completion rejects wrong token without mutating durable record',async()=>{
+ const {data,storage}=setup();
+ assert.equal((await operations.claimAtlasScheduledExecution(storage,args)).ok,true);
+ const result=await operations.completeAtlasLeasedExecution(storage,{...args,token:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef',epoch:1,now:now+1000});
+ assert.equal(result.reason,'STALE_EXECUTOR');
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
