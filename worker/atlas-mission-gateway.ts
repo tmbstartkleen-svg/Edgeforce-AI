@@ -36,14 +36,18 @@ const roomRequest=(path:string,method:'GET'|'POST',body?:unknown)=>new Request('
 export async function atlasGateway(request:Request,env:Env,forward:Forward):Promise<Response>{
  const url=new URL(request.url);
  const isScheduleStatus=url.pathname==='/api/network/schedule/status';
+ const isScheduleLifecycle=url.pathname==='/api/network/schedule/lifecycle';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleLifecycle)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  if(isDirector&&request.method==='GET')return forward(request);
  if((isDirector&&request.method!=='POST')||((isHistory||isTasks||isScheduleStatus)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
+ // Even authenticated owners cannot activate lifecycle mutations through
+ // the public gateway until a dedicated activation review is completed.
+ if(isScheduleLifecycle)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
  if(typeof required!=='string'||required.length<24)return json({
   ok:false,error:'OWNER_AUTH_NOT_CONFIGURED',message:'Configure the Founder token in Worker secrets.'
