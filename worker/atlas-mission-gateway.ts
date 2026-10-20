@@ -37,16 +37,17 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const url=new URL(request.url);
  const isScheduleStatus=url.pathname==='/api/network/schedule/status';
  const isScheduleTask=url.pathname==='/api/network/schedule/task';
+ const isScheduleSummary=url.pathname==='/api/network/schedule/summary';
  const isScheduleLifecycle=url.pathname==='/api/network/schedule/lifecycle';
  const isScheduleCancel=url.pathname==='/api/network/schedule/cancel';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleLifecycle&&!isScheduleCancel)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  // Founder authentication also applies to GET director requests.
  // Public metadata must never bypass the owner security boundary.
 
- if((isDirector&&request.method!=='POST'&&request.method!=='GET')||((isHistory||isTasks||isScheduleStatus||isScheduleTask)&&request.method!=='GET')){
+ if((isDirector&&request.method!=='POST'&&request.method!=='GET')||((isHistory||isTasks||isScheduleStatus||isScheduleTask||isScheduleSummary)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
@@ -83,6 +84,17 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
    }));
    return json(await reply.json(),reply.status);
   }catch{return json({ok:false,error:'SCHEDULER_CANCEL_UNAVAILABLE'},503);}
+ }
+ if(isScheduleSummary){
+  const ids=url.searchParams.get('ids')||'';
+  const parsed=ids.split(',').filter(Boolean);
+  if(parsed.length===0||parsed.length>20||
+   parsed.some(id=>!/^[A-Za-z0-9-]{12,90}$/.test(id)))
+   return json({ok:false,error:'INVALID_TASK_IDS'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/summary?ids='+encodeURIComponent(ids),'GET'));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_SUMMARY_UNAVAILABLE'},503);}
  }
  if(isScheduleTask){
   const id=url.searchParams.get('id')||'';
