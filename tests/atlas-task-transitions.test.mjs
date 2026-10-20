@@ -31,3 +31,8 @@ test('Expired running tasks cannot be completed or retried',()=>{
  assert.match(source,/params\.now>=Date\.parse\(current\.expiresAt\)/);
  assert.match(source,/reason:'TASK_EXPIRED'/);
 });
+
+test('Completion and retry require enabled scheduler and healthy provider',()=>{
+ assert.match(source,/params\.action!=='CANCEL'&&!params\.enabled/);
+ assert.match(source,/params\.action!=='CANCEL'&&!params\.providerHealthy/);
+});
