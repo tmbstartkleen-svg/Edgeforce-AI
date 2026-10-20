@@ -37,10 +37,11 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const url=new URL(request.url);
  const isScheduleStatus=url.pathname==='/api/network/schedule/status';
  const isScheduleLifecycle=url.pathname==='/api/network/schedule/lifecycle';
+ const isScheduleCancel=url.pathname==='/api/network/schedule/cancel';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleLifecycle)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleLifecycle&&!isScheduleCancel)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  if(isDirector&&request.method==='GET')return forward(request);
  if((isDirector&&request.method!=='POST')||((isHistory||isTasks||isScheduleStatus)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
@@ -59,6 +60,26 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isScheduleCancel){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  const length=Number(request.headers.get('content-length')||0);
+  if(length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);
+  let data:unknown;
+  try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
+  catch{return json({ok:false,error:'INVALID_JSON'},400);}
+  if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_CANCEL'},400);
+  const input=data as Record<string,unknown>;
+  if(typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+   !['QUEUED','RETRY_WAIT','RUNNING'].includes(String(input.expectedState))||
+   !Number.isSafeInteger(input.expectedAttempts)||Number(input.expectedAttempts)<0)
+   return json({ok:false,error:'INVALID_CANCEL'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/cancel','POST',{
+    id:input.id,expectedState:input.expectedState,expectedAttempts:input.expectedAttempts
+   }));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_CANCEL_UNAVAILABLE'},503);}
+ }
  if(isScheduleStatus){
   try{
    const result=await instance.fetch(roomRequest('/schedule/status','GET'));
