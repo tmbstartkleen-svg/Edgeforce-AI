@@ -57,3 +57,10 @@ test('director GET does not bypass Founder authentication',async()=>{
  const auth=await atlasGateway(request('GET','/api/network/director'),env,forward);
  assert.equal(auth.status,200);
 });
+
+test('director GET supports only authenticated safe methods',async()=>{
+ assert.equal((await atlasGateway(request('PUT','/api/network/director'),env,forward)).status,405);
+ assert.equal((await atlasGateway(request('DELETE','/api/network/director'),env,forward)).status,405);
+ assert.equal((await atlasGateway(request('GET','/api/network/director',false),env,forward)).status,401);
+ assert.equal((await atlasGateway(request('GET','/api/network/director'),env,forward)).status,200);
+});
