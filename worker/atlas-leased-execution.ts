@@ -20,6 +20,8 @@ export async function claimAtlasScheduledExecution(storage:SchedulerStore,input:
   if(!task||task.id!==input.id)return {ok:false,reason:'TASK_NOT_FOUND'};
   if(task.state!==input.expectedState||task.attempts!==input.expectedAttempts)
    return {ok:false,reason:'STALE_TRANSITION'};
+  if(!Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0)
+   return {ok:false,reason:'INVALID_CLAIM_EXPECTATION'};
   const existing=await txn.get<AtlasExecutionLease>(LEASE+input.id);
   // Fail closed: no automated lease takeover, even after expiry.
   if(existing)return {ok:false,reason:'LEASE_ALREADY_EXISTS'};
