@@ -37,3 +37,16 @@ test('scheduler task inspection rejects unsafe ids and non-GET methods',async()=
  assert.equal((await atlasGateway(request('POST','/api/network/schedule/task',true,{id:'scheduled-task-001'}),env,forward)).status,405);
  assert.equal(seen.length,0);
 });
+
+test('cancellation uses owner-authenticated forwarding and never accepts spoofed authority',async()=>{
+ seen.length=0;
+ const body={id:'scheduled-task-001',expectedState:'QUEUED',expectedAttempts:0,ownerAuthorized:false,enabled:true};
+ const noAuth=await atlasGateway(request('POST','/api/network/schedule/cancel',false,body),env,forward);
+ assert.equal(noAuth.status,401);
+ assert.equal(seen.length,0);
+ const ok=await atlasGateway(request('POST','/api/network/schedule/cancel',true,body),env,forward);
+ assert.equal(ok.status,200);
+ assert.equal(seen.length,1);
+ const forwarded=await seen[0].json();
+ assert.deepEqual(forwarded,{id:body.id,expectedState:body.expectedState,expectedAttempts:0});
+});
