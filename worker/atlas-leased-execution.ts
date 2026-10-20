@@ -54,3 +54,21 @@ export async function completeAtlasLeasedExecution(storage:SchedulerStore,input:
   return {ok:true};
  });
 }
+
+export async function cancelAtlasLeasedExecution(storage:SchedulerStore,input:{
+ id:string;ownerAuthorized:boolean;expectedState:AtlasScheduleRecord['state'];expectedAttempts:number;
+}):Promise<{ok:true}|{ok:false;reason:string}>{
+ if(!ID.test(input.id))return {ok:false,reason:'INVALID_TASK_ID'};
+ if(!input.ownerAuthorized)return {ok:false,reason:'OWNER_APPROVAL_REQUIRED'};
+ return storage.transaction(async txn=>{
+  const task=await txn.get<AtlasScheduleRecord>(TASK+input.id);
+  if(!task)return {ok:false,reason:'TASK_NOT_FOUND'};
+  if(task.state!==input.expectedState||task.attempts!==input.expectedAttempts)
+   return {ok:false,reason:'STALE_TRANSITION'};
+  if(task.state==='COMPLETED'||task.state==='FAILED'||task.state==='CANCELLED')
+   return {ok:false,reason:'TASK_ALREADY_TERMINAL'};
+  // Preserve the lease as a tombstone: no stale attempt may reclaim the task.
+  await txn.put(TASK+input.id,{...task,state:'CANCELLED'});
+  return {ok:true};
+ });
+}
