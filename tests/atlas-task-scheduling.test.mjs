@@ -61,3 +61,16 @@ test('Execution lease policy rejects stale and expired executors',()=>{
  assert.match(lease,/lease\.token!==token\|\|lease\.epoch!==epoch/);
  assert.doesNotMatch(lease,/fetch\(|setInterval\(|placeBet/);
 });
+
+test('Leased scheduler transitions are atomic and owner gated',()=>{
+ const s=fs.readFileSync(new URL('../worker/atlas-leased-execution.ts',import.meta.url),'utf8');
+ assert.match(s,/storage\.transaction\(async txn=>/);
+ assert.match(s,/LEASE_ALREADY_EXISTS/);
+ assert.match(s,/STALE_TRANSITION/);
+ assert.match(s,/createAtlasExecutionLease/);
+ assert.match(s,/verifyAtlasExecutionLease/);
+ assert.match(s,/OWNER_APPROVAL_REQUIRED/);
+ assert.match(s,/SCHEDULER_DISABLED/);
+ assert.match(s,/TASK_EXPIRED/);
+ assert.doesNotMatch(s,/fetch\(|setInterval\(|placeBet/);
+});
