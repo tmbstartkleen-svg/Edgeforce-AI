@@ -40,7 +40,8 @@ test('thrown provider error leaves running task uncompleted for manual recovery'
 });
 test('stale completion is fenced even after successful task callback',async()=>{
  const {data,store}=setup();let calls=0;
- const run=await runAtlasScheduledTask(store,{...args,clock:()=>now+11000,execute:async()=>{calls++;return {ok:true};}});
+ let ticks=0;
+ const run=await runAtlasScheduledTask(store,{...args,clock:()=>++ticks===1?now+1000:now+11000,execute:async()=>{calls++;return {ok:true};}});
  assert.equal(run.ok,false);assert.equal(run.stage,'complete');assert.equal(run.reason,'LEASE_EXPIRED');
  assert.equal(calls,1);assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
