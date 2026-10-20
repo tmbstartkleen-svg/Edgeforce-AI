@@ -89,3 +89,12 @@ test('completion refuses a lease whose persisted fencing epoch has changed',asyn
  assert.equal(result.reason,'STALE_EXECUTOR');
  assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('corrupted persisted epoch fails closed without claiming work',async()=>{
+ const {data,storage}=setup();
+ data.set('atlas-lease-epoch:'+id,-1);
+ const result=await operations.claimAtlasScheduledExecution(storage,args);
+ assert.equal(result.reason,'INVALID_PERSISTED_EPOCH');
+ assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
+ assert.equal(data.has('atlas-lease:'+id),false);
+});
