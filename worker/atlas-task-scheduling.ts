@@ -50,3 +50,43 @@ export function nextAtlasRetry(
   lastError:error.slice(0,200)
  };
 }
+
+// Pure state transitions. Storage must use a compare-and-swap/transaction guard
+// to prevent two workers from claiming the same queued mission.
+export function claimAtlasTask(
+ task:AtlasScheduleRecord,
+ opts:{enabled:boolean;ownerAuthorized:boolean;providerHealthy:boolean;now:number}
+):AtlasScheduleRecord{
+ const gate=canDispatchAtlasTask(task,opts);
+ if(!gate.ready)throw new Error(gate.reason);
+ return {...task,state:'RUNNING'};
+}
+
+export function cancelAtlasTask(task:AtlasScheduleRecord):AtlasScheduleRecord{
+ if(task.state==='COMPLETED'||task.state==='FAILED'||task.state==='CANCELLED')
+  throw new Error('TASK_ALREADY_TERMINAL');
+ return {...task,state:'CANCELLED'};
+}
+
+export function completeAtlasTask(task:AtlasScheduleRecord):AtlasScheduleRecord{
+ if(task.state!=='RUNNING')throw new Error('COMPLETE_REQUIRES_RUNNING');
+ return {...task,state:'COMPLETED'};
+}
+
+export function atlasScheduleHealth(tasks:readonly AtlasScheduleRecord[],now:number){
+ if(!Number.isFinite(now))throw new Error('INVALID_TIME');
+ const counts={queued:0,running:0,retryWait:0,completed:0,failed:0,cancelled:0,expired:0};
+ for(const task of tasks){
+  const expires=validTime(task.expiresAt);
+  if(expires===null||now>=expires){counts.expired++;continue;}
+  switch(task.state){
+   case 'QUEUED':counts.queued++;break;
+   case 'RUNNING':counts.running++;break;
+   case 'RETRY_WAIT':counts.retryWait++;break;
+   case 'COMPLETED':counts.completed++;break;
+   case 'FAILED':counts.failed++;break;
+   case 'CANCELLED':counts.cancelled++;break;
+  }
+ }
+ return counts;
+}
