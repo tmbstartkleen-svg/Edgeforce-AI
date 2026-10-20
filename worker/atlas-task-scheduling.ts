@@ -90,3 +90,16 @@ export function atlasScheduleHealth(tasks:readonly AtlasScheduleRecord[],now:num
  }
  return counts;
 }
+
+ // Recovery policy for a task whose owner invocation disappeared.
+ // Without a persisted lease timestamp, a RUNNING task must never be
+ // automatically reclaimed. This prevents duplicate LLM calls and costs.
+export function inspectAtlasInterruptedTask(
+ task:AtlasScheduleRecord,now:number
+):{recoverable:false;reason:string}{
+ if(!Number.isFinite(now))return {recoverable:false,reason:'INVALID_TIME'};
+ if(task.state!=='RUNNING')return {recoverable:false,reason:'NOT_RUNNING'};
+ const expires=validTime(task.expiresAt);
+ if(expires===null||now>=expires)return {recoverable:false,reason:'TASK_EXPIRED'};
+ return {recoverable:false,reason:'MISSING_EXECUTION_LEASE'};
+}
