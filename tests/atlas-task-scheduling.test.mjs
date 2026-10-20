@@ -31,3 +31,18 @@ test('Build 410 caps retries and requires a persisted transition',()=>{
  assert.match(source,/atomically in the Durable Object/);
  assert.doesNotMatch(source,/process\.env|placeBet|submitWager/);
 });
+
+test('Claim and completion require eligible and running tasks',()=>{
+ assert.match(source,/export function claimAtlasTask/);
+ assert.match(source,/canDispatchAtlasTask\(task,opts\)/);
+ assert.match(source,/if\(!gate\.ready\)throw new Error\(gate\.reason\)/);
+ assert.match(source,/export function completeAtlasTask/);
+ assert.match(source,/COMPLETE_REQUIRES_RUNNING/);
+});
+test('Cancellation is terminal and health counts are explicit',()=>{
+ assert.match(source,/export function cancelAtlasTask/);
+ assert.match(source,/TASK_ALREADY_TERMINAL/);
+ assert.match(source,/export function atlasScheduleHealth/);
+ assert.match(source,/retryWait:0/);
+ assert.match(source,/counts\.expired\+\+/);
+});
