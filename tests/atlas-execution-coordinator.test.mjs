@@ -49,7 +49,16 @@ test('clock failure cannot mark completed after a provider callback',async()=>{
  for(const clock of [()=>{throw Error('clock failed');},()=>Number.NaN]){
   const {data,store}=setup();
   const result=await runAtlasScheduledTask(store,{...args,clock,execute:async()=>({ok:true})});
-  assert.equal(result.ok,false);assert.equal(result.stage,'complete');
+  assert.equal(result.ok,false);assert.equal(result.stage,'execute');
   assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
  }
+});
+
+test('expired lease before execution blocks provider side effects',async()=>{
+ const {data,store}=setup();let calls=0;
+ const result=await runAtlasScheduledTask(store,{...args,clock:()=>now+11000,execute:async()=>{calls++;return {ok:true};}});
+ assert.equal(result.stage,'execute');
+ assert.equal(result.reason,'LEASE_NOT_ACTIVE');
+ assert.equal(calls,0);
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
