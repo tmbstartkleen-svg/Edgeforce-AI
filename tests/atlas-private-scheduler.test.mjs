@@ -9,7 +9,10 @@ test('durable scheduler helpers connected only to private mission room',()=>{
  assert.match(room,/url.hostname!=='atlas.internal'/);
  assert.match(room,/executionMode:'disabled'/);
  assert.match(room,/error:'SCHEDULER_DISABLED'/);
- assert.doesNotMatch(gateway,/\/api\/network\/schedule/);
+ assert.match(gateway,/isScheduleStatus=url.pathname===/);
+ assert.match(gateway,/isScheduleStatus\)\{/);
+ assert.match(gateway,/request.method!=='GET'/);
+ assert.doesNotMatch(gateway,/\/api\/network\/schedule\/enqueue|\/api\/network\/schedule\/claim|\/api\/network\/schedule\/complete/);
 });
 
 test('scheduler health never claims readiness without an executor',()=>{
