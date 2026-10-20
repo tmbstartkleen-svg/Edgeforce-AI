@@ -37,3 +37,11 @@ test('scheduler mutation remains blocked despite caller-supplied activation fiel
  assert.match(room,/if\(url.pathname.startsWith\('\/schedule\/'\)&&request.method!=='GET'\)/);
  assert.doesNotMatch(gateway,/roomRequest\('\/schedule\/(claim|complete|enqueue)'/);
 });
+
+test('owner-authenticated task inspection is read-only and excludes lease records',()=>{
+ assert.match(gateway,/isScheduleTask=url.pathname===/);
+ assert.match(gateway,/roomRequest\('\/schedule\/task\?id='/);
+ assert.match(room,/url.pathname==='\/schedule\/task'&&request.method==='GET'/);
+ assert.match(room,/this.state.storage.get<import\('\.\/atlas-task-scheduling'\).AtlasScheduleRecord>/);
+ assert.doesNotMatch(room,/return json\(\{ok:true,task,lease\}/);
+});
