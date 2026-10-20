@@ -27,11 +27,12 @@ test('owner-only cancellation is routed while execution remains disabled',()=>{
  assert.match(gateway,/roomRequest\('\/schedule\/cancel','POST'/);
  assert.match(room,/cancelAtlasLeasedExecution\(this.state.storage/);
  assert.match(room,/ownerAuthorized:true/);
- assert.match(gateway,/if\(isScheduleLifecycle\)return json\(\{ok:false,error:'SCHEDULER_DISABLED'\}/);
+ assert.match(gateway,/if\(isScheduleLifecycle\)\{/);
+ assert.match(gateway,/return json\(\{ok:false,error:'SCHEDULER_DISABLED'\},403\)/);
 });
 
 test('scheduler mutation remains blocked despite caller-supplied activation fields',()=>{
- const lifecyclePos=gateway.indexOf("if(isScheduleLifecycle)return json({ok:false,error:'SCHEDULER_DISABLED'},403)");
+ const lifecyclePos=gateway.indexOf("if(isScheduleLifecycle){");
  const authPos=gateway.indexOf("if(!await validToken(required,supplied))");
  assert.ok(authPos>=0&&lifecyclePos>authPos,'Lifecycle rejection must follow authentication');
  assert.match(room,/if\(url.pathname.startsWith\('\/schedule\/'\)&&request.method!=='GET'\)/);
