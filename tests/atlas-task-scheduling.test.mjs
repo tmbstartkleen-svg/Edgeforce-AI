@@ -46,3 +46,9 @@ test('Cancellation is terminal and health counts are explicit',()=>{
  assert.match(source,/retryWait:0/);
  assert.match(source,/counts\.expired\+\+/);
 });
+
+test('Interrupted work cannot be blindly reclaimed without an execution lease',()=>{
+ assert.match(source,/export function inspectAtlasInterruptedTask/);
+ assert.match(source,/recoverable:false,reason:'MISSING_EXECUTION_LEASE'/);
+ assert.match(source,/recoverable:false,reason:'TASK_EXPIRED'/);
+});
