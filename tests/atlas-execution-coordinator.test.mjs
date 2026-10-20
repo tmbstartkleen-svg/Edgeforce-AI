@@ -31,3 +31,16 @@ test('failed execution cannot be recorded as completed',async()=>{
  const run=await runAtlasScheduledTask(store,{...args,execute:async()=>({ok:false,reason:'UPSTREAM_FAILED'})});
  assert.equal(run.stage,'execute');assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('thrown provider error leaves running task uncompleted for manual recovery',async()=>{
+ const {data,store}=setup();
+ const run=await runAtlasScheduledTask(store,{...args,execute:async()=>{throw new Error('secret provider failure');}});
+ assert.deepEqual(run,{ok:false,stage:'execute',reason:'EXECUTION_FAILED'});
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
+test('stale completion is fenced even after successful task callback',async()=>{
+ const {data,store}=setup();let calls=0;
+ const run=await runAtlasScheduledTask(store,{...args,clock:()=>now+11000,execute:async()=>{calls++;return {ok:true};}});
+ assert.equal(run.ok,false);assert.equal(run.stage,'complete');assert.equal(run.reason,'LEASE_EXPIRED');
+ assert.equal(calls,1);assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
