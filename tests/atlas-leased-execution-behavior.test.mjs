@@ -34,3 +34,20 @@ test('disabled, unauthorized and unhealthy gates cannot claim work',async()=>{
  assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
  assert.equal(data.has('atlas-lease:'+id),false);
 });
+
+test('execution lease never outlives its scheduled task',async()=>{
+ const {data,storage}=setup();
+ const result=await operations.claimAtlasScheduledExecution(storage,{...args,durationMs:60000,now:now+250000});
+ assert.equal(result.reason,'LEASE_OUTLIVES_TASK');
+ assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
+ assert.equal(data.has('atlas-lease:'+id),false);
+});
+test('persisted lease cannot be overtaken even if task is queued again',async()=>{
+ const {data,storage}=setup();
+ const first=await operations.claimAtlasScheduledExecution(storage,args);
+ assert.equal(first.ok,true);
+ data.set('atlas-schedule:'+id,structuredClone(record));
+ const duplicate=await operations.claimAtlasScheduledExecution(storage,{...args,token:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef'});
+ assert.equal(duplicate.reason,'LEASE_ALREADY_EXISTS');
+ assert.equal(data.get('atlas-lease:'+id).token,token);
+});
