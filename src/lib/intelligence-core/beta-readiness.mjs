@@ -10,6 +10,10 @@ export function evaluateBetaReadiness(evidence={}){
   ['dataPreservation',evidence.dataPreservation===true,'Neon history export and reconciliation independently verified'],
   ['dashboard',evidence.dashboard===true,'Production dashboard integrates separate live sports and event-market workspaces'],
   ['providerCoverage',evidence.providerCoverage===true,'Actual licensed market catalog and provider coverage measured'],
+  ['independentOdds',evidence.independentOdds===true,'Two independently authenticated and fresh odds upstreams with per-market identity reconciliation'],
+  ['modelCalibration',evidence.modelCalibration===true,'Out-of-sample model calibration, settled outcomes and supported expected ROI validated'],
+  ['productionCommit',evidence.productionCommit===true,'Running production commit matches the certified GitHub main SHA'],
+  ['ingestionReadback',evidence.ingestionReadback===true,'Fresh real provider records safely ingested and verified by D1 readback'],
   ['reliability',evidence.reliability===true,'Hosted runtime health and quota budgets certified']
  ].map(([id,passed,requirement])=>({id,passed,requirement}));
  return {ready:gates.every(x=>x.passed),status:gates.every(x=>x.passed)?'BETA_CERTIFIED':'NOT_BETA_READY',
