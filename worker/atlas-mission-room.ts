@@ -38,6 +38,14 @@ export class AtlasMissionRoom {
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
   // Internal-only integration. No public gateway route, cron, or executor exists.
   // Both mutations are deliberately disabled until a separately reviewed activation.
+  // Read-only task inspection; never expose execution lease tokens.
+  if(url.pathname==='/schedule/task'&&request.method==='GET'){
+   const id=url.searchParams.get('id')||'';
+   if(!/^[A-Za-z0-9-]{12,90}$/.test(id))return json({ok:false,error:'INVALID_TASK_ID'},400);
+   const task=await this.state.storage.get<import('./atlas-task-scheduling').AtlasScheduleRecord>('atlas-schedule:'+id);
+   if(!task)return json({ok:false,error:'TASK_NOT_FOUND'},404);
+   return json({ok:true,task});
+  }
   if(url.pathname==='/schedule/status'&&request.method==='GET'){
    return json({ok:true,enabled:false,ready:false,executionMode:'disabled',
     durableStorageAvailable:typeof this.state.storage.transaction==='function',
