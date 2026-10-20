@@ -31,3 +31,11 @@ test('recovery fails closed on missing or corrupted fence',async()=>{
  assert.equal((await failInterruptedAtlasTask(storage,args)).reason,'LEASE_INTEGRITY_FAILURE');
  assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('malformed persisted lease window cannot be used to terminally recover',async()=>{
+ const {data,storage}=fixture();
+ const lease=data.get('atlas-lease:'+id);
+ data.set('atlas-lease:'+id,{...lease,acquiredAt:lease.expiresAt+1});
+ assert.equal((await failInterruptedAtlasTask(storage,args)).reason,'LEASE_INTEGRITY_FAILURE');
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+});
