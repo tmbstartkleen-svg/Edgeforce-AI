@@ -45,9 +45,6 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  if((isDirector&&request.method!=='POST')||((isHistory||isTasks||isScheduleStatus)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
- // Even authenticated owners cannot activate lifecycle mutations through
- // the public gateway until a dedicated activation review is completed.
- if(isScheduleLifecycle)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
  if(typeof required!=='string'||required.length<24)return json({
   ok:false,error:'OWNER_AUTH_NOT_CONFIGURED',message:'Configure the Founder token in Worker secrets.'
@@ -55,6 +52,8 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const bearer=request.headers.get('authorization')||'';
  const supplied=bearer.startsWith('Bearer ')?bearer.slice(7).trim():'';
  if(!await validToken(required,supplied))return json({ok:false,error:'UNAUTHORIZED'},401);
+ // Authenticated status and explicitly blocked lifecycle share the owner gate.
+ if(isScheduleLifecycle)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
  const instance=room(env);
  if(!instance)return json({ok:false,error:'ATLAS_JOURNAL_UNAVAILABLE',
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
