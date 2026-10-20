@@ -50,3 +50,10 @@ test('cancellation uses owner-authenticated forwarding and never accepts spoofed
  const forwarded=await seen[0].json();
  assert.deepEqual(forwarded,{id:body.id,expectedState:body.expectedState,expectedAttempts:0});
 });
+
+test('director GET does not bypass Founder authentication',async()=>{
+ const unauth=await atlasGateway(request('GET','/api/network/director',false),env,forward);
+ assert.equal(unauth.status,401);
+ const auth=await atlasGateway(request('GET','/api/network/director'),env,forward);
+ assert.equal(auth.status,200);
+});
