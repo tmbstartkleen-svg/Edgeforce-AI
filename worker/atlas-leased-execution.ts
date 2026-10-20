@@ -47,6 +47,9 @@ export async function completeAtlasLeasedExecution(storage:SchedulerStore,input:
   const task=await txn.get<AtlasScheduleRecord>(TASK+input.id);
   if(!task||task.state!=='RUNNING')return {ok:false,reason:'TASK_NOT_RUNNING'};
   const lease=await txn.get<AtlasExecutionLease>(LEASE+input.id);
+  // Verify the persisted fencing epoch, not just the executor-supplied lease.
+  const currentEpoch=await txn.get<number>(EPOCH+input.id);
+  if(!lease||currentEpoch!==lease.epoch)return {ok:false,reason:'STALE_EXECUTOR'};
   const valid=verifyAtlasExecutionLease(lease,input.id,input.token,input.epoch,input.now);
   if(!valid.ok)return {ok:false,reason:valid.reason};
   if(input.now>=Date.parse(task.expiresAt))return {ok:false,reason:'TASK_EXPIRED'};
