@@ -62,3 +62,14 @@ test('cancellation fences already claimed work against late completion',async()=
  assert.equal(result.reason,'TASK_NOT_RUNNING');
  assert.equal(data.get('atlas-schedule:'+id).state,'CANCELLED');
 });
+
+test('unapproved recovery cannot resolve a running task after a failed execution',async()=>{
+ const {data,storage}=fixture();
+ await enqueue.enqueueAtlasSchedule(storage,input,{enabled:true,ownerAuthorized:true,now});
+ const result=await coordinator.runAtlasScheduledTask(storage,{...runArgs,execute:async()=>{throw Error('upstream unavailable');}});
+ assert.equal(result.stage,'execute');
+ assert.equal((await recovery.failInterruptedAtlasTask(storage,{id,expectedAttempts:0,now:now+11000,ownerAuthorized:false})).reason,'OWNER_APPROVAL_REQUIRED');
+ assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+ assert.equal((await recovery.failInterruptedAtlasTask(storage,{id,expectedAttempts:0,now:now+11000,ownerAuthorized:true})).ok,true);
+ assert.equal(data.get('atlas-schedule:'+id).state,'FAILED');
+});
