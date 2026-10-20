@@ -20,3 +20,12 @@ test('scheduler health never claims readiness without an executor',()=>{
  assert.match(room,/executorConnected:false,cronConnected:false,liveDispatchVerified:false/);
  assert.match(room,/NO_LIVE_DISPATCH_CERTIFICATION/);
 });
+
+test('owner-only cancellation is routed while execution remains disabled',()=>{
+ assert.match(gateway,/isScheduleCancel=url.pathname===/);
+ assert.match(gateway,/if\(!await validToken\(required,supplied\)\)/);
+ assert.match(gateway,/roomRequest\('\/schedule\/cancel','POST'/);
+ assert.match(room,/cancelAtlasLeasedExecution\(this.state.storage/);
+ assert.match(room,/ownerAuthorized:true/);
+ assert.match(gateway,/if\(isScheduleLifecycle\)return json\(\{ok:false,error:'SCHEDULER_DISABLED'\}/);
+});
