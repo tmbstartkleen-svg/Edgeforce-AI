@@ -44,3 +44,12 @@ test('stale completion is fenced even after successful task callback',async()=>{
  assert.equal(run.ok,false);assert.equal(run.stage,'complete');assert.equal(run.reason,'LEASE_EXPIRED');
  assert.equal(calls,1);assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('clock failure cannot mark completed after a provider callback',async()=>{
+ for(const clock of [()=>{throw Error('clock failed');},()=>Number.NaN]){
+  const {data,store}=setup();
+  const result=await runAtlasScheduledTask(store,{...args,clock,execute:async()=>({ok:true})});
+  assert.equal(result.ok,false);assert.equal(result.stage,'complete');
+  assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
+ }
+});
