@@ -51,9 +51,9 @@ export class AtlasMissionRoom {
   // Explicitly disabled for every non-status scheduler route until the
   // authenticated gateway and runtime executor pass a separate review.
   // The lease functions remain available for isolated behavioral testing.
-  // Authenticated manual lifecycle endpoint is staged but remains fail-closed.
-  // No public gateway can reach it; operational activation requires a future
-  // explicit review and verified owner authorization at the gateway.
+  // The Durable Object refuses lifecycle execution regardless of any
+  // caller-provided authorization flags. The gateway must authorize a future
+  // activation independently; request JSON can never activate scheduling.
   if(url.pathname==='/schedule/lifecycle'&&request.method==='POST'){
    return json({ok:false,error:'SCHEDULER_DISABLED',activationRequired:true},403);
   }
