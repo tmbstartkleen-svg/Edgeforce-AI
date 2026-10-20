@@ -63,3 +63,16 @@ test('expired lease before execution blocks provider side effects',async()=>{
  assert.equal(calls,0);
  assert.equal(data.get('atlas-schedule:'+id).state,'RUNNING');
 });
+
+test('missing executor callback is rejected before durable claim',async()=>{
+ for(const missing of ['execute','clock']){
+  const {data,store}=setup();
+  const valid={...args,execute:async()=>({ok:true})};
+  delete valid[missing];
+  const result=await runAtlasScheduledTask(store,valid);
+  assert.equal(result.reason,'INVALID_EXECUTOR');
+  assert.equal(result.stage,'claim');
+  assert.equal(data.get('atlas-schedule:'+id).state,'QUEUED');
+  assert.equal(data.has('atlas-lease:'+id),false);
+ }
+});
