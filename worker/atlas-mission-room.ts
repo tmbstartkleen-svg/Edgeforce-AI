@@ -38,9 +38,12 @@ export class AtlasMissionRoom {
   // Internal-only integration. No public gateway route, cron, or executor exists.
   // Both mutations are deliberately disabled until a separately reviewed activation.
   if(url.pathname==='/schedule/status'&&request.method==='GET'){
-   return json({ok:true,enabled:false,executionMode:'disabled',durable:true,
+   return json({ok:true,enabled:false,ready:false,executionMode:'disabled',
+    durableStorageAvailable:typeof this.state.storage.transaction==='function',
     enqueueImplemented:typeof enqueueAtlasSchedule==='function',
-    transitionsImplemented:typeof transitionAtlasSchedule==='function'});
+    transitionsImplemented:typeof transitionAtlasSchedule==='function',
+    executorConnected:false,cronConnected:false,liveDispatchVerified:false,
+    blockers:['OWNER_ACTIVATION_REQUIRED','EXECUTOR_NOT_CONNECTED','NO_LIVE_DISPATCH_CERTIFICATION']});
   }
   if(url.pathname.startsWith('/schedule/')&&request.method!=='GET'){
    return json({ok:false,error:'SCHEDULER_DISABLED'},403);
