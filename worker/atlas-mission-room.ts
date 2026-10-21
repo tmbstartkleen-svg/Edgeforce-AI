@@ -89,6 +89,11 @@ export class AtlasMissionRoom {
   if(!config.ATLAS_DIRECTOR_SERVICE||typeof config.ATLAS_DIRECTOR_SERVICE.fetch!=='function'||
      typeof config.ATLAS_DIRECTOR_ORIGIN!=='string')
    return {ok:false as const,stage:'claim' as const,reason:'PROVIDER_UNHEALTHY'};
+  // Reject malformed origins before acquiring a durable lease or contacting research.
+  let validatedOrigin:URL;
+  try{validatedOrigin=new URL(config.ATLAS_DIRECTOR_ORIGIN);}catch{return {ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'};}
+  if(validatedOrigin.protocol!=='https:'||validatedOrigin.username||validatedOrigin.password||validatedOrigin.pathname!=='/'||validatedOrigin.search||validatedOrigin.hash)
+   return {ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'};
   const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
   const forward=(request:Request)=>{
    const target=new URL(request.url);
