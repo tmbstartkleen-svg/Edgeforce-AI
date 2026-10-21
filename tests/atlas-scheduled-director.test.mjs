@@ -16,7 +16,7 @@ function fixture(){const rows=new Map([['atlas-schedule:'+id,{id,state:'QUEUED',
 const args={id,expectedState:'QUEUED',expectedAttempts:0,token:'abcdefghijklmnopqrstuvwxyzABCDEF',now,durationMs:10000,enabled:true,ownerAuthorized:true,providerHealthy:true,clock:()=>now+1000,origin:'https://edgeforce.example'};
 test('private composition retrieves task question, calls Director and fences completion',async()=>{
  const {rows,storage}=fixture();let requests=0;
- const forward=async req=>{requests++;assert.equal(new URL(req.url).pathname,'/api/network/director');assert.deepEqual(await req.json(),{question:'Review soccer matches'});return Response.json({ok:true,question:'Review soccer matches',persisted:true,durable:true});};
+ const forward=async req=>{requests++;assert.equal(new URL(req.url).pathname,'/api/network/director');assert.deepEqual(await req.json(),{question:'Review soccer matches'});return Response.json({ok:true,question:'Review soccer matches',persisted:true,durable:true,missionId:'123e4567-e89b-42d3-a456-426614174000'});};
  assert.equal((await runAtlasScheduledDirector(storage,{...args,forward})).ok,true);
  assert.equal(rows.get('atlas-schedule:'+id).state,'COMPLETED');
  assert.equal((await runAtlasScheduledDirector(storage,{...args,forward})).stage,'claim');
