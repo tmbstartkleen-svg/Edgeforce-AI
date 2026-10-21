@@ -50,6 +50,12 @@ export class AtlasMissionRoom {
   };
   if(config.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
    return {ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'};
+  // Validate at the Durable Object boundary as well as the Worker caller.
+  if(!input||typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+     (input.expectedState!=='QUEUED'&&input.expectedState!=='RETRY_WAIT')||
+     !Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0||
+     !Number.isSafeInteger(input.durationMs)||input.durationMs<1000||input.durationMs>60000)
+   return {ok:false as const,stage:'claim' as const,reason:'INVALID_EXECUTION_REQUEST'};
   const secret=config.EDGEFORCE_NETWORK_OWNER_TOKEN;
   if(typeof secret!=='string'||secret.length<24||typeof input.ownerToken!=='string')
    return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
