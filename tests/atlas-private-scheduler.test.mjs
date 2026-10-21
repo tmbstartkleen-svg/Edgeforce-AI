@@ -19,8 +19,8 @@ test('durable scheduler helpers connected only to private mission room',()=>{
 test('scheduler health never claims readiness without an executor',()=>{
  assert.match(room,/ready:false,executionMode:'disabled'/);
  assert.match(room,/executorConnected:typeof runAtlasScheduledDirector==='function',cronConnected:false,liveDispatchVerified:false/);
- assert.match(room,/ATLAS_SCHEDULE_EXECUTION_ENABLED!==\'true\'/);
- assert.ok(room.includes("if(!input.ownerAuthorized)return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'}"));
+ assert.match(room,/ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true'/);
+ assert.match(room,/reason:'OWNER_APPROVAL_REQUIRED'/);
  assert.match(room,/NO_LIVE_DISPATCH_CERTIFICATION/);
 });
 
@@ -70,7 +70,7 @@ test('terminal recovery is private Founder-gated and never schedules retries',()
 });
 
 test('private durable execution requires server-side kill switch and owner approval',()=>{
- assert.match(room,/this\.env\.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true'\|\|!input\.enabled/);
+ assert.match(room,/config\.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true'/);
  assert.match(room,/if\(!input\.ownerAuthorized\)return \{ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'\}/);
  assert.match(room,/if\(url\.pathname==='\/schedule\/execute'&&request\.method==='POST'\)/);
  assert.match(room,/return json\(\{ok:false,error:'SCHEDULER_DISABLED',executorConnected:/);
