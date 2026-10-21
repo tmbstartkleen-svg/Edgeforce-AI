@@ -14,6 +14,7 @@ export async function executeAtlasScheduledResearch(storage:SchedulerStore,input
  if(!input.enabled)return {ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'};
  if(!input.providerHealthy)return {ok:false as const,stage:'claim' as const,reason:'PROVIDER_UNHEALTHY'};
  if(typeof input.research!=='function')return {ok:false as const,stage:'claim' as const,reason:'INVALID_RESEARCH_EXECUTOR'};
+ if(!/^[A-Za-z0-9-]{12,90}$/.test(input.id))return {ok:false as const,stage:'claim' as const,reason:'INVALID_TASK_ID'};
  const instruction=await storage.transaction(txn=>txn.get<{question:string}>('atlas-research:'+input.id));
  if(!instruction||typeof instruction.question!=='string'||instruction.question.trim().length<3||
     instruction.question.length>500)
