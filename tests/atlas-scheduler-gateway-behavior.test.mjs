@@ -106,3 +106,17 @@ test('mismatched director report finalizes the durable task as failed',async()=>
  const finish=seen.find(item=>new URL(item.url).pathname==='/tasks/finish');
  assert.equal((await finish.json()).status,'FAILED');
 });
+
+test('director finalization failure is reported without pretending invalid response handled',async()=>{
+ const failingRoom={...env,ATLAS_MISSION_ROOM:{
+  idFromName:name=>name,get:()=>({fetch:async req=>{
+   const route=new URL(req.url).pathname;
+   if(route==='/tasks/finish')return Response.json({ok:false}, {status:503});
+   return Response.json({ok:true});
+  }})
+ }};
+ const result=await atlasGateway(request('POST','/api/network/director',true,{question:'Analyze the next soccer schedule'}),failingRoom,
+  async()=>Response.json({ok:true,question:'Wrong question'}));
+ assert.equal(result.status,503);
+ assert.equal((await result.json()).error,'DIRECTOR_TASK_FINALIZATION_FAILED');
+});
