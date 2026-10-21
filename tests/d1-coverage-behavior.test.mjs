@@ -23,6 +23,11 @@ test('D1 coverage reads real stored prop lines from normalized envelope',async()
  assert.equal(report.freshDraftKingsQuotes,1);
  assert.equal(report.discovered.players,1);
  assert.equal(report.discovered.outcomes,1);
+ assert.equal(report.leagues[0].league,'NBA');
+ assert.equal(report.leagues[0].players,1);
+ assert.equal(report.leagues[0].marketTypes,1);
+ assert.equal(report.leagues[0].quotes,1);
+ assert.deepEqual(report.providers,['approved-feed']);
 });
 test('D1 coverage excludes stale observations without treating them as live quotes',async()=>{
  const old=[{...rows[0],observed_at:new Date(now-3600000).toISOString()}];
