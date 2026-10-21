@@ -1,3 +1,4 @@
+import {runAtlasScheduledDirector} from './atlas-scheduled-director';
 import {failInterruptedAtlasTask} from './atlas-interrupted-recovery';
 import {enqueueAtlasSchedule} from './atlas-schedule-enqueue';
 import {transitionAtlasSchedule} from './atlas-task-transitions';
@@ -39,11 +40,10 @@ export class AtlasMissionRoom {
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
   // Internal-only integration. No public gateway route, cron, or executor exists.
   // Both mutations are deliberately disabled until a separately reviewed activation.
-  // Internal provider integration is wired here but hard-disabled.
-  // Only a separately approved runtime activation can invoke the executor.
-  // Neither queued task input nor a public HTTP request can enable dispatch.
+  // Only a trusted server-side activation can call the private executor.
+  // No public route, cron or incoming JSON can activate scheduling.
   if(url.pathname==='/schedule/execute'&&request.method==='POST')
-   return json({ok:false,error:'SCHEDULER_DISABLED',executorConnected:false},403);
+   return json({ok:false,error:'SCHEDULER_DISABLED',executorConnected:typeof runAtlasScheduledDirector==='function'},403);
   // Read-only task inspection; never expose execution lease tokens.
   if(url.pathname==='/schedule/task'&&request.method==='GET'){
    const id=url.searchParams.get('id')||'';
