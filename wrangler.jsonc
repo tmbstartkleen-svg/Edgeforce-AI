@@ -22,6 +22,7 @@
     "MODEL_VERSION": "edgeforce-v119",
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
+    "ATLAS_SCHEDULE_EXECUTION_ENABLED": "false",
     "DEFAULT_BANKROLL": "1000",
     "TARGET_BOOKMAKER": "DraftKings",
     "THE_ODDS_API_BOOKMAKERS": "draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us",
@@ -85,4 +86,7 @@
       "15,45 6 * * *"
     ]
   }
+,
+  "durable_objects": {"bindings": [{"name": "ATLAS_MISSION_ROOM", "class_name": "AtlasMissionRoom"}]},
+  "migrations": [{"tag": "atlas-mission-room-v1", "new_sqlite_classes": ["AtlasMissionRoom"]}]
 }
