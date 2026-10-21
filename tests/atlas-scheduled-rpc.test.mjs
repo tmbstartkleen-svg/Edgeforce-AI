@@ -34,3 +34,12 @@ test('RPC responses without explicit success are never marked successful',async(
  const response=await dispatchAtlasScheduledRpc(request(secret),e.env,input);
  assert.equal(response.status,409);
 });
+
+test('RPC denies malformed state and negative attempts before touching Durable Object',async()=>{
+ const e=environment(true);
+ for(const invalid of [{...input,expectedState:'RUNNING'},{...input,expectedAttempts:-1},{...input,id:'bad'}]){
+  const response=await dispatchAtlasScheduledRpc(request(secret),e.env,invalid);
+  assert.equal(response.status,400);
+ }
+ assert.equal(e.calls(),0);
+});
