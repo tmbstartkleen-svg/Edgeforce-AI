@@ -91,3 +91,10 @@ test('Durable Object RPC validates inputs independently of Worker gateway',()=>{
  assert.match(room,/input.durationMs<1000\|\|input.durationMs>60000/);
  assert.match(room,/Number.isSafeInteger\(input.expectedAttempts\)/);
 });
+
+test('staging RPC readiness is read-only and cannot imply certified dispatch',()=>{
+ assert.match(room,/async inspectScheduledRuntime\(\)/);
+ assert.match(room,/liveDispatchVerified:false/);
+ assert.match(room,/directorServiceConnected:typeof this\.env\.ATLAS_DIRECTOR_SERVICE\?\.fetch==='function'/);
+ assert.match(room,/ownerSecretConfigured:typeof this\.env\.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'/);
+});
