@@ -67,7 +67,7 @@ test('director GET supports only authenticated safe methods',async()=>{
 
 test('manual enqueue requires owner token and strips caller activation flags',async()=>{
  seen.length=0;
- const body={id:'scheduled-task-001',createdAt:'2026-10-20T12:00:00Z',nextRunAt:'2026-10-20T12:01:00Z',expiresAt:'2026-10-20T12:20:00Z',enabled:true,ownerAuthorized:true};
+ const body={id:'scheduled-task-001',createdAt:'2026-10-20T12:00:00Z',nextRunAt:'2026-10-20T12:01:00Z',expiresAt:'2026-10-20T12:20:00Z',question:'Analyze the soccer fixtures',enabled:true,ownerAuthorized:true};
  assert.equal((await atlasGateway(request('POST','/api/network/schedule/enqueue',false,body),env,forward)).status,401);
  assert.equal(seen.length,0);
  const forged=await atlasGateway(request('POST','/api/network/schedule/enqueue',true,body),env,forward);
