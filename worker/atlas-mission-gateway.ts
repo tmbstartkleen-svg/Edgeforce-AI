@@ -42,9 +42,12 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const isScheduleCancel=url.pathname==='/api/network/schedule/cancel';
  const isScheduleRecover=url.pathname==='/api/network/schedule/recover';
  const isScheduleEnqueue=url.pathname==='/api/network/schedule/enqueue';
+ // Execution is intentionally not publicly routable, including owner bearer requests.
+ const isScheduleExecute=url.pathname==='/api/network/schedule/execute';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
+ if(isScheduleExecute)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
  if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleRecover&&!isScheduleEnqueue)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  // Founder authentication also applies to GET director requests.
  // Public metadata must never bypass the owner security boundary.
