@@ -18,7 +18,9 @@ test('durable scheduler helpers connected only to private mission room',()=>{
 
 test('scheduler health never claims readiness without an executor',()=>{
  assert.match(room,/ready:false,executionMode:'disabled'/);
- assert.match(room,/executorConnected:false,cronConnected:false,liveDispatchVerified:false/);
+ assert.match(room,/executorConnected:typeof runAtlasScheduledDirector==='function',cronConnected:false,liveDispatchVerified:false/);
+ assert.match(room,/if(!input.enabled)return \{ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'\}/);
+ assert.match(room,/if(!input.ownerAuthorized)return \{ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'\}/);
  assert.match(room,/NO_LIVE_DISPATCH_CERTIFICATION/);
 });
 
