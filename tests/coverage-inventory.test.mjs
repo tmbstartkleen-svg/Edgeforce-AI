@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const code=ts.transpileModule(fs.readFileSync(new URL('../src/lib/coverage-inventory.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {reconcileCoverage}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const now='2026-10-21T12:00:00Z';
+const target={bookmaker:'DraftKings',sport:'Soccer',league:'EPL',eventId:'e1',marketType:'moneyline',outcomeId:'home'};
+const obs={...target,provider:'licensed-provider-a',observedAt:now,startsAt:'2026-10-22T12:00:00Z',priceAmerican:-115};
+const run=(observations,expected=[target])=>reconcileCoverage({observations,expected,now,maxAgeMs:60000,targetBookmaker:'DraftKings'});
+test('reports observed inventory and exact matched DraftKings outcomes',()=>{const r=run([obs]);assert.equal(r.matched,1);assert.equal(r.missing,0);assert.equal(r.complete,true);assert.equal(r.observed.sports,1)});
+test('does not substitute another bookmaker for DraftKings',()=>{const r=run([{...obs,bookmaker:'FanDuel'}]);assert.equal(r.missing,1);assert.equal(r.matched,0);assert.equal(r.rejected.OTHER_BOOKMAKER,1)});
+test('stale quotes and future observations are excluded',()=>{const r=run([{...obs,observedAt:'2026-10-20T12:00:00Z'},{...obs,observedAt:'2026-10-22T12:00:00Z'}]);assert.equal(r.missing,1);assert.equal(r.rejected.STALE_OR_FUTURE,2)});
+test('player prop lines and distinct outcomes are never merged',()=>{const prop={...target,marketType:'player_points',outcomeId:'over',playerId:'p1',line:'20.5'};const r=run([{...obs,...prop}], [{...prop,line:'21.5'}]);assert.equal(r.missing,1);assert.equal(r.matched,0)});
+test('latest observation wins without duplicating outcome inventory',()=>{const r=run([{...obs,priceAmerican:-115,observedAt:'2026-10-21T11:59:50Z'},{...obs,priceAmerican:-120}],[target,target]);assert.equal(r.matched,1);assert.equal(r.observed.outcomes,1);assert.equal(r.observations[0].priceAmerican,-120)});
+test('empty target catalog is not misrepresented as complete',()=>{const r=run([obs],[]);assert.equal(r.complete,false);assert.equal(r.expected,0)});
