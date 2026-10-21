@@ -6,5 +6,7 @@ export default function Page(){
   <Link className="predictionShortcut" href="/predictions">Prediction Terminal</Link>
   <Link className="predictionShortcut researchShortcut" href="/research">Forecast Research</Link>
   <Dashboard/>
+  <Link className="predictionShortcut" style={{bottom:162}} href="/network">Founder AI Network</Link>
+  <Link className="predictionShortcut" style={{bottom:114}} href="/team">AI Research Team</Link>
  </>;
 }
