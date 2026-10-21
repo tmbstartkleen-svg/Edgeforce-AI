@@ -40,3 +40,7 @@ test('pre-deploy staging gate rejects changed safety flags',()=>{
  assert.match(unsafe.stderr,/UNSAFE_STAGING_CONFIG:ATLAS_EXECUTION/);
  fs.rmSync(out,{force:true});
 });
+
+test('production configuration explicitly disables autonomous ATLAS scheduling',()=>{
+ assert.equal(prod.vars.ATLAS_SCHEDULE_EXECUTION_ENABLED,'false');
+});
