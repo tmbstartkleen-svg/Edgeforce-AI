@@ -27,3 +27,8 @@ Evidence still required: run a Founder-authorized task in an isolated staging en
 
 ## Non-goals
 No public claim/complete endpoints, no automatic cron/alarm execution, no unverified odds/scores counted as sportsbook quotes, and no claim that Build 410 is finished before runtime certification.
+
+## Staging certification evidence checklist
+A passing CI build or preview bundle alone is not evidence of successful ATLAS research execution. Before marking Build 410 complete, attach a staging-only report recording: (1) deployment name/version and isolation from production; (2) the authorized test invocation time and scheduled task ID; (3) a successful Director response with matching question and durable mission ID; (4) an authenticated readback of that exact mission record; (5) an authenticated readback of the scheduled task showing completed state and matching lease attempt; (6) screenshots or sanitized logs for the test, with all tokens removed; and (7) confirmation that production `ATLAS_SCHEDULE_EXECUTION_ENABLED` remains `false`. Any timeout, missing record, duplicate mission, or inconsistent state is a failed certification, not a soft pass.
+
+Do not enable a staging execution path that binds back to a live production Director without separately confirming data isolation and authorization. No automatic cron, alarms, public dispatch routes, or owner-token logging.
