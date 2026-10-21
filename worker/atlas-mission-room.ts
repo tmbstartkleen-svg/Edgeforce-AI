@@ -49,7 +49,7 @@ export class AtlasMissionRoom {
     this.env.EDGEFORCE_NETWORK_OWNER_TOKEN.length>=24,
    directorServiceConnected:typeof this.env.ATLAS_DIRECTOR_SERVICE?.fetch==='function',
    directorOriginValid:originValid,
-   readyForControlledTest:originValid&&
+   readyForControlledTest:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true'&&originValid&&
     typeof this.env.ATLAS_DIRECTOR_SERVICE?.fetch==='function'&&
     typeof this.env.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'&&
     this.env.EDGEFORCE_NETWORK_OWNER_TOKEN.length>=24,
