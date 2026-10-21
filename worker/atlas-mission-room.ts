@@ -89,13 +89,11 @@ export class AtlasMissionRoom {
    if(typeof data.id!=='string'||typeof data.createdAt!=='string'||
       typeof data.nextRunAt!=='string'||typeof data.expiresAt!=='string')
     return json({ok:false,error:'INVALID_TASK'},400);
+   if(typeof data.question!=='string'||data.question.trim().length<3||data.question.length>500)
+    return json({ok:false,error:'INVALID_RESEARCH_QUESTION'},400);
    const result=await enqueueAtlasSchedule(this.state.storage,{
-    id:data.id,createdAt:data.createdAt,nextRunAt:data.nextRunAt,expiresAt:data.expiresAt
+    id:data.id,createdAt:data.createdAt,nextRunAt:data.nextRunAt,expiresAt:data.expiresAt,question:data.question
    },{ownerAuthorized:true,enabled:true,now:Date.now()});
-   if(result.ok&&typeof data.question==='string'){
-    // Keep the research instruction private and durable; no provider call is made.
-    await this.state.storage.put('atlas-research:'+data.id,{question:data.question});
-   }
    return json(result,result.ok?201:409);
   }
   // Founder-authenticated terminal recovery; no replay or dispatch.
