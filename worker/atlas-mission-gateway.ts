@@ -23,7 +23,8 @@ export async function dispatchAtlasScheduledRpc(request:Request,env:Env & {ATLAS
  const supplied=bearer.startsWith('Bearer ')?bearer.slice(7).trim():'';
  if(!await validToken(env.EDGEFORCE_NETWORK_OWNER_TOKEN,supplied))
   return json({ok:false,error:'UNAUTHORIZED'},401);
- if(!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+ if(!input||typeof input!=='object'||typeof input.id!=='string'||
+    !/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
     !['QUEUED','RETRY_WAIT'].includes(input.expectedState)||
     !Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0||
     !Number.isSafeInteger(input.durationMs)||input.durationMs<1000||input.durationMs>60000)
