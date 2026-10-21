@@ -93,3 +93,16 @@ test('recovery requires Founder authentication and refuses spoofed permissions',
  assert.deepEqual(await seen[0].json(),valid);
  assert.equal(new URL(seen[0].url).pathname,'/schedule/recover');
 });
+
+test('mismatched director report finalizes the durable task as failed',async()=>{
+ seen.length=0;
+ const reply=await atlasGateway(request('POST','/api/network/director',true,{question:'Verify latest soccer fixtures'}),env,
+  async()=>Response.json({ok:true,question:'Different question'}));
+ assert.equal(reply.status,503);
+ assert.equal((await reply.json()).error,'INVALID_DIRECTOR_REPORT');
+ const endpoints=seen.map(item=>new URL(item.url).pathname);
+ assert.ok(endpoints.includes('/tasks/start'));
+ assert.ok(endpoints.includes('/tasks/finish'));
+ const finish=seen.find(item=>new URL(item.url).pathname==='/tasks/finish');
+ assert.equal((await finish.json()).status,'FAILED');
+});
