@@ -82,14 +82,15 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   catch{return json({ok:false,error:'INVALID_JSON'},400);}
   if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_TASK'},400);
   const input=data as Record<string,unknown>;
-  if(Object.keys(input).some(k=>!['id','createdAt','nextRunAt','expiresAt'].includes(k)))
+  if(Object.keys(input).some(k=>!['id','createdAt','nextRunAt','expiresAt','question'].includes(k)))
    return json({ok:false,error:'UNEXPECTED_TASK_FIELD'},400);
   if(typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
-   typeof input.createdAt!=='string'||typeof input.nextRunAt!=='string'||typeof input.expiresAt!=='string')
+   typeof input.createdAt!=='string'||typeof input.nextRunAt!=='string'||typeof input.expiresAt!=='string'||
+   typeof input.question!=='string'||input.question.trim().length<3||input.question.length>500)
    return json({ok:false,error:'INVALID_TASK'},400);
   try{
    const reply=await instance.fetch(roomRequest('/schedule/enqueue','POST',{
-    id:input.id,createdAt:input.createdAt,nextRunAt:input.nextRunAt,expiresAt:input.expiresAt
+    id:input.id,createdAt:input.createdAt,nextRunAt:input.nextRunAt,expiresAt:input.expiresAt,question:input.question.trim()
    }));
    return json(await reply.json(),reply.status);
   }catch{return json({ok:false,error:'SCHEDULER_ENQUEUE_UNAVAILABLE'},503);}
