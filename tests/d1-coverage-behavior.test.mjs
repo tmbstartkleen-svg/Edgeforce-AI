@@ -8,7 +8,7 @@ const inv=uri(read('src/lib/coverage-inventory.ts'));
 const compiled=read('worker/d1-coverage.ts').replaceAll("from '../src/lib/coverage-inventory'","from "+JSON.stringify(inv));
 const {d1CoverageGateway}=await import(uri(compiled));
 const secret='a'.repeat(32),now=Date.now();
-const rows=[{source_id:'approved-feed',event_id:'event-1',observed_at:new Date(now-5000).toISOString(),
+const rows=[{source_id:'approved-feed',upstream_id:'real-upstream-one',event_id:'event-1',observed_at:new Date(now-5000).toISOString(),
  payload:JSON.stringify({provider:'approved-feed',kind:'odds',value:{bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',outcomeId:'over',startsAt:new Date(now+3600000).toISOString(),playerId:'player-123',line:'22.5',priceAmerican:-115}})}];
 function env(data=rows){return {CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(sql){assert.match(sql,/observation_kind='odds'/);return {bind(n){assert.ok(n<=250);return {all:async()=>({results:data})}}}}}};}
 const req=(auth=true)=>new Request('https://edgeforce.example/api/operations/d1-pilot/coverage',{headers:auth?{authorization:'Bearer '+secret}:{}});
@@ -28,10 +28,19 @@ test('D1 coverage reads real stored prop lines from normalized envelope',async()
  assert.equal(report.leagues[0].marketTypes,1);
  assert.equal(report.leagues[0].quotes,1);
  assert.deepEqual(report.providers,['approved-feed']);
+ assert.equal(report.independentVerification.independentUpstreams,1);
+ assert.equal(report.independentVerification.crossProviderVerified,false);
 });
 test('D1 coverage excludes stale observations without treating them as live quotes',async()=>{
  const old=[{...rows[0],observed_at:new Date(now-3600000).toISOString()}];
  const report=await (await d1CoverageGateway(req(),env(old))).json();
  assert.equal(report.freshDraftKingsQuotes,0);
  assert.equal(report.rejected.STALE_OR_FUTURE,1);
+});
+
+test('multiple sportsbook observations from one upstream do not imply independent verification',async()=>{
+ const second={...rows[0],source_id:'second-adapter',event_id:'event-2'};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],second]))).json();
+ assert.equal(report.independentVerification.independentUpstreams,1);
+ assert.equal(report.independentVerification.crossProviderVerified,false);
 });
