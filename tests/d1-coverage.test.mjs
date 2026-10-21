@@ -14,3 +14,9 @@ test('Cloudflare Worker includes bounded private D1 coverage route',()=>{
  assert.match(worker,/pathname==='\/api\/operations\/d1-pilot\/coverage'/);
  assert.match(gateway,/limit>250/);
 });
+
+test('D1 odds reader unwraps the normalized persisted observation value',()=>{
+ assert.match(gateway,/p\.value&&typeof p\.value==='object'/);
+ assert.match(gateway,/str\(q\.bookmaker\)/);
+ assert.match(gateway,/const price=q\.priceAmerican/);
+});
