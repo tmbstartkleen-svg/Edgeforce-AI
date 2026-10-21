@@ -35,6 +35,19 @@ const MAX_HOUR=12;
 
 export class AtlasMissionRoom {
  constructor(private readonly state:RoomState){}
+ // Private in-process integration, deliberately NOT an HTTP route.
+ // The calling runtime must derive enabled/ownerAuthorized from trusted
+ // server configuration and authorization, never from task JSON.
+ async executeTrustedScheduledResearch(input:{
+  id:string;expectedState:import('./atlas-task-scheduling').AtlasScheduleRecord['state'];
+  expectedAttempts:number;token:string;now:number;durationMs:number;
+  enabled:boolean;ownerAuthorized:boolean;providerHealthy:boolean;
+  clock:()=>number;forward:(request:Request)=>Promise<Response>;origin:string;
+ }){
+  if(!input.enabled)return {ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'};
+  if(!input.ownerAuthorized)return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
+  return runAtlasScheduledDirector(this.state.storage,input);
+ }
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
