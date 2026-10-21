@@ -25,3 +25,11 @@ test('disabled bridge never loads or runs research',async()=>{
  const result=await bridge.executeAtlasScheduledResearch(storage,{...args,enabled:false,research:async()=>{calls++;return {ok:true};}});
  assert.equal(result.reason,'SCHEDULER_DISABLED');assert.equal(calls,0);
 });
+
+test('malformed identifiers cannot access durable research storage',async()=>{
+ let reads=0;
+ const guarded={transaction:async fn=>{reads++;return storage.transaction(fn);}};
+ const result=await bridge.executeAtlasScheduledResearch(guarded,{...args,id:'../unsafe',research:async()=>({ok:true})});
+ assert.equal(result.reason,'INVALID_TASK_ID');
+ assert.equal(reads,0);
+});
