@@ -19,7 +19,7 @@ export function runAtlasScheduledDirector(storage:SchedulerStore,input:{
  // A valid HTTPS origin is required before the task can be claimed.
  let origin:URL;
  try{origin=new URL(input.origin);}catch{return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'});}
- if(origin.protocol!=='https:'||origin.username||origin.password||origin.pathname!=='/'||origin.search||origin.hash)
+ if(origin.protocol!=='https:'||origin.username||origin.password||origin.pathname!=='/'||origin.search||origin.hash||!origin.hostname||origin.hostname==='localhost')
   return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'});
  return executeAtlasScheduledResearch(storage,{
   ...input,research:createAtlasResearchProviderAdapter(input.forward,input.origin)
