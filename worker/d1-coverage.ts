@@ -1,3 +1,4 @@
+import {checkNetworkAuth} from '../src/lib/firstPartySportsNetwork';
 import {reconcileCoverage,type CoverageObservation} from '../src/lib/coverage-inventory';
 import type {D1Database} from './d1-observations';
 type Row={source_id:string;upstream_id:string;event_id:string;observed_at:string;payload:string};
@@ -5,10 +6,13 @@ const noStore={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:noStore});
 const str=(v:unknown)=>typeof v==='string'&&v.trim().length>0?v.trim():'';
 /** Read real persisted D1 odds observations; no network fetch or unapproved provider quote inference. */
-export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknown;INTELLIGENCE_DB?:unknown}):Promise<Response>{
+export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknown;EDGEFORCE_NETWORK_TOKEN_SHA256?:unknown;INTELLIGENCE_DB?:unknown}):Promise<Response>{
  if(request.method!=='GET')return new Response(null,{status:405,headers:{Allow:'GET'}});
- if(typeof env.CRON_SECRET!=='string'||env.CRON_SECRET.length<24||
-    request.headers.get('authorization')!=='Bearer '+env.CRON_SECRET)
+ const ownerAuthorized=typeof env.EDGEFORCE_NETWORK_TOKEN_SHA256==='string'&&
+    checkNetworkAuth(request.headers.get('authorization'),env.EDGEFORCE_NETWORK_TOKEN_SHA256);
+ const cronAuthorized=typeof env.CRON_SECRET==='string'&&env.CRON_SECRET.length>=24&&
+    request.headers.get('authorization')==='Bearer '+env.CRON_SECRET;
+ if(!ownerAuthorized&&!cronAuthorized)
   return json({ok:false,error:'UNAUTHORIZED'},401);
  const db=env.INTELLIGENCE_DB as D1Database|undefined;
  if(!db||typeof db.prepare!=='function')return json({ok:false,error:'D1_BINDING_MISSING'},503);
