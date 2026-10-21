@@ -1,6 +1,6 @@
 import {reconcileCoverage,type CoverageObservation} from '../src/lib/coverage-inventory';
 import type {D1Database} from './d1-observations';
-type Row={source_id:string;event_id:string;observed_at:string;payload:string};
+type Row={source_id:string;upstream_id:string;event_id:string;observed_at:string;payload:string};
 const noStore={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:noStore});
 const str=(v:unknown)=>typeof v==='string'&&v.trim().length>0?v.trim():'';
@@ -15,9 +15,9 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
  const u=new URL(request.url),limit=Number(u.searchParams.get('limit')||100);
  if(!Number.isSafeInteger(limit)||limit<1||limit>250)return json({ok:false,error:'INVALID_LIMIT'},400);
  try{
-  const records=await db.prepare(`SELECT source_id,event_id,observed_at,payload FROM intelligence_observations
+  const records=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload FROM intelligence_observations
     WHERE observation_kind='odds' ORDER BY observed_at DESC LIMIT ?`).bind(limit).all<Row>();
-  const now=Date.now(),observations:CoverageObservation[]=[];let unrecognized=0;
+  const now=Date.now(),observations:CoverageObservation[]=[],upstreams=new Map<string,string>();let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
    try{p=JSON.parse(record.payload);}catch{unrecognized++;continue;}
@@ -29,6 +29,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    if(!bookmaker||!sport||!league||!marketType||!outcomeId||!startsAt){unrecognized++;continue;}
    const price=q.priceAmerican;
    if(price!==undefined&&(!Number.isInteger(price)||Math.abs(price as number)<100)){unrecognized++;continue;}
+   if(str(record.upstream_id))upstreams.set(record.source_id,str(record.upstream_id));
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
     ...(price!==undefined?{priceAmerican:price as number}:{}),
@@ -51,8 +52,11 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const leagues=[...groups.values()].map(g=>({sport:g.sport,league:g.league,events:g.events.size,marketTypes:g.marketTypes.size,players:g.players.size,quotes:g.quotes,latestObservedAt:g.latestObservedAt}))
    .sort((a,b)=>a.sport.localeCompare(b.sport)||a.league.localeCompare(b.league));
   const providers=[...new Set(report.observations.map(o=>o.provider))].sort();
+  const independentUpstreams=new Set(providers.map(provider=>upstreams.get(provider)).filter(Boolean)).size;
+  const independentVerification={independentUpstreams,crossProviderVerified:independentUpstreams>=2,
+   note:'Upstreams, not sportsbook labels or vendor aliases, determine independent provenance. Quote-level consensus is not verified.'};
   return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,
-   discovered:{...report.observed},leagues,providers,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
+   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
    asOf:report.asOf,warning:'D1 is a persisted observation source, not proof of complete DraftKings availability.'});
