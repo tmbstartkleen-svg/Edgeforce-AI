@@ -65,6 +65,14 @@ jobs:
         env:
           LOAD_REQUESTS: "60"
           LOAD_MAX_P95_MS: "3000"
+      - name: Test AI research team
+        run: npm run test:team
+      - name: Test Founder and Atlas director network
+        run: npm run test:network
+      - name: Test durable Founder mission journal
+        run: npm run test:network-persistence
+      - name: Test director task collaboration
+        run: npm run test:network-director-tasks
       - name: Write verification evidence
         run: npm run write-execution-evidence
         env:
