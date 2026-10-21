@@ -33,3 +33,14 @@ test('malformed identifiers cannot access durable research storage',async()=>{
  assert.equal(result.reason,'INVALID_TASK_ID');
  assert.equal(reads,0);
 });
+
+test('unstructured provider result cannot complete a scheduled mission',async()=>{
+ const taskId='research-invalid-001';
+ data.set('atlas-schedule:'+taskId,{id:taskId,state:'QUEUED',attempts:0,createdAt:new Date(now-1000).toISOString(),nextRunAt:new Date(now).toISOString(),expiresAt:new Date(now+60000).toISOString()});
+ data.set('atlas-research:'+taskId,{question:'Review soccer fixtures'});
+ const result=await bridge.executeAtlasScheduledResearch(storage,{...args,id:taskId,research:async()=>({message:'looks fine'})});
+ assert.equal(result.ok,false);
+ assert.equal(result.stage,'execute');
+ assert.equal(result.reason,'INVALID_RESEARCH_RESULT');
+ assert.equal(data.get('atlas-schedule:'+taskId).state,'RUNNING');
+});
