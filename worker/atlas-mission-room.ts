@@ -92,6 +92,10 @@ export class AtlasMissionRoom {
    const result=await enqueueAtlasSchedule(this.state.storage,{
     id:data.id,createdAt:data.createdAt,nextRunAt:data.nextRunAt,expiresAt:data.expiresAt
    },{ownerAuthorized:true,enabled:true,now:Date.now()});
+   if(result.ok&&typeof data.question==='string'){
+    // Keep the research instruction private and durable; no provider call is made.
+    await this.state.storage.put('atlas-research:'+data.id,{question:data.question});
+   }
    return json(result,result.ok?201:409);
   }
   // Founder-authenticated terminal recovery; no replay or dispatch.
