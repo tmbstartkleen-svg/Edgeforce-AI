@@ -1,4 +1,6 @@
 import handler from 'vinext/server/fetch-handler';
+import {atlasGateway} from './atlas-mission-gateway';
+export {AtlasMissionRoom} from './atlas-mission-room';
 import {kalshiConnectionDiagnostic} from './kalshi-connection-diagnostic';
 import {d1PilotReadiness} from './d1-pilot';
 import {d1RuntimeHealth} from './d1-runtime-health';
@@ -97,6 +99,10 @@ const worker={
   if(pathname==='/api/operations/d1-pilot/readiness'){
    if(request.method!=='GET')return Promise.resolve(new Response(null,{status:405,headers:{Allow:'GET'}}));
    return d1PilotReadiness(request,env);
+  }
+  if(pathname==='/api/network/missions'||pathname==='/api/network/tasks'||(pathname==='/api/network/director'&&request.method==='POST')){
+   return atlasGateway(request,env as Parameters<typeof atlasGateway>[1],forwarded=>
+    withDatabaseScope(scoped=>handler.fetch(forwarded,env as any,scoped as any),env,ctx));
   }
   return withDatabaseScope(scoped=>handler.fetch(request,env as any,scoped as any),env,ctx);
  },
