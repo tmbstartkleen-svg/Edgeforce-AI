@@ -25,3 +25,18 @@ test('generates isolated Worker with no triggers, service bindings or production
  for(const k of ['triggers','routes','route','services','account_id'])assert.equal(c[k],undefined,k);
  fs.rmSync(out,{force:true});
 });
+
+test('pre-deploy staging gate rejects changed safety flags',()=>{
+ const generated=run({EDGEFORCE_STAGING_D1_ID:stageId});
+ assert.equal(generated.status,0,generated.stderr);
+ const verifier=path.join(root,'scripts/verify-isolated-staging.mjs');
+ const safe=spawnSync(process.execPath,[verifier],{cwd:root,encoding:'utf8'});
+ assert.equal(safe.status,0,safe.stderr);
+ const config=JSON.parse(fs.readFileSync(out,'utf8'));
+ config.vars.ATLAS_SCHEDULE_EXECUTION_ENABLED='true';
+ fs.writeFileSync(out,JSON.stringify(config));
+ const unsafe=spawnSync(process.execPath,[verifier],{cwd:root,encoding:'utf8'});
+ assert.notEqual(unsafe.status,0);
+ assert.match(unsafe.stderr,/UNSAFE_STAGING_CONFIG:ATLAS_EXECUTION/);
+ fs.rmSync(out,{force:true});
+});
