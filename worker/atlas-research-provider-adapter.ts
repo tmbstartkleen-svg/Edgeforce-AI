@@ -22,8 +22,9 @@ export function createAtlasResearchProviderAdapter(
   try{
    const response=await forward(request);
    if(!response.ok)return {ok:false,reason:'RESEARCH_UPSTREAM_FAILED'};
-   const report=await response.json() as {ok?:unknown;question?:unknown;persisted?:unknown;durable?:unknown};
-   if(!report||report.ok!==true||report.question!==question.trim()||report.persisted!==true||report.durable!==true)
+   const report=await response.json() as {ok?:unknown;question?:unknown;persisted?:unknown;durable?:unknown;missionId?:unknown};
+   if(!report||report.ok!==true||report.question!==question.trim()||report.persisted!==true||report.durable!==true||
+      typeof report.missionId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(report.missionId))
     return {ok:false,reason:'INVALID_DIRECTOR_REPORT'};
    return {ok:true};
   }catch{return {ok:false,reason:'RESEARCH_UPSTREAM_FAILED'};}
