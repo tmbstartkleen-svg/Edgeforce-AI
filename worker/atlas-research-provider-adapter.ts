@@ -11,7 +11,8 @@ export function createAtlasResearchProviderAdapter(
   let url:URL;
   try{
    const base=new URL(origin);
-   if(base.protocol!=='https:'||base.username||base.password||base.pathname!=='/'||base.search||base.hash)
+   if(base.protocol!=='https:'||base.username||base.password||base.pathname!=='/'||base.search||base.hash||
+      !base.hostname||base.hostname==='localhost')
     return {ok:false,reason:'INVALID_ORIGIN'};
    url=new URL('/api/network/director',base);
   }catch{return {ok:false,reason:'INVALID_ORIGIN'};}
