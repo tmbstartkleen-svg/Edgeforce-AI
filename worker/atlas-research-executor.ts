@@ -24,7 +24,7 @@ export async function executeAtlasScheduledResearch(storage:SchedulerStore,input
  // Never allow an unstructured or mismatched report to count as completed work.
  return runAtlasScheduledTask(storage,{...input,execute:async()=>{
   const result=await input.research(question);
-  if(!result||result.ok!==true)return {ok:false,reason:result?.ok===false?result.reason:'INVALID_RESEARCH_RESULT'};
+  if(!result||result.ok!==true)return {ok:false,reason:'INVALID_RESEARCH_RESULT'};
   return {ok:true};
  }});
 }
