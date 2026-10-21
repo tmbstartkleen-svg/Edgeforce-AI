@@ -37,8 +37,22 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   }
   const report=reconcileCoverage({observations,expected:[],now:new Date(now).toISOString(),
    maxAgeMs:15*60*1000,targetBookmaker:'DraftKings'});
+  // Dynamic inventory from genuinely observed outcomes, not a hardcoded sports list.
+  const groups=new Map<string,{sport:string;league:string;events:Set<string>;marketTypes:Set<string>;players:Set<string>;quotes:number;latestObservedAt:string}>();
+  for(const o of report.observations){
+   const key=[o.sport,o.league].map(x=>x.trim().toLowerCase()).join('|');
+   let group=groups.get(key);
+   if(!group){group={sport:o.sport,league:o.league,events:new Set(),marketTypes:new Set(),players:new Set(),quotes:0,latestObservedAt:o.observedAt};groups.set(key,group);}
+   group.events.add(o.eventId);group.marketTypes.add(o.marketType);
+   if(o.playerId)group.players.add(o.playerId);
+   if(o.priceAmerican!==undefined)group.quotes++;
+   if(Date.parse(o.observedAt)>Date.parse(group.latestObservedAt))group.latestObservedAt=o.observedAt;
+  }
+  const leagues=[...groups.values()].map(g=>({sport:g.sport,league:g.league,events:g.events.size,marketTypes:g.marketTypes.size,players:g.players.size,quotes:g.quotes,latestObservedAt:g.latestObservedAt}))
+   .sort((a,b)=>a.sport.localeCompare(b.sport)||a.league.localeCompare(b.league));
+  const providers=[...new Set(report.observations.map(o=>o.provider))].sort();
   return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,
-   discovered:{...report.observed},freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
+   discovered:{...report.observed},leagues,providers,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
    asOf:report.asOf,warning:'D1 is a persisted observation source, not proof of complete DraftKings availability.'});
