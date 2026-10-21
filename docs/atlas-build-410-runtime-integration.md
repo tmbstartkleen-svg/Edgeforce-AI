@@ -9,8 +9,12 @@ Status: **NOT CERTIFIED / execution disabled**.
 - The public and Durable Object HTTP execution routes reject dispatch.
 - Tests and hosted-preview checks are **not** evidence of actual live Director dispatch.
 
-## Architectural blocker
-The current `executeTrustedScheduledResearch` method accepts a JavaScript `forward` callback and `clock` callback. These are process-local functions and cannot simply be sent as JSON through a Durable Object stub's HTTP `fetch` interface. Importing the executor into the Durable Object does not create a trusted invoker. Neither a user-supplied `ownerAuthorized` flag nor an HTTP body can substitute for authentication. The Director gateway currently uses `forward(request)` and persists the resulting mission separately.
+## Runtime integration status and staging blocker
+A private Durable Object RPC method, `executeTrustedScheduledResearch`, now exists and constructs its own Director service forwarder and clock server-side. The original callback-serialization blocker described in earlier revisions is **resolved in code**, not yet live-certified. `dispatchAtlasScheduledRpc` is a trusted Worker entry point, but is **not attached to a public route, cron, or alarm**. The configured `ATLAS_SCHEDULE_EXECUTION_ENABLED` flag remains `false`.
+
+The `ATLAS_DIRECTOR_SERVICE` binding points at `edgeforce-ai` itself. The bound request reaches `worker/index.ts`, which sends POST `/api/network/director` through `atlasGateway` and then the existing handler. The gateway also uses `ATLAS_MISSION_ROOM` to persist the Director report. Thus a Durable Object RPC invocation can await a Worker request that re-enters the same Durable Object for journaling. **Do not assume this is deadlock-free or that report persistence succeeds** without a controlled Cloudflare staging execution. No production activation or autonomous dispatch is authorized.
+
+Evidence still required: run a Founder-authorized task in an isolated staging environment, confirm the Director returned matching `ok:true`, `durable:true`, `persisted:true`, read back the durable mission and scheduled task, and record their IDs with a timestamp and deployment version. Failure, timeout, duplicate execution, or missing readback must block certification. Do not put secrets or bearer tokens in logs or certification documents.
 
 ## Required implementation for certification
 1. Choose a supported Cloudflare execution boundary: an authenticated Worker orchestration route using **internal claim/finish messages** to the Durable Object, or a Durable Object RPC method that constructs the Director service binding and its credentials server-side. Do not serialize function callbacks.
