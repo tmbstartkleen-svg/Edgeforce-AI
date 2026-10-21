@@ -18,3 +18,12 @@ test('adapter rejects provider mismatches and failures',async()=>{
  const failed=createAtlasResearchProviderAdapter(async()=>Response.json({ok:false},{status:503}),'https://edgeforce.example');
  assert.equal((await failed('Soccer schedule')).reason,'RESEARCH_UPSTREAM_FAILED');
 });
+
+test('adapter rejects insecure origins without making a provider request',async()=>{
+ for(const origin of ['http://edgeforce.example','https://user:pass@edgeforce.example','https://edgeforce.example/other']){
+  let requests=0;
+  const adapter=createAtlasResearchProviderAdapter(async()=>{requests++;return Response.json({ok:true});},origin);
+  assert.equal((await adapter('Soccer schedule')).reason,'INVALID_ORIGIN');
+  assert.equal(requests,0);
+ }
+});
