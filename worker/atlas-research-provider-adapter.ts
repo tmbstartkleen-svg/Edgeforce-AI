@@ -22,8 +22,8 @@ export function createAtlasResearchProviderAdapter(
   try{
    const response=await forward(request);
    if(!response.ok)return {ok:false,reason:'RESEARCH_UPSTREAM_FAILED'};
-   const report=await response.json() as {ok?:unknown;question?:unknown};
-   if(!report||report.ok!==true||report.question!==question.trim())
+   const report=await response.json() as {ok?:unknown;question?:unknown;persisted?:unknown;durable?:unknown};
+   if(!report||report.ok!==true||report.question!==question.trim()||report.persisted!==true||report.durable!==true)
     return {ok:false,reason:'INVALID_DIRECTOR_REPORT'};
    return {ok:true};
   }catch{return {ok:false,reason:'RESEARCH_UPSTREAM_FAILED'};}
