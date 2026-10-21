@@ -1,3 +1,8 @@
+import {runAtlasScheduledDirector} from './atlas-scheduled-director';
+import {failInterruptedAtlasTask} from './atlas-interrupted-recovery';
+import {enqueueAtlasSchedule} from './atlas-schedule-enqueue';
+import {transitionAtlasSchedule} from './atlas-task-transitions';
+import {claimAtlasScheduledExecution,completeAtlasLeasedExecution,cancelAtlasLeasedExecution} from './atlas-leased-execution';
 // Build 408: private durable journal for the Founder-led ATLAS mission room.
 // The native Cloudflare Durable Object maintains one serialized room state.
 // It is intentionally NOT public-routed: only the authenticated Worker gateway
@@ -29,10 +34,193 @@ const MAX_MINUTE=2;
 const MAX_HOUR=12;
 
 export class AtlasMissionRoom {
- constructor(private readonly state:RoomState){}
+ constructor(private readonly state:RoomState,private readonly env:{ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown;EDGEFORCE_NETWORK_OWNER_TOKEN?:unknown;ATLAS_DIRECTOR_SERVICE?:{fetch(request:Request):Promise<Response>};ATLAS_DIRECTOR_ORIGIN?:unknown}={}){}
+ // RPC-only staging readiness inspection; does not expose credentials or execute a task.
+ async inspectScheduledRuntime(){
+  let originValid=false;
+  try{
+   const origin=new URL(String(this.env.ATLAS_DIRECTOR_ORIGIN||''));
+   originValid=origin.protocol==='https:'&&!origin.username&&!origin.password&&
+    origin.pathname==='/'&&!origin.search&&!origin.hash;
+  }catch{/* fail closed */}
+  return {
+   executionEnabled:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true',
+   ownerSecretConfigured:typeof this.env.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'&&
+    this.env.EDGEFORCE_NETWORK_OWNER_TOKEN.length>=24,
+   directorServiceConnected:typeof this.env.ATLAS_DIRECTOR_SERVICE?.fetch==='function',
+   directorOriginValid:originValid,
+   readyForControlledTest:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true'&&originValid&&
+    typeof this.env.ATLAS_DIRECTOR_SERVICE?.fetch==='function'&&
+    typeof this.env.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'&&
+    this.env.EDGEFORCE_NETWORK_OWNER_TOKEN.length>=24,
+   liveDispatchVerified:false
+  };
+ }
+ // RPC-compatible internal invocation. No callback functions cross the Durable Object boundary.
+ // A trusted Worker caller supplies only serializable task inputs and its Founder secret.
+ // Both authorization and execution activation are checked against server-side secrets.
+ async executeTrustedScheduledResearch(input:{
+  id:string;expectedState:import('./atlas-task-scheduling').AtlasScheduleRecord['state'];
+  expectedAttempts:number;now:number;durationMs:number;ownerToken:string;
+ }){
+  const config=this.env as {
+   ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown;
+   EDGEFORCE_NETWORK_OWNER_TOKEN?:unknown;
+   ATLAS_DIRECTOR_SERVICE?:{fetch(request:Request):Promise<Response>};
+   ATLAS_DIRECTOR_ORIGIN?:unknown;
+  };
+  if(config.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
+   return {ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'};
+  // Validate at the Durable Object boundary as well as the Worker caller.
+  if(!input||typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+     (input.expectedState!=='QUEUED'&&input.expectedState!=='RETRY_WAIT')||
+     !Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0||
+     !Number.isSafeInteger(input.durationMs)||input.durationMs<1000||input.durationMs>60000)
+   return {ok:false as const,stage:'claim' as const,reason:'INVALID_EXECUTION_REQUEST'};
+  const secret=config.EDGEFORCE_NETWORK_OWNER_TOKEN;
+  if(typeof secret!=='string'||secret.length<24||typeof input.ownerToken!=='string')
+   return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
+  const digest=async(value:string)=>new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));
+  const [expected,supplied]=await Promise.all([digest(secret),digest(input.ownerToken)]);
+  let mismatch=0;
+  for(let i=0;i<expected.length;i++)mismatch|=expected[i]^supplied[i];
+  if(mismatch!==0)
+   return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
+  if(!config.ATLAS_DIRECTOR_SERVICE||typeof config.ATLAS_DIRECTOR_SERVICE.fetch!=='function'||
+     typeof config.ATLAS_DIRECTOR_ORIGIN!=='string')
+   return {ok:false as const,stage:'claim' as const,reason:'PROVIDER_UNHEALTHY'};
+  // Reject malformed origins before acquiring a durable lease or contacting research.
+  let validatedOrigin:URL;
+  try{validatedOrigin=new URL(config.ATLAS_DIRECTOR_ORIGIN);}catch{return {ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'};}
+  if(validatedOrigin.protocol!=='https:'||validatedOrigin.username||validatedOrigin.password||validatedOrigin.pathname!=='/'||validatedOrigin.search||validatedOrigin.hash)
+   return {ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'};
+  // This service binding targets the same Worker; reject requests that would
+  // recursively invoke the Director gateway rather than the research engine.
+  // Activation remains disabled until staging confirms the routing contract.
+  const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
+  const forward=(request:Request)=>{
+   const target=new URL(request.url);
+   const allowed=new URL(config.ATLAS_DIRECTOR_ORIGIN as string);
+   if(allowed.protocol!=='https:'||allowed.username||allowed.password||allowed.pathname!=='/'||allowed.search||allowed.hash)
+    throw new Error('DIRECTOR_ORIGIN_REJECTED');
+   if(target.origin!==allowed.origin||target.pathname!=='/api/network/director'||target.search||target.hash||request.method!=='POST')
+    throw new Error('DIRECTOR_REQUEST_REJECTED');
+   const headers=new Headers(request.headers);
+   headers.set('Authorization','Bearer '+secret);
+   return config.ATLAS_DIRECTOR_SERVICE!.fetch(new Request(request,{headers}));
+  };
+  return runAtlasScheduledDirector(this.state.storage,{
+   id:input.id,expectedState:input.expectedState,expectedAttempts:input.expectedAttempts,
+   token,now:Date.now(),durationMs:input.durationMs,enabled:true,
+   ownerAuthorized:true,providerHealthy:true,clock:()=>Date.now(),
+   forward,origin:config.ATLAS_DIRECTOR_ORIGIN
+  });
+ }
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
+  // Internal-only integration. No public gateway route, cron, or executor exists.
+  // Both mutations are deliberately disabled until a separately reviewed activation.
+  // Only a trusted server-side activation can call the private executor.
+  // No public route, cron or incoming JSON can activate scheduling.
+  if(url.pathname==='/schedule/execute'&&request.method==='POST')
+   return json({ok:false,error:'SCHEDULER_DISABLED',executorConnected:typeof runAtlasScheduledDirector==='function'},403);
+  // Trusted worker-facing preflight: never claims a task or performs research.
+  // This is safe to use for rollout diagnostics with execution disabled.
+  if(url.pathname==='/schedule/execute/preflight'&&request.method==='GET'){
+   return json({ok:true,executionEnabled:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true',
+    executorConnected:typeof runAtlasScheduledDirector==='function',
+    activeDispatch:false,liveDispatchVerified:false});
+  }
+  // Read-only task inspection; never expose execution lease tokens.
+  if(url.pathname==='/schedule/task'&&request.method==='GET'){
+   const id=url.searchParams.get('id')||'';
+   if(!/^[A-Za-z0-9-]{12,90}$/.test(id))return json({ok:false,error:'INVALID_TASK_ID'},400);
+   const task=await this.state.storage.get<import('./atlas-task-scheduling').AtlasScheduleRecord>('atlas-schedule:'+id);
+   if(!task)return json({ok:false,error:'TASK_NOT_FOUND'},404);
+   return json({ok:true,task});
+  }
+  if(url.pathname==='/schedule/status'&&request.method==='GET'){
+   return json({ok:true,enabled:false,ready:false,executionMode:'disabled',
+    durableStorageAvailable:typeof this.state.storage.transaction==='function',
+    enqueueImplemented:typeof enqueueAtlasSchedule==='function',
+    transitionsImplemented:typeof transitionAtlasSchedule==='function',
+    fencedClaimImplemented:typeof claimAtlasScheduledExecution==='function',
+    fencedCompletionImplemented:typeof completeAtlasLeasedExecution==='function',
+    executorConnected:typeof runAtlasScheduledDirector==='function',cronConnected:false,liveDispatchVerified:false,
+    blockers:['OWNER_ACTIVATION_REQUIRED','NO_AUTHENTICATED_RUNTIME_INVOCATION','NO_LIVE_DISPATCH_CERTIFICATION']});
+  }
+  // Explicitly disabled for every non-status scheduler route until the
+  // authenticated gateway and runtime executor pass a separate review.
+  // The lease functions remain available for isolated behavioral testing.
+  // The Durable Object refuses lifecycle execution regardless of any
+  // caller-provided authorization flags. The gateway must authorize a future
+  // activation independently; request JSON can never activate scheduling.
+  // Owner-authenticated gateway may cancel already-stored work even when
+  // execution is disabled. The ownerAuthorized value is assigned server-side.
+  if(url.pathname==='/schedule/cancel'&&request.method==='POST'){
+   let payload:unknown;
+   try{payload=await request.json();}catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(!payload||typeof payload!=='object'||Array.isArray(payload))return json({ok:false,error:'INVALID_CANCEL'},400);
+   const data=payload as Record<string,unknown>;
+   if(typeof data.id!=='string'||typeof data.expectedState!=='string'||
+      typeof data.expectedAttempts!=='number')return json({ok:false,error:'INVALID_CANCEL'},400);
+   const result=await cancelAtlasLeasedExecution(this.state.storage,{
+    id:data.id,expectedState:data.expectedState as 'QUEUED'|'RUNNING'|'RETRY_WAIT'|'COMPLETED'|'FAILED'|'CANCELLED',
+    expectedAttempts:data.expectedAttempts,ownerAuthorized:true
+   });
+   return json(result,result.ok?200:409);
+  }
+  // Owner-authenticated manual queue creation. Dispatch remains disabled.
+  // Request flags cannot grant authorization; gateway owns access control.
+  if(url.pathname==='/schedule/enqueue'&&request.method==='POST'){
+   let value:unknown;
+   try{value=await request.json();}catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(!value||typeof value!=='object'||Array.isArray(value))
+    return json({ok:false,error:'INVALID_TASK'},400);
+   const data=value as Record<string,unknown>;
+   if(typeof data.id!=='string'||typeof data.createdAt!=='string'||
+      typeof data.nextRunAt!=='string'||typeof data.expiresAt!=='string')
+    return json({ok:false,error:'INVALID_TASK'},400);
+   if(typeof data.question!=='string'||data.question.trim().length<3||data.question.length>500)
+    return json({ok:false,error:'INVALID_RESEARCH_QUESTION'},400);
+   const result=await enqueueAtlasSchedule(this.state.storage,{
+    id:data.id,createdAt:data.createdAt,nextRunAt:data.nextRunAt,expiresAt:data.expiresAt,question:data.question
+   },{ownerAuthorized:true,enabled:true,now:Date.now()});
+   return json(result,result.ok?201:409);
+  }
+  // Founder-authenticated terminal recovery; no replay or dispatch.
+  if(url.pathname==='/schedule/recover'&&request.method==='POST'){
+   let data:unknown;
+   try{data=await request.json();}catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_RECOVERY'},400);
+   const input=data as Record<string,unknown>;
+   if(typeof input.id!=='string'||!Number.isSafeInteger(input.expectedAttempts)||
+      Number(input.expectedAttempts)<0)return json({ok:false,error:'INVALID_RECOVERY'},400);
+   const result=await failInterruptedAtlasTask(this.state.storage,{
+    id:input.id,expectedAttempts:input.expectedAttempts as number,now:Date.now(),ownerAuthorized:true
+   });
+   return json(result,result.ok?200:409);
+  }
+  // Monitoring is read-only; do not return lease credentials or mutate state.
+  if(url.pathname==='/schedule/summary'&&request.method==='GET'){
+   const ids=(url.searchParams.get('ids')||'').split(',').filter(Boolean);
+   if(ids.length===0||ids.length>20||ids.some(id=>!/^[A-Za-z0-9-]{12,90}$/.test(id)))
+    return json({ok:false,error:'INVALID_TASK_IDS'},400);
+   const counts={QUEUED:0,RUNNING:0,RETRY_WAIT:0,COMPLETED:0,FAILED:0,CANCELLED:0,NOT_FOUND:0};
+   for(const id of new Set(ids)){
+    const task=await this.state.storage.get<import('./atlas-task-scheduling').AtlasScheduleRecord>('atlas-schedule:'+id);
+    if(task&&Object.hasOwn(counts,task.state))counts[task.state]++;
+    else counts.NOT_FOUND++;
+   }
+   return json({ok:true,enabled:false,counts});
+  }
+  if(url.pathname==='/schedule/lifecycle'&&request.method==='POST'){
+   return json({ok:false,error:'SCHEDULER_DISABLED',activationRequired:true},403);
+  }
+  if(url.pathname.startsWith('/schedule/')&&request.method!=='GET'){
+   return json({ok:false,error:'SCHEDULER_DISABLED'},403);
+  }
   if(request.method==='GET'&&url.pathname==='/history'){
    const missions=await this.state.storage.get<AtlasJournalItem[]>('missions')||[];
    const max=Math.min(30,Math.max(1,Number(url.searchParams.get('limit')||15)||15));

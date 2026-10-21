@@ -12,6 +12,36 @@ type Env={
  ATLAS_MISSION_ROOM?:Namespace;
 };
 type Forward=(request:Request)=>Promise<Response>;
+// Explicit Founder-authenticated RPC dispatch entry point for trusted Worker callers.
+// Not mapped to any public route. The server-side kill switch defaults off.
+export async function dispatchAtlasScheduledRpc(request:Request,env:Env & {ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown},input:{
+ id:string;expectedState:'QUEUED'|'RETRY_WAIT';expectedAttempts:number;durationMs:number;
+}):Promise<Response>{
+ if(env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
+  return json({ok:false,error:'SCHEDULER_DISABLED'},403);
+ const bearer=request.headers.get('authorization')||'';
+ const supplied=bearer.startsWith('Bearer ')?bearer.slice(7).trim():'';
+ if(!await validToken(env.EDGEFORCE_NETWORK_OWNER_TOKEN,supplied))
+  return json({ok:false,error:'UNAUTHORIZED'},401);
+ if(!input||typeof input!=='object'||typeof input.id!=='string'||
+    !/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+    !['QUEUED','RETRY_WAIT'].includes(input.expectedState)||
+    !Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0||
+    !Number.isSafeInteger(input.durationMs)||input.durationMs<1000||input.durationMs>60000)
+  return json({ok:false,error:'INVALID_EXECUTION_REQUEST'},400);
+ const instance=room(env) as (Stub & {
+  executeTrustedScheduledResearch?:(data:{id:string;expectedState:'QUEUED'|'RETRY_WAIT';expectedAttempts:number;durationMs:number;now:number;ownerToken:string})=>Promise<unknown>;
+ })|null;
+ if(!instance||typeof instance.executeTrustedScheduledResearch!=='function')
+  return json({ok:false,error:'ATLAS_RPC_UNAVAILABLE'},503);
+ try{
+  const result=await instance.executeTrustedScheduledResearch({
+   ...input,now:Date.now(),ownerToken:supplied
+  });
+  return json(result,typeof result==='object'&&result!==null&&(result as {ok?:unknown}).ok===true?200:409);
+ }catch{return json({ok:false,error:'ATLAS_RPC_FAILED'},503);}
+}
+
 const noStore={'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'};
 const json=(value:unknown,status=200)=>Response.json(value,{status,headers:noStore});
 
@@ -35,12 +65,26 @@ const roomRequest=(path:string,method:'GET'|'POST',body?:unknown)=>new Request('
 });
 export async function atlasGateway(request:Request,env:Env,forward:Forward):Promise<Response>{
  const url=new URL(request.url);
+ const isScheduleStatus=url.pathname==='/api/network/schedule/status';
+ const isScheduleTask=url.pathname==='/api/network/schedule/task';
+ const isScheduleSummary=url.pathname==='/api/network/schedule/summary';
+ const isScheduleLifecycle=url.pathname==='/api/network/schedule/lifecycle';
+ const isScheduleCancel=url.pathname==='/api/network/schedule/cancel';
+ const isScheduleRecover=url.pathname==='/api/network/schedule/recover';
+ const isScheduleEnqueue=url.pathname==='/api/network/schedule/enqueue';
+ // Execution is intentionally not publicly routable, including owner bearer requests.
+ const isScheduleExecute=url.pathname==='/api/network/schedule/execute';
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
- if(isDirector&&request.method==='GET')return forward(request);
- if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')){
+ // Apply the Founder gate before rejecting even a disabled execution route.
+ // This avoids exposing the scheduler surface to unauthenticated callers.
+ const denyScheduleExecute=isScheduleExecute;
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleRecover&&!isScheduleEnqueue&&!isScheduleExecute)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ // Founder authentication also applies to GET director requests.
+ // Public metadata must never bypass the owner security boundary.
+
+ if((isDirector&&request.method!=='POST'&&request.method!=='GET')||((isHistory||isTasks||isScheduleStatus||isScheduleTask||isScheduleSummary)&&request.method!=='GET')){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
@@ -50,11 +94,107 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const bearer=request.headers.get('authorization')||'';
  const supplied=bearer.startsWith('Bearer ')?bearer.slice(7).trim():'';
  if(!await validToken(required,supplied))return json({ok:false,error:'UNAUTHORIZED'},401);
+ if(denyScheduleExecute)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
+ if(isDirector&&request.method==='GET')return forward(request);
+ // Authenticated status and explicitly blocked lifecycle share the owner gate.
+ if(isScheduleLifecycle){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  return json({ok:false,error:'SCHEDULER_DISABLED'},403);
+ }
  const instance=room(env);
  if(!instance)return json({ok:false,error:'ATLAS_JOURNAL_UNAVAILABLE',
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isScheduleEnqueue){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  // Never allow browser request bodies to forge platform activation or approvals.
+  // Reject rather than silently ignore these fields, so mistakes are visible.
+  const contentType=request.headers.get('content-type')||'';
+  if(!contentType.toLowerCase().startsWith('application/json'))
+   return json({ok:false,error:'JSON_REQUIRED'},415);
+  let data:unknown;
+  try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
+  catch{return json({ok:false,error:'INVALID_JSON'},400);}
+  if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_TASK'},400);
+  const input=data as Record<string,unknown>;
+  if(Object.keys(input).some(k=>!['id','createdAt','nextRunAt','expiresAt','question'].includes(k)))
+   return json({ok:false,error:'UNEXPECTED_TASK_FIELD'},400);
+  if(typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+   typeof input.createdAt!=='string'||typeof input.nextRunAt!=='string'||typeof input.expiresAt!=='string'||
+   typeof input.question!=='string'||input.question.trim().length<3||input.question.length>500)
+   return json({ok:false,error:'INVALID_TASK'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/enqueue','POST',{
+    id:input.id,createdAt:input.createdAt,nextRunAt:input.nextRunAt,expiresAt:input.expiresAt,question:input.question.trim()
+   }));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_ENQUEUE_UNAVAILABLE'},503);}
+ }
+ if(isScheduleRecover){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  let data:unknown;
+  try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
+  catch{return json({ok:false,error:'INVALID_JSON'},400);}
+  if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_RECOVERY'},400);
+  const input=data as Record<string,unknown>;
+  if(Object.keys(input).some(k=>!['id','expectedAttempts'].includes(k))||
+   typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+   !Number.isSafeInteger(input.expectedAttempts)||Number(input.expectedAttempts)<0)
+   return json({ok:false,error:'INVALID_RECOVERY'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/recover','POST',{
+    id:input.id,expectedAttempts:input.expectedAttempts
+   }));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_RECOVERY_UNAVAILABLE'},503);}
+ }
+ if(isScheduleCancel){
+  if(request.method!=='POST')return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  const length=Number(request.headers.get('content-length')||0);
+  if(length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);
+  let data:unknown;
+  try{const raw=await request.text();if(raw.length>1024)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);data=JSON.parse(raw);}
+  catch{return json({ok:false,error:'INVALID_JSON'},400);}
+  if(!data||typeof data!=='object'||Array.isArray(data))return json({ok:false,error:'INVALID_CANCEL'},400);
+  const input=data as Record<string,unknown>;
+  if(typeof input.id!=='string'||!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+   !['QUEUED','RETRY_WAIT','RUNNING'].includes(String(input.expectedState))||
+   !Number.isSafeInteger(input.expectedAttempts)||Number(input.expectedAttempts)<0)
+   return json({ok:false,error:'INVALID_CANCEL'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/cancel','POST',{
+    id:input.id,expectedState:input.expectedState,expectedAttempts:input.expectedAttempts
+   }));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_CANCEL_UNAVAILABLE'},503);}
+ }
+ if(isScheduleSummary){
+  const ids=url.searchParams.get('ids')||'';
+  const parsed=ids.split(',').filter(Boolean);
+  if(parsed.length===0||parsed.length>20||
+   parsed.some(id=>!/^[A-Za-z0-9-]{12,90}$/.test(id)))
+   return json({ok:false,error:'INVALID_TASK_IDS'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/summary?ids='+encodeURIComponent(ids),'GET'));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_SUMMARY_UNAVAILABLE'},503);}
+ }
+ if(isScheduleTask){
+  const id=url.searchParams.get('id')||'';
+  if(!/^[A-Za-z0-9-]{12,90}$/.test(id))return json({ok:false,error:'INVALID_TASK_ID'},400);
+  try{
+   const reply=await instance.fetch(roomRequest('/schedule/task?id='+encodeURIComponent(id),'GET'));
+   return json(await reply.json(),reply.status);
+  }catch{return json({ok:false,error:'SCHEDULER_TASK_UNAVAILABLE'},503);}
+ }
+ if(isScheduleStatus){
+  try{
+   const result=await instance.fetch(roomRequest('/schedule/status','GET'));
+   if(!result.ok)return json({ok:false,error:'SCHEDULER_STATUS_UNAVAILABLE'},503);
+   return json(await result.json());
+  }catch{return json({ok:false,error:'SCHEDULER_STATUS_UNAVAILABLE'},503);}
+ }
  if(isTasks){
   try{
    const agent=url.searchParams.get('agent')||'';
@@ -102,15 +242,21 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  try{
   const response=await forward(request);
   if(!response.ok){
-   await finishTask('FAILED','Research request did not complete.');
+   if(!await finishTask('FAILED','Research request did not complete.'))
+    return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED'},503);
    return response;
   }
   const original=await response.json() as Record<string,unknown>;
   if(!original||original.ok!==true){
-   await finishTask('FAILED','No valid director report was produced.');
+   if(!await finishTask('FAILED','No valid director report was produced.'))
+    return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED'},503);
    return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
   }
-  if(original.question!==question)return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
+  if(original.question!==question){
+   if(!await finishTask('FAILED','Director response did not match the requested mission.'))
+    return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED'},503);
+   return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
+  }
   const entry:AtlasJournalItem={
    id,createdAt:new Date().toISOString(),request:question,response:{...original,missionId:id,durable:true}
   };

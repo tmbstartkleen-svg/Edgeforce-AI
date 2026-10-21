@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:atlas-scheduling",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -38,7 +38,8 @@
     "test:team": "node --test tests/team-research.test.mjs",
     "test:network": "node --test tests/network-director.test.mjs",
     "test:network-persistence": "node --test tests/network-persistence.test.mjs",
-    "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs"
+    "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs",
+    "test:atlas-scheduling": "node --test tests/atlas-task-scheduling.test.mjs tests/atlas-task-scheduling-behavior.test.mjs tests/atlas-task-transitions.test.mjs tests/atlas-schedule-enqueue.test.mjs tests/atlas-schedule-enqueue-behavior.test.mjs tests/atlas-task-transitions-behavior.test.mjs tests/atlas-private-scheduler.test.mjs tests/atlas-execution-lease-behavior.test.mjs tests/atlas-leased-execution-behavior.test.mjs tests/atlas-scheduler-gateway-behavior.test.mjs tests/atlas-execution-coordinator.test.mjs tests/atlas-interrupted-recovery.test.mjs tests/atlas-scheduler-lifecycle-integration.test.mjs tests/atlas-research-executor.test.mjs tests/atlas-research-provider-adapter.test.mjs tests/atlas-scheduled-director.test.mjs tests/atlas-scheduled-rpc.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",

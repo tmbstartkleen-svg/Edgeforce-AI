@@ -43,6 +43,8 @@ jobs:
         run: npm run test:network-persistence
       - name: Test director task collaboration
         run: npm run test:network-director-tasks
+      - name: Verify bounded ATLAS scheduling policy
+        run: npm run test:atlas-scheduling
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
