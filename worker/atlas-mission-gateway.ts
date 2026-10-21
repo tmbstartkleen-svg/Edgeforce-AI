@@ -212,7 +212,8 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   }
   const original=await response.json() as Record<string,unknown>;
   if(!original||original.ok!==true){
-   await finishTask('FAILED','No valid director report was produced.');
+   if(!await finishTask('FAILED','No valid director report was produced.'))
+    return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED'},503);
    return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
   }
   if(original.question!==question){
