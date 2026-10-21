@@ -1,5 +1,6 @@
 import handler from 'vinext/server/fetch-handler';
 import {atlasGateway} from './atlas-mission-gateway';
+import {d1CoverageGateway} from './d1-coverage';
 export {AtlasMissionRoom} from './atlas-mission-room';
 import {kalshiConnectionDiagnostic} from './kalshi-connection-diagnostic';
 import {d1PilotReadiness} from './d1-pilot';
@@ -96,6 +97,7 @@ const worker={
   if(pathname==='/api/operations/d1-pilot/health')return d1RuntimeHealth(request,env);
   if(pathname==='/api/operations/d1-pilot/ingest')return d1IngestGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/recent')return d1RecentGateway(request,env);
+  if(pathname==='/api/operations/d1-pilot/coverage')return d1CoverageGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/readiness'){
    if(request.method!=='GET')return Promise.resolve(new Response(null,{status:405,headers:{Allow:'GET'}}));
    return d1PilotReadiness(request,env);
