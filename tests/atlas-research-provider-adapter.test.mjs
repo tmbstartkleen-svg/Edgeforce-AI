@@ -7,7 +7,7 @@ const js=ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.ESNext,ta
 const {createAtlasResearchProviderAdapter}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 test('private adapter forwards bounded question to existing Director path',async()=>{
  let forwarded;
- const execute=createAtlasResearchProviderAdapter(async req=>{forwarded=req;return Response.json({ok:true,question:'Soccer schedule',persisted:true,durable:true});},'https://edgeforce.example');
+ const execute=createAtlasResearchProviderAdapter(async req=>{forwarded=req;return Response.json({ok:true,question:'Soccer schedule',persisted:true,durable:true,missionId:'123e4567-e89b-42d3-a456-426614174000'});},'https://edgeforce.example');
  assert.deepEqual(await execute('Soccer schedule'),{ok:true});
  assert.equal(new URL(forwarded.url).pathname,'/api/network/director');
  assert.deepEqual(await forwarded.json(),{question:'Soccer schedule'});
@@ -36,6 +36,13 @@ test('scheduled Director cannot report success without durable journal confirmat
   {ok:true,question:'Soccer schedule',persisted:false,durable:true}
  ]){
   const adapter=createAtlasResearchProviderAdapter(async()=>Response.json(report),'https://edgeforce.example');
+  assert.deepEqual(await adapter('Soccer schedule'),{ok:false,reason:'INVALID_DIRECTOR_REPORT'});
+ }
+});
+
+test('scheduler requires a durable mission ID to accept a Director report',async()=>{
+ for(const missionId of [undefined,'', 'unverified-id']){
+  const adapter=createAtlasResearchProviderAdapter(async()=>Response.json({ok:true,question:'Soccer schedule',persisted:true,durable:true,missionId}),'https://edgeforce.example');
   assert.deepEqual(await adapter('Soccer schedule'),{ok:false,reason:'INVALID_DIRECTOR_REPORT'});
  }
 });
