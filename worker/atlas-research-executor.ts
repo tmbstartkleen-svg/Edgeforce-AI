@@ -20,5 +20,11 @@ export async function executeAtlasScheduledResearch(storage:SchedulerStore,input
     instruction.question.length>500)
   return {ok:false as const,stage:'claim' as const,reason:'RESEARCH_INSTRUCTION_MISSING'};
  const question=instruction.question;
- return runAtlasScheduledTask(storage,{...input,execute:()=>input.research(question)});
+ // The trusted provider adapter must return an explicit success result.
+ // Never allow an unstructured or mismatched report to count as completed work.
+ return runAtlasScheduledTask(storage,{...input,execute:async()=>{
+  const result=await input.research(question);
+  if(!result||result.ok!==true)return {ok:false,reason:result?.ok===false?result.reason:'INVALID_RESEARCH_RESULT'};
+  return {ok:true};
+ }});
 }
