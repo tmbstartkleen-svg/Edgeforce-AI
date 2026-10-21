@@ -15,6 +15,12 @@ export function runAtlasScheduledDirector(storage:SchedulerStore,input:{
  if(!input.ownerAuthorized)return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'});
  if(!input.enabled)return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'});
  if(typeof input.forward!=='function')return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_FORWARDER'});
+ // The forwarder must be a trusted runtime callback, not an arbitrary URL.
+ // A valid HTTPS origin is required before the task can be claimed.
+ let origin:URL;
+ try{origin=new URL(input.origin);}catch{return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'});}
+ if(origin.protocol!=='https:'||origin.username||origin.password||origin.pathname!=='/'||origin.search||origin.hash)
+  return Promise.resolve({ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'});
  return executeAtlasScheduledResearch(storage,{
   ...input,research:createAtlasResearchProviderAdapter(input.forward,input.origin)
  });
