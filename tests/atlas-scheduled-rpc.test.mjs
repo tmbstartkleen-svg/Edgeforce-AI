@@ -13,3 +13,24 @@ test('default-disabled dispatcher refuses invocation',async()=>{const e=environm
 test('Founder token required before RPC dispatch',async()=>{const e=environment(true);const res=await dispatchAtlasScheduledRpc(request('wrong'),e.env,input);assert.equal(res.status,401);assert.equal(e.calls(),0);});
 test('valid authorized invocation reaches Durable Object RPC exactly once',async()=>{const e=environment(true);const res=await dispatchAtlasScheduledRpc(request(secret),e.env,input);assert.equal(res.status,200);assert.equal(e.calls(),1);});
 test('invalid task input never reaches RPC',async()=>{const e=environment(true);const res=await dispatchAtlasScheduledRpc(request(secret),e.env,{...input,durationMs:999999});assert.equal(res.status,400);assert.equal(e.calls(),0);});
+
+test('missing RPC binding fails closed',async()=>{
+ const e=environment(true);
+ delete e.env.ATLAS_MISSION_ROOM;
+ const response=await dispatchAtlasScheduledRpc(request(secret),e.env,input);
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,'ATLAS_RPC_UNAVAILABLE');
+});
+test('upstream RPC exceptions fail closed',async()=>{
+ const e=environment(true);
+ e.env.ATLAS_MISSION_ROOM={idFromName:()=>1,get:()=>({executeTrustedScheduledResearch:async()=>{throw Error('upstream unavailable');}})};
+ const response=await dispatchAtlasScheduledRpc(request(secret),e.env,input);
+ assert.equal(response.status,503);
+ assert.equal((await response.json()).error,'ATLAS_RPC_FAILED');
+});
+test('RPC responses without explicit success are never marked successful',async()=>{
+ const e=environment(true);
+ e.env.ATLAS_MISSION_ROOM={idFromName:()=>1,get:()=>({executeTrustedScheduledResearch:async()=>({ok:false,reason:'PROVIDER_UNHEALTHY'})})};
+ const response=await dispatchAtlasScheduledRpc(request(secret),e.env,input);
+ assert.equal(response.status,409);
+});
