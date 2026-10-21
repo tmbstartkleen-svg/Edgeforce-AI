@@ -47,8 +47,10 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(isScheduleExecute)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
- if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleRecover&&!isScheduleEnqueue)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ // Apply the Founder gate before rejecting even a disabled execution route.
+ // This avoids exposing the scheduler surface to unauthenticated callers.
+ const denyScheduleExecute=isScheduleExecute;
+ if(!isHistory&&!isTasks&&!isDirector&&!isScheduleStatus&&!isScheduleTask&&!isScheduleSummary&&!isScheduleLifecycle&&!isScheduleCancel&&!isScheduleRecover&&!isScheduleEnqueue&&!isScheduleExecute)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  // Founder authentication also applies to GET director requests.
  // Public metadata must never bypass the owner security boundary.
 
@@ -62,6 +64,7 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const bearer=request.headers.get('authorization')||'';
  const supplied=bearer.startsWith('Bearer ')?bearer.slice(7).trim():'';
  if(!await validToken(required,supplied))return json({ok:false,error:'UNAUTHORIZED'},401);
+ if(denyScheduleExecute)return json({ok:false,error:'SCHEDULER_DISABLED'},403);
  if(isDirector&&request.method==='GET')return forward(request);
  // Authenticated status and explicitly blocked lifecycle share the owner gate.
  if(isScheduleLifecycle){
