@@ -3,6 +3,7 @@ import {atlasGateway} from './atlas-mission-gateway';
 export {AtlasMissionRoom} from './atlas-mission-room';
 import {d1PilotReadiness} from './d1-pilot';
 import {d1IngestGateway,d1RecentGateway} from './d1-gateway';
+import {d1CoverageGateway} from './d1-coverage';
 import {withDatabaseScope} from '../src/lib/db';
 import {GET as runInjuryCron} from '../src/app/api/cron/injuries/route';
 import {GET as runScanCron} from '../src/app/api/cron/scan/route';
@@ -84,6 +85,7 @@ const worker={
   const pathname=new URL(request.url).pathname;
   if(pathname==='/api/operations/d1-pilot/ingest')return d1IngestGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/recent')return d1RecentGateway(request,env);
+  if(pathname==='/api/operations/d1-pilot/coverage')return d1CoverageGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/readiness'){
    if(request.method!=='GET')return Promise.resolve(new Response(null,{status:405,headers:{Allow:'GET'}}));
    return d1PilotReadiness(request,env);
