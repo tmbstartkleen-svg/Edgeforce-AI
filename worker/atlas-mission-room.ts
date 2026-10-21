@@ -93,6 +93,8 @@ export class AtlasMissionRoom {
   const forward=(request:Request)=>{
    const target=new URL(request.url);
    const allowed=new URL(config.ATLAS_DIRECTOR_ORIGIN as string);
+   if(allowed.protocol!=='https:'||allowed.username||allowed.password||allowed.pathname!=='/'||allowed.search||allowed.hash)
+    throw new Error('DIRECTOR_ORIGIN_REJECTED');
    if(target.origin!==allowed.origin||target.pathname!=='/api/network/director'||target.search||target.hash||request.method!=='POST')
     throw new Error('DIRECTOR_REQUEST_REJECTED');
    const headers=new Headers(request.headers);
