@@ -98,3 +98,8 @@ test('staging RPC readiness is read-only and cannot imply certified dispatch',()
  assert.match(room,/directorServiceConnected:typeof this\.env\.ATLAS_DIRECTOR_SERVICE\?\.fetch==='function'/);
  assert.match(room,/ownerSecretConfigured:typeof this\.env\.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'/);
 });
+
+test('staging readiness requires actual execution activation',()=>{
+ assert.match(room,/readyForControlledTest:this\.env\.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true'&&originValid/);
+ assert.match(room,/liveDispatchVerified:false/);
+});
