@@ -43,3 +43,12 @@ test('RPC denies malformed state and negative attempts before touching Durable O
  }
  assert.equal(e.calls(),0);
 });
+
+test('missing or malformed RPC body fails closed without a Durable Object call',async()=>{
+ const e=environment(true);
+ for(const bad of [null,undefined,42,'bad']){
+  const response=await dispatchAtlasScheduledRpc(request(secret),e.env,bad);
+  assert.equal(response.status,400);
+ }
+ assert.equal(e.calls(),0);
+});
