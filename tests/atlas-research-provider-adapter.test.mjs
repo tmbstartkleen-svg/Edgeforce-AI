@@ -27,3 +27,15 @@ test('adapter rejects insecure origins without making a provider request',async(
   assert.equal(requests,0);
  }
 });
+
+test('scheduled Director cannot report success without durable journal confirmation',async()=>{
+ for(const report of [
+  {ok:true,question:'Soccer schedule'},
+  {ok:true,question:'Soccer schedule',persisted:true},
+  {ok:true,question:'Soccer schedule',durable:true},
+  {ok:true,question:'Soccer schedule',persisted:false,durable:true}
+ ]){
+  const adapter=createAtlasResearchProviderAdapter(async()=>Response.json(report),'https://edgeforce.example');
+  assert.deepEqual(await adapter('Soccer schedule'),{ok:false,reason:'INVALID_DIRECTOR_REPORT'});
+ }
+});
