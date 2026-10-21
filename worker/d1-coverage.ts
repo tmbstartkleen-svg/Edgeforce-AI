@@ -22,16 +22,18 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    let p:Record<string,unknown>;
    try{p=JSON.parse(record.payload);}catch{unrecognized++;continue;}
    if(!p||typeof p!=='object'||Array.isArray(p)){unrecognized++;continue;}
-   const bookmaker=str(p.bookmaker),sport=str(p.sport),league=str(p.league);
-   const marketType=str(p.marketType),outcomeId=str(p.outcomeId),startsAt=str(p.startsAt);
+   // D1 persists the normalized observation envelope; quote fields belong to value.
+   const q=(p.value&&typeof p.value==='object'&&!Array.isArray(p.value)?p.value:p) as Record<string,unknown>;
+   const bookmaker=str(q.bookmaker),sport=str(q.sport),league=str(q.league);
+   const marketType=str(q.marketType),outcomeId=str(q.outcomeId),startsAt=str(q.startsAt);
    if(!bookmaker||!sport||!league||!marketType||!outcomeId||!startsAt){unrecognized++;continue;}
-   const price=p.priceAmerican;
+   const price=q.priceAmerican;
    if(price!==undefined&&(!Number.isInteger(price)||Math.abs(price as number)<100)){unrecognized++;continue;}
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
     ...(price!==undefined?{priceAmerican:price as number}:{}),
-    ...(str(p.playerId)?{playerId:str(p.playerId)}:{}),
-    ...(str(p.line)?{line:str(p.line)}:{})});
+    ...(str(q.playerId)?{playerId:str(p.playerId)}:{}),
+    ...(str(q.line)?{line:str(p.line)}:{})});
   }
   const report=reconcileCoverage({observations,expected:[],now:new Date(now).toISOString(),
    maxAgeMs:15*60*1000,targetBookmaker:'DraftKings'});
