@@ -33,3 +33,12 @@ test('enqueue persists exactly once, blocks replay and rejects excessive window'
  assert.equal(rows.size,1);
  assert.equal((await enqueueAtlasSchedule(store,{...data,id:'atlas-test-task-002',expiresAt:iso(now+7200000)},guards)).reason,'INVALID_TASK_WINDOW');
 });
+
+test('scheduled research question is persisted atomically without entering schedule record',async()=>{
+ const task={...data,id:'atlas-research-task-001',question:'Analyze all available soccer fixtures'};
+ assert.deepEqual(await enqueueAtlasSchedule(store,task,guards),{ok:true,reason:'QUEUED'});
+ assert.deepEqual(rows.get('atlas-research:'+task.id),{question:task.question});
+ assert.equal(rows.get('atlas-schedule:'+task.id).question,undefined);
+ assert.equal((await enqueueAtlasSchedule(store,task,guards)).reason,'DUPLICATE_TASK');
+ assert.equal((await enqueueAtlasSchedule(store,{...task,id:'atlas-research-task-002',question:'x'},guards)).reason,'INVALID_RESEARCH_QUESTION');
+});
