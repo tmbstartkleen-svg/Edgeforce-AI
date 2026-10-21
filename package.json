@@ -39,7 +39,7 @@
     "test:network": "node --test tests/network-director.test.mjs",
     "test:network-persistence": "node --test tests/network-persistence.test.mjs",
     "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs",
-    "test:coverage": "node --test tests/coverage-inventory.test.mjs tests/sports-coverage-report.test.mjs tests/coverage-provider-discovery.test.mjs"
+    "test:coverage": "node --test tests/coverage-inventory.test.mjs tests/sports-coverage-report.test.mjs tests/coverage-provider-discovery.test.mjs tests/coverage-route.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
