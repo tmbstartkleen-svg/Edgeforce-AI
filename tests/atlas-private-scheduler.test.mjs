@@ -84,3 +84,10 @@ test('execute route requires Founder authentication before disabled response',()
  assert.match(gateway,/const isScheduleExecute=url\.pathname==='\/api\/network\/schedule\/execute'/);
  assert.match(gateway,/if\(denyScheduleExecute\)return json\(\{ok:false,error:'SCHEDULER_DISABLED'\},403\)/);
 });
+
+test('Durable Object RPC validates inputs independently of Worker gateway',()=>{
+ assert.match(room,/reason:'INVALID_EXECUTION_REQUEST'/);
+ assert.match(room,/input.expectedState!=='QUEUED'&&input.expectedState!=='RETRY_WAIT'/);
+ assert.match(room,/input.durationMs<1000\|\|input.durationMs>60000/);
+ assert.match(room,/Number.isSafeInteger\(input.expectedAttempts\)/);
+});
