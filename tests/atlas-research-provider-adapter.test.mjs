@@ -7,7 +7,7 @@ const js=ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.ESNext,ta
 const {createAtlasResearchProviderAdapter}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 test('private adapter forwards bounded question to existing Director path',async()=>{
  let forwarded;
- const execute=createAtlasResearchProviderAdapter(async req=>{forwarded=req;return Response.json({ok:true,question:'Soccer schedule'});},'https://edgeforce.example');
+ const execute=createAtlasResearchProviderAdapter(async req=>{forwarded=req;return Response.json({ok:true,question:'Soccer schedule',persisted:true,durable:true});},'https://edgeforce.example');
  assert.deepEqual(await execute('Soccer schedule'),{ok:true});
  assert.equal(new URL(forwarded.url).pathname,'/api/network/director');
  assert.deepEqual(await forwarded.json(),{question:'Soccer schedule'});
