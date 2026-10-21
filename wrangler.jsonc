@@ -23,6 +23,7 @@
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
     "ATLAS_SCHEDULE_EXECUTION_ENABLED": "false",
+    "ATLAS_DIRECTOR_ORIGIN": "https://edgeforce-ai.tmbstartkleen.workers.dev",
     "DEFAULT_BANKROLL": "1000",
     "TARGET_BOOKMAKER": "DraftKings",
     "THE_ODDS_API_BOOKMAKERS": "draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us",
