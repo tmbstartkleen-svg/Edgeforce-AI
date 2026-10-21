@@ -35,6 +35,27 @@ const MAX_HOUR=12;
 
 export class AtlasMissionRoom {
  constructor(private readonly state:RoomState,private readonly env:{ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown;EDGEFORCE_NETWORK_OWNER_TOKEN?:unknown;ATLAS_DIRECTOR_SERVICE?:{fetch(request:Request):Promise<Response>};ATLAS_DIRECTOR_ORIGIN?:unknown}={}){}
+ // RPC-only staging readiness inspection; does not expose credentials or execute a task.
+ async inspectScheduledRuntime(){
+  let originValid=false;
+  try{
+   const origin=new URL(String(this.env.ATLAS_DIRECTOR_ORIGIN||''));
+   originValid=origin.protocol==='https:'&&!origin.username&&!origin.password&&
+    origin.pathname==='/'&&!origin.search&&!origin.hash;
+  }catch{/* fail closed */}
+  return {
+   executionEnabled:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true',
+   ownerSecretConfigured:typeof this.env.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'&&
+    this.env.EDGEFORCE_NETWORK_OWNER_TOKEN.length>=24,
+   directorServiceConnected:typeof this.env.ATLAS_DIRECTOR_SERVICE?.fetch==='function',
+   directorOriginValid:originValid,
+   readyForControlledTest:originValid&&
+    typeof this.env.ATLAS_DIRECTOR_SERVICE?.fetch==='function'&&
+    typeof this.env.EDGEFORCE_NETWORK_OWNER_TOKEN==='string'&&
+    this.env.EDGEFORCE_NETWORK_OWNER_TOKEN.length>=24,
+   liveDispatchVerified:false
+  };
+ }
  // RPC-compatible internal invocation. No callback functions cross the Durable Object boundary.
  // A trusted Worker caller supplies only serializable task inputs and its Founder secret.
  // Both authorization and execution activation are checked against server-side secrets.
