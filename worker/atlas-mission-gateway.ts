@@ -214,7 +214,8 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
    return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
   }
   if(original.question!==question){
-   await finishTask('FAILED','Director response did not match the requested mission.');
+   if(!await finishTask('FAILED','Director response did not match the requested mission.'))
+    return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED'},503);
    return json({ok:false,error:'INVALID_DIRECTOR_REPORT'},503);
   }
   const entry:AtlasJournalItem={
