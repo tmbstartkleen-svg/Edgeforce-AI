@@ -32,8 +32,8 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
     ...(price!==undefined?{priceAmerican:price as number}:{}),
-    ...(str(q.playerId)?{playerId:str(p.playerId)}:{}),
-    ...(str(q.line)?{line:str(p.line)}:{})});
+    ...(str(q.playerId)?{playerId:str(q.playerId)}:{}),
+    ...(str(q.line)?{line:str(q.line)}:{})});
   }
   const report=reconcileCoverage({observations,expected:[],now:new Date(now).toISOString(),
    maxAgeMs:15*60*1000,targetBookmaker:'DraftKings'});
