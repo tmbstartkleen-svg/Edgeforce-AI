@@ -34,21 +34,46 @@ const MAX_MINUTE=2;
 const MAX_HOUR=12;
 
 export class AtlasMissionRoom {
- constructor(private readonly state:RoomState,private readonly env:{ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown}={}){}
- // Private in-process integration, deliberately NOT an HTTP route.
- // The calling runtime must derive enabled/ownerAuthorized from trusted
- // server configuration and authorization, never from task JSON.
+ constructor(private readonly state:RoomState,private readonly env:{ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown;EDGEFORCE_NETWORK_OWNER_TOKEN?:unknown;ATLAS_DIRECTOR_SERVICE?:{fetch(request:Request):Promise<Response>};ATLAS_DIRECTOR_ORIGIN?:unknown}={}){}
+ // RPC-compatible internal invocation. No callback functions cross the Durable Object boundary.
+ // A trusted Worker caller supplies only serializable task inputs and its Founder secret.
+ // Both authorization and execution activation are checked against server-side secrets.
  async executeTrustedScheduledResearch(input:{
   id:string;expectedState:import('./atlas-task-scheduling').AtlasScheduleRecord['state'];
-  expectedAttempts:number;token:string;now:number;durationMs:number;
-  enabled:boolean;ownerAuthorized:boolean;providerHealthy:boolean;
-  clock:()=>number;forward:(request:Request)=>Promise<Response>;origin:string;
+  expectedAttempts:number;now:number;durationMs:number;ownerToken:string;
  }){
-  // Server-side kill switch: caller-provided enabled=true cannot activate execution.
-  if(this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true'||!input.enabled)
+  const config=this.env as {
+   ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown;
+   EDGEFORCE_NETWORK_OWNER_TOKEN?:unknown;
+   ATLAS_DIRECTOR_SERVICE?:{fetch(request:Request):Promise<Response>};
+   ATLAS_DIRECTOR_ORIGIN?:unknown;
+  };
+  if(config.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
    return {ok:false as const,stage:'claim' as const,reason:'SCHEDULER_DISABLED'};
-  if(!input.ownerAuthorized)return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
-  return runAtlasScheduledDirector(this.state.storage,input);
+  const secret=config.EDGEFORCE_NETWORK_OWNER_TOKEN;
+  if(typeof secret!=='string'||secret.length<24||typeof input.ownerToken!=='string')
+   return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
+  const digest=async(value:string)=>new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));
+  const [expected,supplied]=await Promise.all([digest(secret),digest(input.ownerToken)]);
+  let mismatch=0;
+  for(let i=0;i<expected.length;i++)mismatch|=expected[i]^supplied[i];
+  if(mismatch!==0)
+   return {ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'};
+  if(!config.ATLAS_DIRECTOR_SERVICE||typeof config.ATLAS_DIRECTOR_SERVICE.fetch!=='function'||
+     typeof config.ATLAS_DIRECTOR_ORIGIN!=='string')
+   return {ok:false as const,stage:'claim' as const,reason:'PROVIDER_UNHEALTHY'};
+  const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
+  const forward=(request:Request)=>{
+   const headers=new Headers(request.headers);
+   headers.set('Authorization','Bearer '+secret);
+   return config.ATLAS_DIRECTOR_SERVICE!.fetch(new Request(request,{headers}));
+  };
+  return runAtlasScheduledDirector(this.state.storage,{
+   id:input.id,expectedState:input.expectedState,expectedAttempts:input.expectedAttempts,
+   token,now:Date.now(),durationMs:input.durationMs,enabled:true,
+   ownerAuthorized:true,providerHealthy:true,clock:()=>Date.now(),
+   forward,origin:config.ATLAS_DIRECTOR_ORIGIN
+  });
  }
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
