@@ -59,8 +59,8 @@ export class AtlasMissionRoom {
     transitionsImplemented:typeof transitionAtlasSchedule==='function',
     fencedClaimImplemented:typeof claimAtlasScheduledExecution==='function',
     fencedCompletionImplemented:typeof completeAtlasLeasedExecution==='function',
-    executorConnected:false,cronConnected:false,liveDispatchVerified:false,
-    blockers:['OWNER_ACTIVATION_REQUIRED','EXECUTOR_NOT_CONNECTED','NO_LIVE_DISPATCH_CERTIFICATION']});
+    executorConnected:typeof runAtlasScheduledDirector==='function',cronConnected:false,liveDispatchVerified:false,
+    blockers:['OWNER_ACTIVATION_REQUIRED','NO_AUTHENTICATED_RUNTIME_INVOCATION','NO_LIVE_DISPATCH_CERTIFICATION']});
   }
   // Explicitly disabled for every non-status scheduler route until the
   // authenticated gateway and runtime executor pass a separate review.
