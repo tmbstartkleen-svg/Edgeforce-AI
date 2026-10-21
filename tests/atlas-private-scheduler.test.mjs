@@ -76,3 +76,11 @@ test('private durable execution requires server-side kill switch and owner appro
  assert.match(room,/return json\(\{ok:false,error:'SCHEDULER_DISABLED',executorConnected:/);
  assert.doesNotMatch(gateway,/roomRequest\('\/schedule\/execute'/);
 });
+
+test('execute route requires Founder authentication before disabled response',()=>{
+ const authentication=gateway.indexOf('if(!await validToken(required,supplied))');
+ const denial=gateway.indexOf('if(denyScheduleExecute)return json(');
+ assert.ok(authentication>=0&&denial>authentication,'Unauthenticated requests must be rejected first');
+ assert.match(gateway,/const isScheduleExecute=url\.pathname==='\/api\/network\/schedule\/execute'/);
+ assert.match(gateway,/if\(denyScheduleExecute\)return json\(\{ok:false,error:'SCHEDULER_DISABLED'\},403\)/);
+});
