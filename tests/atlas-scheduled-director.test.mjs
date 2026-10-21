@@ -28,3 +28,12 @@ test('disabled scheduler cannot touch provider or claim task',async()=>{
  assert.equal(response.reason,'SCHEDULER_DISABLED');assert.equal(requests,0);
  assert.equal(rows.get('atlas-schedule:'+id).state,'QUEUED');
 });
+
+test('invalid Director origin cannot claim or invoke upstream research',async()=>{
+ for(const origin of ['http://edgeforce.example','https://user:pass@edgeforce.example','not a URL']){
+  const {rows,storage}=fixture();let called=0;
+  const response=await runAtlasScheduledDirector(storage,{...args,origin,forward:async()=>{called++;return Response.json({ok:true});}});
+  assert.equal(response.reason,'INVALID_DIRECTOR_ORIGIN');
+  assert.equal(called,0);assert.equal(rows.get('atlas-schedule:'+id).state,'QUEUED');
+ }
+});
