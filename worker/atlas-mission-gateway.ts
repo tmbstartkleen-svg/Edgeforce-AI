@@ -12,6 +12,35 @@ type Env={
  ATLAS_MISSION_ROOM?:Namespace;
 };
 type Forward=(request:Request)=>Promise<Response>;
+// Explicit Founder-authenticated RPC dispatch entry point for trusted Worker callers.
+// Not mapped to any public route. The server-side kill switch defaults off.
+export async function dispatchAtlasScheduledRpc(request:Request,env:Env & {ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown},input:{
+ id:string;expectedState:'QUEUED'|'RETRY_WAIT';expectedAttempts:number;durationMs:number;
+}):Promise<Response>{
+ if(env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
+  return json({ok:false,error:'SCHEDULER_DISABLED'},403);
+ const bearer=request.headers.get('authorization')||'';
+ const supplied=bearer.startsWith('Bearer ')?bearer.slice(7).trim():'';
+ if(!await validToken(env.EDGEFORCE_NETWORK_OWNER_TOKEN,supplied))
+  return json({ok:false,error:'UNAUTHORIZED'},401);
+ if(!/^[A-Za-z0-9-]{12,90}$/.test(input.id)||
+    !['QUEUED','RETRY_WAIT'].includes(input.expectedState)||
+    !Number.isSafeInteger(input.expectedAttempts)||input.expectedAttempts<0||
+    !Number.isSafeInteger(input.durationMs)||input.durationMs<1000||input.durationMs>60000)
+  return json({ok:false,error:'INVALID_EXECUTION_REQUEST'},400);
+ const instance=room(env) as (Stub & {
+  executeTrustedScheduledResearch?:(data:{id:string;expectedState:'QUEUED'|'RETRY_WAIT';expectedAttempts:number;durationMs:number;now:number;ownerToken:string})=>Promise<unknown>;
+ })|null;
+ if(!instance||typeof instance.executeTrustedScheduledResearch!=='function')
+  return json({ok:false,error:'ATLAS_RPC_UNAVAILABLE'},503);
+ try{
+  const result=await instance.executeTrustedScheduledResearch({
+   ...input,now:Date.now(),ownerToken:supplied
+  });
+  return json(result,typeof result==='object'&&result!==null&&(result as {ok?:unknown}).ok===true?200:409);
+ }catch{return json({ok:false,error:'ATLAS_RPC_FAILED'},503);}
+}
+
 const noStore={'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'};
 const json=(value:unknown,status=200)=>Response.json(value,{status,headers:noStore});
 
