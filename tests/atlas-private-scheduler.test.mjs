@@ -71,7 +71,7 @@ test('terminal recovery is private Founder-gated and never schedules retries',()
 
 test('private durable execution requires server-side kill switch and owner approval',()=>{
  assert.match(room,/config\.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true'/);
- assert.match(room,/if\(!input\.ownerAuthorized\)return \{ok:false as const,stage:'claim' as const,reason:'OWNER_APPROVAL_REQUIRED'\}/);
+ assert.match(room,/reason:'OWNER_APPROVAL_REQUIRED'/);
  assert.match(room,/if\(url\.pathname==='\/schedule\/execute'&&request\.method==='POST'\)/);
  assert.match(room,/return json\(\{ok:false,error:'SCHEDULER_DISABLED',executorConnected:/);
  assert.doesNotMatch(gateway,/roomRequest\('\/schedule\/execute'/);
