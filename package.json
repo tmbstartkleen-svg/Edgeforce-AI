@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:staging-isolation",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -40,7 +40,9 @@
     "test:network": "node --test tests/network-director.test.mjs",
     "test:network-persistence": "node --test tests/network-persistence.test.mjs",
     "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs",
-    "test:coverage": "node --test tests/coverage-inventory.test.mjs tests/sports-coverage-report.test.mjs tests/coverage-provider-discovery.test.mjs tests/coverage-route.test.mjs tests/d1-coverage.test.mjs tests/d1-coverage-behavior.test.mjs"
+    "test:coverage": "node --test tests/coverage-inventory.test.mjs tests/sports-coverage-report.test.mjs tests/coverage-provider-discovery.test.mjs tests/coverage-route.test.mjs tests/d1-coverage.test.mjs tests/d1-coverage-behavior.test.mjs",
+    "test:staging-isolation": "node --test tests/staging-isolation.test.mjs",
+    "prepare:isolated-staging": "node scripts/build-isolated-staging-config.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
