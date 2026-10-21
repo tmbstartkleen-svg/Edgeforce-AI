@@ -59,6 +59,13 @@ export class AtlasMissionRoom {
   // No public route, cron or incoming JSON can activate scheduling.
   if(url.pathname==='/schedule/execute'&&request.method==='POST')
    return json({ok:false,error:'SCHEDULER_DISABLED',executorConnected:typeof runAtlasScheduledDirector==='function'},403);
+  // Trusted worker-facing preflight: never claims a task or performs research.
+  // This is safe to use for rollout diagnostics with execution disabled.
+  if(url.pathname==='/schedule/execute/preflight'&&request.method==='GET'){
+   return json({ok:true,executionEnabled:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true',
+    executorConnected:typeof runAtlasScheduledDirector==='function',
+    activeDispatch:false,liveDispatchVerified:false});
+  }
   // Read-only task inspection; never expose execution lease tokens.
   if(url.pathname==='/schedule/task'&&request.method==='GET'){
    const id=url.searchParams.get('id')||'';
