@@ -91,6 +91,10 @@ export class AtlasMissionRoom {
    return {ok:false as const,stage:'claim' as const,reason:'PROVIDER_UNHEALTHY'};
   const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
   const forward=(request:Request)=>{
+   const target=new URL(request.url);
+   const allowed=new URL(config.ATLAS_DIRECTOR_ORIGIN as string);
+   if(target.origin!==allowed.origin||target.pathname!=='/api/network/director'||request.method!=='POST')
+    throw new Error('DIRECTOR_REQUEST_REJECTED');
    const headers=new Headers(request.headers);
    headers.set('Authorization','Bearer '+secret);
    return config.ATLAS_DIRECTOR_SERVICE!.fetch(new Request(request,{headers}));
