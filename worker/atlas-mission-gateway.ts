@@ -206,7 +206,8 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  try{
   const response=await forward(request);
   if(!response.ok){
-   await finishTask('FAILED','Research request did not complete.');
+   if(!await finishTask('FAILED','Research request did not complete.'))
+    return json({ok:false,error:'DIRECTOR_TASK_FINALIZATION_FAILED'},503);
    return response;
   }
   const original=await response.json() as Record<string,unknown>;
