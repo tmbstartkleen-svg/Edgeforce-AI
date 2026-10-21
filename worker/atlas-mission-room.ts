@@ -39,6 +39,11 @@ export class AtlasMissionRoom {
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
   // Internal-only integration. No public gateway route, cron, or executor exists.
   // Both mutations are deliberately disabled until a separately reviewed activation.
+  // Internal provider integration is wired here but hard-disabled.
+  // Only a separately approved runtime activation can invoke the executor.
+  // Neither queued task input nor a public HTTP request can enable dispatch.
+  if(url.pathname==='/schedule/execute'&&request.method==='POST')
+   return json({ok:false,error:'SCHEDULER_DISABLED',executorConnected:false},403);
   // Read-only task inspection; never expose execution lease tokens.
   if(url.pathname==='/schedule/task'&&request.method==='GET'){
    const id=url.searchParams.get('id')||'';
