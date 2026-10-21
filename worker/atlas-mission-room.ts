@@ -94,6 +94,9 @@ export class AtlasMissionRoom {
   try{validatedOrigin=new URL(config.ATLAS_DIRECTOR_ORIGIN);}catch{return {ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'};}
   if(validatedOrigin.protocol!=='https:'||validatedOrigin.username||validatedOrigin.password||validatedOrigin.pathname!=='/'||validatedOrigin.search||validatedOrigin.hash)
    return {ok:false as const,stage:'claim' as const,reason:'INVALID_DIRECTOR_ORIGIN'};
+  // This service binding targets the same Worker; reject requests that would
+  // recursively invoke the Director gateway rather than the research engine.
+  // Activation remains disabled until staging confirms the routing contract.
   const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
   const forward=(request:Request)=>{
    const target=new URL(request.url);
