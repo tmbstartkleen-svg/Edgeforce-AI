@@ -9,7 +9,12 @@ export function createAtlasResearchProviderAdapter(
   if(typeof question!=='string'||question.trim().length<3||question.length>500)
    return {ok:false,reason:'INVALID_RESEARCH_QUESTION'};
   let url:URL;
-  try{url=new URL('/api/network/director',origin);}catch{return {ok:false,reason:'INVALID_ORIGIN'};}
+  try{
+   const base=new URL(origin);
+   if(base.protocol!=='https:'||base.username||base.password||base.pathname!=='/'||base.search||base.hash)
+    return {ok:false,reason:'INVALID_ORIGIN'};
+   url=new URL('/api/network/director',base);
+  }catch{return {ok:false,reason:'INVALID_ORIGIN'};}
   // Reuse the actual Director research pipeline rather than a synthetic result.
   // Credentials and authorization are never accepted from scheduled-task payloads.
   const request=new Request(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:question.trim()})});
