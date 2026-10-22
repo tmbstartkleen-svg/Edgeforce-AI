@@ -25,7 +25,8 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
   const raw=await upstream.text();
   if(new TextEncoder().encode(raw).length>250000)return Response.json({ok:false,reason:'SOURCE_TOO_LARGE'},{status:503,headers});
   const data=JSON.parse(raw) as {events?:Array<{id?:string;date?:string;status?:{type?:{name?:string}};competitions?:Array<{competitors?:Array<{team?:{displayName?:string};score?:string}>}>}>};
-  const events=Array.isArray(data.events)?data.events.slice(0,15):[];
+  if(!Array.isArray(data.events))return Response.json({ok:false,reason:'INVALID_SCOREBOARD_PAYLOAD'},{status:502,headers});
+  const events=data.events.slice(0,15);
   const observedAt=Date.now();
   let qualityRejected=0;
   const observations:D1Observation[]=[];
@@ -44,8 +45,10 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
       status:event.status?.type?.name||null,recordType:isScheduled?'SCHEDULE':hasScores?'SCORE':'SCHEDULE',teams:competitors.map(x=>({name:x.team?.displayName||null,score:hasScores&&!isScheduled?x.score:null})),
       observationTimeIsCollectionTime:true}});
   }
+  if(observations.length===0)return Response.json({ok:false,reason:'NO_QUALIFYING_EVENTS',source:source.sourceId,sport:source.sport,fetchedEvents:events.length,qualityRejected},{status:422,headers});
   const report=await appendD1Observations(env.INTELLIGENCE_DB,observations,observedAt);
-  return Response.json({ok:report.rejected===0,source:source.sourceId,sport:source.sport,
-   classification:source.classification,attempted:observations.length,fetchedEvents:events.length,qualityRejected,...report},{headers,status:report.rejected===0?200:503});
+  const persisted=report.accepted+report.duplicates;
+  return Response.json({ok:report.rejected===0&&persisted>0,source:source.sourceId,sport:source.sport,
+   classification:source.classification,attempted:observations.length,fetchedEvents:events.length,qualityRejected,...report},{headers,status:report.rejected>0?503:persisted>0?200:422});
  }catch{return Response.json({ok:false,reason:'SCORE_COLLECTION_FAILED'},{status:503,headers});}
 }
