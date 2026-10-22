@@ -1,12 +1,12 @@
 /** Quote-level provenance evidence. Never equate bookmaker count with independent data sources. */
 export type ConsensusQuote = {
- upstreamId:string; providerId:string; bookmaker:string; eventId:string;
+ upstreamId:string; providerId:string; bookmaker:string; sport:string; league:string; eventId:string;
  marketType:string; outcomeId:string; observedAt:string; startsAt:string;
  priceAmerican:number; playerId?:string; line?:string;
 };
 const norm=(s:string)=>s.trim().toLowerCase();
 const required=(s:unknown)=>typeof s==='string'&&s.trim().length>0;
-const quoteKey=(q:ConsensusQuote)=>[q.bookmaker,q.eventId,q.marketType,q.playerId||'',q.outcomeId,q.line||''].map(norm).join('|');
+const quoteKey=(q:ConsensusQuote)=>[q.bookmaker,q.sport,q.league,q.eventId,q.startsAt,q.marketType,q.playerId||'',q.outcomeId,q.line||''].map(norm).join('|');
 /** Returns corroborated outcomes only when distinct upstream owners observed the same priced outcome within a narrow window. */
 export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, maxAgeMs=60000, matchWindowMs=30000){
  const time=Date.parse(now);
@@ -16,7 +16,7 @@ export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, m
  const groups=new Map<string,ConsensusQuote[]>();
  let rejected=0;
  for(const q of quotes){
-  if(!q||![q.upstreamId,q.providerId,q.bookmaker,q.eventId,q.marketType,q.outcomeId,q.observedAt,q.startsAt].every(required)||
+  if(!q||![q.upstreamId,q.providerId,q.bookmaker,q.sport,q.league,q.eventId,q.marketType,q.outcomeId,q.observedAt,q.startsAt].every(required)||
      !Number.isInteger(q.priceAmerican)||Math.abs(q.priceAmerican)<100||
      !Number.isFinite(Date.parse(q.observedAt))||!Number.isFinite(Date.parse(q.startsAt))||
      Date.parse(q.startsAt)<=time||time-Date.parse(q.observedAt)<0||time-Date.parse(q.observedAt)>maxAgeMs){
