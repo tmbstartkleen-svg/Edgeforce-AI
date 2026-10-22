@@ -10,7 +10,7 @@ const c=JSON.parse(fs.readFileSync(configured,'utf8'));
 const fail=(name)=>{throw Error('UNSAFE_STAGING_CONFIG:'+name)};
 if(c.name!=='edgeforce-ai-cert-staging'||c.name===prod.name)fail('WORKER_NAME');
 if(c.vars?.DEPLOYMENT_ENV!=='staging'||c.vars?.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='false')fail('ATLAS_EXECUTION');
-if(c.vars?.INTELLIGENCE_D1_WRITE_ENABLED!=='false'||c.vars?.ALLOW_DEMO_DATA!=='false')fail('MUTATION_FLAGS');
+if(c.vars?.INTELLIGENCE_D1_WRITE_ENABLED!=='false'||c.vars?.D1_SPORTS_MARKET_ARCHIVE_ENABLED!=='false'||c.vars?.ALLOW_DEMO_DATA!=='false')fail('MUTATION_FLAGS');
 for(const k of ['triggers','routes','route','services','account_id'])if(Object.hasOwn(c,k))fail(k);
 const keys=['KALSHI_ENABLED','THE_ODDS_API_ENABLED','API_SPORTS_ENABLED','THESPORTSDB_ENABLED','SPORTSCORE_ENABLED'];
 for(const key of keys)if(c.vars?.[key]!=='false')fail(key);
