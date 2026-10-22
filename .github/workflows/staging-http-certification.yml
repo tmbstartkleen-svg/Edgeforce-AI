@@ -34,3 +34,15 @@ jobs:
             echo "::error::Unexpected readiness status $code"; exit 1
           fi
           echo "Auth guard status: $code" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify ATLAS fails closed without Founder token
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST=edgeforce-ai-cert-staging.tmbstartkleen.workers.dev
+          for PATH_PART in missions tasks; do
+            CODE=$(curl --silent --show-error --output /tmp/atlas-"$PATH_PART".json --write-out '%{http_code}' --max-time 15 "https://$HOST/api/network/$PATH_PART")
+            test "$CODE" = '503' || { echo "::error::ATLAS $PATH_PART returned $CODE, expected 503 without staging-only token"; exit 1; }
+            node -e 'const f=require("fs");const d=JSON.parse(f.readFileSync(process.argv[1],"utf8"));if(d.error!=="OWNER_AUTH_NOT_CONFIGURED")process.exit(1);' "/tmp/atlas-$PATH_PART.json"
+          done
+          echo 'ATLAS unauthenticated mission and task endpoints fail closed' >> "$GITHUB_STEP_SUMMARY"
