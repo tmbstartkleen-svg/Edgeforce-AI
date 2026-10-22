@@ -22,7 +22,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
  try{
   const records=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload FROM intelligence_observations
     WHERE observation_kind='odds' ORDER BY observed_at DESC LIMIT ?`).bind(limit).all<Row>();
-  const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[],upstreamIds=new Set<string>();let unrecognized=0;
+  const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[];let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
    try{p=JSON.parse(record.payload);}catch{unrecognized++;continue;}
@@ -34,7 +34,6 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    if(!bookmaker||!sport||!league||!marketType||!outcomeId||!startsAt){unrecognized++;continue;}
    const price=q.priceAmerican;
    if(price!==undefined&&(!Number.isInteger(price)||Math.abs(price as number)<100)){unrecognized++;continue;}
-   if(str(record.upstream_id))upstreamIds.add(str(record.upstream_id));
    if(str(record.upstream_id)&&price!==undefined)consensusQuotes.push({upstreamId:str(record.upstream_id),providerId:record.source_id,bookmaker,eventId:record.event_id,marketType,outcomeId,observedAt:record.observed_at,startsAt,priceAmerican:price as number,...(str(q.playerId)?{playerId:str(q.playerId)}:{}),...(str(q.line)?{line:str(q.line)}:{})});
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
@@ -59,7 +58,10 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    .sort((a,b)=>a.sport.localeCompare(b.sport)||a.league.localeCompare(b.league));
   const providers=[...new Set(report.observations.map(o=>o.provider))].sort();
   const consensus=independentQuoteConsensus(consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'),new Date(now).toISOString(),15*60*1000,30000);
-  const independentVerification={independentUpstreams:upstreamIds.size,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,
+  const freshKeys=new Set(report.observations.map(o=>[o.provider,o.bookmaker,o.eventId,o.marketType,o.playerId||'',o.outcomeId,o.line||'',o.observedAt].join('|')));
+  const eligibleQuotes=consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'&&freshKeys.has([q.providerId,q.bookmaker,q.eventId,q.marketType,q.playerId||'',q.outcomeId,q.line||'',q.observedAt].join('|')));
+  const freshUpstreamCount=new Set(eligibleQuotes.map(q=>q.upstreamId.trim().toLowerCase())).size;
+  const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,
    note:'Only matching same-bookmaker event/outcome/line quotes from distinct upstream owners within 30 seconds qualify; does not prove executable price or EV.'};
   return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,
    discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
