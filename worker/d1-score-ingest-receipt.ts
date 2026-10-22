@@ -19,8 +19,8 @@ export async function scoreIngestReceipt(request:Request,env:Env):Promise<Respon
  try{
   const rows=await env.INTELLIGENCE_DB.prepare(
    `SELECT event_id, observed_at, ingested_at, payload_hash FROM intelligence_observations
-     WHERE observation_kind='score' AND source_id=? AND upstream_id=? AND observed_at>=?
-     ORDER BY observed_at DESC LIMIT 25`
+     WHERE observation_kind='score' AND source_id=? AND upstream_id=? AND ingested_at>=?
+     ORDER BY ingested_at DESC LIMIT 25`
   ).bind(source.sourceId,source.upstreamId,new Date(sinceMs).toISOString())
    .all<{event_id:string;observed_at:string;ingested_at:string;payload_hash:string}>();
   return Response.json({ok:true,mode:'SOURCE_SCOPED_D1_SCORE_RECEIPT',classification:'SCORES_NOT_ODDS',
