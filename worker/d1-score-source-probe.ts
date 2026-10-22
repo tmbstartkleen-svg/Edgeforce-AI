@@ -28,6 +28,7 @@ export async function probeScoreSource(request:Request,env:Env):Promise<Response
    if(players.every(p=>typeof p.score==='string'&&/^\d{1,3}$/.test(p.score))){scored++;continue;}
    invalid++;
   }
+  if(scheduled+scored===0)return Response.json({ok:false,reason:'NO_QUALIFYING_UPSTREAM_EVENTS',receivedEvents:parsed.events.length,invalidEvents:invalid,persisted:false},{status:422,headers});
   return Response.json({ok:true,mode:'REAL_UPSTREAM_READ_ONLY_PROBE',source:source.sourceId,classification:'SCORES_NOT_ODDS',
     receivedEvents:parsed.events.length,inspectedEvents:Math.min(15,parsed.events.length),qualifyingSchedules:scheduled,qualifyingScores:scored,invalidEvents:invalid,
     collectedAt:new Date().toISOString(),persisted:false,warning:'Read-only upstream probe. No database writes, odds, or betting recommendations.'},{headers});
