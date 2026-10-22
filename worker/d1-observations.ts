@@ -32,6 +32,16 @@ export async function appendD1Observations(
    if(now-o.observedAt>86400000)throw new Error('STALE_SOURCE_TIMESTAMP');
    const registry=await db.prepare('SELECT upstream_id FROM intelligence_sources WHERE source_id=? AND enabled=1').bind(o.provider).first<{upstream_id:string}>();
    if(!registry||registry.upstream_id!==o.upstreamId)throw new Error('D1_SOURCE_NOT_APPROVED');
+   // Reject malformed sportsbook records before they can appear in coverage evidence.
+   if(o.kind==='odds'){
+    const q=o.value as Record<string,unknown>|null;
+    const nonempty=(v:unknown)=>typeof v==='string'&&v.trim().length>0;
+    if(!q||typeof q!=='object'||Array.isArray(q)||
+       ![q.bookmaker,q.sport,q.league,q.marketType,q.outcomeId,q.startsAt].every(nonempty)||
+       !Number.isInteger(q.priceAmerican)||Math.abs(q.priceAmerican as number)<100||
+       !Number.isFinite(Date.parse(String(q.startsAt)))||Date.parse(String(q.startsAt))<=now)
+      throw new Error('INVALID_ODDS_OBSERVATION');
+   }
    const payload=JSON.stringify(o.value);
    if(payload===undefined||new TextEncoder().encode(payload).length>32768)throw new Error('D1_PAYLOAD_TOO_LARGE');
    const hash=createHash('sha256').update(payload).digest('hex');
