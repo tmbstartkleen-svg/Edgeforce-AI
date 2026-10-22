@@ -20,7 +20,11 @@ for(let i=0;i<20;i++){
    if(!health.res.ok)throw new Error('health endpoint failed');
    if(health.body?.version!==expected)throw new Error(`health version mismatch: ${health.body?.version}; expected ${expected}`);
    if(health.body?.modelVersion!==expectedModel)throw new Error(`model mismatch: ${health.body?.modelVersion}; expected ${expectedModel}`);
-   console.log(JSON.stringify({ok:true,preview:base,version:expected,modelVersion:health.body.modelVersion}));
+   const coverage=await get('/coverage');
+   if(!coverage.res.ok||!coverage.text.includes('Every gap visible'))throw new Error(`coverage dashboard inaccessible: HTTP ${coverage.res.status}`);
+   const protectedOdds=await get('/api/operations/d1-pilot/coverage');
+   if(protectedOdds.res.status!==401)throw new Error(`coverage odds auth gate expected 401, received ${protectedOdds.res.status}`);
+   console.log(JSON.stringify({ok:true,preview:base,version:expected,modelVersion:health.body.modelVersion,coveragePage:true,oddsAuthGate:true}));
    process.exit(0);
   }
   const platform404=live.res.status===404&&/<!DOCTYPE html>|<html/i.test(live.text)&&/cloudflare/i.test(live.text);
