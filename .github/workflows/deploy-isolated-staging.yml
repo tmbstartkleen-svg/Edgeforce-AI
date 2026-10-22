@@ -1,0 +1,37 @@
+name: EdgeForce Isolated Staging Deployment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: edgeforce-isolated-staging
+  cancel-in-progress: false
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      EDGEFORCE_STAGING_D1_ID: 882a6b98-2577-48a4-b7cc-21e49c9cc649
+      EDGEFORCE_STAGING_D1_NAME: edgeforce-intelligence-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run preflight:cloudflare
+      - run: npm run build:vinext
+      - run: npm run validate:cloudflare-build
+      - name: Generate isolated compiled config
+        run: node scripts/build-compiled-staging-config.mjs
+      - name: Ensure credentials present and target is staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          node -e "const c=require('./dist/server/wrangler.staging.json');if(c.name!=='edgeforce-ai-cert-staging'||c.vars.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='false'||c.d1_databases[0].database_name!=='edgeforce-intelligence-staging')process.exit(1)"
+      - name: Deploy staging Worker only
+        run: npx wrangler deploy --config dist/server/wrangler.staging.json
