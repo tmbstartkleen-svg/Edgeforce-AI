@@ -8,6 +8,7 @@ export type AtlasJournalItem={
 type RoomStore={
  get<T>(key:string):Promise<T|undefined>;
  put<T>(key:string,value:T):Promise<void>;
+ delete(key:string):Promise<boolean>;
  transaction<T>(operation:(txn:RoomStore)=>Promise<T>):Promise<T>;
 };
 type RoomState={storage:RoomStore};
@@ -33,6 +34,25 @@ export class AtlasMissionRoom {
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
+  // Separate, bounded proof key; never writes a real mission or schedules agents.
+  if(url.pathname==='/staging-certification'){
+   const nonce=url.searchParams.get('nonce')||'';
+   if(!/^[0-9a-f-]{36}$/i.test(nonce))return json({ok:false,error:'CERT_NONCE_INVALID'},400);
+   const key='staging-cert-proof';
+   if(request.method==='POST'){
+    await this.state.storage.put(key,{nonce,createdAt:Date.now()});
+    return json({ok:true,stored:true});
+   }
+   const proof=await this.state.storage.get<{nonce:string;createdAt:number}>(key);
+   if(!proof||proof.nonce!==nonce||Date.now()-proof.createdAt>300_000)
+    return json({ok:false,error:'CERT_PROOF_NOT_FOUND'},404);
+   if(request.method==='GET')return json({ok:true,persisted:true});
+   if(request.method==='DELETE'){
+    await this.state.storage.delete(key);
+    return json({ok:true,cleared:true});
+   }
+   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
+  }
   if(request.method==='GET'&&url.pathname==='/history'){
    const missions=await this.state.storage.get<AtlasJournalItem[]>('missions')||[];
    const max=Math.min(30,Math.max(1,Number(url.searchParams.get('limit')||15)||15));
