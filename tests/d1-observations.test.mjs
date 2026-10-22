@@ -14,3 +14,11 @@ test('D1 writer preserves original timestamps, approved sources, dedup and limit
  assert.match(source,/limit>100/);
  assert.doesNotMatch(source,/new Date\(\).toISOString\(\)/);
 });
+
+test('D1 odds ingestion rejects malformed, unpriced and already-started markets before persistence',()=>{
+ assert.match(source,/o.kind==='odds'/);
+ assert.match(source,/INVALID_ODDS_OBSERVATION/);
+ assert.match(source,/q.bookmaker,q.sport,q.league,q.marketType,q.outcomeId,q.startsAt/);
+ assert.match(source,/Number.isInteger\(q.priceAmerican\)/);
+ assert.match(source,/Date.parse\(String\(q.startsAt\)\)<=now/);
+});
