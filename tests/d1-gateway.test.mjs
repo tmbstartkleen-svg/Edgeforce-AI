@@ -13,3 +13,8 @@ test('D1 gateway is explicit opt-in and authenticated',()=>{
  assert.match(worker,/d1IngestGateway\(request,env\)/);
  assert.match(worker,/d1RecentGateway\(request,env\)/);
 });
+
+test('D1 gateway never certifies an entirely rejected ingest batch',()=>{
+ assert.match(gate,/persistedOrDeduplicated=report.accepted\+report.duplicates/);
+ assert.match(gate,/persistedOrDeduplicated>0\?200:422/);
+});
