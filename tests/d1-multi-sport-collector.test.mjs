@@ -56,3 +56,16 @@ test('collector does not falsely certify invalid, empty, or all-rejected source 
  assert.match(c,/report\.rejected===0&&persisted>0/);
  assert.match(c,/persisted>0\?200:422/);
 });
+
+test('staging real upstream probe cannot mutate D1 or manufacture odds',()=>{
+ const worker=readFileSync('worker/d1-standalone.ts','utf8');
+ const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
+ assert.match(worker,/probe-score-source/);
+ assert.match(probe,/CRON_SECRET\.length<24/);
+ assert.match(probe,/SOURCE_NOT_APPROVED/);
+ assert.match(probe,/SPORT_NOT_APPROVED/);
+ assert.match(probe,/REAL_UPSTREAM_READ_ONLY_PROBE/);
+ assert.match(probe,/SCORES_NOT_ODDS/);
+ assert.match(probe,/persisted:false/);
+ assert.doesNotMatch(probe,/INSERT|UPDATE|DELETE|appendD1Observations/);
+});
