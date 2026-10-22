@@ -23,6 +23,7 @@ test('readback proves same source and recent ingestion instead of unrelated hist
  assert.match(route,/INVALID_CERTIFICATION_WINDOW/);
  assert.match(route,/UNAUTHORIZED/);
  assert.match(c,/const startedAt=new Date/);
+ assert.match(route,/ORDER BY ingested_at DESC/);
  assert.match(c,/receipt\.body\.sourceId!==item\.sourceId/);
  assert.doesNotMatch(route,/INSERT|UPDATE|DELETE|fetch\(/);
 });
