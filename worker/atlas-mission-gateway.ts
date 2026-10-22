@@ -10,6 +10,8 @@ type Namespace={
 type Env={
  EDGEFORCE_NETWORK_OWNER_TOKEN?:unknown;
  ATLAS_MISSION_ROOM?:Namespace;
+ DEPLOYMENT_ENV?:unknown;
+ ATLAS_SCHEDULE_EXECUTION_ENABLED?:unknown;
 };
 type Forward=(request:Request)=>Promise<Response>;
 const noStore={'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'};
@@ -29,7 +31,7 @@ function room(env:Env):Stub|null{
  if(!binding||typeof binding.idFromName!=='function'||typeof binding.get!=='function')return null;
  return binding.get(binding.idFromName('founder-atlas-private-v1'));
 }
-const roomRequest=(path:string,method:'GET'|'POST',body?:unknown)=>new Request('https://atlas.internal'+path,{
+const roomRequest=(path:string,method:'GET'|'POST'|'DELETE',body?:unknown)=>new Request('https://atlas.internal'+path,{
  method,headers:body?{'Content-Type':'application/json'}:undefined,
  body:body===undefined?undefined:JSON.stringify(body)
 });
@@ -38,9 +40,13 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ const isCert=url.pathname==='/api/network/staging-certification';
+ if(!isHistory&&!isTasks&&!isDirector&&!isCert)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ // This route must never become reachable in production or a scheduled-execution environment.
+ if(isCert&&(env.DEPLOYMENT_ENV!=='staging'||env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='false'))
+  return json({ok:false,error:'NOT_FOUND'},404);
  if(isDirector&&request.method==='GET')return forward(request);
- if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')){
+ if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')||(isCert&&!['GET','POST','DELETE'].includes(request.method))){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
@@ -55,6 +61,16 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isCert){
+  const nonce=url.searchParams.get('nonce')||'';
+  if(!/^[0-9a-f-]{36}$/i.test(nonce))return json({ok:false,error:'CERT_NONCE_INVALID'},400);
+  try{
+   const path='/staging-certification?nonce='+encodeURIComponent(nonce);
+   const result=await instance.fetch(roomRequest(path,request.method as 'GET'|'POST'|'DELETE'));
+   if(!result.ok)return json({ok:false,error:'CERTIFICATION_FAILED'},result.status>=400&&result.status<500?result.status:503);
+   return json(await result.json());
+  }catch{return json({ok:false,error:'CERTIFICATION_UNAVAILABLE'},503);}
+ }
  if(isTasks){
   try{
    const agent=url.searchParams.get('agent')||'';
