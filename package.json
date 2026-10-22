@@ -38,7 +38,7 @@
     "doctor:d1-reference": "node scripts/d1-reference-production-doctor.mjs",
     "test:team": "node --test tests/team-research.test.mjs",
     "test:network": "node --test tests/network-director.test.mjs",
-    "test:network-persistence": "node --test tests/network-persistence.test.mjs",
+    "test:network-persistence": "node --test tests/network-persistence.test.mjs tests/atlas-staging-certification.test.mjs",
     "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs",
     "test:coverage": "node --test tests/coverage-inventory.test.mjs tests/sports-coverage-report.test.mjs tests/coverage-provider-discovery.test.mjs tests/coverage-route.test.mjs tests/d1-coverage.test.mjs tests/d1-coverage-behavior.test.mjs",
     "test:staging-isolation": "node --test tests/staging-isolation.test.mjs",
