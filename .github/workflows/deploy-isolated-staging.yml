@@ -32,6 +32,6 @@ jobs:
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
-          node -e "const c=require('./dist/server/wrangler.staging.json');if(c.name!=='edgeforce-ai-cert-staging'||c.vars.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='false'||c.d1_databases[0].database_name!=='edgeforce-intelligence-staging')process.exit(1)"
+          node -e "const c=require('./dist/server/wrangler.staging.json');if(c.name!=='edgeforce-ai-cert-staging'||c.vars.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='false'||c.d1_databases[0].database_name!=='edgeforce-intelligence-staging'||c.d1_databases[0].database_id!==process.env.EDGEFORCE_STAGING_D1_ID)process.exit(1)"
       - name: Deploy staging Worker only
         run: npx wrangler deploy --config dist/server/wrangler.staging.json
