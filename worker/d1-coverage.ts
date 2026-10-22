@@ -34,7 +34,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    if(!bookmaker||!sport||!league||!marketType||!outcomeId||!startsAt){unrecognized++;continue;}
    const price=q.priceAmerican;
    if(price!==undefined&&(!Number.isInteger(price)||Math.abs(price as number)<100)){unrecognized++;continue;}
-   if(str(record.upstream_id)&&price!==undefined)consensusQuotes.push({upstreamId:str(record.upstream_id),providerId:record.source_id,bookmaker,eventId:record.event_id,marketType,outcomeId,observedAt:record.observed_at,startsAt,priceAmerican:price as number,...(str(q.playerId)?{playerId:str(q.playerId)}:{}),...(str(q.line)?{line:str(q.line)}:{})});
+   if(str(record.upstream_id)&&price!==undefined)consensusQuotes.push({upstreamId:str(record.upstream_id),providerId:record.source_id,bookmaker,sport,league,eventId:record.event_id,marketType,outcomeId,observedAt:record.observed_at,startsAt,priceAmerican:price as number,...(str(q.playerId)?{playerId:str(q.playerId)}:{}),...(str(q.line)?{line:str(q.line)}:{})});
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
     ...(price!==undefined?{priceAmerican:price as number}:{}),
