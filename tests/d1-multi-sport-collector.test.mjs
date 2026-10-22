@@ -69,3 +69,10 @@ test('staging real upstream probe cannot mutate D1 or manufacture odds',()=>{
  assert.match(probe,/persisted:false/);
  assert.doesNotMatch(probe,/INSERT|UPDATE|DELETE|appendD1Observations/);
 });
+
+test('read-only upstream probe fails closed when no usable events are returned',()=>{
+ const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
+ assert.match(probe,/scheduled\+scored===0/);
+ assert.match(probe,/NO_QUALIFYING_UPSTREAM_EVENTS/);
+ assert.match(probe,/status:422/);
+});
