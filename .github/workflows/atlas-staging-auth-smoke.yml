@@ -22,7 +22,9 @@ jobs:
           HOST=edgeforce-ai-cert-staging.tmbstartkleen.workers.dev
           BASE="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts/edgeforce-ai-cert-staging/secrets"
           TOKEN=$(openssl rand -hex 40)
+          INSTALLED=0
           cleanup() {
+            if [ "$INSTALLED" != 1 ]; then return; fi
             curl --fail-with-body --silent --show-error --max-time 20 -X DELETE -H "Authorization: Bearer $CF_TOKEN" "$BASE/EDGEFORCE_NETWORK_OWNER_TOKEN" >/dev/null
           }
           trap cleanup EXIT
@@ -30,6 +32,7 @@ jobs:
           curl --fail-with-body --silent --show-error --max-time 20 -X PUT \
             -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
             --data "$PAYLOAD" "$BASE" >/dev/null
+          INSTALLED=1
           for RESOURCE in missions tasks; do
             CODE=$(curl --silent --show-error --max-time 20 --output "/tmp/atlas-$RESOURCE.json" \
               --write-out '%{http_code}' -H "Authorization: Bearer $TOKEN" \
