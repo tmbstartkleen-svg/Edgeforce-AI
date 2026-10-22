@@ -7,7 +7,15 @@ export const scoreSports=Object.freeze([
  {id:'wnba',label:'WNBA',path:'basketball/wnba'},
  {id:'mlb',label:'MLB',path:'baseball/mlb'},
  {id:'nhl',label:'NHL',path:'hockey/nhl'},
- {id:'soccer-epl',label:'Premier League',path:'soccer/eng.1'}
+ {id:'soccer-epl',label:'Premier League',path:'soccer/eng.1'},
+ {id:'soccer-laliga',label:'LaLiga',path:'soccer/esp.1'},
+ {id:'soccer-bundesliga',label:'Bundesliga',path:'soccer/ger.1'},
+ {id:'soccer-serie-a',label:'Serie A',path:'soccer/ita.1'},
+ {id:'soccer-ligue-1',label:'Ligue 1',path:'soccer/fra.1'},
+ {id:'soccer-mls',label:'MLS',path:'soccer/usa.1'},
+ {id:'soccer-nwsl',label:'NWSL',path:'soccer/usa.nwsl'},
+ {id:'soccer-ucl',label:'UEFA Champions League',path:'soccer/uefa.champions'},
+ {id:'soccer-uel',label:'UEFA Europa League',path:'soccer/uefa.europa'}
 ]);
 export function scoreboardSource(sport){
  const source=scoreSports.find(s=>s.id===sport);
