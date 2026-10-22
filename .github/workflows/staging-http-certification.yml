@@ -1,0 +1,36 @@
+name: EdgeForce Staging HTTP Certification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/staging-http-certification.yml'
+permissions:
+  contents: read
+jobs:
+  independent-staging-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: DNS, TLS and read-only D1 health
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST=edgeforce-ai-cert-staging.tmbstartkleen.workers.dev
+          echo "Checking staging DNS: $HOST"
+          getent ahosts "$HOST"
+          curl --fail-with-body --show-error --silent --location --max-time 15 \
+            -D /tmp/staging-headers.txt \
+            "https://$HOST/api/operations/d1-pilot/health" -o /tmp/staging-health.json
+          node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/staging-health.json"));if(d.ok!==true||d.store!=="d1"||d.probe!=="SELECT_1"||d.applicationCutover!==false)throw Error("STAGING_D1_HEALTH_FAILED");'
+          echo 'Read-only D1 health PASS' >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify unauthorized access remains denied
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST=edgeforce-ai-cert-staging.tmbstartkleen.workers.dev
+          code=$(curl --silent --output /tmp/staging-auth.json --write-out '%{http_code}' --max-time 15 \
+            "https://$HOST/api/operations/d1-pilot/readiness")
+          if [[ "$code" != '401' && "$code" != '503' ]]; then
+            echo "::error::Unexpected readiness status $code"; exit 1
+          fi
+          echo "Auth guard status: $code" >> "$GITHUB_STEP_SUMMARY"
