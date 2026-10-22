@@ -1,0 +1,43 @@
+name: EdgeForce ATLAS Staging Auth Smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: edgeforce-atlas-staging-auth-smoke
+  cancel-in-progress: false
+jobs:
+  test-atlas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Test authenticated private DO reads, always delete staging credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CF_ACCOUNT" && test -n "$CF_TOKEN"
+          HOST=edgeforce-ai-cert-staging.tmbstartkleen.workers.dev
+          BASE="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts/edgeforce-ai-cert-staging/secrets"
+          TOKEN=$(openssl rand -hex 40)
+          INSTALLED=0
+          cleanup() {
+            if [ "$INSTALLED" != 1 ]; then return; fi
+            curl --fail-with-body --silent --show-error --max-time 20 -X DELETE -H "Authorization: Bearer $CF_TOKEN" "$BASE/EDGEFORCE_NETWORK_OWNER_TOKEN" >/dev/null
+          }
+          trap cleanup EXIT
+          PAYLOAD=$(jq -nc --arg t "$TOKEN" '{name:"EDGEFORCE_NETWORK_OWNER_TOKEN",type:"secret_text",text:$t}')
+          curl --fail-with-body --silent --show-error --max-time 20 -X PUT \
+            -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
+            --data "$PAYLOAD" "$BASE" >/dev/null
+          INSTALLED=1
+          for RESOURCE in missions tasks; do
+            CODE=$(curl --silent --show-error --max-time 20 --output "/tmp/atlas-$RESOURCE.json" \
+              --write-out '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+              "https://$HOST/api/network/$RESOURCE")
+            test "$CODE" = 200 || { echo "::error::Authenticated $RESOURCE returned $CODE"; exit 1; }
+            node -e 'const d=require(process.argv[1]);if(d.ok===false||d.error)process.exit(1)' "/tmp/atlas-$RESOURCE.json"
+          done
+          echo 'ATLAS authenticated staging Durable Object read paths: PASS' >> "$GITHUB_STEP_SUMMARY"
