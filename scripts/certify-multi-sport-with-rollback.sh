@@ -19,7 +19,27 @@ for sport in "${sports[@]}"; do
   [[ -z "${seen[$sport]:-}" ]] || { echo 'Repeated sport in batch' >&2; exit 1; }
   seen["$sport"]=1
 done
-config=".edgeforce-isolated-cert-$$.jsonc"
+# Read-only remote gate before any write-enabled deployment.
+EDGEFORCE_PILOT_CRON_SECRET="$secret" EDGEFORCE_CERT_SPORTS="$(IFS=,; echo "${sports[*]}")" node --input-type=module <<'NODE'
+const base='https://edgeforce-d1-pilot.tmbstartkleen.workers.dev';
+const headers={Authorization:'Bearer '+process.env.EDGEFORCE_PILOT_CRON_SECRET};
+const read=async p=>{
+ const res=await fetch(base+p,{headers,signal:AbortSignal.timeout(15000)});
+ const body=await res.json().catch(()=>null);
+ if(res.status!==200||body?.ok!==true)throw Error('PREFLIGHT_READ_FAILED_'+res.status);
+ return body;
+};
+const readiness=await read('/api/operations/d1-pilot/score-collector-readiness');
+if(readiness.flags?.collectionEnabled!==false||readiness.flags?.d1WriteEnabled!==false)
+ throw Error('PREFLIGHT_PILOT_NOT_DISABLED');
+const sports=process.env.EDGEFORCE_CERT_SPORTS.split(',');
+for(const sport of sports){
+ const entry=readiness.sources?.find(s=>s.sport===sport);
+ if(entry?.approved!==true)throw Error('PREFLIGHT_SOURCE_UNAPPROVED_'+sport);
+}
+console.log('PREFLIGHT VERIFIED: pilot disabled; selected sources registered.');
+NODE
+config=".edgeforce-isolated-cert-$.jsonc"
 restore_needed=0
 cleanup() {
   code=$?
