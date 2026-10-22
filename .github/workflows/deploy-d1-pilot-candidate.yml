@@ -1,0 +1,61 @@
+name: Deploy isolated D1 pilot candidate
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY-ISOLATED-D1-PILOT to authorize staging-only candidate deployment'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: edgeforce-d1-isolated-pilot
+  cancel-in-progress: false
+jobs:
+  deploy-candidate:
+    if: github.ref == 'refs/heads/feature/major-c-coverage-quote-integrity' && inputs.confirm == 'DEPLOY-ISOLATED-D1-PILOT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      EDGEFORCE_ISOLATED_PILOT_DEPLOY_APPROVED: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm authenticated scope and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/feature/major-c-coverage-quote-integrity"
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          [[ "${CLOUDFLARE_ACCOUNT_ID:-}" =~ ^[0-9a-fA-F]{32}$ ]]
+          echo "Operator-authorized isolated candidate SHA: ${GITHUB_SHA}"
+      - run: npm ci --no-audit --no-fund
+      - name: Compile and test isolated pilot contract
+        run: |
+          npm run typecheck
+          node --test tests/d1-multi-sport-collector.test.mjs tests/d1-score-activation.test.mjs tests/certify-isolated-scores.test.mjs
+      - name: Deploy isolated candidate without enabling collection
+        shell: bash
+        run: bash scripts/deploy-isolated-d1-pilot.sh
+      - name: Check anonymous endpoint denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://edgeforce-d1-pilot.tmbstartkleen.workers.dev'
+          for endpoint in score-collector-readiness probe-score-source score-ingest-receipt; do
+            for attempt in 1 2 3 4 5 6; do
+              status=$(curl --silent --show-error --max-time 15 -o /tmp/edgeforce-pilot-probe.json -w '%{http_code}' "$BASE/api/operations/d1-pilot/$endpoint?sport=nba&since=2026-10-22T00%3A00%3A00Z" || true)
+              if [ "$status" = '401' ] && jq -e '.reason=="UNAUTHORIZED"' /tmp/edgeforce-pilot-probe.json > /dev/null 2>&1; then break; fi
+              sleep 3
+            done
+            test "$status" = '401'
+            jq -e '.reason=="UNAUTHORIZED"' /tmp/edgeforce-pilot-probe.json >/dev/null
+          done
+          echo 'Candidate endpoints deny unauthenticated access; no collection or D1 writes executed.' >> "$GITHUB_STEP_SUMMARY"
