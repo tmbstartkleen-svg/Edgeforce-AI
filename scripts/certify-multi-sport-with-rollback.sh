@@ -13,11 +13,11 @@ if [[ -n "${EDGEFORCE_CERT_SPORTS:-}" ]]; then
   IFS=',' read -r -a sports <<< "$EDGEFORCE_CERT_SPORTS"
 fi
 [[ "${#sports[@]}" -ge 1 && "${#sports[@]}" -le 6 ]] || { echo 'Batch must have 1-6 sports' >&2; exit 1; }
-declare -A seen=()
+seen_sports='|'
 for sport in "${sports[@]}"; do
   case "$sport" in nhl|nba|nfl|soccer-epl|soccer-laliga|soccer-bundesliga|soccer-serie-a|soccer-ligue-1|soccer-mls|soccer-ucl|soccer-uel|ncaaf|ncaab|mlb|wnba|soccer-nwsl) ;; *) echo 'Unapproved sport in batch' >&2; exit 1 ;; esac
-  [[ -z "${seen[$sport]:-}" ]] || { echo 'Repeated sport in batch' >&2; exit 1; }
-  seen["$sport"]=1
+  case "$seen_sports" in *"|$sport|"*) echo 'Repeated sport in batch' >&2; exit 1 ;; esac
+  seen_sports="${seen_sports}${sport}|"
 done
 # Read-only remote gate before any write-enabled deployment.
 EDGEFORCE_PILOT_CRON_SECRET="$secret" EDGEFORCE_CERT_SPORTS="$(IFS=,; echo "${sports[*]}")" node --input-type=module <<'NODE'
