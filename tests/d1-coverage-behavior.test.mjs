@@ -5,7 +5,10 @@ import ts from 'typescript';
 const read=name=>ts.transpileModule(fs.readFileSync(new URL('../'+name,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const uri=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
 const inv=uri(read('src/lib/coverage-inventory.ts'));
-const compiled=read('worker/d1-coverage.ts').replaceAll("from '../src/lib/coverage-inventory'","from "+JSON.stringify(inv));
+const consensus=uri(read('src/lib/independent-quote-consensus.ts'));
+const compiled=read('worker/d1-coverage.ts')
+ .replaceAll("from '../src/lib/coverage-inventory'","from "+JSON.stringify(inv))
+ .replaceAll("from '../src/lib/independent-quote-consensus'","from "+JSON.stringify(consensus));
 const {d1CoverageGateway}=await import(uri(compiled));
 const secret='a'.repeat(32),now=Date.now();
 const rows=[{source_id:'approved-feed',upstream_id:'real-upstream-one',event_id:'event-1',observed_at:new Date(now-5000).toISOString(),
