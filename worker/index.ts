@@ -10,6 +10,7 @@ import {d1DataReadiness} from './d1-data-readiness';
 import {d1ReferenceIngest} from './d1-reference-ingest';
 import {d1ReferenceIngestStatus} from './d1-reference-ingest-status';
 import {d1IngestGateway,d1RecentGateway} from './d1-gateway';
+import {d1SportsMarketArchiveIngest,d1SportsMarketArchiveReadiness} from './d1-sports-archive-gateway';
 import {withDatabaseScope} from '../src/lib/db';
 import {GET as runInjuryCron} from '../src/app/api/cron/injuries/route';
 import {GET as runScanCron} from '../src/app/api/cron/scan/route';
@@ -98,6 +99,8 @@ const worker={
   if(pathname==='/api/operations/d1-pilot/ingest')return d1IngestGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/recent')return d1RecentGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/coverage')return d1CoverageGateway(request,env);
+  if(pathname==='/api/operations/d1-pilot/sports-market-ingest')return d1SportsMarketArchiveIngest(request,env);
+  if(pathname==='/api/operations/d1-pilot/sports-market-readiness')return d1SportsMarketArchiveReadiness(request,env);
   if(pathname==='/api/operations/d1-pilot/readiness'){
    if(request.method!=='GET')return Promise.resolve(new Response(null,{status:405,headers:{Allow:'GET'}}));
    return d1PilotReadiness(request,env);
