@@ -8,3 +8,9 @@ test('multi-sport pilot certification enforces bounded batches and rollback',()=
  assert.match(s,/\#sports\[@\]\}" -le 6/);
  assert.match(s,/\[\[ "\$success" -gt 0 && "\$failed" -eq 0 \]\]/);
 });
+
+test('macOS default Bash 3.2 supported: no associative arrays',()=>{
+ assert.doesNotMatch(s,/declare\s+-A\b/);
+ assert.match(s,/seen_sports=/);
+ assert.match(s,/Repeated sport in batch/);
+});
