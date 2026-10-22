@@ -39,7 +39,7 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
    if(!quality.acceptedForPilot){qualityRejected++;continue;}
    observations.push({provider:source.sourceId,upstreamId:source.upstreamId,eventId:event.id,observedAt,
     kind:'score',value:{sport:source.sport,sourceEventId:event.id,eventDate:event.date||null,
-      status:event.status?.type?.name||null,recordType:hasScores?'SCORE':'SCHEDULE',teams:competitors.map(x=>({name:x.team?.displayName||null,score:hasScores?x.score:null})),
+      status:event.status?.type?.name||null,recordType:isScheduled?'SCHEDULE':hasScores?'SCORE':'SCHEDULE',teams:competitors.map(x=>({name:x.team?.displayName||null,score:hasScores&&!isScheduled?x.score:null})),
       observationTimeIsCollectionTime:true}});
   }
   const report=await appendD1Observations(env.INTELLIGENCE_DB,observations,observedAt);
