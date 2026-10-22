@@ -21,3 +21,11 @@ test('D1 odds reader unwraps the normalized persisted observation value',()=>{
  assert.match(gateway,/str\(q\.bookmaker\)/);
  assert.match(gateway,/const price=q\.priceAmerican/);
 });
+
+test('first-party score/schedule ledger is queried separately and never treated as a sportsbook quote',()=>{
+ assert.match(gateway,/WHERE observation_kind='score'/);
+ assert.match(gateway,/classification:'SCORES_NOT_ODDS'/);
+ assert.match(gateway,/scheduleObservations/);
+ assert.match(gateway,/scoreObservations/);
+ assert.match(gateway,/sportsObservations/);
+});
