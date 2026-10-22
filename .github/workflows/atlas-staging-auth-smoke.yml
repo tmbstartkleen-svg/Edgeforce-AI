@@ -1,43 +1,121 @@
-name: EdgeForce ATLAS Staging Auth Smoke
+name: EdgeForce ATLAS Staging Persistence Certification
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/atlas-mission-room.ts'
+      - 'worker/atlas-mission-gateway.ts'
+      - 'worker/index.ts'
+      - '.github/workflows/atlas-staging-auth-smoke.yml'
 permissions:
   contents: read
 concurrency:
-  group: edgeforce-atlas-staging-auth-smoke
+  group: edgeforce-atlas-staging-persistence
   cancel-in-progress: false
 jobs:
-  test-atlas:
+  certify:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
-      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      EDGEFORCE_STAGING_D1_ID: 882a6b98-2577-48a4-b7cc-21e49c9cc649
+      EDGEFORCE_STAGING_D1_NAME: edgeforce-intelligence-staging
     steps:
-      - name: Test authenticated private DO reads, always delete staging credential
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run preflight:cloudflare
+      - run: npm run build:vinext
+      - run: npm run validate:cloudflare-build
+      - name: Build and guard the isolated staging config
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$CF_ACCOUNT" && test -n "$CF_TOKEN"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          node scripts/build-compiled-staging-config.mjs
+          jq -e --arg id "$EDGEFORCE_STAGING_D1_ID" '
+            .name == "edgeforce-ai-cert-staging" and
+            .vars.DEPLOYMENT_ENV == "staging" and
+            .vars.ATLAS_SCHEDULE_EXECUTION_ENABLED == "false" and
+            .vars.INTELLIGENCE_D1_WRITE_ENABLED == "false" and
+            .d1_databases[0].database_id == $id and
+            (.triggers == null) and (.routes == null) and
+            (.durable_objects.bindings | any(.name == "ATLAS_MISSION_ROOM"))
+          ' dist/server/wrangler.staging.json >/dev/null
+      - name: Deploy isolated staging Worker
+        run: npx wrangler deploy --config dist/server/wrangler.staging.json
+      - name: Certify ATLAS persisted proof across HTTP requests, then remove credential
+        shell: bash
+        run: |
+          set -euo pipefail
           HOST=edgeforce-ai-cert-staging.tmbstartkleen.workers.dev
-          BASE="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts/edgeforce-ai-cert-staging/secrets"
+          CFBASE="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/edgeforce-ai-cert-staging"
+          SECRETS="$CFBASE/secrets"
           TOKEN=$(openssl rand -hex 40)
+          echo "::add-mask::$TOKEN"
           INSTALLED=0
           cleanup() {
             if [ "$INSTALLED" != 1 ]; then return; fi
-            curl --fail-with-body --silent --show-error --max-time 20 -X DELETE -H "Authorization: Bearer $CF_TOKEN" "$BASE/EDGEFORCE_NETWORK_OWNER_TOKEN" >/dev/null
+            if ! curl --fail-with-body --silent --show-error --max-time 25 -X DELETE \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "$SECRETS/EDGEFORCE_NETWORK_OWNER_TOKEN" >/dev/null; then
+              echo "::error::STAGING_CREDENTIAL_CLEANUP_FAILED"
+              return 1
+            fi
           }
           trap cleanup EXIT
+          curl --fail-with-body --silent --show-error --max-time 25 \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$SECRETS" -o /tmp/staging-secrets.json
+          jq -e '.success == true and (.result | map(.name) | index("EDGEFORCE_NETWORK_OWNER_TOKEN") == null)' \
+            /tmp/staging-secrets.json >/dev/null || {
+              echo "::error::A staging Founder token already exists; refusing to overwrite"; exit 1;
+            }
           PAYLOAD=$(jq -nc --arg t "$TOKEN" '{name:"EDGEFORCE_NETWORK_OWNER_TOKEN",type:"secret_text",text:$t}')
-          curl --fail-with-body --silent --show-error --max-time 20 -X PUT \
-            -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
-            --data "$PAYLOAD" "$BASE" >/dev/null
+          curl --fail-with-body --silent --show-error --max-time 25 -X PUT \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H 'Content-Type: application/json' --data "$PAYLOAD" "$SECRETS" >/dev/null
           INSTALLED=1
-          for RESOURCE in missions tasks; do
-            CODE=$(curl --silent --show-error --max-time 20 --output "/tmp/atlas-$RESOURCE.json" \
+          curl --fail-with-body --silent --show-error --max-time 25 \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$CFBASE/settings" -o /tmp/staging-settings.json
+          jq -e --arg id "$EDGEFORCE_STAGING_D1_ID" '
+            .success == true and
+            ([.result.bindings[] | select(.name=="ATLAS_SCHEDULE_EXECUTION_ENABLED") | .text] == ["false"]) and
+            ([.result.bindings[] | select(.name=="INTELLIGENCE_D1_WRITE_ENABLED") | .text] == ["false"]) and
+            ([.result.bindings[] | select(.name=="INTELLIGENCE_DB") | .database_id] == [$id])
+          ' /tmp/staging-settings.json >/dev/null
+          curl --fail-with-body --silent --show-error --max-time 25 \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$CFBASE/schedules" \
+            | jq -e '.success == true and .result.schedules == []' >/dev/null
+          READY=0
+          for ATTEMPT in $(seq 1 12); do
+            CODE=$(curl --silent --show-error --max-time 20 --output /tmp/staging-missions.json \
               --write-out '%{http_code}' -H "Authorization: Bearer $TOKEN" \
-              "https://$HOST/api/network/$RESOURCE")
-            test "$CODE" = 200 || { echo "::error::Authenticated $RESOURCE returned $CODE"; exit 1; }
-            node -e 'const d=require(process.argv[1]);if(d.ok===false||d.error)process.exit(1)' "/tmp/atlas-$RESOURCE.json"
+              "https://$HOST/api/network/missions?limit=1")
+            if [ "$CODE" = 200 ] && jq -e '.ok==true and .durable==true' /tmp/staging-missions.json >/dev/null; then
+              READY=1; break
+            fi
+            sleep 5
           done
-          echo 'ATLAS authenticated staging Durable Object read paths: PASS' >> "$GITHUB_STEP_SUMMARY"
+          test "$READY" = 1 || { echo "::error::Authenticated mission history unavailable"; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 20 -H "Authorization: Bearer $TOKEN" \
+            "https://$HOST/api/network/tasks" \
+            | jq -e '.ok==true and .durable==true' >/dev/null
+          NONCE=$(node -e 'process.stdout.write(require("crypto").randomUUID())')
+          CERT="https://$HOST/api/network/staging-certification?nonce=$NONCE"
+          curl --fail-with-body --silent --show-error --max-time 20 -X POST -H "Authorization: Bearer $TOKEN" "$CERT" \
+            | jq -e '.ok == true and .stored == true' >/dev/null
+          curl --fail-with-body --silent --show-error --max-time 20 -H "Authorization: Bearer $TOKEN" "$CERT" \
+            | jq -e '.ok == true and .persisted == true' >/dev/null
+          curl --fail-with-body --silent --show-error --max-time 20 -X DELETE -H "Authorization: Bearer $TOKEN" "$CERT" \
+            | jq -e '.ok == true and .cleared == true' >/dev/null
+          CODE=$(curl --silent --show-error --max-time 20 -o /tmp/staging-removed.json -w '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" "$CERT")
+          test "$CODE" = 404 || { echo "::error::Durable proof not removed"; exit 1; }
+          echo 'PASS: ATLAS authenticated DO history/tasks and staging-only write/read/delete persistence' >> "$GITHUB_STEP_SUMMARY"
+          echo 'PASS: isolated D1, disabled scheduling and zero cron triggers' >> "$GITHUB_STEP_SUMMARY"
