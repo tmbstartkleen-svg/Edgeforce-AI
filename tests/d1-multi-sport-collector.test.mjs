@@ -48,3 +48,11 @@ test('multi-sport collector refuses D1 writes unless independently opted in',()=
  assert.match(c,/D1_WRITE_DISABLED/);
  assert.ok(c.indexOf('D1_WRITE_DISABLED')<c.indexOf('fetch(source.endpoint'));
 });
+
+test('collector does not falsely certify invalid, empty, or all-rejected source batches',()=>{
+ assert.match(c,/INVALID_SCOREBOARD_PAYLOAD/);
+ assert.match(c,/NO_QUALIFYING_EVENTS/);
+ assert.match(c,/const persisted=report\.accepted\+report\.duplicates/);
+ assert.match(c,/report\.rejected===0&&persisted>0/);
+ assert.match(c,/persisted>0\?200:422/);
+});
