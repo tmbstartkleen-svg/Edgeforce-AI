@@ -44,3 +44,12 @@ test('pre-deploy staging gate rejects changed safety flags',()=>{
 test('production configuration explicitly disables autonomous ATLAS scheduling',()=>{
  assert.equal(prod.vars.ATLAS_SCHEDULE_EXECUTION_ENABLED,'false');
 });
+
+test('staging config refuses live sportsbook collection by default',()=>{
+ const result=run({EDGEFORCE_STAGING_D1_ID:stageId});assert.equal(result.status,0,result.stderr);
+ const c=JSON.parse(fs.readFileSync(out,'utf8'));
+ for(const key of ['THE_ODDS_API_ENABLED','INTELLIGENCE_D1_WRITE_ENABLED','D1_SPORTS_MARKET_ARCHIVE_ENABLED','ALLOW_DEMO_DATA'])assert.equal(c.vars[key],'false',key);
+ assert.equal(c.vars.DEPLOYMENT_ENV,'staging');
+ assert.equal(c.triggers,undefined);
+ fs.rmSync(out,{force:true});
+});
