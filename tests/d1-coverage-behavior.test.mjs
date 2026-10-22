@@ -44,3 +44,17 @@ test('multiple sportsbook observations from one upstream do not imply independen
  assert.equal(report.independentVerification.independentUpstreams,1);
  assert.equal(report.independentVerification.crossProviderVerified,false);
 });
+
+test('different upstream owners require exact quote identity before certification',async()=>{
+ const different={...rows[0],source_id:'another-feed',upstream_id:'other-upstream',payload:JSON.stringify({value:{bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',outcomeId:'under',startsAt:new Date(now+3600000).toISOString(),playerId:'player-123',line:'22.5',priceAmerican:-115}})};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],different]))).json();
+ assert.equal(report.independentVerification.independentUpstreams,2);
+ assert.equal(report.independentVerification.crossProviderVerified,false);
+ assert.equal(report.independentVerification.verifiedOutcomes,0);
+});
+test('matching quotes from independent upstreams can be corroborated',async()=>{
+ const different={...rows[0],source_id:'another-feed',upstream_id:'other-upstream'};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],different]))).json();
+ assert.equal(report.independentVerification.crossProviderVerified,true);
+ assert.equal(report.independentVerification.verifiedOutcomes,1);
+});
