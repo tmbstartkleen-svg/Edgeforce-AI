@@ -58,3 +58,16 @@ test('matching quotes from independent upstreams can be corroborated',async()=>{
  assert.equal(report.independentVerification.crossProviderVerified,true);
  assert.equal(report.independentVerification.verifiedOutcomes,1);
 });
+
+test('stale second upstream does not inflate fresh upstream count',async()=>{
+ const stale={...rows[0],source_id:'old-feed',upstream_id:'old-upstream',observed_at:new Date(now-3600000).toISOString()};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],stale]))).json();
+ assert.equal(report.independentVerification.independentUpstreams,1);
+ assert.equal(report.independentVerification.crossProviderVerified,false);
+});
+test('unpriced second upstream cannot inflate verified source count',async()=>{
+ const unpriced={...rows[0],source_id:'empty-feed',upstream_id:'empty-upstream',payload:JSON.stringify({value:{bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',outcomeId:'over',startsAt:new Date(now+3600000).toISOString(),playerId:'player-123',line:'22.5'}})};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],unpriced]))).json();
+ assert.equal(report.independentVerification.independentUpstreams,1);
+ assert.equal(report.independentVerification.crossProviderVerified,false);
+});
