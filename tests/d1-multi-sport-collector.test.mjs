@@ -80,6 +80,8 @@ test('read-only upstream probe fails closed when no usable events are returned',
 test('NFL scoreboard upstream request is bounded without relaxing the 250KB source gate',()=>{
  const source=scoreboardSource('nfl');
  assert.equal(new URL(source.endpoint).searchParams.get('limit'),'10');
+ assert.match(new URL(source.endpoint).searchParams.get('dates')||'',/^\d{8}$/);
+ assert.equal(new URL(source.endpoint).searchParams.get('dates'),new Date().toISOString().slice(0,10).replace(/-/g,''));
  const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
  assert.match(probe,/250000/);
  assert.match(c,/250000/);
