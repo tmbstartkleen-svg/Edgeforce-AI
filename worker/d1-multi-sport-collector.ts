@@ -1,7 +1,7 @@
 import {assessIngestEvidence} from './d1-ingest-quality-gate';
 import {appendD1Observations,type D1Database,type D1Observation} from './d1-observations';
 import {scoreboardSource} from '../src/lib/intelligence-core/score-source-catalog.mjs';
-type Env={CRON_SECRET?:string;INTELLIGENCE_DB?:D1Database;SPORTS_SCORE_COLLECT_ENABLED?:string};
+type Env={CRON_SECRET?:string;INTELLIGENCE_DB?:D1Database;SPORTS_SCORE_COLLECT_ENABLED?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string};
 const headers={'Cache-Control':'no-store'};
 export async function collectMultiSportScores(request:Request,env:Env):Promise<Response>{
  if(request.method!=='POST')return new Response(null,{status:405,headers:{Allow:'POST'}});
@@ -9,6 +9,8 @@ export async function collectMultiSportScores(request:Request,env:Env):Promise<R
   return Response.json({ok:false,reason:'UNAUTHORIZED'},{status:401,headers});
  if(env.SPORTS_SCORE_COLLECT_ENABLED!=='true')
   return Response.json({ok:false,reason:'COLLECTION_DISABLED'},{status:503,headers});
+ if(env.INTELLIGENCE_D1_WRITE_ENABLED!=='true')
+  return Response.json({ok:false,reason:'D1_WRITE_DISABLED'},{status:503,headers});
  if(!env.INTELLIGENCE_DB?.prepare)return Response.json({ok:false,reason:'D1_BINDING_MISSING'},{status:503,headers});
  const url=new URL(request.url);
  let source:ReturnType<typeof scoreboardSource>;
