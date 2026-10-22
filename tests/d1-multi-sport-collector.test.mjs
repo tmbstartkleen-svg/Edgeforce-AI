@@ -21,3 +21,12 @@ test('soccer network catalog includes major licensed-reference league identifier
   assert.match(source.endpoint,/^https:\/\/site\.api\.espn\.com\/apis\/site\/v2\/sports\/soccer\//);
  }
 });
+
+test('Cloudflare Worker exposes scoreboard collector only behind collector-owned authorization and feature gate',()=>{
+ const worker=readFileSync('worker/index.ts','utf8');
+ assert.match(worker,/pathname==='\/api\/operations\/d1-pilot\/collect-scores'/);
+ assert.match(worker,/collectMultiSportScores\(request,env\)/);
+ assert.match(c,/UNAUTHORIZED/);
+ assert.match(c,/SPORTS_SCORE_COLLECT_ENABLED/);
+ assert.match(c,/SOURCE_NOT_APPROVED/);
+});
