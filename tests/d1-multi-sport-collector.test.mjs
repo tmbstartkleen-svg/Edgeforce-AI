@@ -30,3 +30,15 @@ test('Cloudflare Worker exposes scoreboard collector only behind collector-owned
  assert.match(c,/SPORTS_SCORE_COLLECT_ENABLED/);
  assert.match(c,/SOURCE_NOT_APPROVED/);
 });
+
+test('isolated pilot exposes protected read-only registry diagnostic without collection',()=>{
+ const standalone=readFileSync('worker/d1-standalone.ts','utf8');
+ const readiness=readFileSync('worker/d1-score-collector-readiness.ts','utf8');
+ assert.match(standalone,/pathname==='\/api\/operations\/d1-pilot\/score-collector-readiness'/);
+ assert.match(readiness,/method!=='GET'/);
+ assert.match(readiness,/UNAUTHORIZED/);
+ assert.match(readiness,/READ_ONLY_SOURCE_REGISTRATION_AUDIT/);
+ assert.match(readiness,/scoreSports\.map/);
+ assert.match(readiness,/UPSTREAM_MISMATCH/);
+ assert.doesNotMatch(readiness,/INSERT|UPDATE|DELETE|fetch\(/);
+});
