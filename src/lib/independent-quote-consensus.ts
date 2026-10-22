@@ -32,7 +32,7 @@ export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, m
   // Compare only same-event, same-bookmaker, same-outcome and line observations.
   // An aggregator with two branded providers remains one upstream.
   for(let i=0;i<sorted.length;i++){
-   const window=sorted.filter(q=>Math.abs(Date.parse(q.observedAt)-Date.parse(sorted[i].observedAt))<=matchWindowMs);
+   const window=sorted.filter(q=>Date.parse(q.observedAt)>=Date.parse(sorted[i].observedAt)&&Date.parse(q.observedAt)-Date.parse(sorted[i].observedAt)<=matchWindowMs);
    const unique=new Map<string,ConsensusQuote>();
    for(const q of window)unique.set(norm(q.upstreamId),q);
    if(unique.size>=2&&unique.size>new Set(selected.map(q=>norm(q.upstreamId))).size)selected=[...unique.values()];
