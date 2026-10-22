@@ -53,3 +53,16 @@ test('staging config refuses live sportsbook collection by default',()=>{
  assert.equal(c.triggers,undefined);
  fs.rmSync(out,{force:true});
 });
+
+test('pre-deploy gate rejects enabling sports market archive writes',()=>{
+ const generated=run({EDGEFORCE_STAGING_D1_ID:stageId});
+ assert.equal(generated.status,0,generated.stderr);
+ const c=JSON.parse(fs.readFileSync(out,'utf8'));
+ c.vars.D1_SPORTS_MARKET_ARCHIVE_ENABLED='true';
+ fs.writeFileSync(out,JSON.stringify(c));
+ const verifier=path.join(root,'scripts/verify-isolated-staging.mjs');
+ const blocked=spawnSync(process.execPath,[verifier],{cwd:root,encoding:'utf8'});
+ assert.notEqual(blocked.status,0);
+ assert.match(blocked.stderr,/UNSAFE_STAGING_CONFIG:MUTATION_FLAGS/);
+ fs.rmSync(out,{force:true});
+});
