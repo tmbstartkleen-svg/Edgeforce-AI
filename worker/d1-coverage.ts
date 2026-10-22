@@ -63,7 +63,31 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const freshUpstreamCount=new Set(eligibleQuotes.map(q=>q.upstreamId.trim().toLowerCase())).size;
   const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,
    note:'Only matching same-bookmaker event/outcome/line quotes from distinct upstream owners within 30 seconds qualify; does not prove executable price or EV.'};
-  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,
+  // Score/schedule ingestion is a separate first-party evidence plane, never bookmaker pricing.
+  const scores=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload
+    FROM intelligence_observations WHERE observation_kind='score'
+    ORDER BY observed_at DESC LIMIT ?`).bind(Math.min(limit,250)).all<Row>();
+  const scoreLeagues=new Map<string,{sport:string;events:Set<string>;schedule:number;score:number;latestObservedAt:string}>();
+  let malformedScores=0;
+  for(const item of scores.results){
+   let payload:Record<string,unknown>;
+   try{payload=JSON.parse(item.payload);}catch{malformedScores++;continue;}
+   if(!payload||typeof payload!=='object'||Array.isArray(payload)){malformedScores++;continue;}
+   const v=(payload.value&&typeof payload.value==='object'&&!Array.isArray(payload.value)?payload.value:payload) as Record<string,unknown>;
+   const sport=str(v.sport);
+   if(!sport){malformedScores++;continue;}
+   const recordType=v.recordType==='SCHEDULE'?'SCHEDULE':v.recordType==='SCORE'?'SCORE':'UNKNOWN';
+   if(recordType==='UNKNOWN'){malformedScores++;continue;}
+   let group=scoreLeagues.get(sport);
+   if(!group){group={sport,events:new Set(),schedule:0,score:0,latestObservedAt:item.observed_at};scoreLeagues.set(sport,group);}
+   group.events.add(item.event_id);
+   if(recordType==='SCHEDULE')group.schedule++;else group.score++;
+   if(Date.parse(item.observed_at)>Date.parse(group.latestObservedAt))group.latestObservedAt=item.observed_at;
+  }
+  const sportsObservations={classification:'SCORES_NOT_ODDS',rowsInspected:scores.results.length,
+   malformedRows:malformedScores,sourceOwners:[...new Set(scores.results.map(r=>r.upstream_id))].sort(),
+   sports:[...scoreLeagues.values()].map(g=>({sport:g.sport,events:g.events.size,scheduleObservations:g.schedule,scoreObservations:g.score,latestObservedAt:g.latestObservedAt})).sort((a,b)=>a.sport.localeCompare(b.sport))};
+  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsObservations,
    discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
