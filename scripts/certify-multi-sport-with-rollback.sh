@@ -39,7 +39,7 @@ for(const sport of sports){
 }
 console.log('PREFLIGHT VERIFIED: pilot disabled; selected sources registered.');
 NODE
-config=".edgeforce-isolated-cert-$.jsonc"
+config=".edgeforce-isolated-cert-$$.jsonc"
 restore_needed=0
 cleanup() {
   code=$?
