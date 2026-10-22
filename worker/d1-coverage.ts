@@ -57,9 +57,9 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const leagues=[...groups.values()].map(g=>({sport:g.sport,league:g.league,events:g.events.size,marketTypes:g.marketTypes.size,players:g.players.size,quotes:g.quotes,latestObservedAt:g.latestObservedAt}))
    .sort((a,b)=>a.sport.localeCompare(b.sport)||a.league.localeCompare(b.league));
   const providers=[...new Set(report.observations.map(o=>o.provider))].sort();
-  const consensus=independentQuoteConsensus(consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'),new Date(now).toISOString(),15*60*1000,30000);
   const freshKeys=new Set(report.observations.map(o=>[o.provider,o.bookmaker,o.eventId,o.marketType,o.playerId||'',o.outcomeId,o.line||'',o.observedAt].join('|')));
   const eligibleQuotes=consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'&&freshKeys.has([q.providerId,q.bookmaker,q.eventId,q.marketType,q.playerId||'',q.outcomeId,q.line||'',q.observedAt].join('|')));
+  const consensus=independentQuoteConsensus(eligibleQuotes,new Date(now).toISOString(),15*60*1000,30000);
   const freshUpstreamCount=new Set(eligibleQuotes.map(q=>q.upstreamId.trim().toLowerCase())).size;
   const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,
    note:'Only matching same-bookmaker event/outcome/line quotes from distinct upstream owners within 30 seconds qualify; does not prove executable price or EV.'};
