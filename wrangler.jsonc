@@ -23,6 +23,7 @@
     "DEPLOYMENT_PLATFORM": "cloudflare",
     "DEPLOYMENT_ENV": "production",
     "ATLAS_SCHEDULE_EXECUTION_ENABLED": "false",
+    "D1_SPORTS_MARKET_ARCHIVE_ENABLED": "false",
     "DEFAULT_BANKROLL": "1000",
     "TARGET_BOOKMAKER": "DraftKings",
     "THE_ODDS_API_BOOKMAKERS": "draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us",
