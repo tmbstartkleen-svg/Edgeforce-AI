@@ -36,13 +36,13 @@ if(!readiness.body.flags?.collectionEnabled||!readiness.body.flags?.d1WriteEnabl
 const probe=await call('/api/operations/d1-pilot/probe-score-source?sport='+encodeURIComponent(sport));
 if(probe.status!==200||probe.body.ok!==true||probe.body.classification!=='SCORES_NOT_ODDS'||probe.body.persisted!==false||probe.body.qualifyingSchedules+probe.body.qualifyingScores<1)
  throw Error('UPSTREAM_PROBE_FAILED_'+probe.status);
+const startedAt=new Date(Date.now()-3000).toISOString();
 const ingest=await call('/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport),'POST');
 if(ingest.status!==200||ingest.body.ok!==true||ingest.body.classification!=='SCORES_NOT_ODDS'||ingest.body.accepted+ingest.body.duplicates<1)
  throw Error('PERSISTENCE_NOT_VERIFIED_'+ingest.status);
-const recent=await call('/api/operations/d1-pilot/recent');
-if(recent.status!==200||recent.body.ok!==true||!Array.isArray(recent.body.observations))throw Error('READBACK_FAILED');
-const persisted=recent.body.observations.some(o=>o.source_id===item.sourceId&&o.observation_kind==='score');
-if(!persisted)throw Error('NO_SOURCE_MATCHING_D1_READBACK: bounded recent window may be saturated; inspect D1 directly');
+const receipt=await call('/api/operations/d1-pilot/score-ingest-receipt?sport='+encodeURIComponent(sport)+'&since='+encodeURIComponent(startedAt));
+if(receipt.status!==200||receipt.body.ok!==true||receipt.body.classification!=='SCORES_NOT_ODDS'||receipt.body.sourceId!==item.sourceId||receipt.body.persisted!==true||receipt.body.count<1)
+ throw Error('NO_SOURCE_MATCHING_D1_READBACK');
 console.log(safe({ok:true,certification:'ISOLATED_SCORE_COLLECTION_ONLY',sport,sourceId:item.sourceId,
  attempted:ingest.body.attempted,accepted:ingest.body.accepted,duplicates:ingest.body.duplicates,
  matchedPersistedObservation:true,oddsCertified:false,productionChanged:false,
