@@ -26,6 +26,8 @@ export function reconcileCoverage(input:{
    rejected.push({reason:'INVALID_OBSERVATION',observation:o});continue;
   }
   if(clean(o.bookmaker)!==clean(targetBookmaker)){rejected.push({reason:'OTHER_BOOKMAKER',observation:o});continue;}
+  if(o.priceAmerican===undefined){rejected.push({reason:'PRICE_NOT_SUPPLIED',observation:o});continue;}
+  if(Date.parse(o.startsAt)<=now){rejected.push({reason:'EVENT_STARTED_OR_FINISHED',observation:o});continue;}
   const age=now-Date.parse(o.observedAt);
   if(age<0||age>maxAgeMs){rejected.push({reason:'STALE_OR_FUTURE',observation:o});continue;}
   if(o.priceAmerican!==undefined&&(!Number.isInteger(o.priceAmerican)||o.priceAmerican===0||Math.abs(o.priceAmerican)<100)){
