@@ -16,6 +16,7 @@ import {sportsCoverageEvidence} from './d1-sports-coverage';
 import {collectNflScores} from './d1-nfl-score-collector';
 import {collectMultiSportScores} from './d1-multi-sport-collector';
 import {probeScoreSource} from './d1-score-source-probe';
+import {scoreIngestReceipt} from './d1-score-ingest-receipt';
 import {scoreCollectorReadiness} from './d1-score-collector-readiness';
 import {d1ScoreCoverage} from './d1-score-coverage';
 type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;STORAGE_STEWARD_SCHEDULE_ENABLED?:string;SOURCE_FRESHNESS_SCHEDULE_ENABLED?:string;INTELLIGENCE_DB?:any};
@@ -39,6 +40,7 @@ export default {
   if(pathname==='/api/operations/d1-pilot/market-snapshots')return d1PilotMarketRead(request,env);
   if(pathname==='/api/operations/d1-pilot/score-coverage')return d1ScoreCoverage(request,env);
   if(pathname==='/api/operations/d1-pilot/score-collector-readiness')return scoreCollectorReadiness(request,env);
+  if(pathname==='/api/operations/d1-pilot/score-ingest-receipt')return scoreIngestReceipt(request,env);
   if(pathname==='/api/operations/d1-pilot/probe-score-source')return probeScoreSource(request,env);
   if(pathname==='/api/operations/d1-pilot/collect-scores')return collectMultiSportScores(request,env);
   if(pathname==='/api/operations/d1-pilot/collect-nfl-scores')return collectNflScores(request,env);
