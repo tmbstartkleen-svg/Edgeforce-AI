@@ -42,3 +42,9 @@ test('isolated pilot exposes protected read-only registry diagnostic without col
  assert.match(readiness,/UPSTREAM_MISMATCH/);
  assert.doesNotMatch(readiness,/INSERT|UPDATE|DELETE|fetch\(/);
 });
+
+test('multi-sport collector refuses D1 writes unless independently opted in',()=>{
+ assert.match(c,/INTELLIGENCE_D1_WRITE_ENABLED!=='true'/);
+ assert.match(c,/D1_WRITE_DISABLED/);
+ assert.ok(c.indexOf('D1_WRITE_DISABLED')<c.indexOf('fetch(source.endpoint'));
+});
