@@ -32,3 +32,14 @@ test('missing or future bookmaker timestamps are never assigned age zero',()=>{
  assert.ok(future.every(r=>r.sourceAgeMin>15));
  assert.ok(future.every(r=>!r.sourceTimestamp));
 });
+
+test('deprecated bookmaker-level last_update cannot make a quote appear fresh',()=>{
+ const payload=event(undefined).map(e=>({...e,bookmakers:e.bookmakers.map(b=>({...b,
+  last_update:new Date(Date.now()-30000).toISOString(),
+  markets:b.markets.map(m=>({...m,last_update:undefined}))
+ }))}));
+ const rows=normalizeOddsPayload(payload).markets;
+ assert.equal(rows.length,2);
+ assert.ok(rows.every(r=>r.sourceAgeMin>15));
+ assert.ok(rows.every(r=>!r.sourceTimestamp));
+});
