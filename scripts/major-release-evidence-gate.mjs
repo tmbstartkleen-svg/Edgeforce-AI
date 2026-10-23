@@ -35,7 +35,11 @@ if(process.argv.length!==3||!process.argv[2]||process.argv[2].startsWith('-')){
   const workQueue=uri((await transpile('draftkings-coverage-work-queue.ts'))
    .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
    .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity))
-   .replace("from './draftkings-coverage-work-queue'","from "+JSON.stringify(workQueue)));
+   .replace("from './draftkings-coverage-work-queue'","from "+JSON.stringify(workQueue))
+   .replace("from './odds-export-player-identity-audit'","from "+JSON.stringify(props)));
+  const playerId=uri(await transpile('draftkings-player-identity-reconciliation.ts'));
+  const props=uri((await transpile('odds-export-player-identity-audit.ts'))
+   .replace("from './draftkings-player-identity-reconciliation'","from "+JSON.stringify(playerId)));
   const gate=uri((await transpile('major-release-evidence-gate.ts'))
    .replace("from './stage2-evidence-dossier'","from "+JSON.stringify(stage2))
    .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
