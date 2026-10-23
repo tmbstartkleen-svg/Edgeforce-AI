@@ -20,6 +20,8 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
   throw Error('INVALID_ODDS_PREPARATION_LIMIT');
  if(!Array.isArray(events)||events.length>500)throw Error('INVALID_ODDS_EVENT_BATCH');
  const rows:PreparedOddsObservation[]=[];
+ const unmappedMarkets=new Map<string,number>();
+ const observedBookmakers=new Set<string>();
  const rejected:Record<string,number>={};
  const reject=(reason:string)=>{rejected[reason]=(rejected[reason]||0)+1;};
  let examined=0;
@@ -29,12 +31,20 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
   const startsAt=e.commence_time as string;
   const league=nonempty(e.sport_title)?e.sport_title as string:e.sport_key as string;
   const books=Array.isArray(e.bookmakers)?e.bookmakers:[];
+  if(books.length>100){reject('BOOKMAKER_BATCH_LIMIT');continue;}
   for(const book of books){
    if(!object(book)||!nonempty(book.key)||!validTime(book.last_update)){reject('MISSING_BOOK_TIMESTAMP');continue;}
    const bookmakerObservedAt=Date.parse(book.last_update as string);
+   observedBookmakers.add((book.key as string).trim().toLowerCase());
    const markets=Array.isArray(book.markets)?book.markets:[];
+   if(markets.length>100){reject('MARKET_BATCH_LIMIT');continue;}
    for(const market of markets){
     if(!object(market)||!nonempty(market.key)||!allowed.has(market.key as string)){
+     if(object(market)&&nonempty(market.key)){
+      const key=market.key as string;
+      if(unmappedMarkets.has(key)||unmappedMarkets.size<100)
+       unmappedMarkets.set(key,(unmappedMarkets.get(key)||0)+1);
+     }
      reject('MARKET_NOT_MAPPED');continue;
     }
     // The Odds API may update markets at different times within one bookmaker.
@@ -48,6 +58,7 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
      reject('ODDS_QUOTE_TIMESTAMP_NOT_FRESH');continue;
     }
     const outcomes=Array.isArray(market.outcomes)?market.outcomes:[];
+    if(outcomes.length>100){reject('OUTCOME_BATCH_LIMIT');continue;}
     for(const outcome of outcomes){
      examined++;
      if(!object(outcome)||!nonempty(outcome.name)||!Number.isInteger(outcome.price)||
@@ -71,5 +82,7 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
  }
  return {mode:'DRY_RUN_ONLY' as const,readyForAuthorizedIngest:false,rows,examined,
   prepared:rows.length,rejected,playerPropsMapped:0,
+  observedBookmakers:[...observedBookmakers].sort(),
+  unmappedMarketTypes:[...unmappedMarkets].map(([marketType,count])=>({marketType,count})).sort((a,b)=>b.count-a.count||a.marketType.localeCompare(b.marketType)),
   warning:'This provider feed maps core h2h/spreads/totals only. No player props, no source entitlement, no verified live data, no D1 writes.'};
 }
