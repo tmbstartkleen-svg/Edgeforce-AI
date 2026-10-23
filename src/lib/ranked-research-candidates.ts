@@ -9,7 +9,8 @@ export type RankedResearchCandidate={
 };
 export type RankedResearchResult={
  id:string;sport:string;league:string;eventId:string;marketType:string;outcomeId:string;
- bookmaker:string;breakEvenProbability:number|null;modelProbability:number|null;
+ bookmaker:string;quoteObservedAt:string;startsAt:string;upstreamOwner:string;modelId:string;modelEvidenceRef:string;playerId?:string;line?:string;
+ breakEvenProbability:number|null;modelProbability:number|null;
  edgeProbabilityPoints:number|null;grossExpectedRoi:number|null;
  status:'RESEARCH_ONLY';reasons:string[];
 };
@@ -40,7 +41,9 @@ export function rankResearchCandidates(candidates:RankedResearchCandidate[],nowI
   // caller-supplied labels alone. A separate certification service must verify them.
   reasons.push('MODEL_AND_EXECUTION_UNCERTIFIED');
   results.push({id:c.id,sport:c.sport,league:c.league,eventId:c.eventId,marketType:c.marketType,
-   outcomeId:c.outcomeId,bookmaker:c.bookmaker,breakEvenProbability:r.breakEvenProbability,
+   outcomeId:c.outcomeId,bookmaker:c.bookmaker,quoteObservedAt:c.quoteObservedAt,startsAt:c.startsAt,
+   upstreamOwner:c.upstreamOwner,modelId:c.modelId,modelEvidenceRef:c.modelEvidenceRef,
+   ...(c.playerId?{playerId:c.playerId}:{}),...(c.line?{line:c.line}:{}),breakEvenProbability:r.breakEvenProbability,
    modelProbability:r.modelProbability,edgeProbabilityPoints:r.edgeProbabilityPoints,
    grossExpectedRoi:r.grossExpectedRoi,status:'RESEARCH_ONLY',reasons});
  }
