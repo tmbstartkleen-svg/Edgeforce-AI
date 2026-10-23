@@ -103,8 +103,8 @@ function nearestStartMinutes(rows:unknown[]){
  return Math.max(0,(Math.min(...times)-now)/60000);
 }
 
-export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOddsApiResult>{
- if(cache&&Date.now()-cache.at<cache.ttlMs)return cache.value;
+export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceRefresh?:boolean}={}):Promise<TheOddsApiResult>{
+ if(!options.forceRefresh&&cache&&Date.now()-cache.at<cache.ttlMs)return cache.value;
 
  const key=config.apiKey||process.env.THE_ODDS_API_KEY;
  if(!key)return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{},error:'THE_ODDS_API_KEY is not configured'};
