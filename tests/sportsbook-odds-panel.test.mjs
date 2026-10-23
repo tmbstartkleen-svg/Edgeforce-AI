@@ -30,7 +30,7 @@ test('paid provider refresh is operator-only and does not auto-fire on page load
  assert.match(panel,/const refreshProvider=async/);
  assert.match(panel,/onClick=\{refreshProvider\}/);
  assert.match(panel,/fetch\('\/api\/markets\?forceLive=1'/);
- assert.match(marketRoute,/ingestOdds\(\{forceLive\}\)/);
+ assert.match(marketRoute,/ingestOdds\(\{forceLive,persist:!forceLive\}\)/);
  assert.match(marketRoute,/searchParams\.get\('forceLive'\)==='1'/);
  assert.match(marketRoute,/checkNetworkAuth\(request\.headers\.get\('authorization'\),hash\)/);
  assert.match(marketRoute,/OWNER_AUTH_REQUIRED_FOR_METERED_REFRESH/);
@@ -75,4 +75,12 @@ test('operator refresh returns bookmaker-specific upstream quote panel, never re
  assert.match(panel,/body\.sportsbookQuotes\|\|\[\]/);
  assert.doesNotMatch(panel,/const quotes=\(body\.markets\|\|\[\]\)/);
  assert.match(panel,/reference price cannot be shown as a DraftKings quote/);
+});
+
+test('explicit provider refresh does not write odds snapshots or mirror research data',()=>{
+ const ingestion=read('src/lib/providers/ingest.ts');
+ assert.match(ingestion,/persist\?:boolean/);
+ assert.match(ingestion,/if\(options\.persist!==false\)await Promise\.all/);
+ assert.match(ingestion,/if\(options\.persist!==false&&process\.env\.INTELLIGENCE_WAREHOUSE_MIRROR_ENABLED/);
+ assert.match(marketRoute,/persist:!forceLive/);
 });
