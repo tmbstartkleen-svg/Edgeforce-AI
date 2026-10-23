@@ -123,3 +123,10 @@ test('manual inspect-only refresh suppresses provider health database writes too
  assert.match(odds,/recordProviderResult\(config/);
  assert.match(odds,/recordHealth\?:boolean/);
 });
+
+test('forced scan does not reuse an already in-flight cached scan',()=>{
+ const odds=read('src/lib/providers/odds.ts');
+ assert.match(odds,/if\(oddsPanelInFlight\)\{/);
+ assert.match(odds,/if\(!options\.forceRefresh\)return oddsPanelInFlight/);
+ assert.match(odds,/await oddsPanelInFlight\.catch\(\(\)=>undefined\)/);
+});
