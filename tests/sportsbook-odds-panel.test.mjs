@@ -6,6 +6,7 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const route=read('src/app/api/sportsbook-odds/route.ts');
 const panel=read('src/components/SportsbookOddsPanel.tsx');
 const providerRoute=read('src/app/api/sportsbook-odds/providers/route.ts');
+const marketRoute=read('src/app/api/markets/route.ts');
 const dashboard=read('src/components/LeagueCoverageDashboard.tsx');
 test('sportsbook odds displayed in league coverage with explicit bookmaker provenance',()=>{
  assert.match(dashboard,/import SportsbookOddsPanel/);
@@ -54,4 +55,17 @@ test('no-cost provider configuration diagnostics explain missing sportsbook pric
  assert.match(panel,/Configured odds adapters/);
  assert.match(panel,/Provider attempted/);
  assert.match(panel,/No accepted prices/);
+});
+
+test('operator refresh returns bookmaker-specific upstream quote panel, never relabels consensus market',()=>{
+ assert.match(marketRoute,/result\.panelMarkets/);
+ assert.match(marketRoute,/sportsbookQuotes:quotes/);
+ assert.match(marketRoute,/quoteScope:'PROVIDER_LABELED_RAW_QUOTES_NOT_CONSENSUS'/);
+ assert.match(marketRoute,/sourceBook:m\.sourceBook/);
+ assert.match(marketRoute,/sourceProviderId:m\.sourceProviderId/);
+ assert.match(marketRoute,/result\.source==='demo'\?\[\]:/);
+ assert.match(marketRoute,/draftKingsQuoteCount:quotes\.filter/);
+ assert.match(panel,/body\.sportsbookQuotes\|\|\[\]/);
+ assert.doesNotMatch(panel,/const quotes=\(body\.markets\|\|\[\]\)/);
+ assert.match(panel,/reference price cannot be shown as a DraftKings quote/);
 });
