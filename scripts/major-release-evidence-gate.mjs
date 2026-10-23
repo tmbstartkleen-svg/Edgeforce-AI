@@ -32,6 +32,10 @@ if(process.argv.length!==3||!process.argv[2]||process.argv[2].startsWith('-')){
    .replace("from './draftkings-market-gap-audit'","from "+JSON.stringify(coverage)));
   const continuity=uri((await transpile('draftkings-coverage-continuity.ts'))
    .replace("from './draftkings-market-gap-audit'","from "+JSON.stringify(coverage)));
+  const workQueue=uri((await transpile('draftkings-coverage-work-queue.ts'))
+   .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
+   .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity))
+   .replace("from './draftkings-coverage-work-queue'","from "+JSON.stringify(workQueue)));
   const gate=uri((await transpile('major-release-evidence-gate.ts'))
    .replace("from './stage2-evidence-dossier'","from "+JSON.stringify(stage2))
    .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
