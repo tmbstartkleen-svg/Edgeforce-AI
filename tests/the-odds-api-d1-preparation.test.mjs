@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const code=ts.transpileModule(fs.readFileSync(new URL('../src/lib/the-odds-api-d1-preparation.ts',import.meta.url),'utf8'),{reportDiagnostics:true,compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {prepareTheOddsApiD1Batch}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const now=Date.parse('2026-10-23T12:00:00Z');
+const event={id:'game-a',sport_key:'basketball_nba',sport_title:'NBA',commence_time:'2026-10-23T19:00:00Z',
+ bookmakers:[{key:'draftkings',title:'DraftKings',last_update:'2026-10-23T11:59:30Z',
+ markets:[{key:'h2h',outcomes:[{name:'Celtics',price:-120},{name:'Knicks',price:110}]},
+ {key:'spreads',outcomes:[{name:'Celtics',price:-110,point:-2.5},{name:'Knicks',price:-110,point:2.5}]},
+ {key:'player_points',outcomes:[{name:'Over',description:'Player',price:-110,point:20.5}]}]}]};
+test('maps only core priced lines and keeps bookmaker timestamps, never writing',()=>{
+ const r=prepareTheOddsApiD1Batch([event],now);
+ assert.equal(r.mode,'DRY_RUN_ONLY');
+ assert.equal(r.readyForAuthorizedIngest,false);
+ assert.equal(r.prepared,4);
+ assert.equal(r.playerPropsMapped,0);
+ assert.equal(r.rows[0].provider,'the-odds-api');
+ assert.equal(r.rows[0].upstreamId,'api.the-odds-api.com');
+ assert.equal(r.rows[0].observedAt,Date.parse('2026-10-23T11:59:30Z'));
+ assert.equal(r.rows[2].value.line,'-2.5');
+ assert.equal(r.rejected.MARKET_NOT_MAPPED,1);
+});
+test('missing timestamps and stale/future prices cannot become fresh quotes',()=>{
+ const missing={...event,bookmakers:[{...event.bookmakers[0],last_update:undefined}]};
+ const stale={...event,bookmakers:[{...event.bookmakers[0],last_update:'2026-10-23T11:40:00Z'}]};
+ const future={...event,bookmakers:[{...event.bookmakers[0],last_update:'2026-10-23T12:00:01Z'}]};
+ for(const e of [missing,stale,future])assert.equal(prepareTheOddsApiD1Batch([e],now).prepared,0);
+});
+test('batch limit, malformed outcomes and started events fail closed',()=>{
+ const r=prepareTheOddsApiD1Batch([event],now,2);
+ assert.equal(r.prepared,2);
+ assert.equal(r.rejected.BATCH_CAP_REACHED,2);
+ const bad={...event,bookmakers:[{...event.bookmakers[0],markets:[{key:'h2h',outcomes:[{name:'Celtics',price:0}]}]}]};
+ assert.equal(prepareTheOddsApiD1Batch([bad],now).prepared,0);
+ assert.equal(prepareTheOddsApiD1Batch([{...event,commence_time:'2026-10-22T12:00:00Z'}],now).prepared,0);
+ assert.throws(()=>prepareTheOddsApiD1Batch([],now,26),/INVALID_ODDS_PREPARATION_LIMIT/);
+});
