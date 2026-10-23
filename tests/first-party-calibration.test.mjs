@@ -13,6 +13,8 @@ test('binary Brier and log-loss are computed only from settled outcomes',()=>{
  assert.ok(Math.abs(out.models[0].brier-.04)<1e-12);
  assert.ok(Math.abs(out.models[0].logLoss-(-Math.log(.8)))<1e-12);
  assert.equal(out.models[0].status,'REVIEW_REQUIRED');
+ assert.ok(Math.abs(out.models[0].expectedCalibrationError-.2)<1e-12);
+ assert.ok(Math.abs(out.models[0].inSampleBaseRateBrier-.25)<1e-12);
  assert.equal(out.models[0].bins.reduce((n,b)=>n+b.count,0),2);
 });
 test('models remain separate and small samples cannot be treated as adequate',()=>{
@@ -32,4 +34,13 @@ test('no synthetic certification from a large volume of caller supplied results'
  const out=evaluateCalibration(data,now);
  assert.equal(out.models[0].status,'REVIEW_REQUIRED');
  assert.equal(out.certified,false);
+});
+
+test('invalid first copy of an ID cannot suppress a later valid forecast',()=>{
+ const invalid={...forecast(55,.7,1),settledAt:'2026-10-25T12:00:00.000Z'};
+ const valid=forecast(55,.7,1);
+ const out=evaluateCalibration([invalid,valid],now,1);
+ assert.equal(out.accepted,1);
+ assert.equal(out.rejectionReasons.INVALID_TIMELINE,1);
+ assert.equal(out.rejectionReasons.DUPLICATE_FORECAST_ID,undefined);
 });
