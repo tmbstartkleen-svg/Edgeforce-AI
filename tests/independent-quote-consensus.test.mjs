@@ -37,3 +37,15 @@ test('modest implied-probability differences count only as aligned research pric
  assert.equal(r.priceAlignedOutcomes,1);
  assert.equal(r.verified[0].priceAligned,true);
 });
+
+test('multiple matching timestamp windows favor a tighter price-spread cohort at equal independence',()=>{
+ const wideA={...a,priceAmerican:-180,observedAt:'2026-10-21T11:59:08Z'};
+ const wideB={...b,priceAmerican:+150,observedAt:'2026-10-21T11:59:09Z'};
+ const narrowA={...a,priceAmerican:-110,observedAt:'2026-10-21T11:59:48Z'};
+ const narrowB={...b,priceAmerican:-115,observedAt:'2026-10-21T11:59:49Z'};
+ const r=run([wideA,wideB,narrowA,narrowB]);
+ assert.equal(r.verifiedOutcomes,1);
+ assert.equal(r.priceAlignedOutcomes,1);
+ assert.equal(r.verified[0].priceAligned,true);
+ assert.ok(r.verified[0].impliedProbabilitySpread<.02);
+});
