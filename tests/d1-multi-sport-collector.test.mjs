@@ -85,5 +85,6 @@ test('NFL scoreboard upstream request is bounded without relaxing the 250KB sour
  const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
  assert.match(probe,/250000/);
  assert.match(c,/250000/);
- assert.equal(scoreboardSource('nhl').endpoint.includes('limit='),false);
+ assert.equal(new URL(scoreboardSource('nhl').endpoint).searchParams.get('limit'),'10');
+ assert.match(new URL(scoreboardSource('nhl').endpoint).searchParams.get('dates')||'',/^\d{8}$/);
 });
