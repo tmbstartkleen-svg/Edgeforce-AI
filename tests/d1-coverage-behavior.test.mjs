@@ -133,8 +133,10 @@ test('source readiness reports no authorized odds feeds without inventing availa
  assert.equal(report.ok,true);
  assert.equal(report.sportsbookRegistry.registeredSourceCount,0);
  assert.equal(report.sportsbookRegistry.independentUpstreamOwners,0);
- assert.equal(report.sportsbookRegistry.status,'NO_APPROVED_ODDS_SOURCES');
+ assert.equal(report.sportsbookRegistry.status,'NO_CANDIDATE_SOURCE_REGISTRATIONS');
  assert.equal(report.sportsbookRegistry.feedConnected,false);
+ assert.equal(report.sportsbookRegistry.authorizationVerified,false);
+ assert.equal(report.sportsbookRegistry.authorizedSportsbookSources,null);
 });
 test('registered sportsbook owners are not conflated with connected live feeds',async()=>{
  const registry=[{source_id:'odds-one',upstream_id:'same-upstream',enabled:1},
@@ -143,5 +145,15 @@ test('registered sportsbook owners are not conflated with connected live feeds',
  assert.equal(report.sportsbookRegistry.registeredSourceCount,2);
  assert.equal(report.sportsbookRegistry.independentUpstreamOwners,1);
  assert.equal(report.sportsbookRegistry.feedConnected,false);
- assert.equal(report.sportsbookRegistry.status,'REGISTERED_NOT_LIVE_CERTIFIED');
+ assert.equal(report.sportsbookRegistry.status,'REGISTRATIONS_NOT_ENTITLEMENT_CERTIFIED');
+});
+
+test('enabled non-scoreboard registrations are never inferred to be sportsbook entitlements',async()=>{
+ const registry=[{source_id:'injury-feed',upstream_id:'non-odds-upstream',enabled:1}];
+ const report=await (await d1CoverageGateway(req(),env([],registry))).json();
+ assert.equal(report.sportsbookRegistry.candidateRegistrationCount,1);
+ assert.equal(report.sportsbookRegistry.classification,'UNVERIFIED_NON_SCOREBOARD_REGISTRATIONS');
+ assert.equal(report.sportsbookRegistry.authorizationVerified,false);
+ assert.equal(report.sportsbookRegistry.authorizedSportsbookSources,null);
+ assert.equal(report.liveProviderConnected,false);
 });
