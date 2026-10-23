@@ -15,10 +15,10 @@ export function evaluateCalibration(rows:SettledForecast[],asOf:string,minSample
  for(const r of rows){
   if(!r||![r.forecastId,r.eventId,r.marketKey,r.modelId].every(v=>typeof v==='string'&&v.trim())){rejects('MISSING_IDENTITY');continue;}
   if(seen.has(r.forecastId)){rejects('DUPLICATE_FORECAST_ID');continue;}
-  seen.add(r.forecastId);
   const predicted=Date.parse(r.predictedAt),settled=Date.parse(r.settledAt);
   if(!Number.isFinite(predicted)||!Number.isFinite(settled)||predicted>=settled||settled>now){rejects('INVALID_TIMELINE');continue;}
   if(!Number.isFinite(r.probability)||r.probability<=0||r.probability>=1||(r.result!==0&&r.result!==1)){rejects('INVALID_OUTCOME');continue;}
+  seen.add(r.forecastId);
   accepted.push(r);
  }
  // Never pool different model versions into a single calibration certificate.
@@ -33,7 +33,10 @@ export function evaluateCalibration(rows:SettledForecast[],asOf:string,minSample
    return {rangeStart:i/10,rangeEnd:(i+1)/10,count:items.length,
     meanProbability:items.length?items.reduce((s,r)=>s+r.probability,0)/items.length:null,
     observedRate:items.length?items.reduce((s,r)=>s+r.result,0)/items.length:null};});
-  return {modelId,count:n,brier,logLoss,meanProbability,observedRate,bins,
+  const expectedCalibrationError=bins.reduce((sum,bin)=>sum+(bin.count/n)*Math.abs((bin.meanProbability??0)-(bin.observedRate??0)),0);
+  // In-sample base rate is descriptive only, not a deployable holdout baseline.
+  const inSampleBaseRateBrier=observedRate*(1-observedRate);
+  return {modelId,count:n,brier,logLoss,meanProbability,observedRate,bins,expectedCalibrationError,inSampleBaseRateBrier,
    status:n>=minSamples?'REVIEW_REQUIRED' as const:'INSUFFICIENT_SAMPLE' as const,
    warning:'Retrospective descriptive scoring only; provenance, held-out independence, market availability and predictive calibration remain uncertified.'};
  }).sort((a,b)=>b.count-a.count||a.modelId.localeCompare(b.modelId));
