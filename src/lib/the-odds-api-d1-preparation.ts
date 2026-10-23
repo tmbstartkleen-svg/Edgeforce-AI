@@ -31,12 +31,21 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
   const books=Array.isArray(e.bookmakers)?e.bookmakers:[];
   for(const book of books){
    if(!object(book)||!nonempty(book.key)||!validTime(book.last_update)){reject('MISSING_BOOK_TIMESTAMP');continue;}
-   const observedAt=Date.parse(book.last_update as string);
-   if(observedAt>now||now-observedAt>15*60*1000){reject('ODDS_QUOTE_TIMESTAMP_NOT_FRESH');continue;}
+   const bookmakerObservedAt=Date.parse(book.last_update as string);
    const markets=Array.isArray(book.markets)?book.markets:[];
    for(const market of markets){
     if(!object(market)||!nonempty(market.key)||!allowed.has(market.key as string)){
      reject('MARKET_NOT_MAPPED');continue;
+    }
+    // The Odds API may update markets at different times within one bookmaker.
+    // Require a valid market timestamp when supplied, never inherit a fresher
+    // bookmaker-level timestamp for an explicitly stale or malformed market.
+    if(market.last_update!==undefined&&!validTime(market.last_update)){
+     reject('INVALID_MARKET_TIMESTAMP');continue;
+    }
+    const observedAt=market.last_update===undefined?bookmakerObservedAt:Date.parse(market.last_update as string);
+    if(observedAt>now||now-observedAt>15*60*1000){
+     reject('ODDS_QUOTE_TIMESTAMP_NOT_FRESH');continue;
     }
     const outcomes=Array.isArray(market.outcomes)?market.outcomes:[];
     for(const outcome of outcomes){
