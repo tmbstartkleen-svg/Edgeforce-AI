@@ -14,6 +14,7 @@
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
     "odds:preflight": "node scripts/odds-preflight.mjs",
+    "odds:probe-live": "node scripts/odds-probe-live.mjs",
     "check-migrations": "node scripts/check-migrations.mjs",
     "remote-smoke": "node scripts/remote-smoke.mjs",
     "release-audit": "node scripts/release-audit.mjs",
