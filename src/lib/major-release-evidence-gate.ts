@@ -9,10 +9,12 @@ import {auditFullDraftKingsOddsExport} from './full-draftkings-export-audit';
 import type {RequiredMarket} from './draftkings-market-gap-audit';
 import {auditDraftKingsCoverageContinuity,type CoverageSnapshot} from './draftkings-coverage-continuity';
 import {buildDraftKingsCoverageWorkQueue} from './draftkings-coverage-work-queue';
+import {auditOddsExportPlayerIdentities} from './odds-export-player-identity-audit';
+import type {AthleteDirectoryEntry} from './draftkings-player-identity-reconciliation';
 
 export type MajorReleaseEvidence={
  stage2:Stage2EvidenceBundle;
- draftKings:{events:unknown;expected:RequiredMarket[];snapshots?:CoverageSnapshot[]};
+ draftKings:{events:unknown;expected:RequiredMarket[];snapshots?:CoverageSnapshot[];roster?:AthleteDirectoryEntry[]};
 };
 export function evaluateMajorReleaseEvidence(input:MajorReleaseEvidence,now=Date.now()){
  if(!input||typeof input!=='object'||!input.stage2||!input.draftKings||
@@ -24,6 +26,8 @@ export function evaluateMajorReleaseEvidence(input:MajorReleaseEvidence,now=Date
   auditDraftKingsCoverageContinuity(input.draftKings.expected,input.draftKings.snapshots,now);
  const investigations=buildDraftKingsCoverageWorkQueue(input.draftKings.events,
   input.draftKings.expected,input.draftKings.snapshots??[],now,100);
+ const playerIdentity=input.draftKings.roster===undefined?null:
+  auditOddsExportPlayerIdentities(input.draftKings.events,input.draftKings.roster,now);
  const gates=[
   {id:'STAGE1_UPSTREAM_ENTITLEMENT',stage:1,status:'BLOCKED',why:'Provider storage and reuse rights not independently verified'},
   {id:'STAGE1_INDEPENDENT_FEEDS',stage:1,status:'BLOCKED',why:'Authenticated independent odds upstream operators not certified'},
@@ -41,8 +45,11 @@ export function evaluateMajorReleaseEvidence(input:MajorReleaseEvidence,now=Date
   {id:'STAGE3_COVERAGE_CONTINUITY',stage:3,
    status:continuity?.evidenceSufficientForTrend?'RESEARCH_EVIDENCE':'BLOCKED',
    why:continuity?.evidenceSufficientForTrend?'Multi-snapshot gap trend measured from unverified inputs':'At least two valid historical coverage snapshots required'},
-  {id:'STAGE3_PLAYER_IDENTITY',stage:3,status:'BLOCKED',
-   why:'No authenticated stable athlete directory joined to every priced player prop'},
+  {id:'STAGE3_PLAYER_IDENTITY',stage:3,
+   status:playerIdentity?.candidateCount?'RESEARCH_EVIDENCE':'BLOCKED',
+   why:playerIdentity?.candidateCount?'Uncertified roster name matches found; stable IDs and provenance not authenticated':'No authenticated stable athlete directory joined to every priced player prop'},
+  {id:'STAGE3_PLAYER_IDENTITY_CERTIFICATION',stage:3,status:'BLOCKED',
+   why:'Even unique roster candidate joins do not certify sportsbook player identity or storage rights'},
   {id:'STAGE4_DEPLOYMENT_CERTIFICATION',stage:4,status:'BLOCKED',
    why:'Production smoke, authenticated data, observability and security release evidence not provided'}
  ] as const;
@@ -56,6 +63,7 @@ export function evaluateMajorReleaseEvidence(input:MajorReleaseEvidence,now=Date
   stage2Research:model,stage3Coverage:coverage,
   stage3Continuity:continuity,
   stage3OperatorQueue:investigations,
+  stage3PlayerIdentity:playerIdentity,
   gateCount:gates.length,gates,missingByStage,
   certifiedStages:0,remainingMajorStages:4,
   certifiedMarketCount:0,verifiedValueBets:0,
