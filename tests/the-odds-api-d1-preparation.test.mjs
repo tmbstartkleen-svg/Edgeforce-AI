@@ -37,3 +37,16 @@ test('batch limit, malformed outcomes and started events fail closed',()=>{
  assert.equal(prepareTheOddsApiD1Batch([{...event,commence_time:'2026-10-22T12:00:00Z'}],now).prepared,0);
  assert.throws(()=>prepareTheOddsApiD1Batch([],now,26),/INVALID_ODDS_PREPARATION_LIMIT/);
 });
+
+test('market timestamps override book time; stale markets cannot borrow freshness',()=>{
+ const mixed={...event,bookmakers:[{...event.bookmakers[0],markets:[
+  {key:'h2h',last_update:'2026-10-23T11:59:40Z',outcomes:[{name:'Celtics',price:-120}]},
+  {key:'totals',last_update:'2026-10-23T11:40:00Z',outcomes:[{name:'Over',point:220.5,price:-110}]},
+  {key:'spreads',last_update:'bad timestamp',outcomes:[{name:'Celtics',point:-2.5,price:-110}]}
+ ]}]};
+ const r=prepareTheOddsApiD1Batch([mixed],now);
+ assert.equal(r.prepared,1);
+ assert.equal(r.rows[0].observedAt,Date.parse('2026-10-23T11:59:40Z'));
+ assert.equal(r.rejected.ODDS_QUOTE_TIMESTAMP_NOT_FRESH,1);
+ assert.equal(r.rejected.INVALID_MARKET_TIMESTAMP,1);
+});
