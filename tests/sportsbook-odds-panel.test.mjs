@@ -29,7 +29,9 @@ test('stored quote endpoint is read-only and blocks demo/expired/invalid prices'
 test('paid provider refresh is operator-only and does not auto-fire on page load',()=>{
  assert.match(panel,/const refreshProvider=async/);
  assert.match(panel,/onClick=\{refreshProvider\}/);
- assert.match(panel,/fetch\('\/api\/markets'/);
+ assert.match(panel,/fetch\('\/api\/markets\?forceLive=1'/);
+ assert.match(marketRoute,/ingestOdds\(\{forceLive\}\)/);
+ assert.match(marketRoute,/searchParams\.get\('forceLive'\)==='1'/);
  const effect=panel.slice(panel.indexOf('useEffect('),panel.indexOf('const refreshProvider=async'));
  assert.doesNotMatch(effect,/api\/markets/);
  assert.match(effect,/api\/sportsbook-odds/);
