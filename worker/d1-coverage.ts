@@ -44,7 +44,6 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
     feedConnected:false,
     status:registryRows.results.length===0?'NO_CANDIDATE_SOURCE_REGISTRATIONS':'REGISTRATIONS_NOT_ENTITLEMENT_CERTIFIED'};
   const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[];
-  const provisionalPropIdentities=new Set<string>();
   let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
@@ -57,9 +56,6 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    if(!bookmaker||!sport||!league||!marketType||!outcomeId||!startsAt){unrecognized++;continue;}
    const price=q.priceAmerican;
    if(price!==undefined&&(!Number.isInteger(price)||Math.abs(price as number)<100)){unrecognized++;continue;}
-   if(str(q.playerId)&&(str(q.playerId).startsWith('name:')||
-      q.playerIdentityStatus==='UNVERIFIED_NAME_ONLY'))
-    provisionalPropIdentities.add([record.event_id,marketType,str(q.playerId),str(q.line)].join('|'));
    if(str(record.upstream_id)&&price!==undefined)consensusQuotes.push({upstreamId:str(record.upstream_id),providerId:record.source_id,bookmaker,sport,league,eventId:record.event_id,marketType,outcomeId,observedAt:record.observed_at,startsAt,priceAmerican:price as number,...(str(q.playerId)?{playerId:str(q.playerId)}:{}),...(str(q.line)?{line:str(q.line)}:{})});
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
@@ -121,11 +117,19 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const freshDraftKingsQuotes=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&x.priceAmerican!==undefined).length;
   const pricedPlayerProps=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&
     x.priceAmerican!==undefined&&!!x.playerId&&!!x.line).length;
-  const verifiedIdentityPricedProps=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&
+  // Count provisional identity claims only for accepted fresh DraftKings
+  // priced props. The source payload may describe non-DK or stale records.
+  const provisionalPropIdentities=new Set<string>();
+  for(const o of report.observations){
+   if(o.bookmaker.trim().toLowerCase()!=='draftkings'||o.priceAmerican===undefined||!o.playerId||!o.line)continue;
+   if(o.playerId.startsWith('name:'))
+    provisionalPropIdentities.add([o.eventId,o.marketType,o.playerId,o.line].join('|'));
+  }
+  const nonProvisionalIdentityClaims=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&
     x.priceAmerican!==undefined&&!!x.playerId&&!!x.line&&!x.playerId.startsWith('name:')&&
     !provisionalPropIdentities.has([x.eventId,x.marketType,x.playerId,x.line].join('|'))).length;
   const playerIdentityEvidence={provisionalPropMarkets:provisionalPropIdentities.size,
-    verifiedIdentityPricedProps,playerIdentityCertified:false,
+    nonProvisionalIdentityClaims,playerIdentityCertified:false,
     note:'Name-derived player IDs are provisional and never count as independently verified athlete identities.'};
   const certificationGates={
    providerEntitlement:{passed:false,reason:'AUTHORIZED_SPORTSBOOK_ENTITLEMENT_NOT_VERIFIED'},
@@ -133,7 +137,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
     reason:freshDraftKingsQuotes>0?null:'NO_FRESH_DRAFTKINGS_ODDS'},
    persistedPricedPlayerProps:{passed:pricedPlayerProps>0,count:pricedPlayerProps,
     reason:pricedPlayerProps>0?null:'NO_FRESH_PRICED_PLAYER_PROPS'},
-   verifiedPlayerIdentity:{passed:false,count:verifiedIdentityPricedProps,reason:'PLAYER_IDENTITY_NOT_INDEPENDENTLY_CERTIFIED'},
+   verifiedPlayerIdentity:{passed:false,count:nonProvisionalIdentityClaims,reason:'PLAYER_IDENTITY_NOT_INDEPENDENTLY_CERTIFIED'},
    independentQuoteCorroboration:{passed:consensus.verifiedOutcomes>0,count:consensus.verifiedOutcomes,
     reason:consensus.verifiedOutcomes>0?null:'NO_MATCHING_INDEPENDENT_UPSTREAMS'},
    independentPriceAgreement:{passed:consensus.priceAlignedOutcomes>0,count:consensus.priceAlignedOutcomes,
