@@ -35,6 +35,10 @@ test('read-only D1 adapter binds source, owner and event before exact-price veri
  assert.equal(report.exactReadbackComplete,true);
  assert.equal(report.readbackMatches,1);
  assert.equal(report.releaseCertified,false);
+ assert.equal(report.sourceEntitlementVerified,false);
+ assert.equal(report.authenticatedCollectionVerified,false);
+ assert.equal(report.mode,'REGISTERED_SOURCE_D1_READ_ONLY_RECONCILIATION');
+ assert.ok(report.certificationBlockers.includes('SOURCE_ENTITLEMENT_NOT_VERIFIED'));
  assert.equal(report.writesPerformed,0);
  assert.equal(report.readOnly,true);
  assert.deepEqual(db.statements[0].args.slice(0,3),['the-odds-api','api.the-odds-api.com','evt-one']);
