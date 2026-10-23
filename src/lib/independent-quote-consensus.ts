@@ -6,6 +6,7 @@ export type ConsensusQuote = {
 };
 const norm=(s:string)=>s.trim().toLowerCase();
 const required=(s:unknown)=>typeof s==='string'&&s.trim().length>0;
+const impliedProbability=(odds:number)=>odds<0?(-odds)/(-odds+100):100/(odds+100);
 const quoteKey=(q:ConsensusQuote)=>[q.bookmaker,q.sport,q.league,q.eventId,q.startsAt,q.marketType,q.playerId||'',q.outcomeId,q.line||''].map(norm).join('|');
 /** Returns corroborated outcomes only when distinct upstream owners observed the same priced outcome within a narrow window. */
 export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, maxAgeMs=60000, matchWindowMs=30000){
@@ -25,7 +26,7 @@ export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, m
   const k=quoteKey(q);
   groups.set(k,[...(groups.get(k)||[]),q]);
  }
- const verified:{key:string;upstreams:string[];providers:string[];pricesAmerican:number[];observedAt:string[]}[]=[];
+ const verified:{key:string;upstreams:string[];providers:string[];pricesAmerican:number[];observedAt:string[];priceAligned:boolean;impliedProbabilitySpread:number}[]=[];
  for(const [key,items] of groups){
   const sorted=[...items].sort((a,b)=>Date.parse(a.observedAt)-Date.parse(b.observedAt));
   let selected:ConsensusQuote[]=[];
@@ -37,9 +38,14 @@ export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, m
    for(const q of window)unique.set(norm(q.upstreamId),q);
    if(unique.size>=2&&unique.size>new Set(selected.map(q=>norm(q.upstreamId))).size)selected=[...unique.values()];
   }
-  if(selected.length>=2)verified.push({key,upstreams:selected.map(q=>q.upstreamId),providers:selected.map(q=>q.providerId),
-   pricesAmerican:selected.map(q=>q.priceAmerican),observedAt:selected.map(q=>q.observedAt)});
+  if(selected.length>=2){
+   const implied=selected.map(q=>impliedProbability(q.priceAmerican));
+   const impliedProbabilitySpread=Math.max(...implied)-Math.min(...implied);
+   verified.push({key,upstreams:selected.map(q=>q.upstreamId),providers:selected.map(q=>q.providerId),
+    pricesAmerican:selected.map(q=>q.priceAmerican),observedAt:selected.map(q=>q.observedAt),
+    priceAligned:impliedProbabilitySpread<=0.02,impliedProbabilitySpread});
+  }
  }
- return {asOf:new Date(time).toISOString(),verified,verifiedOutcomes:verified.length,observedOutcomes:groups.size,rejected,
-  note:'Independent upstream corroboration only, not proof of executable prices or positive expected value.'};
+ return {asOf:new Date(time).toISOString(),verified,verifiedOutcomes:verified.length,priceAlignedOutcomes:verified.filter(q=>q.priceAligned).length,observedOutcomes:groups.size,rejected,
+  note:'Independent upstream corroboration may disagree on price. Price alignment uses a 2 percentage point implied probability tolerance, and never proves executable prices or positive expected value.'};
 }
