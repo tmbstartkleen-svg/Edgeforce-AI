@@ -34,7 +34,7 @@ export function evaluateIndependentBetEdge(input:EdgeSignalInput,now=Date.now())
  const observed=stamp(q.observedAt),starts=stamp(q.startsAt);
  if(!Number.isFinite(observed)||observed>now||now-observed>15*60*1000||
    !Number.isFinite(starts)||starts<=now)reasons.push('MARKET_NOT_LIVE_OR_TOO_STALE');
- if(q.marketType.startsWith('player_')&&!str(q.playerId))reasons.push('UNVERIFIED_PLAYER_ID');
+ if(q.marketType.startsWith('player_')&&(!str(q.playerId)||q.playerId!.trim().toLowerCase().startsWith('name:')))\n  reasons.push('UNVERIFIED_PLAYER_ID');
  if(q.marketType!=='h2h'&&!str(q.line))reasons.push('MISSING_MARKET_LINE');
  if(v.sourceEntitlementVerified!==true)reasons.push('SOURCE_ENTITLEMENT_NOT_CERTIFIED');
  if(!Number.isSafeInteger(v.independentUpstreams)||v.independentUpstreams<2||v.priceAgreement!==true)
