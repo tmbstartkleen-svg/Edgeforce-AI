@@ -39,10 +39,17 @@ export default {
    ctx.waitUntil((async()=>{
     const results=[];
     for(const sport of cohort){
-     try{
-      const response=await collectMultiSportScores(new Request('https://edgeforce-internal/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport.id),{method:'POST',headers:{Authorization:'Bearer '+env.CRON_SECRET}}),env);
-      results.push({sport:sport.id,status:response.status});
-     }catch{results.push({sport:sport.id,status:0});}
+     let status=0,attempts=0;
+     for(let retry=0;retry<3;retry++){
+      attempts++;
+      try{
+       const response=await collectMultiSportScores(new Request('https://edgeforce-internal/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport.id),{method:'POST',headers:{Authorization:'Bearer '+env.CRON_SECRET}}),env);
+       status=response.status;
+      }catch{status=0;}
+      if(status===200||status===422||status===400||status===401||status===403)break;
+      if(retry<2)await new Promise(resolve=>setTimeout(resolve,250*(2**retry)));
+     }
+     results.push({sport:sport.id,status,attempts,recovered:attempts>1&&status===200});
     }
     console.log('EdgeForce isolated scheduled score cohort',JSON.stringify({slot,requested:cohort.length,results}));
    })());
