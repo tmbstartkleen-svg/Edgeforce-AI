@@ -296,7 +296,12 @@ const oddsPanelCacheMs=()=>Math.max(1000,Number(process.env.ODDS_PANEL_CACHE_MS|
 export async function fetchNormalizedOdds(options:{forceRefresh?:boolean;providerIds?:string[];quotaSafeSingleCall?:boolean;recordHealth?:boolean}={}):Promise<OddsIngestionResult>{
  const now=Date.now();
  if(!options.forceRefresh&&oddsPanelCache&&now-oddsPanelCache.at<oddsPanelCacheMs())return oddsPanelCache.value;
- if(oddsPanelInFlight)return oddsPanelInFlight;
+ if(oddsPanelInFlight){
+  if(!options.forceRefresh)return oddsPanelInFlight;
+  // Do not mistake an already-running cached scan for the operator's explicit
+  // refresh. Wait for it to settle, then start the bounded forced scan.
+  await oddsPanelInFlight.catch(()=>undefined);
+ }
  const request=fetchNormalizedOddsUncached(options)
   .then(value=>{
    oddsPanelCache={at:Date.now(),value};
