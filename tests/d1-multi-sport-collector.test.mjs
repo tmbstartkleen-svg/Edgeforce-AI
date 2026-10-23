@@ -80,11 +80,10 @@ test('read-only upstream probe fails closed when no usable events are returned',
 test('NFL scoreboard upstream request is bounded without relaxing the 250KB source gate',()=>{
  const source=scoreboardSource('nfl');
  assert.equal(new URL(source.endpoint).searchParams.get('limit'),'10');
- assert.match(new URL(source.endpoint).searchParams.get('dates')||'',/^\d{8}-\d{8}$/);
- const dateRange=new URL(source.endpoint).searchParams.get('dates').split('-');
- const utc=Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),new Date().getUTCDate());
- const expected=(offset)=>new Date(utc+offset*86400000).toISOString().slice(0,10).replace(/-/g,'');
- assert.deepEqual(dateRange,[expected(-3),expected(4)]);
+ assert.match(new URL(source.endpoint).searchParams.get('dates')||'',/^\\d{8}$/);
+ const utc=new Date(Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),new Date().getUTCDate()));
+ utc.setUTCDate(utc.getUTCDate()+(7-utc.getUTCDay())%7);
+ assert.equal(new URL(source.endpoint).searchParams.get('dates'),utc.toISOString().slice(0,10).replace(/-/g,''));
  const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
  assert.match(probe,/250000/);
  assert.match(c,/250000/);
