@@ -6,7 +6,9 @@ type Quote={sport:string;league:string;event:string;selection:string;market:stri
  sourceAgeMin:number;quoteProvenance?:string};
 type Result={ok:boolean;mode?:string;source?:string;rows:Quote[];
  draftKingsQuotes?:number;totalFreshQuotes?:number;error?:string;warning?:string;
- attempts?:Array<{providerId:string;ok:boolean;error?:string}>};
+ attempts?:Array<{providerId:string;ok:boolean;error?:string;status?:number;latencyMs?:number;qualityGrade?:string;qualityScore?:number;acceptedMarkets?:number;skipped?:boolean}>;
+ providerPanel?:Array<{providerId:string;providerName:string;bookmaker:string;marketRole:string;acceptedMarkets:number;qualityGrade?:string;qualityScore?:number;latencyMs?:number;playerPropRows?:number;teamMarketRows?:number;sports?:string[]}>;
+ warnings?:string[];degraded?:boolean;targetBook?:string;rawCount?:number;quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}};
 type ProvidersResult={ok:boolean;configuredProviderCount:number;providers:Array<{id:string;name:string;bookmakerLabel:string;credentialConfigured:boolean;requiresPaidQuota:boolean;classification:string}>;error?:string};
 const isQuote=(q:Quote)=>!!q&&typeof q.sourceBook==='string'&&
  Number.isSafeInteger(q.odds)&&Math.abs(q.odds)>=100&&Math.abs(q.odds)<=100000&&
@@ -47,6 +49,7 @@ export default function SportsbookOddsPanel(){
    // different bookmaker and cannot masquerade as a DraftKings quote.
    const quotes=(body.sportsbookQuotes||[]).filter(isQuote);
    setLive({ok:true,source:body.source,mode:body.mode,rows:quotes,
+    providerPanel:body.providerPanel,rawCount:body.rawCount,targetBook:body.targetBook,degraded:body.degraded,
     totalFreshQuotes:quotes.length,draftKingsQuotes:quotes.filter(q=>q.sourceBook?.trim().toLowerCase()==='draftkings').length,
     warning:(body.warnings||[]).slice(0,5).join(' · ')||'Provider quotes are unverified for ownership, execution and storage rights. No independent probability or EV is implied.',
     attempts:body.attempts});
@@ -79,6 +82,15 @@ export default function SportsbookOddsPanel(){
     <td>{p.classification==='PUBLIC_REFERENCE_ODDS'?'Public reference odds':'Configured odds adapter'}</td>
     <td>{p.credentialConfigured?'Key present':'No key on provider config / key not required'}</td></tr>)}</tbody></table></div>
   </div>}
+  {live?.providerPanel?.length?<div aria-label="Accepted odds market detail" className="coverageTableWrap">
+   <p className="coverageNote">Target bookmaker: {live.targetBook||'DraftKings'} · raw provider rows: {live.rawCount??'unknown'} · overall provider mode: {live.degraded?'DEGRADED':'NORMAL'}.</p>
+   <table><thead><tr><th>Feed</th><th>Book label</th><th>Accepted markets</th><th>Sport/prop coverage</th><th>Quality</th><th>Latency</th></tr></thead><tbody>
+    {live.providerPanel.map(p=><tr key={p.providerId}><td>{p.providerName}</td><td>{p.bookmaker}</td>
+     <td>{p.acceptedMarkets}</td><td>{p.sports?.join(', ')||'No accepted markets'} · props {p.playerPropRows??0}</td>
+     <td>{p.qualityGrade||'Not scored'}{typeof p.qualityScore==='number'?' ('+(p.qualityScore*100).toFixed(0)+'%)':''}</td>
+     <td>{typeof p.latencyMs==='number'?p.latencyMs+' ms':'—'}</td></tr>)}
+   </tbody></table>
+  </div>:null}
   {live?.attempts?.length?<div aria-label="Odds provider response diagnostics" className="coverageTableWrap">
    <table><thead><tr><th>Provider attempted</th><th>Status</th><th>Reason</th></tr></thead><tbody>
     {live.attempts.map((a,i)=><tr key={a.providerId+'-'+i}><td>{a.providerId}</td>
