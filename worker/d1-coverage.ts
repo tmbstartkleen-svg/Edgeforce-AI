@@ -57,8 +57,13 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const leagues=[...groups.values()].map(g=>({sport:g.sport,league:g.league,events:g.events.size,marketTypes:g.marketTypes.size,players:g.players.size,quotes:g.quotes,latestObservedAt:g.latestObservedAt}))
    .sort((a,b)=>a.sport.localeCompare(b.sport)||a.league.localeCompare(b.league));
   const providers=[...new Set(report.observations.map(o=>o.provider))].sort();
-  const freshKeys=new Set(report.observations.map(o=>[o.provider,o.bookmaker,o.eventId,o.marketType,o.playerId||'',o.outcomeId,o.line||'',o.observedAt].join('|')));
-  const eligibleQuotes=consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'&&freshKeys.has([q.providerId,q.bookmaker,q.eventId,q.marketType,q.playerId||'',q.outcomeId,q.line||'',q.observedAt].join('|')));
+  // Coverage inventory deduplicates by market outcome across feeds. Independent
+  // corroboration must retain each valid upstream quote rather than filtering by
+  // only the surviving inventory quote. The consensus validator checks timestamps,
+  // future start and exact event/outcome/player/line identities independently.
+  const eligibleQuotes=consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'&&
+    Number.isFinite(Date.parse(q.observedAt))&&Date.parse(q.observedAt)<=now&&now-Date.parse(q.observedAt)<=15*60*1000&&
+    Number.isFinite(Date.parse(q.startsAt))&&Date.parse(q.startsAt)>now);
   const consensus=independentQuoteConsensus(eligibleQuotes,new Date(now).toISOString(),15*60*1000,30000);
   const freshUpstreamCount=new Set(eligibleQuotes.map(q=>q.upstreamId.trim().toLowerCase())).size;
   const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,
