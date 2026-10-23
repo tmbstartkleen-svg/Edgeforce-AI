@@ -32,6 +32,11 @@ test('paid provider refresh is operator-only and does not auto-fire on page load
  assert.match(panel,/fetch\('\/api\/markets\?forceLive=1'/);
  assert.match(marketRoute,/ingestOdds\(\{forceLive\}\)/);
  assert.match(marketRoute,/searchParams\.get\('forceLive'\)==='1'/);
+ assert.match(marketRoute,/checkNetworkAuth\(request\.headers\.get\('authorization'\),hash\)/);
+ assert.match(marketRoute,/OWNER_AUTH_REQUIRED_FOR_METERED_REFRESH/);
+ assert.match(panel,/Owner network token for sportsbook refresh/);
+ assert.match(panel,/type="password"/);
+ assert.match(panel,/Authorization:'Bearer '\+ownerToken\.trim\(\)/);
  const effect=panel.slice(panel.indexOf('useEffect('),panel.indexOf('const refreshProvider=async'));
  assert.doesNotMatch(effect,/api\/markets/);
  assert.match(effect,/api\/sportsbook-odds/);
