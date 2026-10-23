@@ -6,7 +6,7 @@ type Quote={sport:string;league:string;event:string;selection:string;market:stri
  sourceAgeMin:number;quoteProvenance?:string};
 type Result={ok:boolean;mode?:string;source?:string;rows:Quote[];
  draftKingsQuotes?:number;totalFreshQuotes?:number;error?:string;warning?:string;
- attempts?:Array<{providerId:string;ok:boolean;error?:string;status?:number;latencyMs?:number;qualityGrade?:string;qualityScore?:number;acceptedMarkets?:number;skipped?:boolean}>;
+ attempts?:Array<{providerId:string;ok:boolean;error?:string;status?:number;latencyMs?:number;qualityGrade?:string;qualityScore?:number;acceptedMarkets?:number;skipped?:boolean;quotaRemaining?:number;quotaUsed?:number;quotaLastCost?:number}>;
  providerPanel?:Array<{providerId:string;providerName:string;bookmaker:string;marketRole:string;acceptedMarkets:number;qualityGrade?:string;qualityScore?:number;latencyMs?:number;playerPropRows?:number;teamMarketRows?:number;sports?:string[]}>;
  warnings?:string[];degraded?:boolean;targetBook?:string;rawCount?:number;quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}};
 type ProvidersResult={ok:boolean;configuredProviderCount:number;providers:Array<{id:string;name:string;bookmakerLabel:string;credentialConfigured:boolean;requiresPaidQuota:boolean;classification:string}>;error?:string};
@@ -92,9 +92,9 @@ export default function SportsbookOddsPanel(){
    </tbody></table>
   </div>:null}
   {live?.attempts?.length?<div aria-label="Odds provider response diagnostics" className="coverageTableWrap">
-   <table><thead><tr><th>Provider attempted</th><th>Status</th><th>Reason</th></tr></thead><tbody>
+   <table><thead><tr><th>Provider attempted</th><th>Status</th><th>Accepted markets</th><th>Credits left</th><th>Last request cost</th><th>Reason</th></tr></thead><tbody>
     {live.attempts.map((a,i)=><tr key={a.providerId+'-'+i}><td>{a.providerId}</td>
-     <td>{a.ok?'Accepted':'No accepted prices'}</td><td>{a.error||'—'}</td></tr>)}
+     <td>{a.ok?'Accepted':'No accepted prices'}</td><td>{a.acceptedMarkets??0}</td><td>{a.quotaRemaining??'Not reported'}</td><td>{a.quotaLastCost??'Not reported'}</td><td>{a.error||'—'}</td></tr>)}
    </tbody></table>
   </div>:null}
   {error&&<p role="alert" className="coverageNote">{error}</p>}
