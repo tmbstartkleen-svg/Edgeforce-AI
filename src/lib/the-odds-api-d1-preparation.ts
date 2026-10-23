@@ -12,7 +12,7 @@ export type PreparedOddsObservation={
  provider:'the-odds-api';upstreamId:'api.the-odds-api.com';eventId:string;marketId:string;
  observedAt:number;kind:'odds';value:{
  bookmaker:string;sport:string;league:string;marketType:string;outcomeId:string;
- startsAt:string;priceAmerican:number;line?:string;playerId?:string;playerName?:string;
+ startsAt:string;priceAmerican:number;line?:string;playerId?:string;playerName?:string;playerIdentityStatus?:'UNVERIFIED_NAME_ONLY';
  };
 };
 export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=25,options:{enablePlayerProps?:boolean}={}){
@@ -81,7 +81,7 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
         sport:e.sport_key as string,league,marketType,outcomeId:outcome.name as string,
         startsAt,priceAmerican:outcome.price as number,
         ...(marketType!=='h2h'?{line:String(outcome.point)}:{}),
-        ...(supportedPlayerProp?{playerId:'name:'+String(outcome.description).trim().toLowerCase().replace(/\\s+/g,' '),playerName:String(outcome.description).trim()}: {})}});
+        ...(supportedPlayerProp?{playerId:'name:'+String(outcome.description).trim().toLowerCase().replace(/\\s+/g,' '),playerName:String(outcome.description).trim(),playerIdentityStatus:'UNVERIFIED_NAME_ONLY' as const}: {})}});
     }
    }
   }
