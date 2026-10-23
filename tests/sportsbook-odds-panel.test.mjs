@@ -114,3 +114,12 @@ test('owner-triggered refresh bypasses the panel and The Odds API in-memory cach
  assert.match(theOdds,/configuredMaxSports=options\.quotaSafeSingleCall\?0/);
  assert.match(panel,/one provider request; may use quota/);
 });
+
+test('manual inspect-only refresh suppresses provider health database writes too',()=>{
+ const ingest=read('src/lib/providers/ingest.ts');
+ const odds=read('src/lib/providers/odds.ts');
+ assert.match(ingest,/recordHealth:options\.persist!==false/);
+ assert.match(odds,/if\(options\.recordHealth!==false\)await withDeadline/);
+ assert.match(odds,/recordProviderResult\(config/);
+ assert.match(odds,/recordHealth\?:boolean/);
+});
