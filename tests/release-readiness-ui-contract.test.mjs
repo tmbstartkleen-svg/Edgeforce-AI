@@ -28,3 +28,12 @@ test('league coverage UI includes the real fail-closed readiness view separate f
  assert.match(ui,/No certification is implied/);
  assert.match(ui,/CI passing alone does not certify live betting data/);
 });
+
+test('authenticated League Coverage drilldown checks real D1 odds registry without treating score sources as sportsbook odds',()=>{
+ assert.match(ui,/api\/operations\/d1-pilot\/odds-launch-readiness/);
+ assert.match(ui,/enabledSportsbookSources/);
+ assert.match(ui,/storedOddsRows/);
+ assert.match(ui,/distinctSportsbookUpstreams/);
+ assert.match(ui,/This does not authorize ingestion or certify bets/);
+ assert.match(ui,/setOddsLaunch\(null\)/);
+});
