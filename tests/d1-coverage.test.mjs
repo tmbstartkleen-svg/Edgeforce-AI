@@ -7,7 +7,9 @@ test('D1 coverage requires a long authenticated server-side secret before queryi
  assert.ok(gateway.indexOf("request.headers.get('authorization')")<gateway.indexOf("db.prepare("));
 });
 test('D1 coverage queries persisted odds only and does not call sportsbooks',()=>{
- assert.match(gateway,/WHERE observation_kind='odds'/);
+ assert.match(gateway,/WHERE o\.observation_kind='odds'/);
+ assert.match(gateway,/INNER JOIN intelligence_sources AS s/);
+ assert.match(gateway,/s\.upstream_id=o\.upstream_id AND s\.enabled=1/);
  assert.doesNotMatch(gateway,/fetch\(/);
  assert.match(gateway,/NO_INDEPENDENT_EXPECTED_CATALOG/);
 });
