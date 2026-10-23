@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const auth=uri(ts.transpileModule(read('src/lib/firstPartySportsNetwork.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
-const mockIngest=uri('export async function ingestOdds(options){globalThis.__edgeforceCalls.push(options);return {mode:"live",source:"live",providerId:"the-odds-api",providerName:"The Odds API",targetBook:"DraftKings",degraded:false,rawCount:1,quality:{grade:"USABLE",qualityScore:.9,rowCount:2},providerPanel:[],warnings:[],attempts:[],markets:[],panelMarkets:[{sport:"basketball_nba",league:"NBA",event:"Away @ Home",selection:"Home",market:"h2h",odds:-115,sourceBook:"DraftKings",sourceProviderId:"the-odds-api",startTime:new Date(Date.now()+3600000).toISOString(),sourceAgeMin:1}]}}');
+const mockIngest=uri('export async function ingestOdds(options){globalThis.__edgeforceCalls.push(options);return {mode:"live",source:"live",providerId:"the-odds-api",providerName:"The Odds API",targetBook:"DraftKings",degraded:false,rawCount:1,quality:{grade:"USABLE",qualityScore:.9,rowCount:2},providerPanel:[],warnings:[],attempts:[],markets:[],panelMarkets:[{sport:"basketball_nba",league:"NBA",event:"Away @ Home",selection:"Home",market:"h2h",odds:-115,sourceBook:"DraftKings",sourceProviderId:"the-odds-api",startTime:new Date(Date.now()+3600000).toISOString(),sourceAgeMin:1,sourceTimestamp:new Date(Date.now()-60000).toISOString()},{sport:"basketball_nba",league:"NBA",event:"Away @ Home",selection:"Away",market:"h2h",odds:105,sourceBook:"DraftKings",sourceProviderId:"the-odds-api",startTime:new Date(Date.now()+3600000).toISOString(),sourceAgeMin:1},{sport:"basketball_nba",league:"NBA",event:"Away @ Home",selection:"Home",market:"h2h",odds:-115,sourceBook:"DraftKings",sourceProviderId:"the-odds-api",startTime:new Date(Date.now()+3600000).toISOString(),sourceAgeMin:1,sourceTimestamp:new Date(Date.now()-3600000).toISOString()}]}}');
 const source=ts.transpileModule(read('src/app/api/markets/route.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText
  .replace("from '@/lib/providers/ingest'","from "+JSON.stringify(mockIngest))
  .replace("from '@/lib/firstPartySportsNetwork'","from "+JSON.stringify(auth));
@@ -32,6 +32,7 @@ test('owner-authorized forceLive request uses DraftKings scan and explicitly dis
  assert.equal(body.sportsbookQuotes[0].sourceBook,'DraftKings');
  assert.equal(body.providerRequests,undefined);
  assert.equal(body.executablePriceVerified,false);
+ assert.equal(body.sportsbookQuotes.length,1,'quotes without source timestamps or with stale timestamps must be omitted');
 });
 test('ordinary market route retains normal cache and persistence behavior',async()=>{
  globalThis.__edgeforceCalls=[];
