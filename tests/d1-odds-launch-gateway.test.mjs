@@ -16,14 +16,14 @@ const endpoint='https://example.invalid/api/operations/d1-pilot/odds-launch-read
 const request=(method='GET',authorization='Bearer '+secret)=>new Request(endpoint,{method,headers:{authorization}});
 const items=Array.from({length:16},(_,i)=>({source_id:'score-'+i,upstream_id:'site.api.espn.com',source_type:'scoreboard',enabled:1}));
 items.push({source_id:'cert',upstream_id:'example',source_type:'CERTIFICATION_ONLY',enabled:0});
-function env(rows=items,count=0){
+function env(rows=items,count=0,freshCount=0){
  const queries=[];
  return {CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(sql){
   queries.push(sql);
   if(sql.startsWith('SELECT source_id,upstream_id,source_type,enabled'))
    return {all:async()=>({results:rows})};
-  if(sql.includes('SELECT COUNT(*) AS count'))
-   return {first:async()=>({count})};
+  if(sql.includes('SELECT COUNT(*) AS count')||sql.includes('SELECT COUNT(*) AS count FROM'))
+   return {bind(){return this},first:async()=>({count:sql.includes('INNER JOIN intelligence_sources')?freshCount:count})};
   throw Error('UNEXPECTED_QUERY');
  }},queries};
 }
@@ -42,7 +42,9 @@ test('authenticated source inventory reveals zero stored odds, not falsely enabl
  assert.equal(body.verifiedValueBets,0);
  assert.ok(body.blockers.includes('NO_ENABLED_SPORTSBOOK_ODDS_SOURCE'));
  assert.equal(body.candidates,undefined);
- assert.equal(e.queries.length,2);
+ assert.equal(body.freshRegisteredOddsRows,0);
+ assert.equal(body.freshnessBlocker,'NO_FRESH_ENABLED_SPORTSBOOK_SOURCE_QUOTES');
+ assert.equal(e.queries.length,3);
 });
 test('missing authorization blocks all database access',async()=>{
  const e=env();
@@ -57,6 +59,8 @@ test('method and missing binding fail closed',async()=>{
 test('incomplete registry result, query saturation or invalid stored row count cannot certify',async()=>{
  assert.equal((await d1OddsLaunchReadiness(request(),env(items,NaN))).status,503);
  assert.equal((await d1OddsLaunchReadiness(request(),env(Array(1001).fill(items[0]),0))).status,503);
+ assert.equal((await d1OddsLaunchReadiness(request(),env(items,0,1))).status,503);
+ assert.equal((await d1OddsLaunchReadiness(request(),env(items,2,NaN))).status,503);
 });
 test('this gateway is bounded and read-only and is mounted in Worker',()=>{
  const index=text('worker/index.ts');
