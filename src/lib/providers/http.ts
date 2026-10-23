@@ -50,6 +50,7 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig,options
    receivedAt:new Date().toISOString(),
    status:result.ok?200:(result.attempts.find(x=>!x.ok)?.status||502),
    data:result.data as T,
+   quota:result.quota,
    error:[result.error,warning,quota?`quota ${quota}`:null].filter(Boolean).join(' | ')||undefined,
    retryAfterMs:result.attempts.some(x=>x.status===429)?300000:/quota has been reached|OUT_OF_USAGE_CREDITS/i.test(result.error||'')?untilNextMonthMs():undefined
   };
