@@ -101,9 +101,16 @@ test('owner-triggered refresh bypasses the panel and The Odds API in-memory cach
  const odds=read('src/lib/providers/odds.ts');
  const http=read('src/lib/providers/http.ts');
  const theOdds=read('src/lib/providers/theOddsApi.ts');
- assert.match(ingest,/fetchNormalizedOdds\(\{forceRefresh:options\.forceLive===true\}\)/);
+ assert.match(ingest,/providerIds:options\.forceLive\?\['the-odds-api'\]:undefined/);
+ assert.match(ingest,/quotaSafeSingleCall:options\.forceLive===true/);
+ assert.match(ingest,/fetchNormalizedOdds\(\{forceRefresh:options\.forceLive===true/);
  assert.match(odds,/if\(!options\.forceRefresh&&oddsPanelCache/);
  assert.match(odds,/fetchProviderJson\(config,\{forceRefresh\}\)/);
  assert.match(http,/fetchTheOddsApiBoard\(config,options\)/);
  assert.match(theOdds,/if\(!options\.forceRefresh&&cache&&Date\.now\(\)-cache\.at<cache\.ttlMs\)/);
+ assert.match(theOdds,/options\.quotaSafeSingleCall\s*\?await jsonRequest/);
+ assert.match(theOdds,/if\(!options\.quotaSafeSingleCall&&\(\(/);
+ assert.match(theOdds,/options\.quotaSafeSingleCall\?null/);
+ assert.match(theOdds,/configuredMaxSports=options\.quotaSafeSingleCall\?0/);
+ assert.match(panel,/one provider request; may use quota/);
 });
