@@ -24,6 +24,7 @@ export type OddsAttempt={
  providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number;
  skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;
  rowCount?:number;payloadAgeMin?:number;acceptedMarkets?:number;
+ quotaRemaining?:number;quotaUsed?:number;quotaLastCost?:number;
 };
 
 export type OddsIngestionResult={
