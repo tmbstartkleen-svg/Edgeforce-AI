@@ -186,7 +186,28 @@ test('provisional name-derived player identifiers never satisfy verified athlete
  assert.equal(report.ok,true);
  assert.equal(report.certification.gates.persistedPricedPlayerProps.passed,true);
  assert.equal(report.playerIdentityEvidence.provisionalPropMarkets,1);
- assert.equal(report.playerIdentityEvidence.verifiedIdentityPricedProps,0);
+ assert.equal(report.playerIdentityEvidence.nonProvisionalIdentityClaims,0);
+ assert.equal(report.playerIdentityEvidence.playerIdentityCertified,false);
+ assert.equal(report.certification.gates.verifiedPlayerIdentity.passed,false);
+});
+
+test('stale and other-book provisional player names never inflate DraftKings identity evidence',async()=>{
+ const stale={...rows[0],observed_at:new Date(now-3600000).toISOString(),payload:JSON.stringify({value:{
+  bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',
+  outcomeId:'Over',startsAt:new Date(now+3600000).toISOString(),
+  playerId:'name:stale player',playerIdentityStatus:'UNVERIFIED_NAME_ONLY',line:'25.5',priceAmerican:-110}})};
+ const fanDuel={...rows[0],source_id:'other-source',upstream_id:'other-upstream',payload:JSON.stringify({value:{
+  bookmaker:'FanDuel',sport:'NBA',league:'NBA',marketType:'player_points',
+  outcomeId:'Over',startsAt:new Date(now+3600000).toISOString(),
+  playerId:'name:other player',playerIdentityStatus:'UNVERIFIED_NAME_ONLY',line:'19.5',priceAmerican:-110}})};
+ const report=await (await d1CoverageGateway(req(),env([stale,fanDuel]))).json();
+ assert.equal(report.playerIdentityEvidence.provisionalPropMarkets,0);
+ assert.equal(report.playerIdentityEvidence.nonProvisionalIdentityClaims,0);
+ assert.equal(report.playerIdentityEvidence.playerIdentityCertified,false);
+});
+test('non-name player IDs are still unverified claims rather than certified athlete IDs',async()=>{
+ const report=await (await d1CoverageGateway(req(),env(rows))).json();
+ assert.equal(report.playerIdentityEvidence.nonProvisionalIdentityClaims,1);
  assert.equal(report.playerIdentityEvidence.playerIdentityCertified,false);
  assert.equal(report.certification.gates.verifiedPlayerIdentity.passed,false);
 });
