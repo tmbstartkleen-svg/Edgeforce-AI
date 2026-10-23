@@ -13,7 +13,7 @@ const {d1CoverageGateway}=await import(uri(compiled));
 const secret='a'.repeat(32),now=Date.now();
 const rows=[{source_id:'approved-feed',upstream_id:'real-upstream-one',event_id:'event-1',observed_at:new Date(now-5000).toISOString(),
  payload:JSON.stringify({provider:'approved-feed',kind:'odds',value:{bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',outcomeId:'over',startsAt:new Date(now+3600000).toISOString(),playerId:'player-123',line:'22.5',priceAmerican:-115}})}];
-function env(data=rows){return {CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(sql){assert.match(sql,/observation_kind='odds'/);return {bind(n){assert.ok(n<=250);return {all:async()=>({results:data})}}}}}};}
+function env(data=rows){return {CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(sql){assert.match(sql,/observation_kind='(?:odds|score)'/);return {bind(n){assert.ok(n<=250);return {all:async()=>({results:sql.includes("observation_kind='score'")?[]:data})}}}}}};}
 const req=(auth=true)=>new Request('https://edgeforce.example/api/operations/d1-pilot/coverage',{headers:auth?{authorization:'Bearer '+secret}:{}});
 test('D1 coverage rejects unauthenticated callers without querying',async()=>{
  const response=await d1CoverageGateway(req(false),{CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(){throw Error('unauthorized query')}}});
@@ -83,4 +83,15 @@ test('non-DraftKings bookmaker quotes cannot inflate DraftKings priced coverage'
  const report=await (await d1CoverageGateway(req(),env([other]))).json();
  assert.equal(report.freshDraftKingsQuotes,0);
  assert.equal(report.independentVerification.crossProviderVerified,false);
+});
+
+test('two owners with different observation timestamps still verify the same priced player outcome',async()=>{
+ const second={...rows[0],source_id:'independent-feed',upstream_id:'independent-owner',
+  observed_at:new Date(now-9000).toISOString()};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],second]))).json();
+ assert.equal(report.ok,true);
+ assert.equal(report.discovered.outcomes,1);
+ assert.equal(report.independentVerification.independentUpstreams,2);
+ assert.equal(report.independentVerification.verifiedOutcomes,1);
+ assert.equal(report.independentVerification.crossProviderVerified,true);
 });
