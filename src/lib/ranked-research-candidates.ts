@@ -24,9 +24,9 @@ export function rankResearchCandidates(candidates:RankedResearchCandidate[],nowI
  if(!Number.isFinite(now))throw Error('INVALID_NOW');
  const seen=new Set<string>();
  const results:RankedResearchResult[]=[];
- for(const c of candidates){
+ for(const c of [...candidates].sort((a,b)=>Date.parse(b?.quoteObservedAt||'')-Date.parse(a?.quoteObservedAt||'')||0)){
   if(!c||typeof c.id!=='string'||!c.id.trim())continue;
-  const key=JSON.stringify([c.bookmaker,c.eventId,c.marketType,c.outcomeId,c.playerId||'',c.line||'']);
+  const key=JSON.stringify([c.bookmaker,c.sport,c.league,c.eventId,c.marketType,c.outcomeId,c.playerId||'',c.line||'']);
   if(seen.has(key))continue;
   seen.add(key);
   const r=evaluateValueBet({americanOdds:c.americanOdds,modelProbability:c.modelProbability,
