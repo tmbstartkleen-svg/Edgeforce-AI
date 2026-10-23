@@ -19,7 +19,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund --include=optional
+      - name: Assert Linux workerd executable package
+        run: node -e "require.resolve('@cloudflare/workerd-linux-64')"
       - name: Cloudflare preflight
         run: npm run preflight:cloudflare
       - name: TypeScript gate
