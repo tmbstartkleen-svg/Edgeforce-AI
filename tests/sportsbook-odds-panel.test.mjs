@@ -5,6 +5,7 @@ import ts from 'typescript';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const route=read('src/app/api/sportsbook-odds/route.ts');
 const panel=read('src/components/SportsbookOddsPanel.tsx');
+const providerRoute=read('src/app/api/sportsbook-odds/providers/route.ts');
 const dashboard=read('src/components/LeagueCoverageDashboard.tsx');
 test('sportsbook odds displayed in league coverage with explicit bookmaker provenance',()=>{
  assert.match(dashboard,/import SportsbookOddsPanel/);
@@ -41,4 +42,16 @@ test('new sportsbook UI JSX and endpoint TypeScript transpile cleanly',()=>{
   const errors=(x.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error);
   assert.deepEqual(errors.map(e=>ts.flattenDiagnosticMessageText(e.messageText,' ')),[]);
  }
+});
+
+test('no-cost provider configuration diagnostics explain missing sportsbook prices',()=>{
+ assert.match(providerRoute,/configuredProviders\('ODDS'\)/);
+ assert.match(providerRoute,/credentialConfigured:Boolean\(p.apiKey\)/);
+ assert.match(providerRoute,/credentialValuesExposed:false/);
+ assert.match(providerRoute,/paidProviderRequests:0/);
+ assert.doesNotMatch(providerRoute,/fetch\(|ingestOdds\(|THE_ODDS_API_KEY|apiKey:p\.apiKey|process\.env/);
+ assert.match(panel,/api\/sportsbook-odds\/providers/);
+ assert.match(panel,/Configured odds adapters/);
+ assert.match(panel,/Provider attempted/);
+ assert.match(panel,/No accepted prices/);
 });
