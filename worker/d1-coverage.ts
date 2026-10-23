@@ -66,8 +66,8 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
     Number.isFinite(Date.parse(q.startsAt))&&Date.parse(q.startsAt)>now);
   const consensus=independentQuoteConsensus(eligibleQuotes,new Date(now).toISOString(),15*60*1000,30000);
   const freshUpstreamCount=new Set(eligibleQuotes.map(q=>q.upstreamId.trim().toLowerCase())).size;
-  const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,
-   note:'Only matching same-bookmaker event/outcome/line quotes from distinct upstream owners within 30 seconds qualify; does not prove executable price or EV.'};
+  const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,priceAlignedOutcomes:consensus.priceAlignedOutcomes,
+   note:'Distinct owners corroborate market availability; independent prices must separately agree within 2 implied-probability percentage points. Neither proves executable price or EV.'};
   // Score/schedule ingestion is a separate first-party evidence plane, never bookmaker pricing.
   const scores=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload
     FROM intelligence_observations WHERE observation_kind='score'
