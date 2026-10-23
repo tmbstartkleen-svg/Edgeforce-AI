@@ -151,3 +151,12 @@ test('The Odds API credit headers are preserved as structured operator-visible d
  assert.match(panel,/a\.quotaRemaining\?\?'Not reported'/);
  assert.doesNotMatch(panel,/THE_ODDS_API_KEY|apiKey/);
 });
+
+test('provider diagnostic rows show HTTP status and all available quota counters',()=>{
+ assert.match(panel,/<th>HTTP<\/th>/);
+ assert.match(panel,/<th>Credits used<\/th>/);
+ assert.match(panel,/<th>Last request cost<\/th>/);
+ assert.match(panel,/a\.status\?\?'No response'/);
+ assert.match(panel,/a\.skipped\?'Skipped':'Rejected'/);
+ assert.match(panel,/a\.quotaUsed\?\?'Not reported'/);
+});
