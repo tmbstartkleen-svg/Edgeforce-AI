@@ -95,3 +95,15 @@ test('operator sees provider accepted market counts, quality, latency and prop c
  assert.match(panel,/Latency/);
  assert.match(panel,/qualityGrade/);
 });
+
+test('owner-triggered refresh bypasses the panel and The Odds API in-memory caches',()=>{
+ const ingest=read('src/lib/providers/ingest.ts');
+ const odds=read('src/lib/providers/odds.ts');
+ const http=read('src/lib/providers/http.ts');
+ const theOdds=read('src/lib/providers/theOddsApi.ts');
+ assert.match(ingest,/fetchNormalizedOdds\(\{forceRefresh:options\.forceLive===true\}\)/);
+ assert.match(odds,/if\(!options\.forceRefresh&&oddsPanelCache/);
+ assert.match(odds,/fetchProviderJson\(config,\{forceRefresh\}\)/);
+ assert.match(http,/fetchTheOddsApiBoard\(config,options\)/);
+ assert.match(theOdds,/if\(!options\.forceRefresh&&cache&&Date\.now\(\)-cache\.at<cache\.ttlMs\)/);
+});
