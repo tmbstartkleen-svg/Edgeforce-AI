@@ -63,7 +63,11 @@ export default {
         const response=await collectMultiSportScores(new Request('https://edgeforce-internal/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport.id),{method:'POST',headers:{Authorization:'Bearer '+env.CRON_SECRET}}),env);
         status=response.status;
         const body=await response.clone().json().catch(()=>null) as {ok?:boolean;accepted?:number;duplicates?:number;attempted?:number}|null;
-        persisted=response.status===200&&body?.ok===true&&(Number(body.accepted||0)+Number(body.duplicates||0)>0);
+        if(response.status===200&&body?.ok===true){
+         const readback=await db.prepare("SELECT COUNT(*) AS count FROM intelligence_observations WHERE source_id=? AND observation_kind='score' AND ingested_at>=?")
+          .bind(source.sourceId,scheduledAt).first<{count:number}>();
+         persisted=Number(readback?.count||0)>0;
+        }
        }catch{status=0;}
        if(status===200||status===422||status===400||status===401||status===403)break;
        if(retry<2)await new Promise(resolve=>setTimeout(resolve,250*(2**retry)));
