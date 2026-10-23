@@ -5,6 +5,7 @@ import MarketResearchLab from './MarketResearchLab';
 type Game={id?:string;sport?:string;league?:string;source?:string;status?:string;startTime?:string;home?:{name?:string;score?:number|null};away?:{name?:string;score?:number|null};sourceObservedAt?:string};
 type Live={ok?:boolean;generatedAt?:string;games?:Game[];error?:string};
 type D1Coverage={sportsObservations?:{classification:string;rowsInspected:number;malformedRows:number;sourceOwners:string[];sports:{sport:string;events:number;scheduleObservations:number;scoreObservations:number;latestObservedAt:string}[]};ok:boolean;asOf?:string;freshDraftKingsQuotes?:number;rowsInspected?:number;unrecognizedRows?:number;missingMarketCount?:number|null;missingReason?:string;leagues?:{sport:string;league:string;events:number;marketTypes:number;players:number;quotes:number;latestObservedAt:string}[];independentVerification?:{independentUpstreams:number;crossProviderVerified:boolean;verifiedOutcomes:number;note?:string};error?:string};
+type ReleaseReadiness={ok:boolean;mode:string;remainingStages:number;releaseCertified:boolean;stages:{stage:number;name:string;status:string;requirements:string[]}[];warning?:string};
 const normalizeLeague=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 // Do not turn a sport-family score into evidence for every league in that sport.
 const leagueMatches=(observed:string|undefined,label:string,id:string)=>{
@@ -15,9 +16,15 @@ const leagueMatches=(observed:string|undefined,label:string,id:string)=>{
 const summary=sportCoverageSummary();
 export default function LeagueCoverageDashboard(){
  const [data,setData]=useState<Live|null>(null),[family,setFamily]=useState('all'),[search,setSearch]=useState(''),[refresh,setRefresh]=useState(0);
+ const [release,setRelease]=useState<ReleaseReadiness|null>(null);
  const [token,setToken]=useState(''),[odds,setOdds]=useState<D1Coverage|null>(null),[oddsLoading,setOddsLoading]=useState(false);
  useEffect(()=>{let active=true;fetch('/api/live-scores',{cache:'no-store'}).then(async r=>{const x=await r.json();if(!r.ok)throw new Error(x.error||'Live score mesh unavailable');return x as Live}).then(x=>{if(active)setData(x)}).catch(e=>{if(active)setData({ok:false,error:e instanceof Error?e.message:'Unavailable',games:[]})});return()=>{active=false}},[refresh]);
  const loadOdds=async()=>{setOdds(null);if(!token.trim()){setOdds({ok:false,error:'Enter your authorized network token to inspect persisted odds.'});return;}setOddsLoading(true);try{const response=await fetch('/api/operations/d1-pilot/coverage',{headers:{Authorization:'Bearer '+token.trim()},cache:'no-store'});const result=await response.json() as D1Coverage;if(!response.ok||!result.ok)throw new Error(result.error||'Odds endpoint unavailable');setOdds(result);}catch(e){setOdds({ok:false,error:e instanceof Error?e.message:'Coverage request failed'});}finally{setOddsLoading(false);}};
+ useEffect(()=>{let active=true;fetch('/api/operations/edgeforce-release-readiness',{cache:'no-store'})
+  .then(async res=>{if(!res.ok)throw Error('Release readiness unavailable');return await res.json() as ReleaseReadiness})
+  .then(value=>{if(active)setRelease(value)})
+  .catch(()=>{if(active)setRelease(null)});
+  return()=>{active=false};},[refresh]);
  const filtered=useMemo(()=>GLOBAL_SPORT_REGISTRY.filter(s=>(family==='all'||s.family===family)&&(!search||[s.label,s.id,s.family,s.scope].join(' ').toLowerCase().includes(search.toLowerCase()))),[family,search]);
  const games=data?.games||[];
  const providerGroups=useMemo(()=>GLOBAL_SPORT_REGISTRY.reduce((acc,s)=>{acc[s.scoreProvider]=(acc[s.scoreProvider]||0)+1;return acc},{} as Record<string,number>),[]);
@@ -28,6 +35,18 @@ export default function LeagueCoverageDashboard(){
    <article><small>LIVE GAMES OBSERVED</small><strong>{data?.ok?games.length:'—'}</strong><span>{data?.ok?'Latest live-score mesh response':'Live feed unavailable'}</span></article>
    <article><small>INDEPENDENT ODDS CORROBORATION</small><strong>{odds?.ok&&odds.independentVerification?.crossProviderVerified?odds.independentVerification.verifiedOutcomes:'Not certified'}</strong><span>{odds?.ok?'Outcomes matched by independent upstreams; not an EV model':'Authenticated D1 evidence required'}</span></article>
   </div>
+  <section className="coveragePanel" aria-label="EdgeForce release readiness" style={{marginBottom:20,padding:22}}>
+   <div className="coveragePanelHead"><div><div className="eyebrow">RELEASE EVIDENCE</div><h2>Certification requirements</h2></div></div>
+   <p className="coverageNote">Four major stages remain open until authenticated upstream data, independently calibrated models, full DraftKings market coverage and production checks are confirmed. CI passing alone does not certify live betting data.</p>
+   {!release?<p className="coverageNote">Readiness evidence unavailable. No certification is implied.</p>:
+    <div className="coverageKpis">
+     {release.stages.map(stage=><article key={stage.stage}>
+      <small>STAGE {stage.stage} — {stage.status}</small>
+      <strong style={{fontSize:'1.1rem'}}>{stage.name}</strong>
+      <span>{stage.requirements.join(' • ')}</span>
+     </article>)}
+    </div>}
+  </section>
   <div className="coverageTools"><input aria-label="Search leagues" placeholder="Search league, sport or scope…" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Filter sport family" value={family} onChange={e=>setFamily(e.target.value)}><option value="all">All sport families</option>{SPORT_FAMILIES.map(f=><option key={f} value={f}>{f}</option>)}</select><button onClick={()=>setRefresh(x=>x+1)}>Refresh live evidence</button></div>
   <section className="coveragePanel" aria-label="Persisted DraftKings odds verification" style={{marginBottom:20,padding:22}}>
    <div className="coveragePanelHead"><div><div className="eyebrow">CERTIFICATION TERMINAL</div><h2>Persisted DraftKings odds evidence</h2></div></div>
