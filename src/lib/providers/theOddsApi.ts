@@ -103,7 +103,7 @@ function nearestStartMinutes(rows:unknown[]){
  return Math.max(0,(Math.min(...times)-now)/60000);
 }
 
-export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceRefresh?:boolean}={}):Promise<TheOddsApiResult>{
+export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean}={}):Promise<TheOddsApiResult>{
  if(!options.forceRefresh&&cache&&Date.now()-cache.at<cache.ttlMs)return cache.value;
 
  const key=config.apiKey||process.env.THE_ODDS_API_KEY;
@@ -112,7 +112,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const timeoutMs=Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000));
  const configuredCacheMs=Math.max(60000,int(process.env.THE_ODDS_API_CACHE_MS,600000));
  const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
- const configuredMaxSports=Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
+ const configuredMaxSports=options.quotaSafeSingleCall?0:Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
  const expansionMarkets=String(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h');
  const markets=String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
  const bookmakers=String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us');
@@ -124,7 +124,9 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const bootstrapUrl=withKey('/sports/upcoming/odds',key,{
   regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso'
  });
- let bootstrap=await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
+ let bootstrap=options.quotaSafeSingleCall
+  ?await jsonRequest<unknown[]>(bootstrapUrl,timeoutMs)
+  :await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
  let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
  let bootstrapError=bootstrap.error;
  attempts.push({
@@ -132,7 +134,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
   status:bootstrap.status,error:bootstrap.error,cost:bootstrap.last,remaining:bootstrap.remaining
  });
 
- if((!bootstrap.ok&&(bootstrap.status===400||bootstrap.status===422))||(bootstrap.ok&&bootstrapData.length===0)){
+ if(!options.quotaSafeSingleCall&&((!bootstrap.ok&&(bootstrap.status===400||bootstrap.status===422))||(bootstrap.ok&&bootstrapData.length===0))){
   warnings.push('Primary upcoming-odds bootstrap was rejected or empty; retrying with the provider-safe US h2h baseline');
   const fallbackUrl=withKey('/sports/upcoming/odds',key,{
    regions:'us',markets:'h2h',oddsFormat:'american',dateFormat:'iso'
@@ -170,8 +172,9 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const covered=new Set(bootstrapData.map(x=>String((x as OddsEventRow).sport_key||'')).filter(Boolean));
 
  // /sports is free. If it fails, the verified upcoming feed still remains usable.
- const sportsResponse=await jsonRequestWith429Retry<ActiveSport[]>(withKey('/sports/',key),timeoutMs);
- const activeSports=Array.isArray(sportsResponse.data)
+ const sportsResponse=options.quotaSafeSingleCall?null:
+  await jsonRequestWith429Retry<ActiveSport[]>(withKey('/sports/',key),timeoutMs);
+ const activeSports=sportsResponse&&Array.isArray(sportsResponse.data)
   ?sportsResponse.data.filter(x=>x.active!==false&&!x.has_outrights)
   :[];
 
@@ -187,7 +190,8 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  });
 
  const expanded:unknown[]=[];
- if(!sportsResponse.ok)warnings.push(`Free active-sports discovery failed: ${sportsResponse.error||sportsResponse.status}`);
+ if(sportsResponse&&!sportsResponse.ok)warnings.push(`Free active-sports discovery failed: ${sportsResponse.error||sportsResponse.status}`);
+ if(options.quotaSafeSingleCall)warnings.push('Quota-safe manual refresh: one The Odds API bootstrap request only; no retries, fallback or paid sport expansions');
 
  for(const sportKey of policy.selectedSports){
   if(remaining!==undefined&&remaining<=reserve){
