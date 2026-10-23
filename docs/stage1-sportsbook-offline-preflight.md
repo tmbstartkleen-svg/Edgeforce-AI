@@ -26,3 +26,13 @@ npm run odds:probe-live -- --ack-provider-charge
 ```
 
 The acknowledgement is mandatory. This is a live network request **only when the owner explicitly runs the command**; no background collection is scheduled. Successful output can demonstrate an authenticated API response and prepared sample quote counts, not player props or a complete slate. Neither a successful probe nor a stored production Worker secret proves D1 ingestion, sportsbook licensing permission or independent upstream corroboration.
+
+## macOS Keychain convenience
+
+After saving the provider key as a macOS generic-password entry for your account, service `edgeforce-the-odds-api`, run:
+
+```sh
+npm run odds:probe-keychain -- --ack-provider-charge
+```
+
+The wrapper retrieves the secret directly from macOS Keychain and passes it only to the local probe process environment. It does not print it, add it to source control or persist it in a dotenv file. The opt-in command can consume provider credits and runs only one request; there is no automatic polling. The Keychain item must already exist; missing credentials fail closed with no provider request.
