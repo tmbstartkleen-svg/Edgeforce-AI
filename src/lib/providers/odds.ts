@@ -86,7 +86,7 @@ type PanelResult={
  transportScore:number;
 };
 
-async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean,forceRefresh=false):Promise<PanelResult>{
+async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean}={}):Promise<PanelResult>{
  if(quarantined){
   return {
    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
@@ -98,7 +98,7 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  let raw:ProviderFetchResult<unknown>;
  try{
   raw=await withDeadline(
-   fetchProviderJson(config,{forceRefresh}),
+   fetchProviderJson(config,options),
    providerDeadlineMs,
    `${config.id} provider`
   );
@@ -207,8 +207,10 @@ function aggregateQuality(rows:PanelResult[]){
  return {grade,qualityScore,rowCount,payloadAgeMin};
 }
 
-async function fetchNormalizedOddsUncached(options:{forceRefresh?:boolean}={}):Promise<OddsIngestionResult>{
- const configured=configuredProviders('ODDS');
+async function fetchNormalizedOddsUncached(options:{forceRefresh?:boolean;providerIds?:string[];quotaSafeSingleCall?:boolean}={}):Promise<OddsIngestionResult>{
+ const configuredAll=configuredProviders('ODDS');
+ const configured=options.providerIds?.length
+  ?configuredAll.filter(p=>options.providerIds!.includes(p.id)):configuredAll;
  const targetBook=process.env.TARGET_BOOKMAKER||'DraftKings';
  if(!configured.length){
   return {
@@ -227,7 +229,7 @@ async function fetchNormalizedOddsUncached(options:{forceRefresh?:boolean}={}):P
   const stored=states.get(config.id);
   const health=stored?providerHealth(stored,now):{score:.8,status:'HEALTHY',quarantined:false};
   try{
-   return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined,options.forceRefresh===true);
+   return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined,{forceRefresh:options.forceRefresh===true,quotaSafeSingleCall:options.quotaSafeSingleCall===true});
   }catch(error){
    return {
     config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
@@ -291,7 +293,7 @@ let oddsPanelCache:{at:number;value:OddsIngestionResult}|null=null;
 let oddsPanelInFlight:Promise<OddsIngestionResult>|null=null;
 const oddsPanelCacheMs=()=>Math.max(1000,Number(process.env.ODDS_PANEL_CACHE_MS||5000));
 
-export async function fetchNormalizedOdds(options:{forceRefresh?:boolean}={}):Promise<OddsIngestionResult>{
+export async function fetchNormalizedOdds(options:{forceRefresh?:boolean;providerIds?:string[];quotaSafeSingleCall?:boolean}={}):Promise<OddsIngestionResult>{
  const now=Date.now();
  if(!options.forceRefresh&&oddsPanelCache&&now-oddsPanelCache.at<oddsPanelCacheMs())return oddsPanelCache.value;
  if(oddsPanelInFlight)return oddsPanelInFlight;
