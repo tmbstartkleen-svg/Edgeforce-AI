@@ -9,11 +9,13 @@
 import {auditHeldOutProbabilityCalibration,type SettledForecast} from './heldout-calibration-audit';
 import {auditClosingLineValue,type ClosingLinePair} from './closing-line-value-audit';
 import {analyzeIndependentQuoteAgreement,type SourceQuote} from './independent-quote-agreement';
+import {evaluatePairedBrierSkill,type PairedForecast} from './paired-brier-skill';
 
 export type Stage2EvidenceBundle={
  settledForecasts:SettledForecast[];
  closingLinePairs:ClosingLinePair[];
  simultaneousSourceQuotes:SourceQuote[];
+ pairedBaselineForecasts?:PairedForecast[];
  // Attestations are NOT supplied here. Authorization must come from a separate
  // trusted reviewer/service, never arbitrary request JSON booleans.
 };
@@ -24,14 +26,15 @@ export function evaluateStage2ResearchDossier(bundle:Stage2EvidenceBundle,now=Da
  const calibration=auditHeldOutProbabilityCalibration(bundle.settledForecasts,now);
  const clv=auditClosingLineValue(bundle.closingLinePairs,now);
  const crossSource=analyzeIndependentQuoteAgreement(bundle.simultaneousSourceQuotes,now);
+ const paired=evaluatePairedBrierSkill(bundle.pairedBaselineForecasts??[],now);
  const requirements=[
   {id:'SETTLED_MODEL_SAMPLE',passed:calibration.sampleSize>=100,
    observed:calibration.sampleSize,required:'100 or more uniquely identified settled forecasts'},
   {id:'CALIBRATION_ERROR',passed:calibration.sampleSize>=100&&
    calibration.expectedCalibrationError!==null&&calibration.expectedCalibrationError<=0.10,
    observed:calibration.expectedCalibrationError,required:'ECE <= 0.10 on audited holdout'},
-  {id:'BRIER_SKILL_BASELINE',passed:false,
-   observed:calibration.brierScore,required:'Verified improvement over audited baseline; not supplied'},
+  {id:'BRIER_SKILL_BASELINE',passed:paired.observedImprovement,
+   observed:paired.absoluteBrierImprovement,required:'Positive Brier improvement on >=100 event-matched settled predictions (still requires provenance audit)'},
   {id:'CLOSING_LINE_HISTORY',passed:clv.comparablePairs>=30,
    observed:clv.comparablePairs,required:'30 or more distinct matched historical closing lines'},
   {id:'INDEPENDENT_QUOTE_CORROBORATION',passed:crossSource.corroboratedMarkets>=1&&
@@ -54,6 +57,10 @@ export function evaluateStage2ResearchDossier(bundle:Stage2EvidenceBundle,now=Da
    brierScore:calibration.brierScore,logLoss:calibration.logLoss,
    expectedCalibrationError:calibration.expectedCalibrationError,
    maxBinCalibrationGap:calibration.maxBinCalibrationGap,rejected:calibration.rejected},
+  pairedBaseline:{sampleSize:paired.sampleSize,modelBrierScore:paired.modelBrierScore,
+   baselineBrierScore:paired.baselineBrierScore,absoluteBrierImprovement:paired.absoluteBrierImprovement,
+   observedImprovement:paired.observedImprovement,rejected:paired.rejected,
+   baselineProvenanceVerified:false},
   clv:{comparablePairs:clv.comparablePairs,averageClvPercent:clv.averageClvPercent,
    beatCloseCount:clv.beatCloseCount,rejected:clv.rejected},
   crossSource:{comparedMarkets:crossSource.comparedMarkets,
