@@ -92,9 +92,9 @@ export default function SportsbookOddsPanel(){
    </tbody></table>
   </div>:null}
   {live?.attempts?.length?<div aria-label="Odds provider response diagnostics" className="coverageTableWrap">
-   <table><thead><tr><th>Provider attempted</th><th>Status</th><th>Accepted markets</th><th>Credits left</th><th>Last request cost</th><th>Reason</th></tr></thead><tbody>
+   <table><thead><tr><th>Provider attempted</th><th>HTTP</th><th>Result</th><th>Accepted markets</th><th>Credits left</th><th>Credits used</th><th>Last request cost</th><th>Reason</th></tr></thead><tbody>
     {live.attempts.map((a,i)=><tr key={a.providerId+'-'+i}><td>{a.providerId}</td>
-     <td>{a.ok?'Accepted':'No accepted prices'}</td><td>{a.acceptedMarkets??0}</td><td>{a.quotaRemaining??'Not reported'}</td><td>{a.quotaLastCost??'Not reported'}</td><td>{a.error||'—'}</td></tr>)}
+     <td>{a.status??'No response'}</td><td>{a.ok?'Accepted':a.skipped?'Skipped':'Rejected'}</td><td>{a.acceptedMarkets??0}</td><td>{a.quotaRemaining??'Not reported'}</td><td>{a.quotaUsed??'Not reported'}</td><td>{a.quotaLastCost??'Not reported'}</td><td>{a.error||'—'}</td></tr>)}
    </tbody></table>
   </div>:null}
   {error&&<p role="alert" className="coverageNote">{error}</p>}
