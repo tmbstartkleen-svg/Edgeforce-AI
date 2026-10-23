@@ -52,6 +52,7 @@ export function assessOddsIngestionPreflight(events:unknown,now=Date.now(),optio
   distinctTargetOutcomes:keys.size,duplicateTargetIdentities:duplicateKeys.size,
   sports:distinct(quotes,r=>r.value.sport),leagues,provisionalPlayerPropQuotes:provisionalProps.length,
   unmappedMarketTypes:prepared.unmappedMarketTypes,rejected:prepared.rejected,
+  eventAudit:prepared.eventAudit,sampleTruncated:prepared.sampleTruncated,
   gates,passes:Object.values(gates).filter(g=>g.passed).length,totalGates:Object.keys(gates).length,
   warning:'Input is caller supplied. This report proves neither live connectivity, sportsbook authorization, executable prices, complete market coverage nor successful D1 ingestion.'};
 }
