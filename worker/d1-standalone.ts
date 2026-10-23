@@ -20,6 +20,7 @@ import {scoreIngestReceipt} from './d1-score-ingest-receipt';
 import {scoreHistoryAudit} from './d1-score-history-audit';
 import {scoreCoverageMatrix} from './d1-score-coverage-matrix';
 import {scoreCollectorReadiness} from './d1-score-collector-readiness';
+import {scorePollingPlan} from './d1-score-polling-plan';
 import {d1ScoreCoverage} from './d1-score-coverage';
 type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;STORAGE_STEWARD_SCHEDULE_ENABLED?:string;SOURCE_FRESHNESS_SCHEDULE_ENABLED?:string;INTELLIGENCE_DB?:any};
 export default {
@@ -41,6 +42,7 @@ export default {
   if(pathname==='/api/operations/d1-pilot/model-history')return d1PilotModelHistory(request,env);
   if(pathname==='/api/operations/d1-pilot/market-snapshots')return d1PilotMarketRead(request,env);
   if(pathname==='/api/operations/d1-pilot/score-coverage')return d1ScoreCoverage(request,env);
+  if(pathname==='/api/operations/d1-pilot/score-polling-plan')return scorePollingPlan(request,env);
   if(pathname==='/api/operations/d1-pilot/score-collector-readiness')return scoreCollectorReadiness(request,env);
   if(pathname==='/api/operations/d1-pilot/score-coverage-matrix')return scoreCoverageMatrix(request,env);
   if(pathname==='/api/operations/d1-pilot/score-history-audit')return scoreHistoryAudit(request,env);
