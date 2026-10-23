@@ -21,3 +21,10 @@ test('isolated pilot cron dispatches every 15 minutes and rotates four cohorts b
  assert.ok(readFileSync('wrangler.d1-pilot.jsonc','utf8').includes('"*/15 * * * *"'));
  assert.match(worker,/Math\.floor\(Date\.now\(\)\/900000\)%4/);
 });
+
+test('scheduler retries only a bounded number of times and reports attempts per source',()=>{
+ assert.match(worker,/for\(let retry=0;retry<3;retry\+\+\)/);
+ assert.match(worker,/250\*\(2\*\*retry\)/);
+ assert.match(worker,/attempts,recovered:attempts>1&&status===200/);
+ assert.match(worker,/status===422\|\|status===400\|\|status===401\|\|status===403/);
+});
