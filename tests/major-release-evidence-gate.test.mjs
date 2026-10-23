@@ -97,3 +97,21 @@ test('out-of-order historical coverage evidence cannot make release gate appear 
   events:[],expected:[],snapshots
  }},now),/INVALID_CONTINUITY_TIME_SEQUENCE/);
 });
+
+test('authenticated-looking roster candidate still cannot certify sportsbook player prop identity',()=>{
+ const fixtureAt=new Date(now+3600000).toISOString();
+ const evidence={...empty,draftKings:{events:[{id:'match-prop-1',
+  sport_key:'basketball_nba',sport_title:'NBA',commence_time:fixtureAt,
+  bookmakers:[{key:'draftkings',last_update:new Date(now-15000).toISOString(),
+   markets:[{key:'player_points',outcomes:[{name:'Over',description:'Test Athlete',
+    point:21.5,price:-115}]}]}]}],expected:[],roster:[{
+   athleteId:'athlete-verified-looking-id',displayName:'Test Athlete',teamId:'HOME',
+   eventId:'match-prop-1',sport:'basketball_nba',league:'NBA'}]}};
+ const report=evaluateMajorReleaseEvidence(evidence,now);
+ assert.equal(report.stage3PlayerIdentity.candidateCount,1);
+ assert.equal(report.stage3PlayerIdentity.certifiedProps,0);
+ assert.equal(report.releaseCertified,false);
+ assert.equal(report.verifiedValueBets,0);
+ assert.ok(report.missingByStage[2].researchOnly.includes('STAGE3_PLAYER_IDENTITY'));
+ assert.ok(report.missingByStage[2].blocked.includes('STAGE3_PLAYER_IDENTITY_CERTIFICATION'));
+});
