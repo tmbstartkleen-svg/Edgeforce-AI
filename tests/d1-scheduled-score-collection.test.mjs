@@ -28,3 +28,14 @@ test('scheduler retries only a bounded number of times and reports attempts per 
  assert.match(worker,/attempts,recovered:attempts>1&&status===200/);
  assert.match(worker,/status===422\|\|status===400\|\|status===401\|\|status===403/);
 });
+
+test('scheduled runs persist durable per-source receipts and readback evidence',()=>{
+ assert.match(worker,/CREATE TABLE IF NOT EXISTS score_scheduler_receipts/);
+ assert.match(worker,/run_id TEXT NOT NULL/);
+ assert.match(worker,/attempt_count INTEGER NOT NULL/);
+ assert.match(worker,/final_status INTEGER/);
+ assert.match(worker,/persisted INTEGER NOT NULL/);
+ assert.match(worker,/PERSISTENCE_UNCONFIRMED/);
+ assert.match(worker,/scoreSchedulerReceipts/);
+ assert.match(worker,/score-scheduler-receipts/);
+});
