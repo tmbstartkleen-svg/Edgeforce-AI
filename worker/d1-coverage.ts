@@ -88,7 +88,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    malformedRows:malformedScores,sourceOwners:[...new Set(scores.results.map(r=>r.upstream_id))].sort(),
    sports:[...scoreLeagues.values()].map(g=>({sport:g.sport,events:g.events.size,scheduleObservations:g.schedule,scoreObservations:g.score,latestObservedAt:g.latestObservedAt})).sort((a,b)=>a.sport.localeCompare(b.sport))};
   return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsObservations,
-   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
+   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&x.priceAmerican!==undefined).length,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
    asOf:report.asOf,warning:'D1 is a persisted observation source, not proof of complete DraftKings availability.'});
