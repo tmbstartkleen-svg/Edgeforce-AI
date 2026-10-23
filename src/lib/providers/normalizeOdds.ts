@@ -90,7 +90,8 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
     out.push({
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
-     home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
+     home,away,odds,rawImpliedProb,sourceBook:bookTitle,sourceEventId:eventId,
+     marketProb:rawImpliedProb,modelProb:rawImpliedProb,
      confidence:.6,sourceAgeMin:quoteAgeMin,
      ...(Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000?{sourceTimestamp:new Date(updatedMs).toISOString()}:{}),
      period:new Date(startTime).getHours()<12?'AM':'PM'
