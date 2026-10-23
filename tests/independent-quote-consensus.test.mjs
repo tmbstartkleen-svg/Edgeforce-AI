@@ -24,3 +24,16 @@ test('sport, league, and scheduled start must agree',()=>{
  for(const change of [{sport:'NHL'},{league:'WNBA'},{startsAt:'2026-10-21T16:00:00Z'}])
   assert.equal(run([a,{...b,...change}]).verifiedOutcomes,0);
 });
+
+test('independent sources can agree on market identity yet disagree materially on price',()=>{
+ const r=run([a,{...b,priceAmerican:+150}]);
+ assert.equal(r.verifiedOutcomes,1);
+ assert.equal(r.priceAlignedOutcomes,0);
+ assert.equal(r.verified[0].priceAligned,false);
+ assert.ok(r.verified[0].impliedProbabilitySpread>.02);
+});
+test('modest implied-probability differences count only as aligned research prices',()=>{
+ const r=run([a,b]);
+ assert.equal(r.priceAlignedOutcomes,1);
+ assert.equal(r.verified[0].priceAligned,true);
+});
