@@ -16,3 +16,8 @@ test('scheduler is opt-in, fail-closed and bounded to a four-source cohort',()=>
  assert.match(worker,/for\(const sport of cohort\)/);
  assert.match(worker,/collectMultiSportScores/);
 });
+
+test('isolated pilot cron dispatches every 15 minutes and rotates four cohorts by quarter-hour',()=>{
+ assert.match(readFileSync('wrangler.d1-pilot.jsonc','utf8'),/"\\*\\/15 \\* \\* \\* \\*"/);
+ assert.match(worker,/Math\.floor\(Date\.now\(\)\/900000\)%4/);
+});
