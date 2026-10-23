@@ -67,10 +67,6 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
  for(const bookValue of bookmakers){
   const book=obj(bookValue);
   const bookTitle=str(book.title,str(book.key,'Book'));
-  const updatedAt=str(book.last_update,'');
-  const updatedMs=updatedAt?Date.parse(updatedAt):Number.NaN;
-  const quoteAgeMin=Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000
-   ?Math.max(0,(Date.now()-updatedMs)/60000):Number.MAX_SAFE_INTEGER;
   const markets=Array.isArray(book.markets)?book.markets:[];
   for(const marketValue of markets){
    const marketObj=obj(marketValue);
