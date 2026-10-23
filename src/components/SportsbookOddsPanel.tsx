@@ -18,6 +18,7 @@ export default function SportsbookOddsPanel(){
  const [providers,setProviders]=useState<ProvidersResult|null>(null);
  const [live,setLive]=useState<Result|null>(null);
  const [busy,setBusy]=useState(false);
+ const [ownerToken,setOwnerToken]=useState('');
  const [onlyDraftKings,setOnlyDraftKings]=useState(true);
  const [error,setError]=useState<string|null>(null);
  const [refresh,setRefresh]=useState(0);
@@ -31,11 +32,14 @@ export default function SportsbookOddsPanel(){
   .catch(()=>{if(active)setProviders(null)});
   return()=>{active=false}},[refresh]);
  const refreshProvider=async()=>{
+  if(!/^[a-f0-9]{64}$/i.test(ownerToken.trim())){
+   setError('Enter the 64-character owner network token before a metered provider refresh.');return;
+  }
   setBusy(true);setError(null);setLive(null);
   try{
    // Operator-initiated only: this existing route may fetch configured
    // providers and spend quota. It is NEVER invoked automatically.
-   const response=await fetch('/api/markets?forceLive=1',{cache:'no-store'});
+   const response=await fetch('/api/markets?forceLive=1',{cache:'no-store',headers:{Authorization:'Bearer '+ownerToken.trim()}});
    const body=await response.json() as Result&{markets?:Quote[];sportsbookQuotes?:Quote[];warnings?:string[];providerId?:string;source?:string;quoteScope?:string};
    if(!response.ok)throw Error(body.error||'Odds provider refresh failed');
    if(body.source==='demo')throw Error('Only demonstration markets were returned. No live sportsbook quotes are available.');
@@ -58,6 +62,7 @@ export default function SportsbookOddsPanel(){
   <div className="coveragePanelHead"><div><div className="eyebrow">SPORTSBOOK ODDS • RESEARCH ONLY</div><h2>DraftKings and reference sportsbook prices</h2></div></div>
   <p className="coverageNote">See real provider-labeled markets when available. The default view reads existing stored snapshots only. The manual provider refresh may consume API quota and is never started automatically. No bookmaker prices are inferred from scores.</p>
   <div className="coverageTools">
+   <label>Owner token (not stored) <input aria-label="Owner network token for sportsbook refresh" type="password" autoComplete="off" value={ownerToken} onChange={e=>setOwnerToken(e.target.value)} placeholder="64-character owner token"/></label>
    <button type="button" disabled={busy} onClick={refreshProvider}>{busy?'Contacting providers…':'Refresh connected odds providers (may use quota)'}</button>
    <button type="button" onClick={()=>{setLive(null);setError(null);setRefresh(x=>x+1)}}>Stored prices only</button>
    <label><input aria-label="Show DraftKings only" type="checkbox" checked={onlyDraftKings} onChange={e=>setOnlyDraftKings(e.target.checked)}/> DraftKings only</label>
