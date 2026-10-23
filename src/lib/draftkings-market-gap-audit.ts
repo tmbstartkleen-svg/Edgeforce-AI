@@ -6,7 +6,7 @@
  */
 export type RequiredMarket={
  sport:string;league:string;marketType:string;
- kind:'game'|'player-prop';eventId?:string;
+ kind:'game'|'player-prop';eventId?:string;playerId?:string;line?:string;
 };
 export type ObservedMarket={
  sport:string;league:string;marketType:string;eventId:string;
@@ -30,17 +30,20 @@ export function auditDraftKingsMarketCoverage(
  const reject=(reason:string)=>{rejected[reason]=(rejected[reason]||0)+1};
  for(const r of expected){
   if(!r||![r.sport,r.league,r.marketType].every(str)||
-   !['game','player-prop'].includes(r.kind)|| (r.eventId!==undefined&&!str(r.eventId))){
+   !['game','player-prop'].includes(r.kind)|| (r.eventId!==undefined&&!str(r.eventId))||
+   (r.playerId!==undefined&&!str(r.playerId))||(r.line!==undefined&&!str(r.line))){
    reject('INVALID_REQUIRED_MARKET');continue;
   }
   // Preserve event-scoped requirements distinctly, including two matches
   // in one league that offer entirely different player props.
-  const k=JSON.stringify([key(r),r.eventId?norm(r.eventId):'',r.kind]);
+  const k=JSON.stringify([key(r),r.eventId?norm(r.eventId):'',r.kind,
+   r.playerId?norm(r.playerId):'',r.line?norm(r.line):'']);
   if(requirements.has(k)){reject('DUPLICATE_REQUIRED_MARKET');continue}
   requirements.set(k,r);
  }
  const covered=new Map<string,Set<string>>();
  const upstreams=new Map<string,Set<string>>();
+ const pricedIdentities=new Map<string,Set<string>>();
  for(const q of observed){
   if(!q||![q.sport,q.league,q.marketType,q.eventId,q.bookmaker,q.sourceUpstreamId,q.outcomeId].every(str)||
    norm(q.bookmaker)!=='draftkings'||!Number.isSafeInteger(q.americanOdds)||
@@ -58,17 +61,24 @@ export function auditDraftKingsMarketCoverage(
   const k=key(q),id=norm(q.eventId);
   if(!covered.has(k))covered.set(k,new Set());
   covered.get(k)!.add(id);
+  if(!pricedIdentities.has(k))pricedIdentities.set(k,new Set());
+  pricedIdentities.get(k)!.add(JSON.stringify([id,q.playerId?norm(q.playerId):'',q.line?norm(q.line):'']));
   if(!upstreams.has(k))upstreams.set(k,new Set());
   upstreams.get(k)!.add(norm(q.sourceUpstreamId));
  }
  const missing:Array<{sport:string;league:string;marketType:string;kind:string;
-  eventId?:string;reason:string}>=[];
+  eventId?:string;playerId?:string;line?:string;reason:string}>=[];
  const satisfied:RequiredMarket[]=[];
  const groupSummary=new Map<string,{sport:string;required:number;covered:number;missing:number}>();
  for(const r of requirements.values()){
   const k=key(r),events=covered.get(k),typeIsProp=r.marketType.toLowerCase().startsWith('player_');
   const kindAligned=r.kind===(typeIsProp?'player-prop':'game');
-  const present=kindAligned&&Boolean(
+  const identities=pricedIdentities.get(k);
+  const scoped=Boolean(r.playerId||r.line);
+  const aligned=(!r.playerId||typeIsProp)&&(!scoped||Boolean(r.eventId));
+  const exact= !scoped || Boolean(identities&&identities.has(JSON.stringify([
+   norm(r.eventId||''),r.playerId?norm(r.playerId):'',r.line?norm(r.line):''])));
+  const present=kindAligned&&aligned&&exact&&Boolean(
    events&&events.size>0&&(!r.eventId||events.has(norm(r.eventId))));
   const label=norm(r.sport);
   if(!groupSummary.has(label))groupSummary.set(label,{sport:r.sport,required:0,covered:0,missing:0});
@@ -78,7 +88,8 @@ export function auditDraftKingsMarketCoverage(
    group.missing++;
    missing.push({sport:r.sport,league:r.league,marketType:r.marketType,kind:r.kind,
     ...(r.eventId?{eventId:r.eventId}:{}),
-    reason:events?.size?'REQUIRED_EVENT_NOT_PRICED':'NO_FRESH_DRAFTKINGS_PRICE'});
+    ...(r.playerId?{playerId:r.playerId}:{}),...(r.line?{line:r.line}:{}),
+    reason:!kindAligned||!aligned?'CATALOG_IDENTITY_MISMATCH':scoped&&events?.size?'REQUIRED_PLAYER_OR_LINE_NOT_PRICED':events?.size?'REQUIRED_EVENT_NOT_PRICED':'NO_FRESH_DRAFTKINGS_PRICE'});
   }
  }
  const requiredCount=requirements.size;
