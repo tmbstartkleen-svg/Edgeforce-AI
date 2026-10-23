@@ -63,10 +63,10 @@ export default function SportsbookOddsPanel(){
  const visible=(onlyDraftKings?dk:all).slice(0,80);
  return <section className="coveragePanel" aria-label="Sportsbook odds quotes" style={{padding:22,marginBottom:20}}>
   <div className="coveragePanelHead"><div><div className="eyebrow">SPORTSBOOK ODDS • RESEARCH ONLY</div><h2>DraftKings and reference sportsbook prices</h2></div></div>
-  <p className="coverageNote">See real provider-labeled markets when available. The default view reads existing stored snapshots only. The manual provider refresh may consume API quota and is never started automatically. No bookmaker prices are inferred from scores.</p>
+  <p className="coverageNote">See real provider-labeled markets when available. The default view reads existing stored snapshots only. The manual refresh targets The Odds API only and is limited to one paid bootstrap request, without retries or paid sport expansions. It never runs automatically. No bookmaker prices are inferred from scores.</p>
   <div className="coverageTools">
    <label>Owner token (not stored) <input aria-label="Owner network token for sportsbook refresh" type="password" autoComplete="off" value={ownerToken} onChange={e=>setOwnerToken(e.target.value)} placeholder="64-character owner token"/></label>
-   <button type="button" disabled={busy} onClick={refreshProvider}>{busy?'Contacting providers…':'Refresh connected odds providers (may use quota)'}</button>
+   <button type="button" disabled={busy} onClick={refreshProvider}>{busy?'Contacting providers…':'Refresh DraftKings odds (one provider request; may use quota)'}</button>
    <button type="button" onClick={()=>{setLive(null);setError(null);setRefresh(x=>x+1)}}>Stored prices only</button>
    <label><input aria-label="Show DraftKings only" type="checkbox" checked={onlyDraftKings} onChange={e=>setOnlyDraftKings(e.target.checked)}/> DraftKings only</label>
   </div>
