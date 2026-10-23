@@ -12,14 +12,14 @@ test('scheduler is opt-in, fail-closed and bounded to a four-source cohort',()=>
  assert.match(worker,/INTELLIGENCE_D1_WRITE_ENABLED==='true'/);
  assert.match(worker,/SPORTS_D1_WRITE_ENABLED!=='true'/);
  assert.match(worker,/env\.CRON_SECRET\.length>=24/);
- assert.match(worker,/index%4===slot/);
+ assert.match(worker,/index%2===slot/);
  assert.match(worker,/for\(const sport of cohort\)/);
  assert.match(worker,/collectMultiSportScores/);
 });
 
-test('isolated pilot cron dispatches every 15 minutes and rotates four cohorts by quarter-hour',()=>{
- assert.ok(readFileSync('wrangler.d1-pilot.jsonc','utf8').includes('"*/15 * * * *"'));
- assert.match(worker,/Math\.floor\(Date\.now\(\)\/900000\)%4/);
+test('isolated pilot cron dispatches every 15 minutes and rotates two cohorts every five minutes',()=>{
+ assert.ok(readFileSync('wrangler.d1-pilot.jsonc','utf8').includes('"*/5 * * * *"'));
+ assert.match(worker,/Math\.floor\(Date\.now\(\)\/300000\)%2/);
 });
 
 test('scheduler retries only a bounded number of times and reports attempts per source',()=>{
