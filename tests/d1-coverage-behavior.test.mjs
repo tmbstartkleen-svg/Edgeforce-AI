@@ -95,3 +95,24 @@ test('two owners with different observation timestamps still verify the same pri
  assert.equal(report.independentVerification.verifiedOutcomes,1);
  assert.equal(report.independentVerification.crossProviderVerified,true);
 });
+
+test('price disagreement is not reported as independently price-verified',async()=>{
+ const conflicting={...rows[0],source_id:'independent-other',upstream_id:'another-owner',
+  observed_at:new Date(now-9000).toISOString(),
+  payload:JSON.stringify({value:{bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',
+   outcomeId:'over',startsAt:new Date(now+3600000).toISOString(),playerId:'player-123',line:'22.5',priceAmerican:+150}})};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],conflicting]))).json();
+ assert.equal(report.ok,true);
+ assert.equal(report.independentVerification.crossProviderVerified,true);
+ assert.equal(report.independentVerification.priceCrossVerified,false);
+ assert.equal(report.independentVerification.priceAlignedOutcomes,0);
+ assert.equal(report.independentVerification.priceDisagreementOutcomes,1);
+});
+test('matching independent prices can be explicitly research-aligned',async()=>{
+ const second={...rows[0],source_id:'aligned-other',upstream_id:'another-owner',
+  observed_at:new Date(now-9000).toISOString()};
+ const report=await (await d1CoverageGateway(req(),env([rows[0],second]))).json();
+ assert.equal(report.independentVerification.priceCrossVerified,true);
+ assert.equal(report.independentVerification.priceAlignedOutcomes,1);
+ assert.equal(report.independentVerification.priceDisagreementOutcomes,0);
+});
