@@ -28,3 +28,10 @@ test('scoreboard registrations cannot be used as odds ingestion authority',()=>{
  assert.match(source,/SCOREBOARD_SOURCE_CANNOT_SUPPLY_ODDS/);
  assert.match(source,/SCOREBOARD_UPSTREAM_MISMATCH/);
 });
+
+test('D1 sportsbook odds use strictly nonfuture fifteen-minute collection freshness',()=>{
+ assert.match(source,/o\.kind==='odds'&&\(o\.observedAt>now\|\|now-o\.observedAt>15\*60\*1000\)/);
+ assert.match(source,/ODDS_QUOTE_TIMESTAMP_NOT_FRESH/);
+ // Scoreboard data retains independent longer-lived history acceptance.
+ assert.match(source,/if\(now-o\.observedAt>86400000\)/);
+});
