@@ -75,6 +75,7 @@ test('opt-in dry-run player prop mapping preserves player, side and line identit
  const prop=r.rows.find(x=>x.value.marketType==='player_points');
  assert.equal(prop.value.playerId,'name:player');
  assert.equal(prop.value.playerName,'Player');
+ assert.equal(prop.value.playerIdentityStatus,'UNVERIFIED_NAME_ONLY');
  assert.equal(prop.value.line,'20.5');
  assert.equal(prop.value.outcomeId,'Over');
  assert.equal(r.readyForAuthorizedIngest,false);
@@ -97,4 +98,15 @@ test('unrecognized non-player markets never become valid props with opt-in',()=>
  const r=prepareTheOddsApiD1Batch([p],now,25,{enablePlayerProps:true});
  assert.equal(r.prepared,0);
  assert.equal(r.rejected.MARKET_NOT_MAPPED,1);
+});
+
+test('provisional player IDs normalize repeated whitespace without claiming athlete verification',()=>{
+ const changed={...event,bookmakers:[{...event.bookmakers[0],markets:[
+  {key:'player_points',outcomes:[{name:'Over',description:'  Jane   Doe  ',point:20.5,price:-110}]}
+ ]}]};
+ const r=prepareTheOddsApiD1Batch([changed],now,25,{enablePlayerProps:true});
+ assert.equal(r.prepared,1);
+ assert.equal(r.rows[0].value.playerId,'name:jane doe');
+ assert.equal(r.rows[0].value.playerIdentityStatus,'UNVERIFIED_NAME_ONLY');
+ assert.equal(r.readyForAuthorizedIngest,false);
 });
