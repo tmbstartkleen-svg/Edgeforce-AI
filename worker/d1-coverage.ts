@@ -20,8 +20,12 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
  const u=new URL(request.url),limit=Number(u.searchParams.get('limit')||100);
  if(!Number.isSafeInteger(limit)||limit<1||limit>250)return json({ok:false,error:'INVALID_LIMIT'},400);
  try{
-  const records=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload FROM intelligence_observations
-    WHERE observation_kind='odds' ORDER BY observed_at DESC LIMIT ?`).bind(limit).all<Row>();
+  const records=await db.prepare(`SELECT o.source_id,o.upstream_id,o.event_id,o.observed_at,o.payload
+    FROM intelligence_observations AS o
+    INNER JOIN intelligence_sources AS s ON s.source_id=o.source_id
+      AND s.upstream_id=o.upstream_id AND s.enabled=1
+    WHERE o.observation_kind='odds' AND o.source_id NOT LIKE 'espn-scoreboard-%'
+    ORDER BY o.observed_at DESC LIMIT ?`).bind(limit).all<Row>();
   const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[];let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
