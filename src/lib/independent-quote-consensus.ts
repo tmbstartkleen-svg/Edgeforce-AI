@@ -36,7 +36,15 @@ export function independentQuoteConsensus(quotes:ConsensusQuote[], now:string, m
    const window=sorted.filter(q=>Date.parse(q.observedAt)>=Date.parse(sorted[i].observedAt)&&Date.parse(q.observedAt)-Date.parse(sorted[i].observedAt)<=matchWindowMs);
    const unique=new Map<string,ConsensusQuote>();
    for(const q of window)unique.set(norm(q.upstreamId),q);
-   if(unique.size>=2&&unique.size>new Set(selected.map(q=>norm(q.upstreamId))).size)selected=[...unique.values()];
+   // Prefer the largest independent source cohort. If tied, prefer the
+   // narrower observed price spread instead of whichever window comes last.
+   const candidate=[...unique.values()];
+   const spread=(quotes:ConsensusQuote[])=>quotes.length<2?Infinity:
+    Math.max(...quotes.map(q=>impliedProbability(q.priceAmerican)))-
+    Math.min(...quotes.map(q=>impliedProbability(q.priceAmerican)));
+   if(candidate.length>=2&&(candidate.length>selected.length||
+      (candidate.length===selected.length&&spread(candidate)<spread(selected))))
+    selected=candidate;
   }
   if(selected.length>=2){
    const implied=selected.map(q=>impliedProbability(q.priceAmerican));
