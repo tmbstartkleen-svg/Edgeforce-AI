@@ -19,3 +19,9 @@ test('planner covers every registered score source with conservative cadence',()
  assert.match(plan,/SCORES_NOT_ODDS/);
  assert.match(plan,/pagesCertified:false,continuousIngestionCertified:false/);
 });
+
+test('polling plan distinguishes target freshness from actual hourly cohort cadence',()=>{
+ assert.match(plan,/targetCadenceMinutes/);
+ assert.match(plan,/estimatedCadenceMinutes:60/);
+ assert.match(plan,/dispatchCadenceMinutes:15,cohortCount:4,estimatedPerSourceCadenceMinutes:60/);
+});
