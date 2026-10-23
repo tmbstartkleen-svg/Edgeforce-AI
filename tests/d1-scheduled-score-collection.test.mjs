@@ -39,3 +39,9 @@ test('scheduled runs persist durable per-source receipts and readback evidence',
  assert.match(worker,/scoreSchedulerReceipts/);
  assert.match(worker,/score-scheduler-receipts/);
 });
+
+test('scheduler receipt only claims persistence after source-scoped D1 readback',()=>{
+ assert.match(worker,/SELECT COUNT\(\*\) AS count FROM intelligence_observations WHERE source_id=\? AND observation_kind='score' AND ingested_at>=\?/);
+ assert.match(worker,/persisted=Number\(readback\?\.count\|\|0\)>0/);
+ assert.match(worker,/PERSISTENCE_UNCONFIRMED/);
+});
