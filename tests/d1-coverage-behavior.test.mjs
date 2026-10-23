@@ -166,7 +166,7 @@ test('certification checklist stays blocked even when research quotes exist',asy
  assert.equal(report.certification.gates.persistedFreshDraftKingsOdds.passed,true);
  assert.equal(report.certification.gates.persistedPricedPlayerProps.passed,true);
  assert.equal(report.certification.gates.expectedMarketCatalog.passed,false);
- assert.equal(report.certification.totalGates,6);
+ assert.equal(report.certification.totalGates,7);
 });
 test('certification reports explicit missing price and player-prop evidence for empty ledger',async()=>{
  const report=await (await d1CoverageGateway(req(),env([],[]))).json();
@@ -174,4 +174,19 @@ test('certification reports explicit missing price and player-prop evidence for 
  assert.equal(report.certification.gates.persistedPricedPlayerProps.reason,'NO_FRESH_PRICED_PLAYER_PROPS');
  assert.equal(report.certification.gates.independentQuoteCorroboration.passed,false);
  assert.equal(report.certification.passedCount,0);
+});
+
+test('provisional name-derived player identifiers never satisfy verified athlete identity gate',async()=>{
+ const provisional={...rows[0],payload:JSON.stringify({value:{
+  bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',
+  outcomeId:'Over',startsAt:new Date(now+3600000).toISOString(),
+  playerId:'name:jane doe',playerName:'Jane Doe',playerIdentityStatus:'UNVERIFIED_NAME_ONLY',
+  line:'22.5',priceAmerican:-115}})};
+ const report=await (await d1CoverageGateway(req(),env([provisional]))).json();
+ assert.equal(report.ok,true);
+ assert.equal(report.certification.gates.persistedPricedPlayerProps.passed,true);
+ assert.equal(report.playerIdentityEvidence.provisionalPropMarkets,1);
+ assert.equal(report.playerIdentityEvidence.verifiedIdentityPricedProps,0);
+ assert.equal(report.playerIdentityEvidence.playerIdentityCertified,false);
+ assert.equal(report.certification.gates.verifiedPlayerIdentity.passed,false);
 });
