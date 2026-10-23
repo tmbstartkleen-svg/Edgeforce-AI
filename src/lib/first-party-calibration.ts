@@ -65,13 +65,16 @@ export function evaluateWalkForwardHoldout(rows:SettledForecast[],cutoffIso:stri
   accepted.set(r.forecastId,r);
  }
  const training=[...accepted.values()].filter(r=>Date.parse(r.settledAt)<=cutoff);
- const holdout=[...accepted.values()].filter(r=>Date.parse(r.predictedAt)>cutoff);
- const excludedBoundary=[...accepted.values()].length-training.length-holdout.length;
+ const rawHoldout=[...accepted.values()].filter(r=>Date.parse(r.predictedAt)>cutoff);
+ const trainingMarkets=new Set(training.map(r=>JSON.stringify([r.eventId,r.marketKey])));
+ const overlappingHoldout=rawHoldout.filter(r=>trainingMarkets.has(JSON.stringify([r.eventId,r.marketKey])));
+ const holdout=rawHoldout.filter(r=>!trainingMarkets.has(JSON.stringify([r.eventId,r.marketKey])));
+ const excludedBoundary=[...accepted.values()].length-training.length-rawHoldout.length;
  const trainingByModel=new Map<string,number>();
  for(const r of training)trainingByModel.set(r.modelId,(trainingByModel.get(r.modelId)||0)+1);
  const holdoutReport=evaluateCalibration(holdout,asOf,minHoldout);
  return {cutoff:new Date(cutoff).toISOString(),asOf:new Date(now).toISOString(),validated:base.accepted,
-  trainingCount:training.length,holdoutCount:holdout.length,excludedBoundary,
+  trainingCount:training.length,holdoutCount:holdout.length,excludedBoundary,excludedOverlappingMarkets:overlappingHoldout.length,
   models:holdoutReport.models.map(m=>({...m,trainingCount:trainingByModel.get(m.modelId)||0,
     status:m.count>=minHoldout&&(trainingByModel.get(m.modelId)||0)>0?'REVIEW_REQUIRED' as const:'INSUFFICIENT_SAMPLE' as const})),
   certified:false,warning:'Chronological split only: requires source authenticity, original frozen forecasts, independent settlements and leakage review before model certification.'};
