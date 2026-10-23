@@ -16,7 +16,7 @@ const config={id:'the-odds-api',name:'The Odds API',capability:'ODDS',url:'the-o
 const event=()=>({id:'event-1',sport_key:'basketball_nba',sport_title:'NBA',
  commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',
  bookmakers:[{key:'draftkings',title:'DraftKings',last_update:new Date().toISOString(),
-  markets:[{key:'h2h',outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}]});
+  markets:[{key:'h2h',last_update:new Date().toISOString(),outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}]});
 test('quota-safe refresh sends one DraftKings-only request and reports provider credit headers',async()=>{
  process.env.THE_ODDS_API_KEY='test-key-not-real';
  process.env.THE_ODDS_API_BASE_URL='https://odds-mock.invalid/v4';
