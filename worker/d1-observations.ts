@@ -30,6 +30,10 @@ export async function appendD1Observations(
   try{
    const o=normalizeObservation(item,now);
    if(now-o.observedAt>86400000)throw new Error('STALE_SOURCE_TIMESTAMP');
+   // Trading prices have a much shorter lifetime than scores/history.
+   // Never persist future-dated odds or quotes older than fifteen minutes.
+   if(o.kind==='odds'&&(o.observedAt>now||now-o.observedAt>15*60*1000))
+    throw new Error('ODDS_QUOTE_TIMESTAMP_NOT_FRESH');
    const registry=await db.prepare('SELECT upstream_id FROM intelligence_sources WHERE source_id=? AND enabled=1').bind(o.provider).first<{upstream_id:string}>();
    if(!registry||registry.upstream_id!==o.upstreamId)throw new Error('D1_SOURCE_NOT_APPROVED');
    // Source registration alone is not an odds entitlement. The scoreboard
