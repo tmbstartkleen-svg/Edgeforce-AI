@@ -84,3 +84,14 @@ test('explicit provider refresh does not write odds snapshots or mirror research
  assert.match(ingestion,/if\(options\.persist!==false&&process\.env\.INTELLIGENCE_WAREHOUSE_MIRROR_ENABLED/);
  assert.match(marketRoute,/persist:!forceLive/);
 });
+
+test('operator sees provider accepted market counts, quality, latency and prop coverage',()=>{
+ assert.match(marketRoute,/providerPanel:result\.providerPanel/);
+ assert.match(marketRoute,/quality:result\.quality/);
+ assert.match(marketRoute,/rawCount:result\.rawCount/);
+ assert.match(panel,/live\?\.providerPanel\?\.length/);
+ assert.match(panel,/Accepted markets/);
+ assert.match(panel,/playerPropRows/);
+ assert.match(panel,/Latency/);
+ assert.match(panel,/qualityGrade/);
+});
