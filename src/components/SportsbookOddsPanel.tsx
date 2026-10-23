@@ -7,6 +7,7 @@ type Quote={sport:string;league:string;event:string;selection:string;market:stri
 type Result={ok:boolean;mode?:string;source?:string;rows:Quote[];
  draftKingsQuotes?:number;totalFreshQuotes?:number;error?:string;warning?:string;
  attempts?:Array<{providerId:string;ok:boolean;error?:string}>};
+type ProvidersResult={ok:boolean;configuredProviderCount:number;providers:Array<{id:string;name:string;bookmakerLabel:string;credentialConfigured:boolean;requiresPaidQuota:boolean;classification:string}>;error?:string};
 const isQuote=(q:Quote)=>!!q&&typeof q.sourceBook==='string'&&
  Number.isSafeInteger(q.odds)&&Math.abs(q.odds)>=100&&Math.abs(q.odds)<=100000&&
  Number.isFinite(Number(q.sourceAgeMin))&&Number(q.sourceAgeMin)>=0&&
@@ -14,6 +15,7 @@ const isQuote=(q:Quote)=>!!q&&typeof q.sourceBook==='string'&&
 const prettyOdds=(n:number)=>n>0?'+'+n:String(n);
 export default function SportsbookOddsPanel(){
  const [stored,setStored]=useState<Result|null>(null);
+ const [providers,setProviders]=useState<ProvidersResult|null>(null);
  const [live,setLive]=useState<Result|null>(null);
  const [busy,setBusy]=useState(false);
  const [onlyDraftKings,setOnlyDraftKings]=useState(true);
@@ -22,6 +24,11 @@ export default function SportsbookOddsPanel(){
  useEffect(()=>{let active=true;fetch('/api/sportsbook-odds',{cache:'no-store'})
   .then(async r=>{const d=await r.json() as Result;if(!r.ok)throw Error(d.error||'Stored sportsbook quotes unavailable');return d})
   .then(d=>{if(active)setStored(d)}).catch(e=>{if(active)setStored({ok:false,rows:[],error:e instanceof Error?e.message:'Stored odds unavailable'})});
+  return()=>{active=false}},[refresh]);
+ useEffect(()=>{let active=true;fetch('/api/sportsbook-odds/providers',{cache:'no-store'})
+  .then(async r=>{const data=await r.json() as ProvidersResult;if(!r.ok)throw Error(data.error||'Provider configuration unavailable');return data})
+  .then(data=>{if(active)setProviders(data)})
+  .catch(()=>{if(active)setProviders(null)});
   return()=>{active=false}},[refresh]);
  const refreshProvider=async()=>{
   setBusy(true);setError(null);setLive(null);
@@ -35,7 +42,7 @@ export default function SportsbookOddsPanel(){
    const quotes=(body.markets||[]).filter(isQuote);
    setLive({ok:true,source:body.source,mode:body.mode,rows:quotes,
     totalFreshQuotes:quotes.length,draftKingsQuotes:quotes.filter(q=>q.sourceBook?.trim().toLowerCase()==='draftkings').length,
-    warning:'Provider data is unverified for storage rights, independent provenance, and execution. Research only.',
+    warning:(body.warnings||[]).slice(0,5).join(' · ')||'Provider data is unverified for storage rights, independent provenance, and execution. Research only.',
     attempts:body.attempts});
    setRefresh(x=>x+1);
   }catch(e){setError(e instanceof Error?e.message:'Could not refresh connected sportsbook feeds')}
@@ -58,6 +65,19 @@ export default function SportsbookOddsPanel(){
    <article><small>ALL SPORTSBOOK QUOTES</small><strong>{all.length}</strong><span>Quotes from {live?'operator-requested provider scan':'stored snapshots'}</span></article>
    <article><small>DATA STATUS</small><strong style={{fontSize:'1.1rem'}}>{live?.source==='live'?'Provider response':live?.source==='stored'?'Stored fallback':stored?.ok?'Stored research':'Unavailable'}</strong><span>Neither a certified model nor an +EV guarantee</span></article>
   </div>
+  {providers?.ok&&<div aria-label="Odds provider configuration diagnostics">
+   <p className="coverageNote">Configured odds adapters: {providers.configuredProviderCount}. Configuration does not mean the adapter returned usable prices. No live calls are made by this check.</p>
+   <div className="coverageTableWrap"><table><thead><tr><th>Provider</th><th>Feed type</th><th>Credentials</th></tr></thead>
+   <tbody>{providers.providers.map(p=><tr key={p.id}><td>{p.name}</td>
+    <td>{p.classification==='PUBLIC_REFERENCE_ODDS'?'Public reference odds':'Configured odds adapter'}</td>
+    <td>{p.credentialConfigured?'Key present':'No key on provider config / key not required'}</td></tr>)}</tbody></table></div>
+  </div>}
+  {live?.attempts?.length?<div aria-label="Odds provider response diagnostics" className="coverageTableWrap">
+   <table><thead><tr><th>Provider attempted</th><th>Status</th><th>Reason</th></tr></thead><tbody>
+    {live.attempts.map((a,i)=><tr key={a.providerId+'-'+i}><td>{a.providerId}</td>
+     <td>{a.ok?'Accepted':'No accepted prices'}</td><td>{a.error||'—'}</td></tr>)}
+   </tbody></table>
+  </div>:null}
   {error&&<p role="alert" className="coverageNote">{error}</p>}
   {result&&!result.ok&&<p role="alert" className="coverageNote">{result.error||'Unable to read sportsbook snapshots'}</p>}
   {result?.ok&&all.length===0&&<p className="coverageNote">No current sportsbook quotes are available from this data path. The D1 score feed is not an odds provider. Check whether an approved sportsbook adapter is configured and whether stored snapshots are within 15 minutes of collection.</p>}
