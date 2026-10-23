@@ -13,7 +13,11 @@ const {d1CoverageGateway}=await import(uri(compiled));
 const secret='a'.repeat(32),now=Date.now();
 const rows=[{source_id:'approved-feed',upstream_id:'real-upstream-one',event_id:'event-1',observed_at:new Date(now-5000).toISOString(),
  payload:JSON.stringify({provider:'approved-feed',kind:'odds',value:{bookmaker:'DraftKings',sport:'NBA',league:'NBA',marketType:'player_points',outcomeId:'over',startsAt:new Date(now+3600000).toISOString(),playerId:'player-123',line:'22.5',priceAmerican:-115}})}];
-function env(data=rows){return {CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(sql){assert.match(sql,/observation_kind='(?:odds|score)'/);return {bind(n){assert.ok(n<=250);return {all:async()=>({results:sql.includes("observation_kind='score'")?[]:data})}}}}}};}
+function env(data=rows,registered=[]){return {CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(sql){
+ if(sql.includes('FROM intelligence_sources WHERE enabled=1'))return {all:async()=>({results:registered})};
+ assert.match(sql,/observation_kind='(?:odds|score)'/);
+ return {bind(n){assert.ok(n<=250);return {all:async()=>({results:sql.includes("observation_kind='score'")?[]:data})}}};
+}}};}
 const req=(auth=true)=>new Request('https://edgeforce.example/api/operations/d1-pilot/coverage',{headers:auth?{authorization:'Bearer '+secret}:{}});
 test('D1 coverage rejects unauthenticated callers without querying',async()=>{
  const response=await d1CoverageGateway(req(false),{CRON_SECRET:secret,INTELLIGENCE_DB:{prepare(){throw Error('unauthorized query')}}});
@@ -122,4 +126,22 @@ test('D1 odds evidence is restricted to active identity-matched registered upstr
  assert.match(source,/INNER JOIN intelligence_sources AS s ON s\.source_id=o\.source_id/);
  assert.match(source,/s\.upstream_id=o\.upstream_id AND s\.enabled=1/);
  assert.match(source,/o\.source_id NOT LIKE 'espn-scoreboard-%'/);
+});
+
+test('source readiness reports no authorized odds feeds without inventing availability',async()=>{
+ const report=await (await d1CoverageGateway(req(),env([],[]))).json();
+ assert.equal(report.ok,true);
+ assert.equal(report.sportsbookRegistry.registeredSourceCount,0);
+ assert.equal(report.sportsbookRegistry.independentUpstreamOwners,0);
+ assert.equal(report.sportsbookRegistry.status,'NO_APPROVED_ODDS_SOURCES');
+ assert.equal(report.sportsbookRegistry.feedConnected,false);
+});
+test('registered sportsbook owners are not conflated with connected live feeds',async()=>{
+ const registry=[{source_id:'odds-one',upstream_id:'same-upstream',enabled:1},
+ {source_id:'odds-two',upstream_id:'same-upstream',enabled:1}];
+ const report=await (await d1CoverageGateway(req(),env([],registry))).json();
+ assert.equal(report.sportsbookRegistry.registeredSourceCount,2);
+ assert.equal(report.sportsbookRegistry.independentUpstreamOwners,1);
+ assert.equal(report.sportsbookRegistry.feedConnected,false);
+ assert.equal(report.sportsbookRegistry.status,'REGISTERED_NOT_LIVE_CERTIFIED');
 });
