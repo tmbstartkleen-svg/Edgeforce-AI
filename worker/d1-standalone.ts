@@ -21,8 +21,9 @@ import {scoreHistoryAudit} from './d1-score-history-audit';
 import {scoreCoverageMatrix} from './d1-score-coverage-matrix';
 import {scoreCollectorReadiness} from './d1-score-collector-readiness';
 import {scorePollingPlan} from './d1-score-polling-plan';
+import {scoreSports} from '../src/lib/intelligence-core/score-source-catalog.mjs';
 import {d1ScoreCoverage} from './d1-score-coverage';
-type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;STORAGE_STEWARD_SCHEDULE_ENABLED?:string;SOURCE_FRESHNESS_SCHEDULE_ENABLED?:string;INTELLIGENCE_DB?:any};
+type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;STORAGE_STEWARD_SCHEDULE_ENABLED?:string;SOURCE_FRESHNESS_SCHEDULE_ENABLED?:string;SCHEDULED_SCORE_COLLECTION_ENABLED?:string;INTELLIGENCE_DB?:any};
 export default {
  async scheduled(_event:unknown,env:Env,ctx:{waitUntil(promise:Promise<unknown>):void}){
   if(env.STORAGE_STEWARD_SCHEDULE_ENABLED==='true')ctx.waitUntil(inspectStorageSteward(env).then(result=>{
@@ -31,6 +32,21 @@ export default {
   if(env.SOURCE_FRESHNESS_SCHEDULE_ENABLED==='true')ctx.waitUntil(assessSourceFreshness(env).then(result=>{
    console.log('EdgeForce source freshness summary',JSON.stringify({ok:result.ok,sourceCount:'sourceCount' in result?result.sourceCount:0,staleEnabled:'staleEnabled' in result?result.staleEnabled:0}));
   }).catch(()=>console.error('EdgeForce source freshness probe failed')));
+  // Fail-closed pilot scheduler: disabled unless separately opted in; never runs on production config by default.
+  if(env.SCHEDULED_SCORE_COLLECTION_ENABLED==='true'&&env.SPORTS_SCORE_COLLECT_ENABLED==='true'&&env.INTELLIGENCE_D1_WRITE_ENABLED==='true'&&env.SPORTS_D1_WRITE_ENABLED!=='true'&&typeof env.CRON_SECRET==='string'&&env.CRON_SECRET.length>=24&&env.INTELLIGENCE_DB){
+   const slot=Math.floor(Date.now()/3600000)%4;
+   const cohort=scoreSports.filter((_sport,index)=>index%4===slot);
+   ctx.waitUntil((async()=>{
+    const results=[];
+    for(const sport of cohort){
+     try{
+      const response=await collectMultiSportScores(new Request('https://edgeforce-internal/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport.id),{method:'POST',headers:{Authorization:'Bearer '+env.CRON_SECRET}}),env);
+      results.push({sport:sport.id,status:response.status});
+     }catch{results.push({sport:sport.id,status:0});}
+    }
+    console.log('EdgeForce isolated scheduled score cohort',JSON.stringify({slot,requested:cohort.length,results}));
+   })());
+  }
  },
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
