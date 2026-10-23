@@ -87,7 +87,7 @@ type PanelResult={
 };
 
 async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean;recordHealth?:boolean}={}):Promise<PanelResult>{
- if(quarantined){
+ if(quarantined&&!options.forceRefresh){
   return {
    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
    attempt:{providerId:config.id,ok:false,latencyMs:0,skipped:true,circuitState:'OPEN',error:'Provider circuit is quarantined'}
