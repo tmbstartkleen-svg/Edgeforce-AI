@@ -28,6 +28,9 @@ test('owner-authorized forceLive request uses DraftKings scan and explicitly dis
  assert.equal(response.status,200);
  assert.deepEqual(globalThis.__edgeforceCalls,[{forceLive:true,persist:false}]);
  assert.equal(body.sportsbookQuoteCount,1);
+ assert.equal(body.quoteDiagnostics.received,3);
+ assert.equal(body.quoteDiagnostics.missingTimestamp,1);
+ assert.equal(body.quoteDiagnostics.staleTimestamp,1);
  assert.equal(body.draftKingsQuoteCount,1);
  assert.equal(body.sportsbookQuotes[0].sourceBook,'DraftKings');
  assert.equal(body.providerRequests,undefined);
