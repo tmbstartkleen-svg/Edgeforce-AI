@@ -172,7 +172,8 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
   attempt:{
    providerId:config.id,ok:accepted,latencyMs:raw.latencyMs,error,status:raw.status,
    circuitState:circuitState||'CLOSED',qualityGrade:quality?.grade,qualityScore:quality?.qualityScore,
-   rowCount:quality?.rowCount,payloadAgeMin:quality?.payloadAgeMin,acceptedMarkets:markets.length
+   rowCount:quality?.rowCount,payloadAgeMin:quality?.payloadAgeMin,acceptedMarkets:markets.length,
+   quotaRemaining:raw.quota?.remaining,quotaUsed:raw.quota?.used,quotaLastCost:raw.quota?.last
   }
  };
 }
