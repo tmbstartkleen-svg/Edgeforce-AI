@@ -36,3 +36,17 @@ npm run odds:probe-keychain -- --ack-provider-charge
 ```
 
 The wrapper retrieves the secret directly from macOS Keychain and passes it only to the local probe process environment. It does not print it, add it to source control or persist it in a dotenv file. The opt-in command can consume provider credits and runs only one request; there is no automatic polling. The Keychain item must already exist; missing credentials fail closed with no provider request.
+
+## Major C large-build acceptance gate
+
+Stage 1 now has a single, pure decision function `evaluateOddsStage1Acceptance` in `src/lib/odds-stage1-acceptance.ts`. It requires all of the following before Stage 1 acceptance can be *considered*:
+
+1. An authenticated, fresh (15-minute) upstream request returning priced sportsbook outcomes.
+2. Independently documented provider permission to store and reuse odds, with accountable authorizer, scope and future expiry.
+3. A source-matched isolated D1 quote readback with no missing, modified, duplicated or capped rows.
+4. At least two **independent upstream providers**, with actual matching price observations (not two bookmaker names from one feed).
+5. An authorized expected-market catalog and measured coverage against that catalog.
+
+The decision function performs no I/O, is included in CI, and **never** returns production release certification. The supplied evidence must be acquired and audited separately; typing in a `confirmed:true` flag does not create legal entitlement or genuine source evidence.
+
+Owner / external prerequisites to close Stage 1: obtain documented storage terms, arrange a second independently owned authorized feed, explicitly approve a limited D1 pilot write session, and reconcile fresh permissioned prices against persisted rows. The October 23 authenticated sample of 19 prices is historical evidence and naturally becomes stale, so it cannot be replayed as live certification. Preserve pilot write-disabled settings until these prerequisites are proven.
