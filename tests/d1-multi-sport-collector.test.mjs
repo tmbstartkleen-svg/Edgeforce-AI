@@ -88,3 +88,12 @@ test('NFL scoreboard upstream request is bounded without relaxing the 250KB sour
  assert.equal(new URL(scoreboardSource('nhl').endpoint).searchParams.get('limit'),'10');
  assert.match(new URL(scoreboardSource('nhl').endpoint).searchParams.get('dates')||'',/^\d{8}$/);
 });
+
+test('NFL 422 diagnostic reports actual empty or unsupported events and never claims writes',()=>{
+ const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
+ assert.match(probe,/EMPTY_OR_UNSUPPORTED_SCOREBOARD/);
+ assert.match(probe,/receivedEvents:parsed.events.length/);
+ assert.match(probe,/inspectedEvents:Math.min\(15,parsed.events.length\)/);
+ assert.match(probe,/NO_QUALIFYING_UPSTREAM_EVENTS/);
+ assert.match(probe,/persisted:false/);
+});
