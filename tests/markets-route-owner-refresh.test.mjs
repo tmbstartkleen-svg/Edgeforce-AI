@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
+import {createHash} from 'node:crypto';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const auth=uri(ts.transpileModule(read('src/lib/firstPartySportsNetwork.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
@@ -11,6 +12,8 @@ const source=ts.transpileModule(read('src/app/api/markets/route.ts'),{compilerOp
  .replace("from '@/lib/firstPartySportsNetwork'","from "+JSON.stringify(auth));
 const {GET}=await import(uri(source));
 const secret='0123456789abcdef'.repeat(4);
+const tokenHash=createHash('sha256').update(secret).digest('hex');
+process.env.EDGEFORCE_NETWORK_TOKEN_SHA256=tokenHash;
 const request=(url,token)=>new Request(url,{headers:token?{authorization:'Bearer '+token}:{}});
 test('unauthorized forceLive request is rejected before provider invocation',async()=>{
  globalThis.__edgeforceCalls=[];
