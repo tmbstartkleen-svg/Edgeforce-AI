@@ -22,11 +22,15 @@ const continuity=uri(compile('draftkings-coverage-continuity.ts')
 const workQueue=uri(compile('draftkings-coverage-work-queue.ts')
  .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
  .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity)));
+const playerId=uri(compile('draftkings-player-identity-reconciliation.ts'));
+const props=uri(compile('odds-export-player-identity-audit.ts')
+ .replace("from './draftkings-player-identity-reconciliation'","from "+JSON.stringify(playerId)));
 const source=compile('major-release-evidence-gate.ts')
  .replace("from './stage2-evidence-dossier'","from "+JSON.stringify(stage2))
  .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
  .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity))
- .replace("from './draftkings-coverage-work-queue'","from "+JSON.stringify(workQueue));
+ .replace("from './draftkings-coverage-work-queue'","from "+JSON.stringify(workQueue))
+ .replace("from './odds-export-player-identity-audit'","from "+JSON.stringify(props));
 const {evaluateMajorReleaseEvidence}=await import(uri(source));
 const now=Date.parse('2026-10-23T20:00:00Z');
 const empty={stage2:{settledForecasts:[],closingLinePairs:[],simultaneousSourceQuotes:[]},
@@ -38,7 +42,8 @@ test('integrated gate enumerates all 4 stages with no fabricated approvals',()=>
  assert.equal(r.verifiedValueBets,0);
  assert.equal(r.releaseCertified,false);
  assert.equal(r.missingByStage.length,4);
- assert.equal(r.gateCount,10);
+ assert.equal(r.gateCount,11);
+ assert.equal(r.stage3PlayerIdentity,null);
  assert.equal(r.stage3OperatorQueue.queueCount,0);
  assert.equal(r.stage3Coverage.coveragePercent,null);
 });
