@@ -71,6 +71,11 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
   for(const marketValue of markets){
    const marketObj=obj(marketValue);
    const marketKey=str(marketObj.key,'Moneyline');
+   // Market-level last_update is the provider's quote timestamp.
+   const updatedAt=str(marketObj.last_update,'');
+   const updatedMs=updatedAt?Date.parse(updatedAt):Number.NaN;
+   const quoteAgeMin=Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000
+    ?Math.max(0,(Date.now()-updatedMs)/60000):Number.MAX_SAFE_INTEGER;
    const outcomes=Array.isArray(marketObj.outcomes)?marketObj.outcomes:[];
    for(const outcomeValue of outcomes){
     const outcome=obj(outcomeValue);
