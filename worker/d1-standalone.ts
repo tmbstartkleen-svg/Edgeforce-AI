@@ -65,7 +65,7 @@ export default {
         const body=await response.clone().json().catch(()=>null) as {ok?:boolean;accepted?:number;duplicates?:number;attempted?:number}|null;
         if(response.status===200&&body?.ok===true){
          const readback=await db.prepare("SELECT COUNT(*) AS count FROM intelligence_observations WHERE source_id=? AND observation_kind='score' AND ingested_at>=?")
-          .bind(source.sourceId,scheduledAt).first<{count:number}>();
+          .bind(source.sourceId,scheduledAt).first() as {count?:number}|null;
          persisted=Number(readback?.count||0)>0;
         }
        }catch{status=0;}
