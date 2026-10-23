@@ -88,7 +88,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
   };
  }
 
- const live=await fetchNormalizedOdds();
+ const live=await fetchNormalizedOdds({forceRefresh:options.forceLive===true});
  if(live.mode==='live'&&live.markets.length){
   if(options.persist!==false)await Promise.all([
    withDeadline(
