@@ -137,3 +137,17 @@ test('quota-safe owner refresh requests DraftKings only and can probe a quaranti
  assert.match(theOdds,/options\.quotaSafeSingleCall\?'draftkings'/);
  assert.match(odds,/if\(quarantined&&!options\.forceRefresh\)/);
 });
+
+test('The Odds API credit headers are preserved as structured operator-visible diagnostics',()=>{
+ const types=read('src/lib/providers/types.ts');
+ const http=read('src/lib/providers/http.ts');
+ const odds=read('src/lib/providers/odds.ts');
+ assert.match(types,/quota\?:\{remaining\?:number;used\?:number;last\?:number\}/);
+ assert.match(http,/quota:result\.quota/);
+ assert.match(odds,/quotaRemaining:raw\.quota\?\.remaining/);
+ assert.match(odds,/quotaLastCost:raw\.quota\?\.last/);
+ assert.match(panel,/Credits left/);
+ assert.match(panel,/Last request cost/);
+ assert.match(panel,/a\.quotaRemaining\?\?'Not reported'/);
+ assert.doesNotMatch(panel,/THE_ODDS_API_KEY|apiKey/);
+});
