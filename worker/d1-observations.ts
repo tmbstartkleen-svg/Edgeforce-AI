@@ -34,8 +34,15 @@ export async function appendD1Observations(
    // Never persist future-dated odds or quotes older than fifteen minutes.
    if(o.kind==='odds'&&(o.observedAt>now||now-o.observedAt>15*60*1000))
     throw new Error('ODDS_QUOTE_TIMESTAMP_NOT_FRESH');
-   const registry=await db.prepare('SELECT upstream_id FROM intelligence_sources WHERE source_id=? AND enabled=1').bind(o.provider).first<{upstream_id:string}>();
+   const registry=await db.prepare('SELECT upstream_id,source_type FROM intelligence_sources WHERE source_id=? AND enabled=1').bind(o.provider).first<{upstream_id:string;source_type:string}>();
    if(!registry||registry.upstream_id!==o.upstreamId)throw new Error('D1_SOURCE_NOT_APPROVED');
+   // A registered scoreboard, certification-only or other non-odds source
+   // must never be allowed to write prices by changing its source_id prefix.
+   // Explicit sportsbook-source registration is necessary, never sufficient:
+   // provider storage entitlement and authenticated collection require
+   // separate owner-controlled authorization before invoking this writer.
+   if(o.kind==='odds'&&registry.source_type!=='sportsbook-odds')
+    throw new Error('SOURCE_TYPE_NOT_AUTHORIZED_FOR_ODDS');
    // Source registration alone is not an odds entitlement. The scoreboard
    // namespace is categorically for fixture/score evidence, never prices.
    if(o.kind==='odds'&&o.provider.startsWith('espn-scoreboard-'))
