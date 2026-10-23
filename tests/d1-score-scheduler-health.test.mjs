@@ -18,3 +18,10 @@ test('health endpoint reports no receipt as missing execution evidence, not sour
  assert.match(health,/staleSources/);
  assert.match(health,/does not prove an upstream source is unavailable/);
 });
+
+test('missed-run alerts only activate after collector and scheduler opt-in',()=>{
+ assert.match(health,/const monitoringActive=schedulerEnabled&&collectionEnabled/);
+ assert.match(health,/missedRun:monitoringActive&&/);
+ assert.match(health,/monitoringState:!monitoringActive\?'DISABLED'/);
+ assert.match(health,/missedRunAlerts:sources.filter\(s=>s.missedRun\).length/);
+});
