@@ -8,10 +8,12 @@ const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const calibration=uri(compile('heldout-calibration-audit.ts'));
 const clv=uri(compile('closing-line-value-audit.ts'));
 const agreement=uri(compile('independent-quote-agreement.ts'));
+const paired=uri(compile('paired-brier-skill.ts'));
 const source=compile('stage2-evidence-dossier.ts')
  .replace("from './heldout-calibration-audit'","from "+JSON.stringify(calibration))
  .replace("from './closing-line-value-audit'","from "+JSON.stringify(clv))
- .replace("from './independent-quote-agreement'","from "+JSON.stringify(agreement));
+ .replace("from './independent-quote-agreement'","from "+JSON.stringify(agreement))
+ .replace("from './paired-brier-skill'","from "+JSON.stringify(paired));
 const {evaluateStage2ResearchDossier}=await import(uri(source));
 const now=Date.parse('2026-10-23T20:00:00Z');
 const yesterday=new Date(now-24*3600000).toISOString(),today=new Date(now-60000).toISOString();
