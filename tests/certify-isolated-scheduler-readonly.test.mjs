@@ -17,3 +17,11 @@ test('scheduler preflight checks all switches stay disabled and receipts stay re
  assert.match(script,/FLAGS_CHANGED_DURING_READ_ONLY_CERT/);
  assert.match(script,/CONTROLLED_ISOLATED_SCHEDULED_EXECUTION_NOT_YET_CERTIFIED/);
 });
+
+test('scheduler preflight rejects inconsistent receipt summaries and malformed rows',()=>{
+ assert.match(script,/receipts\.count!==receipts\.receipts\.length/);
+ assert.match(script,/receipts\.persisted!==receipts\.receipts\.filter/);
+ assert.match(script,/receipts\.failed!==receipts\.receipts\.filter/);
+ assert.match(script,/SCHEDULER_RECEIPT_SUMMARY_OR_ROW_INVALID/);
+ assert.match(script,/Number\.isInteger\(row\.attempt_count\)/);
+});
