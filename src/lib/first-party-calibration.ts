@@ -44,3 +44,35 @@ export function evaluateCalibration(rows:SettledForecast[],asOf:string,minSample
   rejectionReasons:reasons,minSamples,models,
   certified:false,warning:'No model is certified from caller-supplied settled results alone.'};
 }
+
+/**
+ * Chronological evaluation prevents training-label leakage into a later test
+ * period. Candidate forecasts must have been made strictly after the cutoff;
+ * only records settled before it can enter the historical training cohort.
+ * This is an evidence report, not a model fitting or certification operation.
+ */
+export function evaluateWalkForwardHoldout(rows:SettledForecast[],cutoffIso:string,asOf:string,minHoldout=30){
+ const cutoff=Date.parse(cutoffIso),now=Date.parse(asOf);
+ if(!Number.isFinite(cutoff)||!Number.isFinite(now)||cutoff>=now||!Number.isSafeInteger(minHoldout)||minHoldout<1)
+  throw Error('INVALID_HOLDOUT_WINDOW');
+ const base=evaluateCalibration(rows,asOf,1);
+ const accepted=new Map<string,SettledForecast>();
+ // Apply the same observation validation and deduplication rules as the base report.
+ for(const r of rows){
+  if(!r||accepted.has(r.forecastId)||![r.forecastId,r.eventId,r.marketKey,r.modelId].every(v=>typeof v==='string'&&v.trim()))continue;
+  const p=Date.parse(r.predictedAt),s=Date.parse(r.settledAt);
+  if(!Number.isFinite(p)||!Number.isFinite(s)||p>=s||s>now||!Number.isFinite(r.probability)||r.probability<=0||r.probability>=1||(r.result!==0&&r.result!==1))continue;
+  accepted.set(r.forecastId,r);
+ }
+ const training=[...accepted.values()].filter(r=>Date.parse(r.settledAt)<=cutoff);
+ const holdout=[...accepted.values()].filter(r=>Date.parse(r.predictedAt)>cutoff);
+ const excludedBoundary=[...accepted.values()].length-training.length-holdout.length;
+ const trainingByModel=new Map<string,number>();
+ for(const r of training)trainingByModel.set(r.modelId,(trainingByModel.get(r.modelId)||0)+1);
+ const holdoutReport=evaluateCalibration(holdout,asOf,minHoldout);
+ return {cutoff:new Date(cutoff).toISOString(),asOf:new Date(now).toISOString(),validated:base.accepted,
+  trainingCount:training.length,holdoutCount:holdout.length,excludedBoundary,
+  models:holdoutReport.models.map(m=>({...m,trainingCount:trainingByModel.get(m.modelId)||0,
+    status:m.count>=minHoldout&&(trainingByModel.get(m.modelId)||0)>0?'REVIEW_REQUIRED' as const:'INSUFFICIENT_SAMPLE' as const})),
+  certified:false,warning:'Chronological split only: requires source authenticity, original frozen forecasts, independent settlements and leakage review before model certification.'};
+}
