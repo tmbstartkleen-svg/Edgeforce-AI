@@ -24,6 +24,7 @@ function fake(rows){
   assert.match(sql,/^SELECT/);
   assert.match(sql,/INNER JOIN intelligence_sources/);
   assert.match(sql,/s\.upstream_id=o\.upstream_id AND s\.enabled=1/);
+  assert.match(sql,/s\.source_type='sportsbook-odds'/);
   assert.match(sql,/o\.observation_kind='odds'/);
   const s={sql,bind(...args){statements.push({sql,args});return {all:async()=>({results:rows})}}};
   return s;
