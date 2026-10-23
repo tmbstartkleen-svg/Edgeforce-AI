@@ -49,9 +49,9 @@ export function auditOddsExportPlayerIdentities(events:unknown,roster:AthleteDir
   }
  }
  const result=reconcilePlayerProps(props,roster,now);
- return {mode:'ODDS_EXPORT_PROVISIONAL_PLAYER_ID_AUDIT' as const,
+ return {...result,mode:'ODDS_EXPORT_PROVISIONAL_PLAYER_ID_AUDIT' as const,
   examinedProviderOutcomes:scanned,extractedPlayerProps:props.length,
-  providerRejections:rejections,...result,certifiedProps:0,
+  providerRejections:rejections,certifiedProps:0,
   providerRightsVerified:false,rosterProvenanceVerified:false,
   releaseCertified:false};
 }
