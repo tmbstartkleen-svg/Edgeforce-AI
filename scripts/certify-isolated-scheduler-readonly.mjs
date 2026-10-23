@@ -21,6 +21,20 @@ if(plan.registered!==16||plan.planned!==16||plan.dispatchCadenceMinutes!==5||pla
 const receipts=await request('/api/operations/d1-pilot/score-scheduler-receipts?limit=40');
 if(receipts.mode!=='READ_ONLY_SCHEDULER_RECEIPTS'||!Array.isArray(receipts.receipts)||receipts.collectionTriggered!==false||receipts.writesPerformedByEndpoint!==0)
  throw Error('SCHEDULER_RECEIPTS_UNVERIFIED');
+// Validate the summary against the actual bounded rows. An empty history is valid
+// for an intentionally disabled pilot, but it never proves scheduled execution.
+if(!Number.isInteger(receipts.count)||receipts.count!==receipts.receipts.length||
+ !Number.isInteger(receipts.persisted)||!Number.isInteger(receipts.failed)||
+ receipts.persisted!==receipts.receipts.filter(row=>row.persisted===1).length||
+ receipts.failed!==receipts.receipts.filter(row=>row.outcome==='FAILED').length||
+ receipts.receipts.some(row=>typeof row.run_id!=='string'||!row.run_id||
+  typeof row.scheduled_at!=='string'||!row.scheduled_at||
+  typeof row.sport!=='string'||!row.sport||
+  typeof row.source_id!=='string'||!row.source_id||
+  !Number.isInteger(row.attempt_count)||row.attempt_count<0||
+  ![0,1].includes(row.persisted)||
+  typeof row.outcome!=='string'||!row.outcome))
+ throw Error('SCHEDULER_RECEIPT_SUMMARY_OR_ROW_INVALID');
 const health=await request('/api/operations/d1-pilot/score-scheduler-health');
 if(health.mode!=='READ_ONLY_SCHEDULER_HEALTH'||health.sourceCount!==16||health.monitoringActive!==false||health.missedRunAlerts!==0||
  health.flags?.scheduler!==false||health.flags?.collector!==false||health.flags?.intelligenceWrite!==false||
