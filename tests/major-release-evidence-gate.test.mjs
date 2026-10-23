@@ -19,10 +19,14 @@ const full=uri(compile('full-draftkings-export-audit.ts')
  .replace("from './draftkings-market-gap-audit'","from "+JSON.stringify(coverage)));
 const continuity=uri(compile('draftkings-coverage-continuity.ts')
  .replace("from './draftkings-market-gap-audit'","from "+JSON.stringify(coverage)));
+const workQueue=uri(compile('draftkings-coverage-work-queue.ts')
+ .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
+ .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity)));
 const source=compile('major-release-evidence-gate.ts')
  .replace("from './stage2-evidence-dossier'","from "+JSON.stringify(stage2))
  .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
- .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity));
+ .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity))
+ .replace("from './draftkings-coverage-work-queue'","from "+JSON.stringify(workQueue));
 const {evaluateMajorReleaseEvidence}=await import(uri(source));
 const now=Date.parse('2026-10-23T20:00:00Z');
 const empty={stage2:{settledForecasts:[],closingLinePairs:[],simultaneousSourceQuotes:[]},
@@ -35,6 +39,7 @@ test('integrated gate enumerates all 4 stages with no fabricated approvals',()=>
  assert.equal(r.releaseCertified,false);
  assert.equal(r.missingByStage.length,4);
  assert.equal(r.gateCount,10);
+ assert.equal(r.stage3OperatorQueue.queueCount,0);
  assert.equal(r.stage3Coverage.coveragePercent,null);
 });
 test('a caller-provided complete market sample is research only, not certified',()=>{
@@ -47,6 +52,7 @@ test('a caller-provided complete market sample is research only, not certified',
  const r=evaluateMajorReleaseEvidence(data,now);
  assert.equal(r.stage3Coverage.coveredCount,1);
  assert.equal(r.stage3Coverage.coverageComplete,true);
+ assert.equal(r.stage3OperatorQueue.queueCount,0);
  assert.equal(r.certifiedStages,0);
  assert.equal(r.productionApproved,false);
  assert.ok(r.missingByStage[2].researchOnly.includes('STAGE3_PRICED_OUTCOME_COVERAGE'));
