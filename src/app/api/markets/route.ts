@@ -13,9 +13,12 @@ const isFresh=(m:Market,now:number)=>Number.isFinite(m.sourceAgeMin)&&
  * cross-book consensus markets: a synthesized consensus line must not be
  * presented as an executable DraftKings book price.
  */
-export async function GET(){
+export async function GET(request:Request){
  try{
-  const result=await ingestOdds();
+  // Never bypass the provider refresh cache unless the operator requests it.
+  // The existing provider adapter still enforces its own quota policy.
+  const forceLive=new URL(request.url).searchParams.get('forceLive')==='1';
+  const result=await ingestOdds({forceLive});
   const now=Date.now();
   const input=result.source==='demo'?[]:result.panelMarkets||[];
   const quotes=input.filter(m=>isFresh(m,now)&&Boolean(m.sourceBook?.trim()))
