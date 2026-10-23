@@ -30,9 +30,12 @@ if(process.argv.length!==3||!process.argv[2]||process.argv[2].startsWith('-')){
   const coverage=uri(await transpile('draftkings-market-gap-audit.ts'));
   const full=uri((await transpile('full-draftkings-export-audit.ts'))
    .replace("from './draftkings-market-gap-audit'","from "+JSON.stringify(coverage)));
+  const continuity=uri((await transpile('draftkings-coverage-continuity.ts'))
+   .replace("from './draftkings-market-gap-audit'","from "+JSON.stringify(coverage)));
   const gate=uri((await transpile('major-release-evidence-gate.ts'))
    .replace("from './stage2-evidence-dossier'","from "+JSON.stringify(stage2))
-   .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full)));
+   .replace("from './full-draftkings-export-audit'","from "+JSON.stringify(full))
+   .replace("from './draftkings-coverage-continuity'","from "+JSON.stringify(continuity)));
   const {evaluateMajorReleaseEvidence}=await import(gate);
   const report=evaluateMajorReleaseEvidence(input,Date.now());
   console.log(JSON.stringify({ok:true,...report},null,2));
