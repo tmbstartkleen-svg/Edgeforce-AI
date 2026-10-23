@@ -61,12 +61,13 @@ export default function SportsbookOddsPanel(){
  const all=useMemo(()=>(result?.rows||[]).filter(isQuote),[result]);
  const dk=all.filter(q=>q.sourceBook.trim().toLowerCase()==='draftkings');
  const visible=(onlyDraftKings?dk:all).slice(0,80);
+ const quotaExhausted=Boolean(live?.attempts?.some(a=>a.quotaRemaining===0));
  return <section className="coveragePanel" aria-label="Sportsbook odds quotes" style={{padding:22,marginBottom:20}}>
   <div className="coveragePanelHead"><div><div className="eyebrow">SPORTSBOOK ODDS • RESEARCH ONLY</div><h2>DraftKings and reference sportsbook prices</h2></div></div>
   <p className="coverageNote">See real provider-labeled markets when available. The default view reads existing stored snapshots only. The manual refresh targets The Odds API only and is limited to one paid bootstrap request, without retries or paid sport expansions. It never runs automatically. No bookmaker prices are inferred from scores.</p>
   <div className="coverageTools">
    <label>Owner token (not stored) <input aria-label="Owner network token for sportsbook refresh" type="password" autoComplete="off" value={ownerToken} onChange={e=>setOwnerToken(e.target.value)} placeholder="64-character owner token"/></label>
-   <button type="button" disabled={busy} onClick={refreshProvider}>{busy?'Contacting providers…':'Refresh DraftKings odds (one provider request; may use quota)'}</button>
+   <button type="button" disabled={busy||quotaExhausted} onClick={refreshProvider}>{busy?'Contacting providers…':quotaExhausted?'Refresh blocked: provider reports zero credits':'Refresh DraftKings odds (one provider request; may use quota)'}</button>
    <button type="button" onClick={()=>{setLive(null);setError(null);setRefresh(x=>x+1)}}>Stored prices only</button>
    <label><input aria-label="Show DraftKings only" type="checkbox" checked={onlyDraftKings} onChange={e=>setOnlyDraftKings(e.target.checked)}/> DraftKings only</label>
   </div>
@@ -97,6 +98,7 @@ export default function SportsbookOddsPanel(){
      <td>{a.status??'No response'}</td><td>{a.ok?'Accepted':a.skipped?'Skipped':'Rejected'}</td><td>{a.acceptedMarkets??0}</td><td>{a.quotaRemaining??'Not reported'}</td><td>{a.quotaUsed??'Not reported'}</td><td>{a.quotaLastCost??'Not reported'}</td><td>{a.error||'—'}</td></tr>)}
    </tbody></table>
   </div>:null}
+  {quotaExhausted&&<p role="alert" className="coverageNote">The provider reported zero remaining credits. Another paid refresh is blocked in this panel until you explicitly reset the state or update provider quota information.</p>}
   {error&&<p role="alert" className="coverageNote">{error}</p>}
   {result&&!result.ok&&<p role="alert" className="coverageNote">{result.error||'Unable to read sportsbook snapshots'}</p>}
   {live?.ok&&live.rows.length===0&&<p className="coverageNote">The provider scan returned no fresh, bookmaker-specific quotes (the combined market or consensus board may still contain entries). Inspect each provider attempt above; a reference price cannot be shown as a DraftKings quote.</p>}
