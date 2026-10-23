@@ -43,3 +43,37 @@ export function executableExchangeYesCost(asks:ExchangeLevel[],contracts:number,
  if(remaining)return {executable:false,cost:null,averageCost:null,unfilled:remaining};
  return {executable:true,cost,averageCost:cost/contracts,unfilled:0};
 }
+
+export type ValueBetInput={
+ americanOdds:number;
+ modelProbability:number;
+ observedAt:string;
+ nowIso:string;
+ maxAgeMs?:number;
+ bankroll:number;
+ fractionalKelly?:number;
+};
+/**
+ * Transparent one-unit EV calculation. The caller must supply an independently
+ * estimated, calibrated probability; this function does not create that estimate.
+ * Fees, limits, void rules and market suspension are outside gross EV.
+ */
+export function evaluateValueBet(input:ValueBetInput){
+ const reasons:string[]=[];
+ let dec:number;
+ try{dec=decimal(input.americanOdds);}catch{dec=NaN;reasons.push('INVALID_AMERICAN_ODDS');}
+ const now=Date.parse(input.nowIso),observed=Date.parse(input.observedAt);
+ const maxAgeMs=input.maxAgeMs??60000;
+ if(!Number.isFinite(now)||!Number.isFinite(observed)||observed>now||!Number.isSafeInteger(maxAgeMs)||maxAgeMs<1||maxAgeMs>86400000||now-observed>maxAgeMs)reasons.push('STALE_OR_INVALID_PRICE');
+ const p=input.modelProbability;
+ if(!Number.isFinite(p)||p<=0||p>=1)reasons.push('INVALID_MODEL_PROBABILITY');
+ if(!Number.isFinite(input.bankroll)||input.bankroll<0)reasons.push('INVALID_BANKROLL');
+ const fractional=input.fractionalKelly??0.25;
+ if(!Number.isFinite(fractional)||fractional<0||fractional>1)reasons.push('INVALID_KELLY_FRACTION');
+ if(reasons.length)return {status:'RESEARCH_ONLY' as const,reasons,decimalOdds:null,breakEvenProbability:null,modelProbability:Number.isFinite(p)?p:null,edgeProbabilityPoints:null,grossExpectedRoi:null,expectedProfitPerUnit:null,fullKellyFraction:null,stake:null,warning:'No actionable value calculation until inputs pass validation.'};
+ const breakeven=1/dec,roi=p*(dec-1)-(1-p),kelly=Math.max(0,Math.min(1,(p*dec-1)/(dec-1)));
+ return {status:'CALCULATED_NOT_VERIFIED' as const,reasons:[],decimalOdds:dec,breakEvenProbability:breakeven,modelProbability:p,
+  edgeProbabilityPoints:(p-breakeven)*100,grossExpectedRoi:roi,expectedProfitPerUnit:roi,
+  fullKellyFraction:kelly,stake:Math.min(input.bankroll,input.bankroll*kelly*fractional),
+  warning:'Math only: model calibration, independence, executable price, fees, settlement rules and positive realized returns are not certified.'};
+}
