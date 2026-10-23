@@ -22,7 +22,7 @@ import {scoreCoverageMatrix} from './d1-score-coverage-matrix';
 import {scoreCollectorReadiness} from './d1-score-collector-readiness';
 import {scorePollingPlan} from './d1-score-polling-plan';
 import {scoreSchedulerReceipts} from './d1-score-scheduler-receipts';
-import {scoreSports} from '../src/lib/intelligence-core/score-source-catalog.mjs';
+import {scoreSports,scoreboardSource} from '../src/lib/intelligence-core/score-source-catalog.mjs';
 import {d1ScoreCoverage} from './d1-score-coverage';
 type Env={CRON_SECRET?:string;INGEST_SECRET?:string;INTELLIGENCE_D1_WRITE_ENABLED?:string;SPORTS_D1_WRITE_ENABLED?:string;SPORTS_SCORE_COLLECT_ENABLED?:string;STORAGE_STEWARD_SCHEDULE_ENABLED?:string;SOURCE_FRESHNESS_SCHEDULE_ENABLED?:string;SCHEDULED_SCORE_COLLECTION_ENABLED?:string;INTELLIGENCE_DB?:any};
 export default {
