@@ -12,7 +12,7 @@ const auth=uri(ts.transpileModule(read('src/lib/firstPartySportsNetwork.ts'),{co
 const route=uri(ts.transpileModule(read('src/app/api/markets/route.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("from '@/lib/providers/ingest'","from "+JSON.stringify(ingest)).replace("from '@/lib/firstPartySportsNetwork'","from "+JSON.stringify(auth)));
 const {GET}=await import(route);
 const secret='0123456789abcdef'.repeat(4);process.env.EDGEFORCE_NETWORK_TOKEN_SHA256=createHash('sha256').update(secret).digest('hex');
-const event=(timestamp,includeTimestamp=true)=>[{id:'nba-event-1',sport_key:'basketball_nba',sport_title:'NBA',commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',bookmakers:[{key:'draftkings',title:'DraftKings',...(includeTimestamp?{last_update:timestamp}:{}),markets:[{key:'h2h',outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}]}];
+const event=(timestamp,includeTimestamp=true)=>[{id:'nba-event-1',sport_key:'basketball_nba',sport_title:'NBA',commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',bookmakers:[{key:'draftkings',title:'DraftKings',...(includeTimestamp?{last_update:timestamp}:{}),markets:[{key:'h2h',...(includeTimestamp?{last_update:timestamp}:{}),outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}]}];
 const req=()=>new Request('https://edgeforce.invalid/api/markets?forceLive=1',{headers:{authorization:'Bearer '+secret}});
 test('real Odds API normalizer feeds fresh bookmaker quotes into the protected markets route',async()=>{
  globalThis.__oddsPipelineEvents=event(new Date(Date.now()-60000).toISOString());globalThis.__oddsPipelineCalls=[];
