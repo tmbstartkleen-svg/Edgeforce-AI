@@ -1,5 +1,6 @@
 import {ingestOdds} from '@/lib/providers/ingest';
 import type {Market} from '@/lib/types';
+import {checkNetworkAuth} from '@/lib/firstPartySportsNetwork';
 
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'};
@@ -18,6 +19,14 @@ export async function GET(request:Request){
   // Never bypass the provider refresh cache unless the operator requests it.
   // The existing provider adapter still enforces its own quota policy.
   const forceLive=new URL(request.url).searchParams.get('forceLive')==='1';
+  if(forceLive){
+   const hash=process.env.EDGEFORCE_NETWORK_TOKEN_SHA256;
+   if(!hash)return Response.json({ok:false,error:'OWNER_REFRESH_NOT_CONFIGURED'},
+    {status:503,headers});
+   if(!checkNetworkAuth(request.headers.get('authorization'),hash))
+    return Response.json({ok:false,error:'OWNER_AUTH_REQUIRED_FOR_METERED_REFRESH'},
+     {status:401,headers});
+  }
   const result=await ingestOdds({forceLive});
   const now=Date.now();
   const input=result.source==='demo'?[]:result.panelMarkets||[];
