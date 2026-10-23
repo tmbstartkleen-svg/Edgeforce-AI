@@ -56,8 +56,8 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
 }
 
 function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,eventIndex:number):Market[]{
- const sport=str(row.sport_title,str(row.sport_key,'Unknown'));
- const league=sport;
+ const sport=str(row.sport_key,str(row.sport_title,'Unknown'));
+ const league=str(row.sport_title,sport);
  const home=str(row.home_team,'Home');
  const away=str(row.away_team,'Away');
  const startTime=str(row.commence_time,'');
