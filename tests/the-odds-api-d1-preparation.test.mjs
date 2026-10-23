@@ -50,3 +50,20 @@ test('market timestamps override book time; stale markets cannot borrow freshnes
  assert.equal(r.rejected.ODDS_QUOTE_TIMESTAMP_NOT_FRESH,1);
  assert.equal(r.rejected.INVALID_MARKET_TIMESTAMP,1);
 });
+
+test('dry run exposes unmapped player-prop markets without counting them as supported',()=>{
+ const r=prepareTheOddsApiD1Batch([event],now);
+ assert.deepEqual(r.observedBookmakers,['draftkings']);
+ assert.deepEqual(r.unmappedMarketTypes,[{marketType:'player_points',count:1}]);
+ assert.equal(r.playerPropsMapped,0);
+});
+test('pathologically wide provider arrays are bounded before nested traversal',()=>{
+ const manyBooks={...event,bookmakers:Array.from({length:101},()=>event.bookmakers[0])};
+ assert.equal(prepareTheOddsApiD1Batch([manyBooks],now).rejected.BOOKMAKER_BATCH_LIMIT,1);
+ const wideMarkets={...event,bookmakers:[{...event.bookmakers[0],
+  markets:Array.from({length:101},()=>event.bookmakers[0].markets[0])}]};
+ assert.equal(prepareTheOddsApiD1Batch([wideMarkets],now).rejected.MARKET_BATCH_LIMIT,1);
+ const wideOutcomes={...event,bookmakers:[{...event.bookmakers[0],
+  markets:[{key:'h2h',outcomes:Array.from({length:101},()=>({name:'A',price:-110}))}]}]};
+ assert.equal(prepareTheOddsApiD1Batch([wideOutcomes],now).rejected.OUTCOME_BATCH_LIMIT,1);
+});
