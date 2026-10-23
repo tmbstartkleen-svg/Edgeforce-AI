@@ -32,7 +32,7 @@ export function scoreboardSource(sport){
  const source=scoreSports.find(s=>s.id===sport);
  if(!source)throw Error('SPORT_NOT_APPROVED');
  return {sport:source.id,label:source.label,
-  endpoint:'https://site.api.espn.com/apis/site/v2/sports/'+source.path+'/scoreboard'+(source.id==='nfl'?'?dates='+nextNflSundayDate()+'&limit=10':source.id==='ncaaf'?'?dates='+nextNcaafSaturdayDate()+'&limit=10':source.id==='nhl'?'?dates='+new Date().toISOString().slice(0,10).replace(/-/g,'')+'&limit=10':''),
+  endpoint:'https://site.api.espn.com/apis/site/v2/sports/'+source.path+'/scoreboard'+(source.id==='nfl'?'?dates='+nextNflSundayDate()+'&limit=10':source.id==='ncaaf'?'?dates='+nextNcaafSaturdayDate()+'&limit=1':source.id==='nhl'?'?dates='+new Date().toISOString().slice(0,10).replace(/-/g,'')+'&limit=10':''),
   sourceId:'espn-scoreboard-'+source.id,upstreamId:'site.api.espn.com',
   classification:'SCORES_NOT_ODDS'};
 }
