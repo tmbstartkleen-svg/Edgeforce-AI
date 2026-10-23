@@ -40,5 +40,7 @@ test('D1 writer requires an explicit sportsbook odds source type, not just an en
  assert.match(source,/SELECT upstream_id,source_type FROM intelligence_sources/);
  assert.match(source,/registry\.source_type!=='sportsbook-odds'/);
  assert.match(source,/SOURCE_TYPE_NOT_AUTHORIZED_FOR_ODDS/);
+ assert.match(source,/UNVERIFIED_PLAYER_IDENTITY_CANNOT_PERSIST/);
+ assert.match(source,/q\.playerId\.trim\(\)\.toLowerCase\(\)\.startsWith\('name:'\)/);
  assert.match(source,/provider storage entitlement and authenticated collection/);
 });
