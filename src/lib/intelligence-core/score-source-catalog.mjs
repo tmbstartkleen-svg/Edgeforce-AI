@@ -17,11 +17,16 @@ export const scoreSports=Object.freeze([
  {id:'soccer-ucl',label:'UEFA Champions League',path:'soccer/uefa.champions'},
  {id:'soccer-uel',label:'UEFA Europa League',path:'soccer/uefa.europa'}
 ]);
+function nflScheduleWindow(now=new Date()){
+ const utc=Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate());
+ const ymd=(offset)=>new Date(utc+offset*86400000).toISOString().slice(0,10).replace(/-/g,'');
+ return ymd(-3)+'-'+ymd(4);
+}
 export function scoreboardSource(sport){
  const source=scoreSports.find(s=>s.id===sport);
  if(!source)throw Error('SPORT_NOT_APPROVED');
  return {sport:source.id,label:source.label,
-  endpoint:'https://site.api.espn.com/apis/site/v2/sports/'+source.path+'/scoreboard'+(['nfl','nhl'].includes(source.id)?'?dates='+new Date().toISOString().slice(0,10).replace(/-/g,'')+'&limit=10':''),
+  endpoint:'https://site.api.espn.com/apis/site/v2/sports/'+source.path+'/scoreboard'+(source.id==='nfl'?'?dates='+nflScheduleWindow()+'&limit=10':source.id==='nhl'?'?dates='+new Date().toISOString().slice(0,10).replace(/-/g,'')+'&limit=10':''),
   sourceId:'espn-scoreboard-'+source.id,upstreamId:'site.api.espn.com',
   classification:'SCORES_NOT_ODDS'};
 }
