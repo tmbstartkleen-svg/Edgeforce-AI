@@ -8,7 +8,7 @@ type Result={ok:boolean;mode?:string;source?:string;rows:Quote[];
  draftKingsQuotes?:number;totalFreshQuotes?:number;error?:string;warning?:string;
  attempts?:Array<{providerId:string;ok:boolean;error?:string;status?:number;latencyMs?:number;qualityGrade?:string;qualityScore?:number;acceptedMarkets?:number;skipped?:boolean;quotaRemaining?:number;quotaUsed?:number;quotaLastCost?:number}>;
  providerPanel?:Array<{providerId:string;providerName:string;bookmaker:string;marketRole:string;acceptedMarkets:number;qualityGrade?:string;qualityScore?:number;latencyMs?:number;playerPropRows?:number;teamMarketRows?:number;sports?:string[]}>;
- warnings?:string[];degraded?:boolean;targetBook?:string;rawCount?:number;quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}};
+ warnings?:string[];degraded?:boolean;targetBook?:string;rawCount?:number;quoteDiagnostics?:{received:number;missingTimestamp:number;invalidTimestamp:number;staleTimestamp:number;invalidAmericanOdds:number;startedOrInvalidEvent:number;missingBookmaker:number};quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}};
 type ProvidersResult={ok:boolean;configuredProviderCount:number;providers:Array<{id:string;name:string;bookmakerLabel:string;credentialConfigured:boolean;requiresPaidQuota:boolean;classification:string}>;error?:string};
 const isQuote=(q:Quote)=>!!q&&typeof q.sourceBook==='string'&&
  Number.isSafeInteger(q.odds)&&Math.abs(q.odds)>=100&&Math.abs(q.odds)<=100000&&
@@ -49,7 +49,7 @@ export default function SportsbookOddsPanel(){
    // different bookmaker and cannot masquerade as a DraftKings quote.
    const quotes=(body.sportsbookQuotes||[]).filter(isQuote);
    setLive({ok:true,source:body.source,mode:body.mode,rows:quotes,
-    providerPanel:body.providerPanel,rawCount:body.rawCount,targetBook:body.targetBook,degraded:body.degraded,
+    providerPanel:body.providerPanel,rawCount:body.rawCount,targetBook:body.targetBook,degraded:body.degraded,quoteDiagnostics:body.quoteDiagnostics,
     totalFreshQuotes:quotes.length,draftKingsQuotes:quotes.filter(q=>q.sourceBook?.trim().toLowerCase()==='draftkings').length,
     warning:(body.warnings||[]).slice(0,5).join(' · ')||'Provider quotes are unverified for ownership, execution and storage rights. No independent probability or EV is implied.',
     attempts:body.attempts});
@@ -92,6 +92,7 @@ export default function SportsbookOddsPanel(){
      <td>{typeof p.latencyMs==='number'?p.latencyMs+' ms':'—'}</td></tr>)}
    </tbody></table>
   </div>:null}
+  {live?.quoteDiagnostics&&<p className="coverageNote">Quote filter audit — received {live.quoteDiagnostics.received}; missing timestamp {live.quoteDiagnostics.missingTimestamp}; invalid/future timestamp {live.quoteDiagnostics.invalidTimestamp}; stale timestamp {live.quoteDiagnostics.staleTimestamp}; invalid American odds {live.quoteDiagnostics.invalidAmericanOdds}; started/invalid event {live.quoteDiagnostics.startedOrInvalidEvent}; missing bookmaker {live.quoteDiagnostics.missingBookmaker}.</p>}
   {live?.attempts?.length?<div aria-label="Odds provider response diagnostics" className="coverageTableWrap">
    <table><thead><tr><th>Provider attempted</th><th>HTTP</th><th>Result</th><th>Accepted markets</th><th>Credits left</th><th>Credits used</th><th>Last request cost</th><th>Reason</th></tr></thead><tbody>
     {live.attempts.map((a,i)=><tr key={a.providerId+'-'+i}><td>{a.providerId}</td>
