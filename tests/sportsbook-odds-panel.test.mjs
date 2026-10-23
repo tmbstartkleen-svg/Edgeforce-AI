@@ -160,3 +160,10 @@ test('provider diagnostic rows show HTTP status and all available quota counters
  assert.match(panel,/a\.skipped\?'Skipped':'Rejected'/);
  assert.match(panel,/a\.quotaUsed\?\?'Not reported'/);
 });
+
+test('panel prevents another paid refresh after provider explicitly reports zero credits',()=>{
+ assert.match(panel,/const quotaExhausted=Boolean\(live\?\.attempts\?\.some\(a=>a\.quotaRemaining===0\)\)/);
+ assert.match(panel,/disabled=\{busy\|\|quotaExhausted\}/);
+ assert.match(panel,/Refresh blocked: provider reports zero credits/);
+ assert.match(panel,/provider reported zero remaining credits/);
+});
