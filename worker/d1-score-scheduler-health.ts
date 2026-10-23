@@ -15,16 +15,22 @@ export async function scoreSchedulerHealth(request:Request,env:Env):Promise<Resp
      sport:string;source_id:string;scheduled_at:string;completed_at:string|null;attempt_count:number;final_status:number|null;persisted:number;outcome:string
    }>();
   const latest=new Map(rows.results.map(row=>[row.sport,row]));
+  const schedulerEnabled=env.SCHEDULED_SCORE_COLLECTION_ENABLED==='true';
+  const collectionEnabled=env.SPORTS_SCORE_COLLECT_ENABLED==='true'&&env.INTELLIGENCE_D1_WRITE_ENABLED==='true'&&env.SPORTS_D1_WRITE_ENABLED!=='true';
+  const monitoringActive=schedulerEnabled&&collectionEnabled;
   const now=Date.now();
   const sources=scoreSports.map(sport=>{
    const source=scoreboardSource(sport.id),row=latest.get(sport.id);
    const ageMinutes=row?Math.max(0,Math.floor((now-Date.parse(row.scheduled_at))/60000)):null;
    return {sport:sport.id,sourceId:source.sourceId,hasReceipt:!!row,lastScheduledAt:row?.scheduled_at||null,
     ageMinutes,lastOutcome:row?.outcome||'NO_RECEIPT',attempts:row?.attempt_count??0,lastStatus:row?.final_status??null,
-    persisted:row?.persisted===1,stale:ageMinutes===null||ageMinutes>10};
+    persisted:row?.persisted===1,stale:ageMinutes===null||ageMinutes>10,
+    missedRun:monitoringActive&&(ageMinutes===null||ageMinutes>10),
+    monitoringState:!monitoringActive?'DISABLED':!row?'NO_EXECUTION_EVIDENCE':ageMinutes!==null&&ageMinutes>10?'MISSED_OR_STALE':'RECENT_RECEIPT'};
   });
   return Response.json({ok:true,mode:'READ_ONLY_SCHEDULER_HEALTH',sourceCount:sources.length,
    sourcesWithReceipts:sources.filter(s=>s.hasReceipt).length,staleSources:sources.filter(s=>s.stale).length,
+   monitoringActive,missedRunAlerts:sources.filter(s=>s.missedRun).length,
    flags:{scheduler:env.SCHEDULED_SCORE_COLLECTION_ENABLED==='true',collector:env.SPORTS_SCORE_COLLECT_ENABLED==='true',
     intelligenceWrite:env.INTELLIGENCE_D1_WRITE_ENABLED==='true',sportsWrite:env.SPORTS_D1_WRITE_ENABLED==='true'},
    sources,collectionTriggered:false,writesPerformed:0,
