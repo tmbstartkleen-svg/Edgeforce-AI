@@ -121,9 +121,12 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const attempts:TheOddsApiAttempt[]=[];
 
  // One paid bootstrap call establishes immediate live connectivity and the nearest 8 events.
- const bootstrapUrl=withKey('/sports/upcoming/odds',key,{
-  regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso'
- });
+ // The Odds API treats regions and bookmakers as alternative selectors.
+ // Sending both can cause a 422 response and an empty sportsbook board.
+ const bootstrapParams:Record<string,string>={markets,oddsFormat:'american',dateFormat:'iso'};
+ if(bookmakers)bootstrapParams.bookmakers=bookmakers;
+ else bootstrapParams.regions=regions;
+ const bootstrapUrl=withKey('/sports/upcoming/odds',key,bootstrapParams);
  let bootstrap=options.quotaSafeSingleCall
   ?await jsonRequest<unknown[]>(bootstrapUrl,timeoutMs)
   :await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
@@ -199,9 +202,10 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
    break;
   }
 
-  const url=withKey(`/sports/${encodeURIComponent(sportKey)}/odds`,key,{
-   regions,bookmakers,markets:expansionMarkets,oddsFormat:'american',dateFormat:'iso'
-  });
+  const expansionParams:Record<string,string>={markets:expansionMarkets,oddsFormat:'american',dateFormat:'iso'};
+  if(bookmakers)expansionParams.bookmakers=bookmakers;
+  else expansionParams.regions=regions;
+  const url=withKey(`/sports/${encodeURIComponent(sportKey)}/odds`,key,expansionParams);
   const result=await jsonRequestWith429Retry<unknown[]>(url,timeoutMs);
   const data=Array.isArray(result.data)?result.data:[];
 
