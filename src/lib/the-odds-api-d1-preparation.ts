@@ -27,7 +27,8 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
  let eventsExamined=0,eventsEligible=0;
  const reject=(reason:string)=>{rejected[reason]=(rejected[reason]||0)+1;};
  let examined=0,playerPropsMapped=0;
- for(const e of events){
+ for(const raw of events){
+  const e=raw as RecordLike;
   eventsExamined++;
   // Retain the historical INVALID_EVENT counter for compatibility, while
   // splitting the causes so already-started games are not called malformed.
