@@ -34,8 +34,8 @@ export default {
   }).catch(()=>console.error('EdgeForce source freshness probe failed')));
   // Fail-closed pilot scheduler: disabled unless separately opted in; never runs on production config by default.
   if(env.SCHEDULED_SCORE_COLLECTION_ENABLED==='true'&&env.SPORTS_SCORE_COLLECT_ENABLED==='true'&&env.INTELLIGENCE_D1_WRITE_ENABLED==='true'&&env.SPORTS_D1_WRITE_ENABLED!=='true'&&typeof env.CRON_SECRET==='string'&&env.CRON_SECRET.length>=24&&env.INTELLIGENCE_DB){
-   const slot=Math.floor(Date.now()/900000)%4;
-   const cohort=scoreSports.filter((_sport,index)=>index%4===slot);
+   const slot=Math.floor(Date.now()/300000)%2;
+   const cohort=scoreSports.filter((_sport,index)=>index%2===slot);
    ctx.waitUntil((async()=>{
     const results=[];
     for(const sport of cohort){
