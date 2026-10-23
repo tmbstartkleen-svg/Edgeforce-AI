@@ -66,8 +66,7 @@ export default function MarketResearchLab(){
      <article><small>ESTIMATED EDGE</small><strong>{valueResult.edgeProbabilityPoints===null?'Invalid':valueResult.edgeProbabilityPoints.toFixed(2)+' pp'}</strong></article>
      <article><small>GROSS EXPECTED ROI</small><strong>{valueResult.grossExpectedRoi===null?'Invalid':(valueResult.grossExpectedRoi*100).toFixed(2)+'%'}</strong></article>
     </div>
-    <p className="coverageNote">Theoretical fractional Kelly stake: {valueResult.stake===null?'Unavailable':'
-+valueResult.stake.toFixed(2)}. Status: {valueResult.status}. {valueResult.reasons.join(', ')} {valueResult.warning}</p>
+    <p className="coverageNote">Theoretical fractional Kelly stake: {valueResult.stake===null?'Unavailable':String.fromCharCode(36)+valueResult.stake.toFixed(2)}. Status: {valueResult.status}. {valueResult.reasons.join(', ')} {valueResult.warning}</p>
    </div>}
   </div>
  </section>;
