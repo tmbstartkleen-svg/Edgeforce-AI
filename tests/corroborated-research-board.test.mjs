@@ -50,3 +50,12 @@ test('does not call networks, write D1, or declare executable picks',()=>{
  assert.doesNotMatch(src,/fetch\(|INSERT INTO|Math\.random/);
  assert.throws(()=>buildCorroboratedResearchBoard([],now,101),/INVALID_RESEARCH_BOARD_INPUT/);
 });
+
+test('expired primary quote cannot borrow agreement from fresher competitors',()=>{
+ const primaryStale=input('stale-primary');
+ primaryStale.primary.observedAt=new Date(now-3600000).toISOString();
+ primaryStale.competitors=[quote('feed-two'),quote('feed-three',-118)];
+ const r=buildCorroboratedResearchBoard([primaryStale],now);
+ assert.equal(r.qualifiedForResearch,0);
+ assert.equal(r.blockedReasons.PRIMARY_QUOTE_INVALID_OR_STALE,1);
+});
