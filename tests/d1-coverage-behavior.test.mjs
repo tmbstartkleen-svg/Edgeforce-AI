@@ -74,3 +74,13 @@ test('unpriced second upstream cannot inflate verified source count',async()=>{
  assert.equal(report.independentVerification.independentUpstreams,1);
  assert.equal(report.independentVerification.crossProviderVerified,false);
 });
+
+test('non-DraftKings bookmaker quotes cannot inflate DraftKings priced coverage',async()=>{
+ const other={...rows[0],source_id:'other-book-feed',upstream_id:'other-book-upstream',
+  payload:JSON.stringify({value:{bookmaker:'FanDuel',sport:'NBA',league:'NBA',
+   marketType:'player_points',outcomeId:'over',startsAt:new Date(now+3600000).toISOString(),
+   playerId:'player-123',line:'22.5',priceAmerican:-110}})};
+ const report=await (await d1CoverageGateway(req(),env([other]))).json();
+ assert.equal(report.freshDraftKingsQuotes,0);
+ assert.equal(report.independentVerification.crossProviderVerified,false);
+});
