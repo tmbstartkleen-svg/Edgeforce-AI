@@ -61,3 +61,28 @@ test('large invalid provider exports and incomplete dossier fail closed',()=>{
 test('integrated release gate cannot write production data or access providers',()=>{
  assert.doesNotMatch(source,/fetch\(|INSERT INTO|writeFile\(|process\.env/);
 });
+
+test('Stage 3 multi-snapshot evidence flows into release blockers without approving production',()=>{
+ const requirement={sport:'soccer',league:'Premier League',marketType:'h2h',kind:'game',eventId:'fixture-1'};
+ const stamps=['2026-10-23T18:00:00Z','2026-10-23T18:20:00Z'];
+ const snapshots=stamps.map(asOf=>({asOf,sourceId:'export-source',
+  quotes:[{sport:'soccer',league:'Premier League',marketType:'h2h',eventId:'fixture-1',
+   bookmaker:'DraftKings',sourceUpstreamId:'upstream-one',outcomeId:'home',americanOdds:-110,
+   observedAt:new Date(Date.parse(asOf)-1000).toISOString(),startsAt:'2026-10-23T22:00:00Z'}]}));
+ const report=evaluateMajorReleaseEvidence({...empty,draftKings:{
+  events:[],expected:[requirement],snapshots
+ }},now);
+ assert.equal(report.stage3Continuity.snapshotCount,2);
+ assert.equal(report.stage3Continuity.latestMissingCount,0);
+ assert.equal(report.certifiedStages,0);
+ assert.equal(report.productionApproved,false);
+ assert.ok(report.missingByStage[2].researchOnly.includes('STAGE3_COVERAGE_CONTINUITY'));
+ assert.ok(report.missingByStage[2].blocked.includes('STAGE3_PLAYER_IDENTITY'));
+});
+test('out-of-order historical coverage evidence cannot make release gate appear ready',()=>{
+ const snapshots=[{asOf:'2026-10-23T18:20:00Z',sourceId:'one',quotes:[]},
+  {asOf:'2026-10-23T18:00:00Z',sourceId:'one',quotes:[]}];
+ assert.throws(()=>evaluateMajorReleaseEvidence({...empty,draftKings:{
+  events:[],expected:[],snapshots
+ }},now),/INVALID_CONTINUITY_TIME_SEQUENCE/);
+});
