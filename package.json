@@ -17,6 +17,7 @@
     "model:calibration-audit": "node scripts/model-calibration-audit.mjs",
     "stage2:dossier": "node scripts/stage2-evidence-dossier.mjs",
     "dk:coverage-audit": "node scripts/draftkings-coverage-audit.mjs",
+    "dk:full-export-audit": "node scripts/full-draftkings-export-audit.mjs",
     "odds:probe-live": "node scripts/odds-probe-live.mjs",
     "odds:probe-keychain": "node scripts/odds-probe-keychain.mjs",
     "check-migrations": "node scripts/check-migrations.mjs",
