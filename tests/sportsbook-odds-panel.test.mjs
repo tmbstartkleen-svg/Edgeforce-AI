@@ -130,3 +130,10 @@ test('forced scan does not reuse an already in-flight cached scan',()=>{
  assert.match(odds,/if\(!options\.forceRefresh\)return oddsPanelInFlight/);
  assert.match(odds,/await oddsPanelInFlight\.catch\(\(\)=>undefined\)/);
 });
+
+test('quota-safe owner refresh requests DraftKings only and can probe a quarantined provider once',()=>{
+ const odds=read('src/lib/providers/odds.ts');
+ const theOdds=read('src/lib/providers/theOddsApi.ts');
+ assert.match(theOdds,/options\.quotaSafeSingleCall\?'draftkings'/);
+ assert.match(odds,/if\(quarantined&&!options\.forceRefresh\)/);
+});
