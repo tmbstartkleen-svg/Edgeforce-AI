@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+import {createHash} from 'node:crypto';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const uri=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
+const math=uri(ts.transpileModule(read('src/lib/math.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+const normalizer=uri(ts.transpileModule(read('src/lib/providers/normalizeOdds.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("from '../math'","from "+JSON.stringify(math)));
+const ingest=uri('import {normalizeOddsPayload} from '+JSON.stringify(normalizer)+'; export async function ingestOdds(options){globalThis.__oddsPipelineCalls.push(options);const events=globalThis.__oddsPipelineEvents;const normalized=normalizeOddsPayload(events);return {mode:"live",source:"live",providerId:"the-odds-api",providerName:"The Odds API",targetBook:"DraftKings",degraded:false,rawCount:normalized.rawCount,quality:{grade:"USABLE",qualityScore:.9,rowCount:normalized.rawCount},providerPanel:[],warnings:normalized.warnings,attempts:[],markets:[],panelMarkets:normalized.markets}}');
+const auth=uri(ts.transpileModule(read('src/lib/firstPartySportsNetwork.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+const route=uri(ts.transpileModule(read('src/app/api/markets/route.ts'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText.replace("from '@/lib/providers/ingest'","from "+JSON.stringify(ingest)).replace("from '@/lib/firstPartySportsNetwork'","from "+JSON.stringify(auth)));
+const {GET}=await import(route);
+const secret='0123456789abcdef'.repeat(4);process.env.EDGEFORCE_NETWORK_TOKEN_SHA256=createHash('sha256').update(secret).digest('hex');
+const event=(timestamp,includeTimestamp=true)=>[{id:'nba-event-1',sport_key:'basketball_nba',sport_title:'NBA',commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',bookmakers:[{key:'draftkings',title:'DraftKings',...(includeTimestamp?{last_update:timestamp}:{}),markets:[{key:'h2h',outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}]}];
+const req=()=>new Request('https://edgeforce.invalid/api/markets?forceLive=1',{headers:{authorization:'Bearer '+secret}});
+test('real Odds API normalizer feeds fresh bookmaker quotes into the protected markets route',async()=>{
+ globalThis.__oddsPipelineEvents=event(new Date(Date.now()-60000).toISOString());globalThis.__oddsPipelineCalls=[];
+ const response=await GET(req());const body=await response.json();
+ assert.equal(response.status,200);assert.equal(globalThis.__oddsPipelineCalls.length,1);
+ assert.equal(body.sportsbookQuoteCount,2);assert.equal(body.draftKingsQuoteCount,2);
+ assert.ok(body.sportsbookQuotes.every(q=>q.sourceBook==='DraftKings'&&q.sourceTimestamp));
+ assert.ok(body.sportsbookQuotes.every(q=>q.sourceAgeMin<=2));
+ assert.equal(body.executablePriceVerified,false);
+});
+test('normalizer-to-route pipeline excludes old and missing bookmaker timestamps',async()=>{
+ globalThis.__oddsPipelineCalls=[];
+ globalThis.__oddsPipelineEvents=event(new Date(Date.now()-3600000).toISOString());
+ const stale=await GET(req());assert.equal((await stale.json()).sportsbookQuoteCount,0);
+ globalThis.__oddsPipelineEvents=event(undefined,false);
+ const missing=await GET(req());assert.equal((await missing.json()).sportsbookQuoteCount,0);
+});
