@@ -12,10 +12,10 @@ export type PreparedOddsObservation={
  provider:'the-odds-api';upstreamId:'api.the-odds-api.com';eventId:string;marketId:string;
  observedAt:number;kind:'odds';value:{
  bookmaker:string;sport:string;league:string;marketType:string;outcomeId:string;
- startsAt:string;priceAmerican:number;line?:string;
+ startsAt:string;priceAmerican:number;line?:string;playerId?:string;playerName?:string;
  };
 };
-export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=25){
+export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=25,options:{enablePlayerProps?:boolean}={}){
  if(!Number.isFinite(now)||!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>25)
   throw Error('INVALID_ODDS_PREPARATION_LIMIT');
  if(!Array.isArray(events)||events.length>500)throw Error('INVALID_ODDS_EVENT_BATCH');
@@ -24,7 +24,7 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
  const observedBookmakers=new Set<string>();
  const rejected:Record<string,number>={};
  const reject=(reason:string)=>{rejected[reason]=(rejected[reason]||0)+1;};
- let examined=0;
+ let examined=0,playerPropsMapped=0;
  for(const e of events){
   if(!object(e)||!nonempty(e.id)||!nonempty(e.sport_key)||!validTime(e.commence_time)||
     Date.parse(e.commence_time as string)<=now){reject('INVALID_EVENT');continue;}
@@ -39,7 +39,8 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
    const markets=Array.isArray(book.markets)?book.markets:[];
    if(markets.length>100){reject('MARKET_BATCH_LIMIT');continue;}
    for(const market of markets){
-    if(!object(market)||!nonempty(market.key)||!allowed.has(market.key as string)){
+    const supportedPlayerProp=options.enablePlayerProps===true&&object(market)&&typeof market.key==='string'&&/^player_[a-z0-9_]+$/.test(market.key);
+    if(!object(market)||!nonempty(market.key)||(!allowed.has(market.key as string)&&!supportedPlayerProp)){
      if(object(market)&&nonempty(market.key)){
       const key=market.key as string;
       if(unmappedMarkets.has(key)||unmappedMarkets.size<100)
@@ -68,21 +69,26 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
      if(market.key!=='h2h'&&(!Number.isFinite(outcome.point)||typeof outcome.point!=='number')){
       reject('LINE_REQUIRED');continue;
      }
+     if(supportedPlayerProp&&(!nonempty(outcome.description)||!['over','under'].includes(String(outcome.name).trim().toLowerCase()))){
+      reject('PLAYER_PROP_IDENTITY_REQUIRED');continue;
+     }
      if(rows.length>=maxRows){reject('BATCH_CAP_REACHED');continue;}
      const marketType=market.key as string;
+     if(supportedPlayerProp)playerPropsMapped++;
      rows.push({provider:'the-odds-api',upstreamId:'api.the-odds-api.com',
        eventId:e.id as string,marketId:marketType,observedAt,kind:'odds',
        value:{bookmaker:book.title&&nonempty(book.title)?book.title as string:book.key as string,
         sport:e.sport_key as string,league,marketType,outcomeId:outcome.name as string,
         startsAt,priceAmerican:outcome.price as number,
-        ...(marketType!=='h2h'?{line:String(outcome.point)}:{})}});
+        ...(marketType!=='h2h'?{line:String(outcome.point)}:{}),
+        ...(supportedPlayerProp?{playerId:'name:'+String(outcome.description).trim().toLowerCase().replace(/\\s+/g,' '),playerName:String(outcome.description).trim()}: {})}});
     }
    }
   }
  }
  return {mode:'DRY_RUN_ONLY' as const,readyForAuthorizedIngest:false,rows,examined,
-  prepared:rows.length,rejected,playerPropsMapped:0,
+  prepared:rows.length,rejected,playerPropsMapped,
   observedBookmakers:[...observedBookmakers].sort(),
   unmappedMarketTypes:[...unmappedMarkets].map(([marketType,count])=>({marketType,count})).sort((a,b)=>b.count-a.count||a.marketType.localeCompare(b.marketType)),
-  warning:'This provider feed maps core h2h/spreads/totals only. No player props, no source entitlement, no verified live data, no D1 writes.'};
+  warning:options.enablePlayerProps===true?'Dry-run player prop identities derive from names and are NOT stable verified player IDs. No source entitlement, no certified coverage, no D1 writes.':'Core h2h/spreads/totals only; player prop mapping requires explicit dry-run opt-in. No source entitlement, no verified live data, no D1 writes.'};
 }
