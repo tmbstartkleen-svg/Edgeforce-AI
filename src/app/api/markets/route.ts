@@ -6,6 +6,10 @@ export const dynamic='force-dynamic';
 const headers={'Cache-Control':'no-store, max-age=0','X-Content-Type-Options':'nosniff'};
 const isFresh=(m:Market,now:number)=>Number.isFinite(m.sourceAgeMin)&&
  m.sourceAgeMin>=0&&m.sourceAgeMin<=15&&
+ typeof m.sourceTimestamp==='string'&&Number.isFinite(Date.parse(m.sourceTimestamp))&&
+ Date.parse(m.sourceTimestamp)<=now+60000&&
+ (now-Date.parse(m.sourceTimestamp))/60000>=-1&&
+ (now-Date.parse(m.sourceTimestamp))/60000<=15&&
  Number.isFinite(Date.parse(m.startTime))&&Date.parse(m.startTime)>now&&
  Number.isSafeInteger(m.odds)&&Math.abs(m.odds)>=100&&Math.abs(m.odds)<=100000;
 /**
