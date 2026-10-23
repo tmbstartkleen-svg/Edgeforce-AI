@@ -21,9 +21,14 @@ if(plan.registered!==16||plan.planned!==16||plan.dispatchCadenceMinutes!==5||pla
 const receipts=await request('/api/operations/d1-pilot/score-scheduler-receipts?limit=40');
 if(receipts.mode!=='READ_ONLY_SCHEDULER_RECEIPTS'||!Array.isArray(receipts.receipts)||receipts.collectionTriggered!==false||receipts.writesPerformedByEndpoint!==0)
  throw Error('SCHEDULER_RECEIPTS_UNVERIFIED');
+const health=await request('/api/operations/d1-pilot/score-scheduler-health');
+if(health.mode!=='READ_ONLY_SCHEDULER_HEALTH'||health.sourceCount!==16||health.monitoringActive!==false||health.missedRunAlerts!==0||
+ health.flags?.scheduler!==false||health.flags?.collector!==false||health.flags?.intelligenceWrite!==false||
+ health.collectionTriggered!==false||health.writesPerformed!==0)
+ throw Error('SCHEDULER_HEALTH_OR_DISABLED_MODE_UNVERIFIED');
 const ending=await request('/api/operations/d1-pilot/score-collector-readiness');
 if(ending.flags?.collectionEnabled!==false||ending.flags?.d1WriteEnabled!==false)throw Error('FLAGS_CHANGED_DURING_READ_ONLY_CERT');
 console.log(JSON.stringify({ok:true,mode:'READ_ONLY_SCHEDULER_PREFLIGHT',registered:plan.registered,dispatchMinutes:plan.dispatchCadenceMinutes,
- cohortCount:plan.cohortCount,estimatedPerSourceMinutes:plan.estimatedPerSourceCadenceMinutes,receiptRows:receipts.count,
+ cohortCount:plan.cohortCount,estimatedPerSourceMinutes:plan.estimatedPerSourceCadenceMinutes,receiptRows:receipts.count,healthSources:health.sourceCount,missedRunAlerts:health.missedRunAlerts,
  collectionEnabled:false,d1WriteEnabled:false,collectionTriggered:false,writesPerformed:0,
  nextStep:'CONTROLLED_ISOLATED_SCHEDULED_EXECUTION_NOT_YET_CERTIFIED'}));
