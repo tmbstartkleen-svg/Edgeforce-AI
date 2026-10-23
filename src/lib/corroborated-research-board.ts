@@ -11,7 +11,8 @@ export type CorroboratedResearchInput={
  id:string;sport:string;league:string;eventName:string;primary:SourceQuote;
  competitors:SourceQuote[];forecast:ProbabilityEvidence;
 };
-const same=(a:SourceQuote,b:SourceQuote)=>[
+const same=(a:SourceQuote,b:SourceQuote)=>Boolean(b&&typeof b.bookmaker==='string'&&
+ typeof b.eventId==='string'&&typeof b.marketType==='string'&&typeof b.outcomeId==='string')&&[
  a.bookmaker.toLowerCase(),a.eventId,a.marketType,a.outcomeId,a.line??'',a.playerId??''
  ].every((v,i)=>v===[
  b.bookmaker.toLowerCase(),b.eventId,b.marketType,b.outcomeId,b.line??'',b.playerId??''
@@ -34,6 +35,14 @@ export function buildCorroboratedResearchBoard(items:CorroboratedResearchInput[]
    note('INVALID_RESEARCH_ENTRY');continue;
   }
   const {primary,forecast}=item;
+  if(![primary.upstreamId,primary.bookmaker,primary.eventId,primary.marketType,primary.outcomeId]
+   .every(x=>typeof x==='string'&&x.trim())||
+   !Number.isSafeInteger(primary.americanOdds)||Math.abs(primary.americanOdds)<100||
+   !Number.isFinite(Date.parse(primary.observedAt))||Date.parse(primary.observedAt)>now||
+   now-Date.parse(primary.observedAt)>15*60*1000||
+   !Number.isFinite(Date.parse(primary.startsAt))||Date.parse(primary.startsAt)<=now){
+   note('PRIMARY_QUOTE_INVALID_OR_STALE');continue;
+  }
   const quotes=[primary,...item.competitors.filter(q=>q&&same(primary,q))];
   const agreement=analyzeIndependentQuoteAgreement(quotes,now);
   const key=JSON.stringify([primary.eventId.trim().toLowerCase(),primary.marketType.trim().toLowerCase(),
