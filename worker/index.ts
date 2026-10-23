@@ -2,6 +2,7 @@ import handler from 'vinext/server/fetch-handler';
 import {atlasGateway} from './atlas-mission-gateway';
 import {d1CoverageGateway} from './d1-coverage';
 import {d1OddsLaunchReadiness} from './d1-odds-launch-gateway';
+import {d1OddsAuthorizedExportPreflight} from './d1-odds-export-preflight';
 import {collectMultiSportScores} from './d1-multi-sport-collector';
 export {AtlasMissionRoom} from './atlas-mission-room';
 import {kalshiConnectionDiagnostic} from './kalshi-connection-diagnostic';
@@ -102,6 +103,7 @@ const worker={
   if(pathname==='/api/operations/d1-pilot/recent')return d1RecentGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/coverage')return d1CoverageGateway(request,env);
   if(pathname==='/api/operations/d1-pilot/odds-launch-readiness')return d1OddsLaunchReadiness(request,env);
+  if(pathname==='/api/operations/d1-pilot/odds-export-preflight')return d1OddsAuthorizedExportPreflight(request,env);
   if(pathname==='/api/operations/d1-pilot/collect-scores')return collectMultiSportScores(request,env);
   if(pathname==='/api/operations/d1-pilot/sports-market-ingest')return d1SportsMarketArchiveIngest(request,env);
   if(pathname==='/api/operations/d1-pilot/sports-market-readiness')return d1SportsMarketArchiveReadiness(request,env);
