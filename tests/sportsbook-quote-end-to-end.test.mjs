@@ -21,6 +21,7 @@ test('real Odds API normalizer feeds fresh bookmaker quotes into the protected m
  assert.equal(body.sportsbookQuoteCount,2);assert.equal(body.draftKingsQuoteCount,2);
  assert.ok(body.sportsbookQuotes.every(q=>q.sourceBook==='DraftKings'&&q.sourceTimestamp));
  assert.ok(body.sportsbookQuotes.every(q=>q.eventId==='nba-event-1'),'upstream event IDs must remain traceable');
+ assert.ok(body.sportsbookQuotes.every(q=>q.sport==='basketball_nba'&&q.league==='NBA'),'stable sport key and display league must remain distinct');
  assert.ok(body.sportsbookQuotes.every(q=>q.sourceAgeMin<=2));
  assert.equal(body.executablePriceVerified,false);
 });
@@ -30,4 +31,11 @@ test('normalizer-to-route pipeline excludes old and missing bookmaker timestamps
  const stale=await GET(req());assert.equal((await stale.json()).sportsbookQuoteCount,0);
  globalThis.__oddsPipelineEvents=event(undefined,false);
  const missing=await GET(req());assert.equal((await missing.json()).sportsbookQuoteCount,0);
+});
+
+test('Odds API stable sport key is not replaced by its display title',()=>{
+ const raw=event(new Date(Date.now()-60000).toISOString());
+ const normalized=normalizeOddsPayload(raw).markets;
+ assert.ok(normalized.every(q=>q.sport==='basketball_nba'));
+ assert.ok(normalized.every(q=>q.league==='NBA'));
 });
