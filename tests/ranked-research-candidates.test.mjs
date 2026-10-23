@@ -24,12 +24,18 @@ test('missing source provenance and started events fail closed',()=>{
  assert.ok(row.reasons.includes('MISSING_PROVENANCE'));
  assert.ok(row.reasons.includes('EVENT_STARTED_OR_INVALID'));
 });
-test('stale quote is not assigned a fresh ROI and duplicate identities collapse',()=>{
+test('newer quote supersedes a stale duplicate identity',()=>{
  const rows=rankResearchCandidates([{...base,quoteObservedAt:'2026-10-22T12:00:00.000Z'},{...base,id:'duplicate'}],now);
  assert.equal(rows.length,1);
- assert.equal(rows[0].grossExpectedRoi,null);
- assert.ok(rows[0].reasons.includes('STALE_OR_INVALID_PRICE'));
+ assert.equal(rows[0].id,'duplicate');
+ assert.ok(rows[0].grossExpectedRoi>0);
+ assert.ok(!rows[0].reasons.includes('STALE_OR_INVALID_PRICE'));
 });
 test('bounded input avoids unbounded operator loads',()=>{
  assert.throws(()=>rankResearchCandidates([base],now,501),/INVALID_RANK_LIMIT/);
+});
+
+test('identical event IDs across different leagues never collapse into one',()=>{
+ const rows=rankResearchCandidates([base,{...base,id:'nba-row',sport:'Basketball',league:'NBA'}],now);
+ assert.equal(rows.length,2);
 });
