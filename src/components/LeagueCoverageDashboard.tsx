@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {GLOBAL_SPORT_REGISTRY,SPORT_FAMILIES,sportCoverageSummary} from '@/lib/sportRegistry';
 import MarketResearchLab from './MarketResearchLab';
 import DraftKingsCoverageImportStudio from './DraftKingsCoverageImportStudio';
+import SportsbookOddsPanel from './SportsbookOddsPanel';
 type Game={id?:string;sport?:string;league?:string;source?:string;status?:string;startTime?:string;home?:{name?:string;score?:number|null};away?:{name?:string;score?:number|null};sourceObservedAt?:string};
 type Live={ok?:boolean;generatedAt?:string;games?:Game[];error?:string};
 type D1Coverage={sportsObservations?:{classification:string;rowsInspected:number;malformedRows:number;sourceOwners:string[];sports:{sport:string;events:number;scheduleObservations:number;scoreObservations:number;latestObservedAt:string}[]};ok:boolean;asOf?:string;freshDraftKingsQuotes?:number;rowsInspected?:number;unrecognizedRows?:number;missingMarketCount?:number|null;missingReason?:string;leagues?:{sport:string;league:string;events:number;marketTypes:number;players:number;quotes:number;latestObservedAt:string}[];independentVerification?:{independentUpstreams:number;crossProviderVerified:boolean;verifiedOutcomes:number;note?:string};error?:string};
@@ -92,6 +93,7 @@ export default function LeagueCoverageDashboard(){
    {(odds.leagues?.length??0)>0?<div className="coverageTableWrap"><table><thead><tr><th>Sport</th><th>League</th><th>Events</th><th>Markets</th><th>Player IDs</th><th>Quotes</th><th>Last observed</th></tr></thead><tbody>{odds.leagues?.map(l=><tr key={l.sport+'|'+l.league}><td>{l.sport}</td><td>{l.league}</td><td>{l.events}</td><td>{l.marketTypes}</td><td>{l.players}</td><td>{l.quotes}</td><td>{new Date(l.latestObservedAt).toLocaleString()}</td></tr>)}</tbody></table></div>:<p className="coverageNote">No qualifying sportsbook observations found in this D1 response. Do not classify missing markets as unavailable.</p>}
    </div>}
   </section>
+  <SportsbookOddsPanel/>
   <DraftKingsCoverageImportStudio/>
   <MarketResearchLab/>
   <div className="coverageGrid">
