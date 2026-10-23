@@ -32,11 +32,17 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
     FROM intelligence_sources WHERE enabled=1
       AND source_id NOT LIKE 'espn-scoreboard-%'
     ORDER BY source_id LIMIT 100`).all<{source_id:string;upstream_id:string;enabled:number}>();
+  // intelligence_sources does not yet contain a verified sportsbook entitlement
+  // field. Never label a generic non-scoreboard registration as an approved odds feed.
   const sportsbookRegistry={registeredSourceCount:registryRows.results.length,
+    candidateRegistrationCount:registryRows.results.length,
     independentUpstreamOwners:new Set(registryRows.results.map(r=>r.upstream_id.trim().toLowerCase())).size,
     registeredSourceIds:registryRows.results.map(r=>r.source_id),
+    classification:'UNVERIFIED_NON_SCOREBOARD_REGISTRATIONS',
+    authorizedSportsbookSources:null,
+    authorizationVerified:false,
     feedConnected:false,
-    status:registryRows.results.length===0?'NO_APPROVED_ODDS_SOURCES':'REGISTERED_NOT_LIVE_CERTIFIED'};
+    status:registryRows.results.length===0?'NO_CANDIDATE_SOURCE_REGISTRATIONS':'REGISTRATIONS_NOT_ENTITLEMENT_CERTIFIED'};
   const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[];let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
