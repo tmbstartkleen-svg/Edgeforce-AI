@@ -36,13 +36,15 @@ export default function SportsbookOddsPanel(){
    // Operator-initiated only: this existing route may fetch configured
    // providers and spend quota. It is NEVER invoked automatically.
    const response=await fetch('/api/markets',{cache:'no-store'});
-   const body=await response.json() as Result&{markets?:Quote[];warnings?:string[];providerId?:string;source?:string};
+   const body=await response.json() as Result&{markets?:Quote[];sportsbookQuotes?:Quote[];warnings?:string[];providerId?:string;source?:string;quoteScope?:string};
    if(!response.ok)throw Error(body.error||'Odds provider refresh failed');
    if(body.source==='demo')throw Error('Only demonstration markets were returned. No live sportsbook quotes are available.');
-   const quotes=(body.markets||[]).filter(isQuote);
+   // Book-specific observations only; consensus rows may refer to a
+   // different bookmaker and cannot masquerade as a DraftKings quote.
+   const quotes=(body.sportsbookQuotes||[]).filter(isQuote);
    setLive({ok:true,source:body.source,mode:body.mode,rows:quotes,
     totalFreshQuotes:quotes.length,draftKingsQuotes:quotes.filter(q=>q.sourceBook?.trim().toLowerCase()==='draftkings').length,
-    warning:(body.warnings||[]).slice(0,5).join(' · ')||'Provider data is unverified for storage rights, independent provenance, and execution. Research only.',
+    warning:(body.warnings||[]).slice(0,5).join(' · ')||'Provider quotes are unverified for ownership, execution and storage rights. No independent probability or EV is implied.',
     attempts:body.attempts});
    setRefresh(x=>x+1);
   }catch(e){setError(e instanceof Error?e.message:'Could not refresh connected sportsbook feeds')}
@@ -80,6 +82,7 @@ export default function SportsbookOddsPanel(){
   </div>:null}
   {error&&<p role="alert" className="coverageNote">{error}</p>}
   {result&&!result.ok&&<p role="alert" className="coverageNote">{result.error||'Unable to read sportsbook snapshots'}</p>}
+  {live?.ok&&live.rows.length===0&&<p className="coverageNote">The provider scan returned no fresh, bookmaker-specific quotes (the combined market or consensus board may still contain entries). Inspect each provider attempt above; a reference price cannot be shown as a DraftKings quote.</p>}
   {result?.ok&&all.length===0&&<p className="coverageNote">No current sportsbook quotes are available from this data path. The D1 score feed is not an odds provider. Check whether an approved sportsbook adapter is configured and whether stored snapshots are within 15 minutes of collection.</p>}
   {all.length>0&&dk.length===0&&onlyDraftKings&&<p className="coverageNote">Other bookmaker prices were found, but none is identified as DraftKings. Turn off the DraftKings filter to inspect them; do not relabel reference prices as DraftKings.</p>}
   {visible.length>0&&<div className="coverageTableWrap"><table><thead><tr><th>Sport / League</th><th>Game</th><th>Market / Selection</th><th>American odds</th><th>Book</th><th>Provider</th><th>Age</th></tr></thead><tbody>
