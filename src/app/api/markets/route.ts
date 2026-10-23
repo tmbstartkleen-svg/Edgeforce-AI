@@ -43,6 +43,8 @@ export async function GET(request:Request){
    mode:result.mode,source:result.source,
    providerId:result.providerId,providerName:result.providerName,
    attempts:result.attempts,warnings:result.warnings,error:result.error,
+   targetBook:result.targetBook,degraded:result.degraded,rawCount:result.rawCount,
+   quality:result.quality,providerPanel:result.providerPanel,
    markets:result.markets,
    sportsbookQuotes:quotes,
    sportsbookQuoteCount:quotes.length,
