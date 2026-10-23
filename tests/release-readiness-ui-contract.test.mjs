@@ -37,3 +37,10 @@ test('authenticated League Coverage drilldown checks real D1 odds registry witho
  assert.match(ui,/This does not authorize ingestion or certify bets/);
  assert.match(ui,/setOddsLaunch\(null\)/);
 });
+
+test('separates historical odds inventory from eligible recent sportsbook observations',()=>{
+ assert.match(ui,/freshRegisteredOddsRows/);
+ assert.match(ui,/FRESH ELIGIBLE ODDS ROWS/);
+ assert.match(ui,/Last 15 minutes; enabled sportsbook-odds sources only/);
+ assert.match(ui,/freshnessBlocker/);
+});
