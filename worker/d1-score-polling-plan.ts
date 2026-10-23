@@ -12,15 +12,16 @@ export async function scorePollingPlan(request:Request,env:Env):Promise<Response
  try{
   const rows=await env.INTELLIGENCE_DB.prepare("SELECT source_id,upstream_id,enabled FROM intelligence_sources WHERE source_id LIKE 'espn-scoreboard-%'").all<{source_id:string;upstream_id:string;enabled:number}>();
   const registry=new Map(rows.results.map(row=>[row.source_id,row]));
+  const activeCohort=Math.floor(Date.now()/300000)%2;
   const sources=scoreSports.map((sport,index)=>{
    const source=scoreboardSource(sport.id),row=registry.get(source.sourceId);
    const registered=row?.enabled===1&&row.upstream_id===source.upstreamId;
    return {sport:sport.id,sourceId:source.sourceId,classification:'SCORES_NOT_ODDS',registered,
-    targetCadenceMinutes:intervalMinutes(sport.id),currentCohort:index%2,estimatedCadenceMinutes:10,eligible:registered,
+    targetCadenceMinutes:intervalMinutes(sport.id),cohort:index%2,nextScheduledCohort:index%2===activeCohort,estimatedCadenceMinutes:10,eligible:registered,
     execution:'NOT_STARTED',pagesCertified:false,continuousIngestionCertified:false};
   });
   return Response.json({ok:true,mode:'READ_ONLY_POLLING_PLAN',registered:sources.filter(s=>s.registered).length,
-   planned:sources.length,dispatchCadenceMinutes:5,cohortCount:2,estimatedPerSourceCadenceMinutes:10,flags:{collector:env.SPORTS_SCORE_COLLECT_ENABLED==='true',intelligenceWrite:env.INTELLIGENCE_D1_WRITE_ENABLED==='true',sportsWrite:env.SPORTS_D1_WRITE_ENABLED==='true'},
+   planned:sources.length,dispatchCadenceMinutes:5,cohortCount:2,activeCohort,estimatedPerSourceCadenceMinutes:10,flags:{collector:env.SPORTS_SCORE_COLLECT_ENABLED==='true',intelligenceWrite:env.INTELLIGENCE_D1_WRITE_ENABLED==='true',sportsWrite:env.SPORTS_D1_WRITE_ENABLED==='true'},
    sources,executionEnabled:false,executedRequests:0,performedWrites:0,
    warning:'Planning only. No cron polling, continuous freshness, event pagination, bookmaker odds, or player props are certified.'},{headers});
  }catch{return Response.json({ok:false,reason:'POLL_PLAN_READ_FAILED'},{status:503,headers});}
