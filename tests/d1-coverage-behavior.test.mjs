@@ -116,3 +116,10 @@ test('matching independent prices can be explicitly research-aligned',async()=>{
  assert.equal(report.independentVerification.priceAlignedOutcomes,1);
  assert.equal(report.independentVerification.priceDisagreementOutcomes,0);
 });
+
+test('D1 odds evidence is restricted to active identity-matched registered upstreams',()=>{
+ const source=fs.readFileSync(new URL('../worker/d1-coverage.ts',import.meta.url),'utf8');
+ assert.match(source,/INNER JOIN intelligence_sources AS s ON s\.source_id=o\.source_id/);
+ assert.match(source,/s\.upstream_id=o\.upstream_id AND s\.enabled=1/);
+ assert.match(source,/o\.source_id NOT LIKE 'espn-scoreboard-%'/);
+});
