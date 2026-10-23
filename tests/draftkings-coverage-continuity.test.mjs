@@ -43,5 +43,5 @@ test('duplicate requirements and out-of-order timestamps prevent trustworthy tre
   snapshot('2026-10-23T18:20:00Z',[]),snapshot('2026-10-23T18:00:00Z',[])],now),/INVALID_CONTINUITY_TIME_SEQUENCE/);
 });
 test('coverage continuity must remain local and cannot issue sportsbook certification',()=>{
- assert.doesNotMatch(compile('draftkings-coverage-continuity.ts'),/fetch\\(|INSERT INTO|writeFile\\(/);
+ assert.doesNotMatch(compile('draftkings-coverage-continuity.ts'),/fetch|INSERT INTO|writeFile/);
 });
