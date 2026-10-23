@@ -8,6 +8,7 @@ import {evaluateStage2ResearchDossier,type Stage2EvidenceBundle} from './stage2-
 import {auditFullDraftKingsOddsExport} from './full-draftkings-export-audit';
 import type {RequiredMarket} from './draftkings-market-gap-audit';
 import {auditDraftKingsCoverageContinuity,type CoverageSnapshot} from './draftkings-coverage-continuity';
+import {buildDraftKingsCoverageWorkQueue} from './draftkings-coverage-work-queue';
 
 export type MajorReleaseEvidence={
  stage2:Stage2EvidenceBundle;
@@ -21,6 +22,8 @@ export function evaluateMajorReleaseEvidence(input:MajorReleaseEvidence,now=Date
   input.draftKings.events,input.draftKings.expected,now);
  const continuity=input.draftKings.snapshots===undefined?null:
   auditDraftKingsCoverageContinuity(input.draftKings.expected,input.draftKings.snapshots,now);
+ const investigations=buildDraftKingsCoverageWorkQueue(input.draftKings.events,
+  input.draftKings.expected,input.draftKings.snapshots??[],now,100);
  const gates=[
   {id:'STAGE1_UPSTREAM_ENTITLEMENT',stage:1,status:'BLOCKED',why:'Provider storage and reuse rights not independently verified'},
   {id:'STAGE1_INDEPENDENT_FEEDS',stage:1,status:'BLOCKED',why:'Authenticated independent odds upstream operators not certified'},
@@ -52,6 +55,7 @@ export function evaluateMajorReleaseEvidence(input:MajorReleaseEvidence,now=Date
   generatedAt:new Date(now).toISOString(),
   stage2Research:model,stage3Coverage:coverage,
   stage3Continuity:continuity,
+  stage3OperatorQueue:investigations,
   gateCount:gates.length,gates,missingByStage,
   certifiedStages:0,remainingMajorStages:4,
   certifiedMarketCount:0,verifiedValueBets:0,
