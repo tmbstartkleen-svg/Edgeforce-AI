@@ -110,3 +110,21 @@ test('provisional player IDs normalize repeated whitespace without claiming athl
  assert.equal(r.rows[0].value.playerIdentityStatus,'UNVERIFIED_NAME_ONLY');
  assert.equal(r.readyForAuthorizedIngest,false);
 });
+
+test('event rejection audit separates started fixtures from broken provider records',()=>{
+ const alreadyStarted={...event,commence_time:'2026-10-23T11:00:00Z'};
+ const missingIdentity={...event,id:''};
+ const malformedTime={...event,commence_time:'bad'};
+ const result=prepareTheOddsApiD1Batch([event,alreadyStarted,missingIdentity,malformedTime],now);
+ assert.equal(result.eventAudit.examined,4);
+ assert.equal(result.eventAudit.eligible,1);
+ assert.equal(result.eventAudit.invalid,3);
+ assert.deepEqual(result.eventAudit.reasons,{EVENT_ALREADY_STARTED:1,EVENT_IDENTITY_MISSING:1,EVENT_TIME_INVALID:1});
+ assert.equal(result.rejected.INVALID_EVENT,3);
+});
+test('bounded 25-row preparation warns clearly when quote sample was truncated',()=>{
+ const rowLimit=prepareTheOddsApiD1Batch([event],now,1);
+ assert.equal(rowLimit.sampleTruncated,true);
+ const complete=prepareTheOddsApiD1Batch([event],now);
+ assert.equal(complete.sampleTruncated,false);
+});
