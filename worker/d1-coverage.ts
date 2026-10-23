@@ -113,8 +113,27 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const sportsObservations={classification:'SCORES_NOT_ODDS',rowsInspected:scores.results.length,
    malformedRows:malformedScores,sourceOwners:[...new Set(scores.results.map(r=>r.upstream_id))].sort(),
    sports:[...scoreLeagues.values()].map(g=>({sport:g.sport,events:g.events.size,scheduleObservations:g.schedule,scoreObservations:g.score,latestObservedAt:g.latestObservedAt})).sort((a,b)=>a.sport.localeCompare(b.sport))};
-  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsbookRegistry,sportsObservations,
-   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&x.priceAmerican!==undefined).length,
+  const freshDraftKingsQuotes=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&x.priceAmerican!==undefined).length;
+  const pricedPlayerProps=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&
+    x.priceAmerican!==undefined&&!!x.playerId&&!!x.line).length;
+  const certificationGates={
+   providerEntitlement:{passed:false,reason:'AUTHORIZED_SPORTSBOOK_ENTITLEMENT_NOT_VERIFIED'},
+   persistedFreshDraftKingsOdds:{passed:freshDraftKingsQuotes>0,count:freshDraftKingsQuotes,
+    reason:freshDraftKingsQuotes>0?null:'NO_FRESH_DRAFTKINGS_ODDS'},
+   persistedPricedPlayerProps:{passed:pricedPlayerProps>0,count:pricedPlayerProps,
+    reason:pricedPlayerProps>0?null:'NO_FRESH_PRICED_PLAYER_PROPS'},
+   independentQuoteCorroboration:{passed:consensus.verifiedOutcomes>0,count:consensus.verifiedOutcomes,
+    reason:consensus.verifiedOutcomes>0?null:'NO_MATCHING_INDEPENDENT_UPSTREAMS'},
+   independentPriceAgreement:{passed:consensus.priceAlignedOutcomes>0,count:consensus.priceAlignedOutcomes,
+    reason:consensus.priceAlignedOutcomes>0?null:'NO_INDEPENDENT_PRICE_ALIGNMENT'},
+   expectedMarketCatalog:{passed:false,reason:'NO_INDEPENDENT_EXPECTED_CATALOG'},
+  };
+  const certification={status:'BLOCKED',certified:false,
+   gates:certificationGates,passedCount:Object.values(certificationGates).filter(g=>g.passed).length,
+   totalGates:Object.keys(certificationGates).length,
+   note:'Passing individual evidence gates never substitutes for verified provider entitlement, executable pricing, calibration or full market coverage.'};
+  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsbookRegistry,sportsObservations,certification,
+   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
    asOf:report.asOf,warning:'D1 is a persisted observation source, not proof of complete DraftKings availability.'});
