@@ -35,3 +35,10 @@ test('D1 sportsbook odds use strictly nonfuture fifteen-minute collection freshn
  // Scoreboard data retains independent longer-lived history acceptance.
  assert.match(source,/if\(now-o\.observedAt>86400000\)/);
 });
+
+test('D1 writer requires an explicit sportsbook odds source type, not just an enabled registry row',()=>{
+ assert.match(source,/SELECT upstream_id,source_type FROM intelligence_sources/);
+ assert.match(source,/registry\.source_type!=='sportsbook-odds'/);
+ assert.match(source,/SOURCE_TYPE_NOT_AUTHORIZED_FOR_ODDS/);
+ assert.match(source,/provider storage entitlement and authenticated collection/);
+});
