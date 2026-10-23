@@ -27,7 +27,7 @@ export async function GET(request:Request){
     return Response.json({ok:false,error:'OWNER_AUTH_REQUIRED_FOR_METERED_REFRESH'},
      {status:401,headers});
   }
-  const result=await ingestOdds({forceLive});
+  const result=await ingestOdds({forceLive,persist:!forceLive});
   const now=Date.now();
   const input=result.source==='demo'?[]:result.panelMarkets||[];
   const quotes=input.filter(m=>isFresh(m,now)&&Boolean(m.sourceBook?.trim()))
