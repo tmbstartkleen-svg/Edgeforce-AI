@@ -34,7 +34,8 @@ test('quota-safe refresh sends one DraftKings-only request and reports provider 
   assert.equal(calls[0].pathname,'/v4/sports/upcoming/odds');
   assert.equal(calls[0].searchParams.get('bookmakers'),'draftkings');
   assert.equal(calls[0].searchParams.get('markets'),'h2h');
-  assert.equal(calls[0].searchParams.get('regions'),'us');
+  assert.equal(calls[0].searchParams.get('regions'),null);
+  assert.equal(calls[0].searchParams.get('bookmakers'),'draftkings');
   assert.equal(calls[0].searchParams.get('apiKey'),'test-key-not-real');
   assert.equal(result.ok,true);
   assert.equal(result.data.length,1);
@@ -67,4 +68,11 @@ test('quota-safe failure does not retry, fall back or expand paid sport requests
   delete process.env.THE_ODDS_API_KEY;
   delete process.env.THE_ODDS_API_BASE_URL;
  }
+});
+
+test('normal Odds API bookmaker requests never combine regions and bookmakers selectors',()=>{
+ const source=fs.readFileSync(new URL('../src/lib/providers/theOddsApi.ts',import.meta.url),'utf8');
+ assert.match(source,/if\(bookmakers\)bootstrapParams\.bookmakers=bookmakers;\s*else bootstrapParams\.regions=regions/);
+ assert.match(source,/if\(bookmakers\)expansionParams\.bookmakers=bookmakers;\s*else expansionParams\.regions=regions/);
+ assert.match(source,/const fallbackUrl=withKey\('\/sports\/upcoming\/odds',key,\{\s*regions:'us',markets:'h2h'/);
 });
