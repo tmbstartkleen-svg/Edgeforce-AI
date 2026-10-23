@@ -22,10 +22,12 @@ if(process.argv.length!==3||!path||path.startsWith('-')){
   const c=uri(await compile('heldout-calibration-audit.ts'));
   const l=uri(await compile('closing-line-value-audit.ts'));
   const a=uri(await compile('independent-quote-agreement.ts'));
+  const p=uri(await compile('paired-brier-skill.ts'));
   const combined=(await compile('stage2-evidence-dossier.ts'))
    .replace("from './heldout-calibration-audit'","from "+JSON.stringify(c))
    .replace("from './closing-line-value-audit'","from "+JSON.stringify(l))
-   .replace("from './independent-quote-agreement'","from "+JSON.stringify(a));
+   .replace("from './independent-quote-agreement'","from "+JSON.stringify(a))
+   .replace("from './paired-brier-skill'","from "+JSON.stringify(p));
   const {evaluateStage2ResearchDossier}=await import(uri(combined));
   const output=evaluateStage2ResearchDossier(bundle,Date.now());
   console.log(JSON.stringify({ok:true,...output},null,2));
