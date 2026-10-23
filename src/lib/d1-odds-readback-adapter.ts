@@ -1,7 +1,7 @@
 /**
  * Read-only, bounded D1 adapter for reconciliation of a controlled pilot
  * ingest batch. Never calls an odds provider or performs mutations.
- * Caller must supply expected observations from a permissioned source.
+ * Caller supplies expected observations; enabled registration alone is NOT\n * entitlement to store sportsbook odds or proof of authenticated collection.
  */
 import type {D1Database} from '../../worker/d1-observations';
 import type {PreparedOddsObservation} from './the-odds-api-d1-preparation';
@@ -33,12 +33,12 @@ export async function readAndVerifyD1OddsBatch(
  const result=verifyPreparedOddsReadback(expected,rows.results,now);
  const saturated=rows.results.length>=250;
  return {...result,
-  mode:'AUTHENTICATED_D1_READ_ONLY_RECONCILIATION' as const,
+  mode:'REGISTERED_SOURCE_D1_READ_ONLY_RECONCILIATION' as const,\n  sourceEntitlementVerified:false,authenticatedCollectionVerified:false,
   exactReadbackComplete:result.exactReadbackComplete&&!saturated,
   querySaturated:saturated,
   sourceId:source,upstreamId:upstream,
   readOnly:true,writesPerformed:0,
-  releaseCertified:false,
+  releaseCertified:false,\n  certificationBlockers:['SOURCE_ENTITLEMENT_NOT_VERIFIED','AUTHENTICATED_COLLECTION_NOT_VERIFIED','INDEPENDENT_UPSTREAM_NOT_VERIFIED'],
   ...(saturated?{readbackWarning:'D1_QUERY_CAP_REACHED_UNABLE_TO_CERTIFY'}:{})
  };
 }
