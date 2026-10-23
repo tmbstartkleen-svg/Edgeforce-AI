@@ -59,6 +59,16 @@ export async function appendD1Observations(
        !Number.isFinite(Date.parse(String(q.startsAt)))||Date.parse(String(q.startsAt))<=now)
       throw new Error('INVALID_ODDS_OBSERVATION');
    }
+   // Provider descriptions are not stable sportsbook athlete identifiers.
+   // Never persist research-only player props into the executable odds lane.
+   if(o.kind==='odds'){
+    const q=o.value as Record<string,unknown>;
+    if(String(q.marketType).startsWith('player_')&&
+       (typeof q.playerId!=='string'||!q.playerId.trim()||
+        q.playerId.trim().toLowerCase().startsWith('name:')||
+        q.playerIdentityStatus==='UNVERIFIED_NAME_ONLY'))
+     throw new Error('UNVERIFIED_PLAYER_IDENTITY_CANNOT_PERSIST');
+   }
    const payload=JSON.stringify(o.value);
    if(payload===undefined||new TextEncoder().encode(payload).length>32768)throw new Error('D1_PAYLOAD_TOO_LARGE');
    const hash=createHash('sha256').update(payload).digest('hex');
