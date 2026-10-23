@@ -67,6 +67,10 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
  for(const bookValue of bookmakers){
   const book=obj(bookValue);
   const bookTitle=str(book.title,str(book.key,'Book'));
+  const updatedAt=str(book.last_update,'');
+  const updatedMs=updatedAt?Date.parse(updatedAt):Number.NaN;
+  const quoteAgeMin=Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000
+   ?Math.max(0,(Date.now()-updatedMs)/60000):Number.MAX_SAFE_INTEGER;
   const markets=Array.isArray(book.markets)?book.markets:[];
   for(const marketValue of markets){
    const marketObj=obj(marketValue);
@@ -86,7 +90,9 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
      home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
-     confidence:.6,sourceAgeMin:0,period:new Date(startTime).getHours()<12?'AM':'PM'
+     confidence:.6,sourceAgeMin:quoteAgeMin,
+     ...(Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000?{sourceTimestamp:new Date(updatedMs).toISOString()}:{}),
+     period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
   }
