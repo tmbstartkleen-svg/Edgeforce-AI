@@ -174,3 +174,15 @@ test('sportsbook API boundary requires source timestamp and checks it against th
  assert.match(route,/Date\.parse\(m\.sourceTimestamp\)<=now\+60000/);
  assert.match(route,/Date\.parse\(m\.sourceTimestamp\)\/60000<=15/);
 });
+
+test('empty sportsbook table exposes exact freshness and data-quality rejection counts',()=>{
+ const route=read('src/app/api/markets/route.ts');
+ assert.match(route,/quoteDiagnostics/);
+ assert.match(route,/missingTimestamp:0/);
+ assert.match(route,/staleTimestamp:0/);
+ assert.match(route,/invalidAmericanOdds:0/);
+ assert.match(panel,/Quote filter audit/);
+ assert.match(panel,/live\.quoteDiagnostics\.missingTimestamp/);
+ assert.match(panel,/live\.quoteDiagnostics\.staleTimestamp/);
+ assert.match(panel,/live\.quoteDiagnostics\.startedOrInvalidEvent/);
+});
