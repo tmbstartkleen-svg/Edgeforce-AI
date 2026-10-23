@@ -24,6 +24,7 @@ export async function readAndVerifyD1OddsBatch(
    FROM intelligence_observations AS o
    INNER JOIN intelligence_sources AS s ON s.source_id=o.source_id
      AND s.upstream_id=o.upstream_id AND s.enabled=1
+     AND s.source_type='sportsbook-odds'
    WHERE o.observation_kind='odds' AND o.source_id=? AND o.upstream_id=?
      AND o.event_id IN (${events.map(() => '?').join(',')})
      AND o.observed_at>=?
