@@ -55,3 +55,16 @@ test('misclassified market, incomplete props and invalid catalogs fail closed',(
  assert.throws(()=>auditDraftKingsMarketCoverage([],[],Infinity),/INVALID_COVERAGE_INPUT/);
  assert.doesNotMatch(raw,/fetch\(|INSERT INTO|Math\.random/);
 });
+
+test('two players or alternate lines in same event are independent catalog requirements',()=>{
+ const base=required({marketType:'player_points',kind:'player-prop',eventId:'e1'});
+ const observed=[quote({marketType:'player_points',playerId:'athlete-1',line:'20.5'})];
+ const a=auditDraftKingsMarketCoverage([
+  {...base,playerId:'athlete-1',line:'20.5'},
+  {...base,playerId:'athlete-2',line:'20.5'},
+  {...base,playerId:'athlete-1',line:'21.5'}
+ ],observed,now);
+ assert.equal(a.requiredCount,3);assert.equal(a.coveredCount,1);
+ assert.equal(a.missingCount,2);
+ assert.equal(a.missing[0].reason,'REQUIRED_PLAYER_OR_LINE_NOT_PRICED');
+});
