@@ -34,6 +34,16 @@ export async function GET(request:Request){
   const result=await ingestOdds({forceLive,persist:!forceLive});
   const now=Date.now();
   const input=result.source==='demo'?[]:result.panelMarkets||[];
+  const quoteDiagnostics={received:input.length,missingTimestamp:0,invalidTimestamp:0,staleTimestamp:0,invalidAmericanOdds:0,startedOrInvalidEvent:0,missingBookmaker:0};
+  for(const m of input){
+   const stamp=typeof m.sourceTimestamp==='string'?Date.parse(m.sourceTimestamp):Number.NaN;
+   if(typeof m.sourceTimestamp!=='string'||!m.sourceTimestamp)quoteDiagnostics.missingTimestamp++;
+   else if(!Number.isFinite(stamp)||stamp>now+60000)quoteDiagnostics.invalidTimestamp++;
+   else if((now-stamp)/60000>15)quoteDiagnostics.staleTimestamp++;
+   if(!Number.isSafeInteger(m.odds)||Math.abs(m.odds)<100||Math.abs(m.odds)>100000)quoteDiagnostics.invalidAmericanOdds++;
+   if(!Number.isFinite(Date.parse(m.startTime))||Date.parse(m.startTime)<=now)quoteDiagnostics.startedOrInvalidEvent++;
+   if(!m.sourceBook?.trim())quoteDiagnostics.missingBookmaker++;
+  }
   const quotes=input.filter(m=>isFresh(m,now)&&Boolean(m.sourceBook?.trim()))
    .slice(0,250).map(m=>({
     sport:m.sport,league:m.league,event:m.event,selection:m.selection,
@@ -52,6 +62,7 @@ export async function GET(request:Request){
    markets:result.markets,
    sportsbookQuotes:quotes,
    sportsbookQuoteCount:quotes.length,
+   quoteDiagnostics,
    draftKingsQuoteCount:quotes.filter(q=>q.sourceBook?.trim().toLowerCase()==='draftkings').length,
    quoteScope:'PROVIDER_LABELED_RAW_QUOTES_NOT_CONSENSUS',
    independentModelVerified:false,executablePriceVerified:false,
