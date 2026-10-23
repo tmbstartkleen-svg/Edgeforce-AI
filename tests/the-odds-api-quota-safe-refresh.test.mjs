@@ -33,7 +33,8 @@ test('quota-safe refresh sends one DraftKings-only request and reports provider 
   assert.equal(calls.length,1);
   assert.equal(calls[0].pathname,'/v4/sports/upcoming/odds');
   assert.equal(calls[0].searchParams.get('bookmakers'),'draftkings');
-  assert.equal(calls[0].searchParams.get('markets'),'h2h,spreads,totals');
+  assert.equal(calls[0].searchParams.get('markets'),'h2h');
+  assert.equal(calls[0].searchParams.get('regions'),'us');
   assert.equal(calls[0].searchParams.get('apiKey'),'test-key-not-real');
   assert.equal(result.ok,true);
   assert.equal(result.data.length,1);
