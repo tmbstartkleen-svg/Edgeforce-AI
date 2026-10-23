@@ -6,7 +6,7 @@ import DraftKingsCoverageImportStudio from './DraftKingsCoverageImportStudio';
 type Game={id?:string;sport?:string;league?:string;source?:string;status?:string;startTime?:string;home?:{name?:string;score?:number|null};away?:{name?:string;score?:number|null};sourceObservedAt?:string};
 type Live={ok?:boolean;generatedAt?:string;games?:Game[];error?:string};
 type D1Coverage={sportsObservations?:{classification:string;rowsInspected:number;malformedRows:number;sourceOwners:string[];sports:{sport:string;events:number;scheduleObservations:number;scoreObservations:number;latestObservedAt:string}[]};ok:boolean;asOf?:string;freshDraftKingsQuotes?:number;rowsInspected?:number;unrecognizedRows?:number;missingMarketCount?:number|null;missingReason?:string;leagues?:{sport:string;league:string;events:number;marketTypes:number;players:number;quotes:number;latestObservedAt:string}[];independentVerification?:{independentUpstreams:number;crossProviderVerified:boolean;verifiedOutcomes:number;note?:string};error?:string};
-type LiveOddsLaunch={ok:boolean;asOf?:string;totalRegistered?:number;enabledSportsbookSources?:number;storedOddsRows?:number;distinctSportsbookUpstreams?:number;blockers?:string[];releaseCertified?:boolean;error?:string};
+type LiveOddsLaunch={ok:boolean;asOf?:string;totalRegistered?:number;enabledSportsbookSources?:number;storedOddsRows?:number;freshRegisteredOddsRows?:number;freshnessBlocker?:string;distinctSportsbookUpstreams?:number;blockers?:string[];releaseCertified?:boolean;error?:string};
 type ReleaseReadiness={ok:boolean;mode:string;remainingStages:number;releaseCertified:boolean;stages:{stage:number;name:string;status:string;requirements:string[]}[];warning?:string};
 const normalizeLeague=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 // Do not turn a sport-family score into evidence for every league in that sport.
@@ -69,10 +69,11 @@ export default function LeagueCoverageDashboard(){
    {oddsLaunch?.ok&&<div aria-label="Authenticated sportsbook source readiness">
     <div className="coverageKpis">
      <article><small>ENABLED SPORTSBOOK SOURCES</small><strong>{oddsLaunch.enabledSportsbookSources??0}</strong><span>Registered odds-specific sources, not verified entitlement</span></article>
-     <article><small>STORED ODDS OBSERVATIONS</small><strong>{oddsLaunch.storedOddsRows??0}</strong><span>D1 stored odds records, not necessarily fresh</span></article>
+     <article><small>STORED ODDS OBSERVATIONS</small><strong>{oddsLaunch.storedOddsRows??0}</strong><span>Historical D1 odds records, not necessarily fresh</span></article>
+     <article><small>FRESH ELIGIBLE ODDS ROWS</small><strong>{oddsLaunch.freshRegisteredOddsRows??0}</strong><span>Last 15 minutes; enabled sportsbook-odds sources only</span></article>
      <article><small>REGISTERED ODDS UPSTREAMS</small><strong>{oddsLaunch.distinctSportsbookUpstreams??0}</strong><span>Registry identities, not independently authenticated operators</span></article>
     </div>
-    <p className="coverageNote">Live D1 launch blockers: {oddsLaunch.blockers?.join(' · ')||'Evidence unavailable'}. This does not authorize ingestion or certify bets.</p>
+    <p className="coverageNote">Live D1 launch blockers: {[...(oddsLaunch.blockers||[]),...(oddsLaunch.freshnessBlocker?[oddsLaunch.freshnessBlocker]:[])].join(' · ')||'Evidence unavailable'}. This does not authorize ingestion or certify bets.</p>
    </div>}
    {oddsLaunch&&!oddsLaunch.ok&&<p className="coverageNote">Source registry diagnostic unavailable: {oddsLaunch.error||'Read-only check failed'}</p>}
    {odds&&!odds.ok&&<p role="alert" className="coverageNote">{odds.error||'Unable to verify stored odds.'}</p>}
