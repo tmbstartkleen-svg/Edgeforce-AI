@@ -167,3 +167,10 @@ test('panel prevents another paid refresh after provider explicitly reports zero
  assert.match(panel,/Refresh blocked: provider reports zero credits/);
  assert.match(panel,/provider reported zero remaining credits/);
 });
+
+test('sportsbook API boundary requires source timestamp and checks it against the 15-minute freshness window',()=>{
+ const route=read('src/app/api/markets/route.ts');
+ assert.match(route,/typeof m\.sourceTimestamp==='string'/);
+ assert.match(route,/Date\.parse\(m\.sourceTimestamp\)<=now\+60000/);
+ assert.match(route,/Date\.parse\(m\.sourceTimestamp\)\/60000<=15/);
+});
