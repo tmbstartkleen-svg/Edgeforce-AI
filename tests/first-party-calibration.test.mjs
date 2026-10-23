@@ -63,3 +63,14 @@ test('holdout without prior model training cannot qualify for review',()=>{
  assert.equal(r.models[0].status,'INSUFFICIENT_SAMPLE');
  assert.throws(()=>evaluateWalkForwardHoldout([only],now,now),/INVALID_HOLDOUT_WINDOW/);
 });
+
+test('same event-market is excluded from holdout even with distinct forecast IDs',()=>{
+ const training={...forecast(111,.55,1),predictedAt:'2026-10-19T09:00:00Z',settledAt:'2026-10-20T10:00:00Z'};
+ const leaked={...forecast(112,.75,1),eventId:training.eventId,marketKey:training.marketKey,predictedAt:'2026-10-22T09:00:00Z',settledAt:'2026-10-22T10:00:00Z'};
+ const safe={...forecast(113,.6,0),predictedAt:'2026-10-22T09:00:00Z',settledAt:'2026-10-22T10:00:00Z'};
+ const r=evaluateWalkForwardHoldout([training,leaked,safe],'2026-10-21T00:00:00Z',now,1);
+ assert.equal(r.excludedOverlappingMarkets,1);
+ assert.equal(r.holdoutCount,1);
+ assert.equal(r.models[0].count,1);
+ assert.equal(r.certified,false);
+});
