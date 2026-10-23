@@ -7,7 +7,7 @@ import type {RequiredMarket} from './draftkings-market-gap-audit';
 import {auditFullDraftKingsOddsExport} from './full-draftkings-export-audit';
 import {auditDraftKingsCoverageContinuity,type CoverageSnapshot} from './draftkings-coverage-continuity';
 const clean=(s:string)=>s.trim().toLowerCase();
-const key=(r:RequiredMarket)=>JSON.stringify([clean(r.sport),clean(r.league),clean(r.marketType),
+const key=(r:{sport:string;league:string;marketType:string;kind:string;eventId?:string;playerId?:string;line?:string})=>JSON.stringify([clean(r.sport),clean(r.league),clean(r.marketType),
  r.kind,clean(r.eventId||''),clean(r.playerId||''),clean(r.line||'')]);
 export function buildDraftKingsCoverageWorkQueue(
  events:unknown,expected:RequiredMarket[],snapshots:CoverageSnapshot[]=[],now=Date.now(),limit=100
@@ -24,7 +24,7 @@ export function buildDraftKingsCoverageWorkQueue(
   const historical=persistent.has(k)?'PERSISTENT_MISSING':intermittent.has(k)?
    'INTERMITTENT_MISSING':'UNCLASSIFIED';
   // Priorities express investigation order, never confidence in a bet.
-  const priority=historical==='PERSISTENT_MISSING'?'P1':
+  const priority:'P1'|'P2'|'P3'=historical==='PERSISTENT_MISSING'?'P1':
    isProp?'P1':historical==='INTERMITTENT_MISSING'?'P2':'P3';
   const owner=isProp?'PLAYER_IDENTITY_AND_PROPS':
    r.reason==='REQUIRED_EVENT_NOT_PRICED'?'EVENT_MARKET_COVERAGE':'LEAGUE_MARKET_DISCOVERY';
@@ -37,13 +37,13 @@ export function buildDraftKingsCoverageWorkQueue(
     historical==='PERSISTENT_MISSING'?'Investigate provider catalog restrictions and independent upstream availability':
     'Check fresh authorized DraftKings-priced outcomes for this exact requirement'};
  });
- const rank={P1:0,P2:1,P3:2};
+ const rank:Record<'P1'|'P2'|'P3',number>={P1:0,P2:1,P3:2};
  rows.sort((a,b)=>rank[a.priority]-rank[b.priority]||a.sport.localeCompare(b.sport)||
   a.league.localeCompare(b.league)||a.marketType.localeCompare(b.marketType)||a.id.localeCompare(b.id));
  const byOwner=rows.reduce((acc,r)=>{acc[r.owner]=(acc[r.owner]||0)+1;return acc},
   {} as Record<string,number>);
  const byPriority=rows.reduce((acc,r)=>{acc[r.priority]=(acc[r.priority]||0)+1;return acc},
-  {P1:0,P2:0,P3:0});
+  {P1:0,P2:0,P3:0} as Record<'P1'|'P2'|'P3',number>);
  return {mode:'OPERATOR_COVERAGE_INVESTIGATION_QUEUE' as const,
   asOf:new Date(now).toISOString(),scope:'SUPPLIED_CATALOG_ONLY',
   requirements:audit.requiredCount,covered:audit.coveredCount,
