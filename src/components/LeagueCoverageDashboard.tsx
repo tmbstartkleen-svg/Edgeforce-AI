@@ -6,6 +6,7 @@ import DraftKingsCoverageImportStudio from './DraftKingsCoverageImportStudio';
 type Game={id?:string;sport?:string;league?:string;source?:string;status?:string;startTime?:string;home?:{name?:string;score?:number|null};away?:{name?:string;score?:number|null};sourceObservedAt?:string};
 type Live={ok?:boolean;generatedAt?:string;games?:Game[];error?:string};
 type D1Coverage={sportsObservations?:{classification:string;rowsInspected:number;malformedRows:number;sourceOwners:string[];sports:{sport:string;events:number;scheduleObservations:number;scoreObservations:number;latestObservedAt:string}[]};ok:boolean;asOf?:string;freshDraftKingsQuotes?:number;rowsInspected?:number;unrecognizedRows?:number;missingMarketCount?:number|null;missingReason?:string;leagues?:{sport:string;league:string;events:number;marketTypes:number;players:number;quotes:number;latestObservedAt:string}[];independentVerification?:{independentUpstreams:number;crossProviderVerified:boolean;verifiedOutcomes:number;note?:string};error?:string};
+type LiveOddsLaunch={ok:boolean;asOf?:string;totalRegistered?:number;enabledSportsbookSources?:number;storedOddsRows?:number;distinctSportsbookUpstreams?:number;blockers?:string[];releaseCertified?:boolean;error?:string};
 type ReleaseReadiness={ok:boolean;mode:string;remainingStages:number;releaseCertified:boolean;stages:{stage:number;name:string;status:string;requirements:string[]}[];warning?:string};
 const normalizeLeague=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 // Do not turn a sport-family score into evidence for every league in that sport.
@@ -18,9 +19,21 @@ const summary=sportCoverageSummary();
 export default function LeagueCoverageDashboard(){
  const [data,setData]=useState<Live|null>(null),[family,setFamily]=useState('all'),[search,setSearch]=useState(''),[refresh,setRefresh]=useState(0);
  const [release,setRelease]=useState<ReleaseReadiness|null>(null);
+ const [oddsLaunch,setOddsLaunch]=useState<LiveOddsLaunch|null>(null);
  const [token,setToken]=useState(''),[odds,setOdds]=useState<D1Coverage|null>(null),[oddsLoading,setOddsLoading]=useState(false);
  useEffect(()=>{let active=true;fetch('/api/live-scores',{cache:'no-store'}).then(async r=>{const x=await r.json();if(!r.ok)throw new Error(x.error||'Live score mesh unavailable');return x as Live}).then(x=>{if(active)setData(x)}).catch(e=>{if(active)setData({ok:false,error:e instanceof Error?e.message:'Unavailable',games:[]})});return()=>{active=false}},[refresh]);
- const loadOdds=async()=>{setOdds(null);if(!token.trim()){setOdds({ok:false,error:'Enter your authorized network token to inspect persisted odds.'});return;}setOddsLoading(true);try{const response=await fetch('/api/operations/d1-pilot/coverage',{headers:{Authorization:'Bearer '+token.trim()},cache:'no-store'});const result=await response.json() as D1Coverage;if(!response.ok||!result.ok)throw new Error(result.error||'Odds endpoint unavailable');setOdds(result);}catch(e){setOdds({ok:false,error:e instanceof Error?e.message:'Coverage request failed'});}finally{setOddsLoading(false);}};
+ const loadOdds=async()=>{setOdds(null);setOddsLaunch(null);if(!token.trim()){setOdds({ok:false,error:'Enter your authorized network token to inspect persisted odds.'});return;}setOddsLoading(true);try{
+  const credentials={Authorization:'Bearer '+token.trim()};
+  const [coverageResponse,launchResponse]=await Promise.all([
+   fetch('/api/operations/d1-pilot/coverage',{headers:credentials,cache:'no-store'}),
+   fetch('/api/operations/d1-pilot/odds-launch-readiness',{headers:credentials,cache:'no-store'})
+  ]);
+  const coverage=await coverageResponse.json() as D1Coverage;
+  const launch=await launchResponse.json() as LiveOddsLaunch;
+  if(!coverageResponse.ok||!coverage.ok)throw new Error(coverage.error||'Odds endpoint unavailable');
+  setOdds(coverage);
+  setOddsLaunch(launchResponse.ok&&launch.ok?launch:{ok:false,error:launch.error||'Live source registry not available'});
+ }catch(e){setOdds({ok:false,error:e instanceof Error?e.message:'Coverage request failed'});}finally{setOddsLoading(false);}};
  useEffect(()=>{let active=true;fetch('/api/operations/edgeforce-release-readiness',{cache:'no-store'})
   .then(async res=>{if(!res.ok)throw Error('Release readiness unavailable');return await res.json() as ReleaseReadiness})
   .then(value=>{if(active)setRelease(value)})
@@ -52,7 +65,16 @@ export default function LeagueCoverageDashboard(){
   <section className="coveragePanel" aria-label="Persisted DraftKings odds verification" style={{marginBottom:20,padding:22}}>
    <div className="coveragePanelHead"><div><div className="eyebrow">CERTIFICATION TERMINAL</div><h2>Persisted DraftKings odds evidence</h2></div></div>
    <p className="coverageNote">Authenticated, read-only Cloudflare D1 diagnostics. Scores, configured providers and historical results are not proof of live sportsbook quotes. Your token stays in this page&apos;s memory and is not saved.</p>
-   <div className="coverageTools"><input type="password" aria-label="Network authorization token" autoComplete="off" placeholder="Authorized network token" value={token} onChange={e=>setToken(e.target.value)}/><button type="button" disabled={oddsLoading} onClick={loadOdds}>{oddsLoading?'Checking odds…':'Inspect stored odds'}</button><button type="button" onClick={()=>{setToken('');setOdds(null)}}>Clear access</button></div>
+   <div className="coverageTools"><input type="password" aria-label="Network authorization token" autoComplete="off" placeholder="Authorized network token" value={token} onChange={e=>setToken(e.target.value)}/><button type="button" disabled={oddsLoading} onClick={loadOdds}>{oddsLoading?'Checking odds…':'Inspect stored odds'}</button><button type="button" onClick={()=>{setToken('');setOdds(null);setOddsLaunch(null)}}>Clear access</button></div>
+   {oddsLaunch?.ok&&<div aria-label="Authenticated sportsbook source readiness">
+    <div className="coverageKpis">
+     <article><small>ENABLED SPORTSBOOK SOURCES</small><strong>{oddsLaunch.enabledSportsbookSources??0}</strong><span>Registered odds-specific sources, not verified entitlement</span></article>
+     <article><small>STORED ODDS OBSERVATIONS</small><strong>{oddsLaunch.storedOddsRows??0}</strong><span>D1 stored odds records, not necessarily fresh</span></article>
+     <article><small>REGISTERED ODDS UPSTREAMS</small><strong>{oddsLaunch.distinctSportsbookUpstreams??0}</strong><span>Registry identities, not independently authenticated operators</span></article>
+    </div>
+    <p className="coverageNote">Live D1 launch blockers: {oddsLaunch.blockers?.join(' · ')||'Evidence unavailable'}. This does not authorize ingestion or certify bets.</p>
+   </div>}
+   {oddsLaunch&&!oddsLaunch.ok&&<p className="coverageNote">Source registry diagnostic unavailable: {oddsLaunch.error||'Read-only check failed'}</p>}
    {odds&&!odds.ok&&<p role="alert" className="coverageNote">{odds.error||'Unable to verify stored odds.'}</p>}
    {odds?.ok&&<div aria-live="polite"><div className="coverageKpis">
     <article><small>FRESH DRAFTKINGS QUOTES</small><strong>{odds.freshDraftKingsQuotes??0}</strong><span>Accepted stored odds, not all available markets</span></article>
