@@ -26,6 +26,17 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
       AND s.upstream_id=o.upstream_id AND s.enabled=1
     WHERE o.observation_kind='odds' AND o.source_id NOT LIKE 'espn-scoreboard-%'
     ORDER BY o.observed_at DESC LIMIT ?`).bind(limit).all<Row>();
+  // Source readiness is independent of observation counts. This is a
+  // read-only registry audit; never infer that an enabled source is connected.
+  const registryRows=await db.prepare(`SELECT source_id,upstream_id,enabled
+    FROM intelligence_sources WHERE enabled=1
+      AND source_id NOT LIKE 'espn-scoreboard-%'
+    ORDER BY source_id LIMIT 100`).all<{source_id:string;upstream_id:string;enabled:number}>();
+  const sportsbookRegistry={registeredSourceCount:registryRows.results.length,
+    independentUpstreamOwners:new Set(registryRows.results.map(r=>r.upstream_id.trim().toLowerCase())).size,
+    registeredSourceIds:registryRows.results.map(r=>r.source_id),
+    feedConnected:false,
+    status:registryRows.results.length===0?'NO_APPROVED_ODDS_SOURCES':'REGISTERED_NOT_LIVE_CERTIFIED'};
   const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[];let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
@@ -96,7 +107,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const sportsObservations={classification:'SCORES_NOT_ODDS',rowsInspected:scores.results.length,
    malformedRows:malformedScores,sourceOwners:[...new Set(scores.results.map(r=>r.upstream_id))].sort(),
    sports:[...scoreLeagues.values()].map(g=>({sport:g.sport,events:g.events.size,scheduleObservations:g.schedule,scoreObservations:g.score,latestObservedAt:g.latestObservedAt})).sort((a,b)=>a.sport.localeCompare(b.sport))};
-  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsObservations,
+  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsbookRegistry,sportsObservations,
    discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&x.priceAmerican!==undefined).length,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
