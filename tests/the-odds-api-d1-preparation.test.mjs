@@ -67,3 +67,34 @@ test('pathologically wide provider arrays are bounded before nested traversal',(
   markets:[{key:'h2h',outcomes:Array.from({length:101},()=>({name:'A',price:-110}))}]}]};
  assert.equal(prepareTheOddsApiD1Batch([wideOutcomes],now).rejected.OUTCOME_BATCH_LIMIT,1);
 });
+
+test('opt-in dry-run player prop mapping preserves player, side and line identity',()=>{
+ const r=prepareTheOddsApiD1Batch([event],now,25,{enablePlayerProps:true});
+ assert.equal(r.prepared,5);
+ assert.equal(r.playerPropsMapped,1);
+ const prop=r.rows.find(x=>x.value.marketType==='player_points');
+ assert.equal(prop.value.playerId,'name:player');
+ assert.equal(prop.value.playerName,'Player');
+ assert.equal(prop.value.line,'20.5');
+ assert.equal(prop.value.outcomeId,'Over');
+ assert.equal(r.readyForAuthorizedIngest,false);
+ assert.match(r.warning,/NOT stable verified player IDs/);
+});
+test('player props without named player or over-under outcome are rejected',()=>{
+ const p={...event,bookmakers:[{...event.bookmakers[0],markets:[
+ {key:'player_rebounds',outcomes:[{name:'Over',point:7.5,price:-115}]},
+ {key:'player_assists',outcomes:[{name:'Yes',description:'Player',point:4.5,price:-120}]}
+ ]}]};
+ const r=prepareTheOddsApiD1Batch([p],now,25,{enablePlayerProps:true});
+ assert.equal(r.prepared,0);
+ assert.equal(r.playerPropsMapped,0);
+ assert.equal(r.rejected.PLAYER_PROP_IDENTITY_REQUIRED,2);
+});
+test('unrecognized non-player markets never become valid props with opt-in',()=>{
+ const p={...event,bookmakers:[{...event.bookmakers[0],markets:[
+ {key:'alternate_unknown_market',outcomes:[{name:'Over',description:'Player',point:1.5,price:-110}]}
+ ]}]};
+ const r=prepareTheOddsApiD1Batch([p],now,25,{enablePlayerProps:true});
+ assert.equal(r.prepared,0);
+ assert.equal(r.rejected.MARKET_NOT_MAPPED,1);
+});
