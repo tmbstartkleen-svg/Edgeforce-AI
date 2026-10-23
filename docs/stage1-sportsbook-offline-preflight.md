@@ -14,3 +14,15 @@ The report identifies observed bookmaker coverage, sports and leagues, market ty
 Exit code 0 means the input was readable and at least one valid target-bookmaker quote was prepared, **not** that release certification passed. Exit 2 indicates invalid arguments/input. Exit 3 indicates zero valid target bookmaker quotes.
 
 Next Stage 1 acceptance evidence: authenticated provider response, approved archival/usage rights, source registration and owner-gated D1 ingestion, fresh persisted quotes, and independent readback/corroboration. Do not enable production writes or treat sports scores as sportsbook pricing.
+
+## Explicitly authorized live connectivity probe
+
+A separate CLI performs **exactly one** The Odds API request for U.S. DraftKings head-to-head odds and returns aggregate quality indicators. It does not save raw odds, show credentials, register a D1 source, or write observations. The request may consume provider API credits. Review your provider subscription and terms before choosing to execute it.
+
+With `THE_ODDS_API_KEY` already configured in your local shell (do not paste or commit the value), execute:
+
+```sh
+npm run odds:probe-live -- --ack-provider-charge
+```
+
+The acknowledgement is mandatory. This is a live network request **only when the owner explicitly runs the command**; no background collection is scheduled. Successful output can demonstrate an authenticated API response and prepared sample quote counts, not player props or a complete slate. Neither a successful probe nor a stored production Worker secret proves D1 ingestion, sportsbook licensing permission or independent upstream corroboration.
