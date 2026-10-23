@@ -22,3 +22,9 @@ test('D1 odds ingestion rejects malformed, unpriced and already-started markets 
  assert.match(source,/Number.isInteger\(q.priceAmerican\)/);
  assert.match(source,/Date.parse\(String\(q.startsAt\)\)<=now/);
 });
+
+test('scoreboard registrations cannot be used as odds ingestion authority',()=>{
+ assert.match(source,/o\.kind==='odds'&&o\.provider\.startsWith\('espn-scoreboard-'\)/);
+ assert.match(source,/SCOREBOARD_SOURCE_CANNOT_SUPPLY_ODDS/);
+ assert.match(source,/SCOREBOARD_UPSTREAM_MISMATCH/);
+});
