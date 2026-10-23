@@ -11,7 +11,7 @@ const {normalizeOddsPayload}=await import(uri(normalized));
 const event=(last_update,extra={})=>[{id:'event-1',sport_key:'basketball_nba',sport_title:'NBA',
  commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',
  bookmakers:[{key:'draftkings',title:'DraftKings',...(last_update===undefined?{}:{last_update}),
- markets:[{key:'h2h',outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}],...extra}];
+ markets:[{key:'h2h',...(last_update===undefined?{}:{last_update}),outcomes:[{name:'Home',price:-115},{name:'Away',price:105}]}]}],...extra}];
 test('The Odds API bookmaker timestamp determines source age, not server normalization time',()=>{
  const stamp=new Date(Date.now()-4*60000).toISOString();
  const rows=normalizeOddsPayload(event(stamp)).markets;
