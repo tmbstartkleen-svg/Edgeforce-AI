@@ -25,3 +25,9 @@ test('polling plan distinguishes target freshness from actual hourly cohort cade
  assert.match(plan,/estimatedCadenceMinutes:10/);
  assert.match(plan,/dispatchCadenceMinutes:5,cohortCount:2,estimatedPerSourceCadenceMinutes:10/);
 });
+
+test('polling plan identifies the next rotating cohort without executing it',()=>{
+ assert.match(plan,/const activeCohort=Math\.floor\(Date\.now\(\)\/300000\)%2/);
+ assert.match(plan,/nextScheduledCohort:index%2===activeCohort/);
+ assert.match(plan,/executionEnabled:false,executedRequests:0,performedWrites:0/);
+});
