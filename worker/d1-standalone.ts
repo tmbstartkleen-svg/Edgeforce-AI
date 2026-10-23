@@ -37,24 +37,47 @@ export default {
    const slot=Math.floor(Date.now()/300000)%2;
    const cohort=scoreSports.filter((_sport,index)=>index%2===slot);
    ctx.waitUntil((async()=>{
+    const db=env.INTELLIGENCE_DB;
+    const runId=crypto.randomUUID();
+    const scheduledAt=new Date().toISOString();
     const results=[];
-    for(const sport of cohort){
-     let status=0,attempts=0;
-     for(let retry=0;retry<3;retry++){
-      attempts++;
-      try{
-       const response=await collectMultiSportScores(new Request('https://edgeforce-internal/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport.id),{method:'POST',headers:{Authorization:'Bearer '+env.CRON_SECRET}}),env);
-       status=response.status;
-      }catch{status=0;}
-      if(status===200||status===422||status===400||status===401||status===403)break;
-      if(retry<2)await new Promise(resolve=>setTimeout(resolve,250*(2**retry)));
+    try{
+     await db.prepare(`CREATE TABLE IF NOT EXISTS score_scheduler_receipts (
+      run_id TEXT NOT NULL, cohort INTEGER NOT NULL, scheduled_at TEXT NOT NULL,
+      sport TEXT NOT NULL, source_id TEXT NOT NULL, attempt_count INTEGER NOT NULL DEFAULT 0,
+      final_status INTEGER, completed_at TEXT, persisted INTEGER NOT NULL DEFAULT 0,
+      outcome TEXT NOT NULL, PRIMARY KEY(run_id,sport)
+     )`).run();
+     for(const sport of cohort){
+      const source=scoreboardSource(sport.id);
+      await db.prepare("INSERT OR REPLACE INTO score_scheduler_receipts (run_id,cohort,scheduled_at,sport,source_id,attempt_count,outcome) VALUES (?,?,?,?,?,0,'RUNNING')")
+       .bind(runId,slot,scheduledAt,sport.id,source.sourceId).run();
      }
-     results.push({sport:sport.id,status,attempts,recovered:attempts>1&&status===200});
+     for(const sport of cohort){
+      let status=0,attempts=0,persisted=false;
+      const source=scoreboardSource(sport.id);
+      for(let retry=0;retry<3;retry++){
+       attempts++;
+       try{
+        const response=await collectMultiSportScores(new Request('https://edgeforce-internal/api/operations/d1-pilot/collect-scores?sport='+encodeURIComponent(sport.id),{method:'POST',headers:{Authorization:'Bearer '+env.CRON_SECRET}}),env);
+        status=response.status;
+        const body=await response.clone().json().catch(()=>null) as {ok?:boolean;accepted?:number;duplicates?:number;attempted?:number}|null;
+        persisted=response.status===200&&body?.ok===true&&(Number(body.accepted||0)+Number(body.duplicates||0)>0);
+       }catch{status=0;}
+       if(status===200||status===422||status===400||status===401||status===403)break;
+       if(retry<2)await new Promise(resolve=>setTimeout(resolve,250*(2**retry)));
+      }
+      const outcome=persisted?'PERSISTED':status===422?'NO_QUALIFYING_EVENTS':status===200?'PERSISTENCE_UNCONFIRMED':'FAILED';
+      await db.prepare("UPDATE score_scheduler_receipts SET attempt_count=?,final_status=?,completed_at=?,persisted=?,outcome=? WHERE run_id=? AND sport=?")
+       .bind(attempts,status,new Date().toISOString(),persisted?1:0,outcome,runId,sport.id).run();
+      results.push({sport:sport.id,status,attempts,persisted,outcome});
+     }
+     console.log('EdgeForce isolated scheduled score cohort',JSON.stringify({runId,slot,scheduledAt,requested:cohort.length,results}));
+    }catch(error){
+     console.error('EdgeForce scheduler receipt failure',JSON.stringify({runId,slot,scheduledAt,reason:error instanceof Error?error.message:'UNKNOWN'}));
     }
-    console.log('EdgeForce isolated scheduled score cohort',JSON.stringify({slot,requested:cohort.length,results}));
    })());
-  }
- },
+  } },
  fetch(request:Request,env:Env):Promise<Response>{
   const pathname=new URL(request.url).pathname;
   if(pathname==='/api/operations/d1-pilot/backup-readiness')return backupReadinessRoute(request,env);
