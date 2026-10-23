@@ -66,7 +66,9 @@ export function auditDraftKingsMarketCoverage(
  const satisfied:RequiredMarket[]=[];
  const groupSummary=new Map<string,{sport:string;required:number;covered:number;missing:number}>();
  for(const r of requirements.values()){
-  const k=key(r),events=covered.get(k),present=Boolean(
+  const k=key(r),events=covered.get(k),typeIsProp=r.marketType.toLowerCase().startsWith('player_');
+  const kindAligned=r.kind===(typeIsProp?'player-prop':'game');
+  const present=kindAligned&&Boolean(
    events&&events.size>0&&(!r.eventId||events.has(norm(r.eventId))));
   const label=norm(r.sport);
   if(!groupSummary.has(label))groupSummary.set(label,{sport:r.sport,required:0,covered:0,missing:0});
