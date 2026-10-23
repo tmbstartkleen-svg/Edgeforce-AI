@@ -35,7 +35,7 @@ export default function SportsbookOddsPanel(){
   try{
    // Operator-initiated only: this existing route may fetch configured
    // providers and spend quota. It is NEVER invoked automatically.
-   const response=await fetch('/api/markets',{cache:'no-store'});
+   const response=await fetch('/api/markets?forceLive=1',{cache:'no-store'});
    const body=await response.json() as Result&{markets?:Quote[];sportsbookQuotes?:Quote[];warnings?:string[];providerId?:string;source?:string;quoteScope?:string};
    if(!response.ok)throw Error(body.error||'Odds provider refresh failed');
    if(body.source==='demo')throw Error('Only demonstration markets were returned. No live sportsbook quotes are available.');
