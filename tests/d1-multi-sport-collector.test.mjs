@@ -99,3 +99,16 @@ test('NFL 422 diagnostic reports actual empty or unsupported events and never cl
  assert.match(probe,/NO_QUALIFYING_UPSTREAM_EVENTS/);
  assert.match(probe,/persisted:false/);
 });
+
+test('NCAAF scoreboard caps large upstream by upcoming Saturday and ten events',()=>{
+ const source=scoreboardSource('ncaaf');
+ const query=new URL(source.endpoint).searchParams;
+ assert.equal(query.get('limit'),'10');
+ assert.match(query.get('dates')||'',/^\\d{8}$/);
+ const utc=new Date(Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),new Date().getUTCDate()));
+ utc.setUTCDate(utc.getUTCDate()+(6-utc.getUTCDay()+7)%7);
+ assert.equal(query.get('dates'),utc.toISOString().slice(0,10).replace(/-/g,''));
+ const probe=readFileSync('worker/d1-score-source-probe.ts','utf8');
+ assert.match(probe,/250000/);
+ assert.match(c,/250000/);
+});
