@@ -57,7 +57,8 @@ if(args.length!==1||args[0]!=='--ack-provider-charge'){
     targetQuoteCount:report.targetQuoteCount,distinctTargetOutcomes:report.distinctTargetOutcomes,
     duplicateTargetIdentities:report.duplicateTargetIdentities,sports:report.sports,
     leagues:report.leagues,unmappedMarketTypes:report.unmappedMarketTypes,
-    rejected:report.rejected,reason:report.targetQuoteCount?'READ_ONLY_SOURCE_EVIDENCE':'NO_VALID_DRAFTKINGS_QUOTES',
+    rejected:report.rejected,eventAudit:report.eventAudit,sampleTruncated:report.sampleTruncated,
+    reason:report.targetQuoteCount?'READ_ONLY_SOURCE_EVIDENCE':'NO_VALID_DRAFTKINGS_QUOTES',
     warning:'Authenticated provider response observed; no D1 persistence, independent provider verification, player props, entitlement certification, or complete catalog.'},null,2));
    if(!report.targetQuoteCount)process.exitCode=3;
   }
