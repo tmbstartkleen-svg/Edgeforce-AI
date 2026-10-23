@@ -23,11 +23,24 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
  const unmappedMarkets=new Map<string,number>();
  const observedBookmakers=new Set<string>();
  const rejected:Record<string,number>={};
+ const eventRejectionDetails:Record<string,number>={};
+ let eventsExamined=0,eventsEligible=0;
  const reject=(reason:string)=>{rejected[reason]=(rejected[reason]||0)+1;};
  let examined=0,playerPropsMapped=0;
  for(const e of events){
-  if(!object(e)||!nonempty(e.id)||!nonempty(e.sport_key)||!validTime(e.commence_time)||
-    Date.parse(e.commence_time as string)<=now){reject('INVALID_EVENT');continue;}
+  eventsExamined++;
+  // Retain the historical INVALID_EVENT counter for compatibility, while
+  // splitting the causes so already-started games are not called malformed.
+  const eventFailure=!object(e)||!nonempty(e.id)||!nonempty(e.sport_key)
+   ?'EVENT_IDENTITY_MISSING'
+   :!validTime(e.commence_time)?'EVENT_TIME_INVALID'
+   :Date.parse(e.commence_time as string)<=now?'EVENT_ALREADY_STARTED':null;
+  if(eventFailure){
+   reject('INVALID_EVENT');
+   eventRejectionDetails[eventFailure]=(eventRejectionDetails[eventFailure]||0)+1;
+   continue;
+  }
+  eventsEligible++;
   const startsAt=e.commence_time as string;
   const league=nonempty(e.sport_title)?e.sport_title as string:e.sport_key as string;
   const books=Array.isArray(e.bookmakers)?e.bookmakers:[];
@@ -88,6 +101,9 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
  }
  return {mode:'DRY_RUN_ONLY' as const,readyForAuthorizedIngest:false,rows,examined,
   prepared:rows.length,rejected,playerPropsMapped,
+  eventAudit:{examined:eventsExamined,eligible:eventsEligible,invalid:eventsExamined-eventsEligible,
+   reasons:eventRejectionDetails},
+  sampleTruncated:Boolean(rejected.BATCH_CAP_REACHED),
   observedBookmakers:[...observedBookmakers].sort(),
   unmappedMarketTypes:[...unmappedMarkets].map(([marketType,count])=>({marketType,count})).sort((a,b)=>b.count-a.count||a.marketType.localeCompare(b.marketType)),
   warning:options.enablePlayerProps===true?'Dry-run player prop identities derive from names and are NOT stable verified player IDs. No source entitlement, no certified coverage, no D1 writes.':'Core h2h/spreads/totals only; player prop mapping requires explicit dry-run opt-in. No source entitlement, no verified live data, no D1 writes.'};
