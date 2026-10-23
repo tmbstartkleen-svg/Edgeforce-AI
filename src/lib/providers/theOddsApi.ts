@@ -114,9 +114,9 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
  const configuredMaxSports=options.quotaSafeSingleCall?0:Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
  const expansionMarkets=String(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h');
- const markets=String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
+ const markets=options.quotaSafeSingleCall?'h2h':String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
  const bookmakers=options.quotaSafeSingleCall?'draftkings':String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us');
- const regions=String(process.env.THE_ODDS_API_REGIONS||'us');
+ const regions=options.quotaSafeSingleCall?'us':String(process.env.THE_ODDS_API_REGIONS||'us');
  const warnings:string[]=[];
  const attempts:TheOddsApiAttempt[]=[];
 
