@@ -39,3 +39,15 @@ test('identical event IDs across different leagues never collapse into one',()=>
  const rows=rankResearchCandidates([base,{...base,id:'nba-row',sport:'Basketball',league:'NBA'}],now);
  assert.equal(rows.length,2);
 });
+
+test('research ranking retains auditable feed and model labels without promoting them',()=>{
+ const [row]=rankResearchCandidates([{...base,playerId:'player-7',line:'22.5'}],now);
+ assert.equal(row.upstreamOwner,'upstream-one');
+ assert.equal(row.quoteObservedAt,now);
+ assert.equal(row.modelId,'candidate-model');
+ assert.equal(row.modelEvidenceRef,'not-independently-checked');
+ assert.equal(row.startsAt,base.startsAt);
+ assert.equal(row.playerId,'player-7');
+ assert.equal(row.line,'22.5');
+ assert.equal(row.status,'RESEARCH_ONLY');
+});
