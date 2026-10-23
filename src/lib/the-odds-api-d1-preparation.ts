@@ -81,7 +81,7 @@ export function prepareTheOddsApiD1Batch(events:unknown,now=Date.now(),maxRows=2
         sport:e.sport_key as string,league,marketType,outcomeId:outcome.name as string,
         startsAt,priceAmerican:outcome.price as number,
         ...(marketType!=='h2h'?{line:String(outcome.point)}:{}),
-        ...(supportedPlayerProp?{playerId:'name:'+String(outcome.description).trim().toLowerCase().replace(/\\s+/g,' '),playerName:String(outcome.description).trim(),playerIdentityStatus:'UNVERIFIED_NAME_ONLY' as const}: {})}});
+        ...(supportedPlayerProp?{playerId:'name:'+String(outcome.description).trim().toLowerCase().split(/\s+/).join(' '),playerName:String(outcome.description).trim(),playerIdentityStatus:'UNVERIFIED_NAME_ONLY' as const}: {})}});
     }
    }
   }
