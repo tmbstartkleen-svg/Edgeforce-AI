@@ -20,6 +20,7 @@ test('real Odds API normalizer feeds fresh bookmaker quotes into the protected m
  assert.equal(response.status,200);assert.equal(globalThis.__oddsPipelineCalls.length,1);
  assert.equal(body.sportsbookQuoteCount,2);assert.equal(body.draftKingsQuoteCount,2);
  assert.ok(body.sportsbookQuotes.every(q=>q.sourceBook==='DraftKings'&&q.sourceTimestamp));
+ assert.ok(body.sportsbookQuotes.every(q=>q.eventId==='nba-event-1'),'upstream event IDs must remain traceable');
  assert.ok(body.sportsbookQuotes.every(q=>q.sourceAgeMin<=2));
  assert.equal(body.executablePriceVerified,false);
 });
