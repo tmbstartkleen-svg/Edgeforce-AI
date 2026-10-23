@@ -157,3 +157,21 @@ test('enabled non-scoreboard registrations are never inferred to be sportsbook e
  assert.equal(report.sportsbookRegistry.authorizedSportsbookSources,null);
  assert.equal(report.liveProviderConnected,false);
 });
+
+test('certification checklist stays blocked even when research quotes exist',async()=>{
+ const report=await (await d1CoverageGateway(req(),env(rows))).json();
+ assert.equal(report.certification.status,'BLOCKED');
+ assert.equal(report.certification.certified,false);
+ assert.equal(report.certification.gates.providerEntitlement.passed,false);
+ assert.equal(report.certification.gates.persistedFreshDraftKingsOdds.passed,true);
+ assert.equal(report.certification.gates.persistedPricedPlayerProps.passed,true);
+ assert.equal(report.certification.gates.expectedMarketCatalog.passed,false);
+ assert.equal(report.certification.totalGates,6);
+});
+test('certification reports explicit missing price and player-prop evidence for empty ledger',async()=>{
+ const report=await (await d1CoverageGateway(req(),env([],[]))).json();
+ assert.equal(report.certification.gates.persistedFreshDraftKingsOdds.reason,'NO_FRESH_DRAFTKINGS_ODDS');
+ assert.equal(report.certification.gates.persistedPricedPlayerProps.reason,'NO_FRESH_PRICED_PLAYER_PROPS');
+ assert.equal(report.certification.gates.independentQuoteCorroboration.passed,false);
+ assert.equal(report.certification.passedCount,0);
+});
