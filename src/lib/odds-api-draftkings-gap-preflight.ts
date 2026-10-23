@@ -21,8 +21,8 @@ export function auditTheOddsApiDraftKingsGaps(
  const result=auditDraftKingsMarketCoverage(expected,quotes,now);
  const provisionalProps=prepared.rows.filter(r=>r.value.playerIdentityStatus==='UNVERIFIED_NAME_ONLY').length;
  const truncated=prepared.sampleTruncated;
- return {mode:'ODDS_API_DK_COVERAGE_PREFLIGHT' as const,
-  ...result,
+ return {...result,
+  mode:'ODDS_API_DK_COVERAGE_PREFLIGHT' as const,
   coverageComplete:result.coverageComplete&&!truncated&&provisionalProps===0,
   sampleTruncated:truncated,preparedQuotes:prepared.prepared,
   provisionalPlayerProps:provisionalProps,
