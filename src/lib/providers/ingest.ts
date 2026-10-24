@@ -90,7 +90,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
  if(live.mode==='live'&&live.markets.length){
   await Promise.all([
    withDeadline(
-    saveMarketSnapshots(live.markets,live.providerId||'consensus-panel',live.targetBook||'DraftKings'),
+    saveMarketSnapshots(live.panelMarkets||[],live.providerId||'consensus-panel',live.targetBook||'DraftKings'),
     1500,
     'market snapshot write'
    ).catch(()=>undefined),
