@@ -35,3 +35,10 @@ test('Worker verifies approved source identity, archived-original price and sour
 test('Cloudflare production routes source-backed D1 review',()=>{
  const code=read('worker/index.ts');assert.match(code,/d1SportsbookOpportunityReview\(request,env\)/);
 });
+
+test('remote dashboard displays actual D1 review as a separate authenticated tab',()=>{
+ const ui=read('src/components/RemoteOperationsDashboard.tsx');
+ assert.match(ui,/Opportunity Review/);assert.match(ui,/api\/operations\/sportsbook-opportunities/);
+ assert.match(ui,/Source-validated quotes/);assert.match(ui,/Theoretical opportunities/);
+ assert.match(ui,/Independent models not certified/);
+});
