@@ -1,6 +1,7 @@
 import handler from 'vinext/server/fetch-handler';
 import {atlasGateway} from './atlas-mission-gateway';
 import {d1CoverageGateway} from './d1-coverage';
+import {d1RemoteOperationsDashboard} from './d1-remote-operations-dashboard';
 export {AtlasMissionRoom} from './atlas-mission-room';
 import {kalshiConnectionDiagnostic} from './kalshi-connection-diagnostic';
 import {d1PilotReadiness} from './d1-pilot';
@@ -90,6 +91,7 @@ async function runDailyShard(controller:ScheduledControllerLike,env:EdgeforceEnv
 const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/remote-dashboard')return d1RemoteOperationsDashboard(request,env);
   if(pathname==='/api/operations/kalshi/connection')return kalshiConnectionDiagnostic(request,env);
   if(pathname==='/api/operations/d1-pilot/reference-ingest/status')return d1ReferenceIngestStatus(request,env);
   if(pathname==='/api/operations/d1-pilot/reference-ingest')return d1ReferenceIngest(request,env);
