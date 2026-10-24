@@ -1,7 +1,7 @@
 /** Cloudflare-native remote dashboard over authorized first-party D1 observations.
  * No provider calls, writes, credentials or nominal bookmaker independence claims.
  */
-type Db={prepare(sql:string):{bind(...x:unknown[]):{all<T>():Promise<{results:T[]}>};first<T>():Promise<T|null>}};
+type Db={prepare(sql:string):{bind(...x:unknown[]):{all<T>():Promise<{results:T[]}>};first<T>():Promise<T|null>;all<T>():Promise<{results:T[]}>}};
 type Env={CRON_SECRET?:unknown;INTELLIGENCE_DB?:unknown;D1_SPORTS_MARKET_ARCHIVE_ENABLED?:unknown};
 const hdr={'Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff'};
 const json=(value:unknown,status=200)=>Response.json(value,{status,headers:hdr});
