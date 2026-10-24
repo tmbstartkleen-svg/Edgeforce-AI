@@ -1,5 +1,6 @@
 /** EdgeForce first-party market intelligence: observation-backed only, no polling or synthetic odds. */
 import {auditMarketObservations,evaluateVerifiedEdge} from './sports-network-engine.mjs';
+import {canonicalMarketIdentity} from './market-identity-and-movement.mjs';
 
 const validPrice=(n)=>Number.isFinite(n)&&Number.isInteger(n)&&(n<=-100||n>=100);
 export function decimalOdds(american){
@@ -20,7 +21,9 @@ export function validatedQuote(quote,{now=Date.now(),maxAgeMs=1200000}={}){
     quote.settlementKey,quote.currency].every(x=>typeof x==='string'&&x.trim())||
   !Number.isFinite(quote.observedAt)||quote.observedAt>now+60000||now-quote.observedAt>maxAgeMs)
   return {ok:false,reason:'INVALID_STALE_OR_UNMATCHED_QUOTE'};
- return {ok:true,quote:{...quote,decimalOdds:decimalOdds(quote.odds),impliedProbability:impliedProbability(quote.odds)}};
+ const identity=canonicalMarketIdentity(quote);
+ if(!identity.ok)return {ok:false,reason:identity.reason};
+ return {ok:true,quote:{...quote,marketIdentity:identity.identity,decimalOdds:decimalOdds(quote.odds),impliedProbability:impliedProbability(quote.odds)}};
 }
 
 /** Finds only matched exhaustive outcome sets, using distinct actual venues; no fabricated market availability. */
@@ -34,7 +37,7 @@ export function scanArbitrage(quotes,{now=Date.now(),maxAgeMs=1200000,maxMarkets
   if(!checked.ok){rejected.push(checked.reason);continue;}
   const q=checked.quote;
   // Different settlement rules, venue products, line points or currencies MUST NOT be combined.
-  const key=JSON.stringify([q.eventId,q.marketKey,q.settlementKey,q.currency,q.venueType,q.outcomeSetType,[...q.outcomes].sort()]);
+  const key=JSON.stringify([q.marketIdentity,q.currency,q.venueType,q.outcomeSetType,[...q.outcomes].sort()]);
   if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);
  }
  const opportunities=[],blocked=[];
