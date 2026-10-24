@@ -139,7 +139,8 @@ export function buildConsensusMarkets(quotes:Quote[],targetBook='DraftKings'){
    marketProb:robust.probability,
    modelProb:sourceWasMarketBaseline?robust.probability:target.modelProb,
    consensus,
-   sourceBook:target.sourceBook||targetBook,
+   // Never attribute a fallback/reference price to DraftKings unless it is from DraftKings.
+   sourceBook:target.sourceBook||target.sourceProviderId,
    confidence:clamp(target.confidence*(.82+.18*agreement),.2,.99)
   });
  }
