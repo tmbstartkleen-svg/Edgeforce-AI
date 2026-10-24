@@ -39,3 +39,20 @@ test('Odds API stable sport key is not replaced by its display title',()=>{
  assert.ok(normalized.every(q=>q.sport==='basketball_nba'));
  assert.ok(normalized.every(q=>q.league==='NBA'));
 });
+
+test('player prop outcome descriptions preserve athlete identity and alternate line in normalized output',()=>{
+ const payload=[{id:'nba-prop-event',sport_key:'basketball_nba',sport_title:'NBA',
+  commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',
+  bookmakers:[{key:'draftkings',title:'DraftKings',markets:[{
+   key:'player_points',last_update:new Date(Date.now()-30000).toISOString(),
+   outcomes:[{name:'Over',description:'Example Player',price:-115,point:24.5},
+    {name:'Under',description:'Example Player',price:-105,point:24.5}]
+  }]}]}];
+ const rows=normalizeOddsPayload(payload).markets;
+ assert.equal(rows.length,2);
+ assert.ok(rows.every(row=>row.playerContext?.name==='Example Player'));
+ assert.ok(rows.every(row=>row.playerContext?.statKey==='player_points'));
+ assert.ok(rows.every(row=>row.selection.includes('Example Player')));
+ assert.ok(rows.every(row=>row.selection.includes('24.5')));
+ assert.ok(rows.every(row=>row.sourceBook==='DraftKings'));
+});
