@@ -20,3 +20,9 @@ test('production never serves demo odds even when demo env flag is set',()=>{
  assert.match(ingest,/const allowDemo=!production/);
  assert.doesNotMatch(ingest,/ALLOW_DEMO_DATA==='true'\|\|!production/);
 });
+
+test('release certification checks explicit production-only ban rather than legacy demo setting',()=>{
+ const releaseAudit=readFileSync(new URL('../scripts/release-audit.mjs',import.meta.url),'utf8');
+ assert.match(releaseAudit,/production ingestion rejects demo fallback/);
+ assert.match(releaseAudit,/const allowDemo=!production/);
+});
