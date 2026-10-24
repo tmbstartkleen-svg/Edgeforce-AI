@@ -186,3 +186,11 @@ test('empty sportsbook table exposes exact freshness and data-quality rejection 
  assert.match(panel,/live\.quoteDiagnostics\.staleTimestamp/);
  assert.match(panel,/live\.quoteDiagnostics\.startedOrInvalidEvent/);
 });
+
+test('player prop refresh is a separate explicit owner-authorized one-event action',()=>{
+ assert.match(panel,/Probe NBA player props \(one event; may use quota\)/);
+ assert.match(panel,/refreshProvider\(true\)/);
+ assert.match(panel,/playerProps=1/);
+ assert.match(panel,/separately configured NBA event ID/);
+ assert.match(panel,/disabled=\{busy\|\|quotaExhausted\}/);
+});
