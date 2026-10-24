@@ -6,6 +6,7 @@ import {d1OddsSourceRegistry} from './d1-odds-source-registry';
 import {d1SportsbookOpportunityReview} from './d1-sportsbook-opportunity-review';
 import {predictionCatalogGateway} from './prediction-public-catalog';
 import {predictionOrderbookGateway} from './prediction-orderbook-review';
+import {predictionWatchLedger} from './prediction-watch-ledger';
 export {AtlasMissionRoom} from './atlas-mission-room';
 import {kalshiConnectionDiagnostic} from './kalshi-connection-diagnostic';
 import {d1PilotReadiness} from './d1-pilot';
@@ -95,6 +96,7 @@ async function runDailyShard(controller:ScheduledControllerLike,env:EdgeforceEnv
 const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/prediction-watches')return predictionWatchLedger(request,env);
   if(pathname==='/api/operations/prediction-orderbooks')return predictionOrderbookGateway(request,env);
   if(pathname==='/api/operations/prediction-catalog')return predictionCatalogGateway(request,env);
   if(pathname==='/api/operations/sportsbook-opportunities')return d1SportsbookOpportunityReview(request,env);
