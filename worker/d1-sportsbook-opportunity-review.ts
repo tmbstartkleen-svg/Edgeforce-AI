@@ -76,5 +76,5 @@ export async function d1SportsbookOpportunityReview(request:Request,env:Env):Pro
    warnings:['Historical D1 quote visibility is not proof a bet is available or executable.',
     'Missing or inconsistent outcome and settlement data prevents arbitrage comparison.',
     'Model-based +EV requires separate calibrated forecasts; no forecasts have been inferred.']});
- }catch{return json({ok:false,error:'D1_OPPORTUNITY_READ_FAILED',externalRequests:0},{status:503})}
+ }catch{return json({ok:false,error:'D1_OPPORTUNITY_READ_FAILED',externalRequests:0},503)}
 }
