@@ -1,0 +1,115 @@
+name: Deploy EdgeForce D1-Native Dashboard
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: Exact certified main SHA (40 hex characters)
+        type: string
+        required: true
+      acknowledge_no_paid_odds:
+        description: Keep paid odds collector and D1 archive writes disabled
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: edgeforce-d1-native-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.acknowledge_no_paid_odds == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || 'de9b84b39940a0b5b622ae5d27b415dc' }}
+      EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+      GH_TOKEN: ${{ github.token }}
+      DEPLOY_URL: https://edgeforce-ai.tmbstartkleen.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Require exact main branch SHA and both certified workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          curl -fsS --retry 3 -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?branch=main&head_sha=$EXPECTED_SHA&per_page=100" -o /tmp/certified-runs.json
+          jq -e '[.workflow_runs[] | select(.name=="Verify Edgeforce" and .head_sha==env.EXPECTED_SHA and .conclusion=="success")] | length > 0' /tmp/certified-runs.json
+          jq -e '[.workflow_runs[] | select(.name=="Verify Edgeforce Cloudflare" and .head_sha==env.EXPECTED_SHA and .conclusion=="success")] | length > 0' /tmp/certified-runs.json
+      - name: Preflight Cloudflare identity and disabled collection
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]
+          node -e '
+            const fs=require("node:fs");const w=JSON.parse(fs.readFileSync("./wrangler.jsonc","utf8"));
+            if(w.name!=="edgeforce-ai" || w.vars?.DEPLOYMENT_ENV!=="production")throw Error("PRODUCTION_WORKER_MISMATCH");
+            if(w.vars?.D1_SPORTS_MARKET_ARCHIVE_ENABLED!=="false")throw Error("D1_ARCHIVE_NOT_DISABLED");
+            if(w.vars?.ATLAS_SCHEDULE_EXECUTION_ENABLED!=="false")throw Error("UNAPPROVED_AGENT_EXECUTION");
+            if(w.vars?.ALLOW_DEMO_DATA!=="false")throw Error("DEMO_FALLBACK_ACTIVE");
+            if(w.d1_databases?.find(x=>x.binding==="INTELLIGENCE_DB")?.database_name!=="edgeforce-intelligence")throw Error("D1_BINDING_NOT_CONFIGURED");
+          '
+      - run: npm ci --no-audit --no-fund
+      - name: Verify safe deployment artifact
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run preflight:cloudflare
+          npm run check:vinext
+          npm run build:vinext
+          npm run validate:cloudflare-build
+      - name: Verify existing live D1 schema without writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute edgeforce-intelligence --remote --config wrangler.jsonc \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('intelligence_sources','specialist_tasks','sports_market_snapshots')" \
+            --json > /tmp/d1-native-readiness.json
+          jq -e '.[0].results | map(.name) | sort == ["intelligence_sources","specialist_tasks","sports_market_snapshots"]' /tmp/d1-native-readiness.json
+      - name: Ensure main was not superseded during build
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_SHA"
+      - name: Deploy existing production Worker with unchanged secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config dist/server/wrangler.json
+      - name: Smoke test deployed Worker and private D1 dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUCCESS=0
+          for attempt in $(seq 1 18); do
+            CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-dashboard-unauth.json \
+              -w '%{http_code}' "$DEPLOY_URL/api/operations/remote-dashboard" || true)
+            HEALTH=$(curl -sS --connect-timeout 5 --max-time 12 "$DEPLOY_URL/api/health" || true)
+            if [ "$CODE" = "401" ] && jq -e '.error=="UNAUTHORIZED"' /tmp/d1-dashboard-unauth.json >/dev/null 2>&1 \
+                && printf '%s' "$HEALTH" | jq -e '.ok==true' >/dev/null 2>&1; then
+              SUCCESS=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "::error::Dashboard private route or Worker health did not verify after deployment"
+            exit 1
+          fi
+          echo "Deployed $EXPECTED_SHA. Dashboard authentication enforced. No source onboarding or paid odds polling triggered." >> "$GITHUB_STEP_SUMMARY"
