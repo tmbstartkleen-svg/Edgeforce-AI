@@ -20,6 +20,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
+      - name: Test D1-native deployment credential and schema gates
+        run: npm run test:d1-native-release
       - name: Cloudflare preflight
         run: npm run preflight:cloudflare
       - name: TypeScript gate
