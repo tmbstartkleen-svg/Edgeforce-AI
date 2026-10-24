@@ -1,5 +1,6 @@
 import {checkNetworkAuth} from '../src/lib/firstPartySportsNetwork';
 import {reconcileCoverage,type CoverageObservation} from '../src/lib/coverage-inventory';
+import {independentQuoteConsensus,type ConsensusQuote} from '../src/lib/independent-quote-consensus';
 import type {D1Database} from './d1-observations';
 type Row={source_id:string;upstream_id:string;event_id:string;observed_at:string;payload:string};
 const noStore={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -19,9 +20,31 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
  const u=new URL(request.url),limit=Number(u.searchParams.get('limit')||100);
  if(!Number.isSafeInteger(limit)||limit<1||limit>250)return json({ok:false,error:'INVALID_LIMIT'},400);
  try{
-  const records=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload FROM intelligence_observations
-    WHERE observation_kind='odds' ORDER BY observed_at DESC LIMIT ?`).bind(limit).all<Row>();
-  const now=Date.now(),observations:CoverageObservation[]=[],upstreams=new Map<string,string>();let unrecognized=0;
+  const records=await db.prepare(`SELECT o.source_id,o.upstream_id,o.event_id,o.observed_at,o.payload
+    FROM intelligence_observations AS o
+    INNER JOIN intelligence_sources AS s ON s.source_id=o.source_id
+      AND s.upstream_id=o.upstream_id AND s.enabled=1
+    WHERE o.observation_kind='odds' AND o.source_id NOT LIKE 'espn-scoreboard-%'
+    ORDER BY o.observed_at DESC LIMIT ?`).bind(limit).all<Row>();
+  // Source readiness is independent of observation counts. This is a
+  // read-only registry audit; never infer that an enabled source is connected.
+  const registryRows=await db.prepare(`SELECT source_id,upstream_id,enabled
+    FROM intelligence_sources WHERE enabled=1
+      AND source_id NOT LIKE 'espn-scoreboard-%'
+    ORDER BY source_id LIMIT 100`).all<{source_id:string;upstream_id:string;enabled:number}>();
+  // intelligence_sources does not yet contain a verified sportsbook entitlement
+  // field. Never label a generic non-scoreboard registration as an approved odds feed.
+  const sportsbookRegistry={registeredSourceCount:registryRows.results.length,
+    candidateRegistrationCount:registryRows.results.length,
+    independentUpstreamOwners:new Set(registryRows.results.map(r=>r.upstream_id.trim().toLowerCase())).size,
+    registeredSourceIds:registryRows.results.map(r=>r.source_id),
+    classification:'UNVERIFIED_NON_SCOREBOARD_REGISTRATIONS',
+    authorizedSportsbookSources:null,
+    authorizationVerified:false,
+    feedConnected:false,
+    status:registryRows.results.length===0?'NO_CANDIDATE_SOURCE_REGISTRATIONS':'REGISTRATIONS_NOT_ENTITLEMENT_CERTIFIED'};
+  const now=Date.now(),observations:CoverageObservation[]=[],consensusQuotes:ConsensusQuote[]=[];
+  let unrecognized=0;
   for(const record of records.results){
    let p:Record<string,unknown>;
    try{p=JSON.parse(record.payload);}catch{unrecognized++;continue;}
@@ -33,7 +56,7 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
    if(!bookmaker||!sport||!league||!marketType||!outcomeId||!startsAt){unrecognized++;continue;}
    const price=q.priceAmerican;
    if(price!==undefined&&(!Number.isInteger(price)||Math.abs(price as number)<100)){unrecognized++;continue;}
-   if(str(record.upstream_id))upstreams.set(record.source_id,str(record.upstream_id));
+   if(str(record.upstream_id)&&price!==undefined)consensusQuotes.push({upstreamId:str(record.upstream_id),providerId:record.source_id,bookmaker,sport,league,eventId:record.event_id,marketType,outcomeId,observedAt:record.observed_at,startsAt,priceAmerican:price as number,...(str(q.playerId)?{playerId:str(q.playerId)}:{}),...(str(q.line)?{line:str(q.line)}:{})});
    observations.push({provider:record.source_id,bookmaker,sport,league,eventId:record.event_id,
     marketType,outcomeId,observedAt:record.observed_at,startsAt,
     ...(price!==undefined?{priceAmerican:price as number}:{}),
@@ -56,11 +79,77 @@ export async function d1CoverageGateway(request:Request,env:{CRON_SECRET?:unknow
   const leagues=[...groups.values()].map(g=>({sport:g.sport,league:g.league,events:g.events.size,marketTypes:g.marketTypes.size,players:g.players.size,quotes:g.quotes,latestObservedAt:g.latestObservedAt}))
    .sort((a,b)=>a.sport.localeCompare(b.sport)||a.league.localeCompare(b.league));
   const providers=[...new Set(report.observations.map(o=>o.provider))].sort();
-  const independentUpstreams=new Set(providers.map(provider=>upstreams.get(provider)).filter(Boolean)).size;
-  const independentVerification={independentUpstreams,crossProviderVerified:independentUpstreams>=2,
-   note:'Upstreams, not sportsbook labels or vendor aliases, determine independent provenance. Quote-level consensus is not verified.'};
-  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,
-   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes:report.observations.filter(x=>x.priceAmerican!==undefined).length,
+  // Coverage inventory deduplicates by market outcome across feeds. Independent
+  // corroboration must retain each valid upstream quote rather than filtering by
+  // only the surviving inventory quote. The consensus validator checks timestamps,
+  // future start and exact event/outcome/player/line identities independently.
+  const eligibleQuotes=consensusQuotes.filter(q=>q.bookmaker.trim().toLowerCase()==='draftkings'&&
+    Number.isFinite(Date.parse(q.observedAt))&&Date.parse(q.observedAt)<=now&&now-Date.parse(q.observedAt)<=15*60*1000&&
+    Number.isFinite(Date.parse(q.startsAt))&&Date.parse(q.startsAt)>now);
+  const consensus=independentQuoteConsensus(eligibleQuotes,new Date(now).toISOString(),15*60*1000,30000);
+  const freshUpstreamCount=new Set(eligibleQuotes.map(q=>q.upstreamId.trim().toLowerCase())).size;
+  const independentVerification={independentUpstreams:freshUpstreamCount,crossProviderVerified:consensus.verifiedOutcomes>0,priceCrossVerified:consensus.priceAlignedOutcomes>0,verifiedOutcomes:consensus.verifiedOutcomes,priceAlignedOutcomes:consensus.priceAlignedOutcomes,priceDisagreementOutcomes:consensus.verifiedOutcomes-consensus.priceAlignedOutcomes,
+   note:'Distinct owners corroborate market availability; independent prices must separately agree within 2 implied-probability percentage points. Neither proves executable price or EV.'};
+  // Score/schedule ingestion is a separate first-party evidence plane, never bookmaker pricing.
+  const scores=await db.prepare(`SELECT source_id,upstream_id,event_id,observed_at,payload
+    FROM intelligence_observations WHERE observation_kind='score'
+    ORDER BY observed_at DESC LIMIT ?`).bind(Math.min(limit,250)).all<Row>();
+  const scoreLeagues=new Map<string,{sport:string;events:Set<string>;schedule:number;score:number;latestObservedAt:string}>();
+  let malformedScores=0;
+  for(const item of scores.results){
+   let payload:Record<string,unknown>;
+   try{payload=JSON.parse(item.payload);}catch{malformedScores++;continue;}
+   if(!payload||typeof payload!=='object'||Array.isArray(payload)){malformedScores++;continue;}
+   const v=(payload.value&&typeof payload.value==='object'&&!Array.isArray(payload.value)?payload.value:payload) as Record<string,unknown>;
+   const sport=str(v.sport);
+   if(!sport){malformedScores++;continue;}
+   const recordType=v.recordType==='SCHEDULE'?'SCHEDULE':v.recordType==='SCORE'?'SCORE':'UNKNOWN';
+   if(recordType==='UNKNOWN'){malformedScores++;continue;}
+   let group=scoreLeagues.get(sport);
+   if(!group){group={sport,events:new Set(),schedule:0,score:0,latestObservedAt:item.observed_at};scoreLeagues.set(sport,group);}
+   group.events.add(item.event_id);
+   if(recordType==='SCHEDULE')group.schedule++;else group.score++;
+   if(Date.parse(item.observed_at)>Date.parse(group.latestObservedAt))group.latestObservedAt=item.observed_at;
+  }
+  const sportsObservations={classification:'SCORES_NOT_ODDS',rowsInspected:scores.results.length,
+   malformedRows:malformedScores,sourceOwners:[...new Set(scores.results.map(r=>r.upstream_id))].sort(),
+   sports:[...scoreLeagues.values()].map(g=>({sport:g.sport,events:g.events.size,scheduleObservations:g.schedule,scoreObservations:g.score,latestObservedAt:g.latestObservedAt})).sort((a,b)=>a.sport.localeCompare(b.sport))};
+  const freshDraftKingsQuotes=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&x.priceAmerican!==undefined).length;
+  const pricedPlayerProps=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&
+    x.priceAmerican!==undefined&&!!x.playerId&&!!x.line).length;
+  // Count provisional identity claims only for accepted fresh DraftKings
+  // priced props. The source payload may describe non-DK or stale records.
+  const provisionalPropIdentities=new Set<string>();
+  for(const o of report.observations){
+   if(o.bookmaker.trim().toLowerCase()!=='draftkings'||o.priceAmerican===undefined||!o.playerId||!o.line)continue;
+   if(o.playerId.startsWith('name:'))
+    provisionalPropIdentities.add([o.eventId,o.marketType,o.playerId,o.line].join('|'));
+  }
+  const nonProvisionalIdentityClaims=report.observations.filter(x=>x.bookmaker.trim().toLowerCase()==='draftkings'&&
+    x.priceAmerican!==undefined&&!!x.playerId&&!!x.line&&!x.playerId.startsWith('name:')&&
+    !provisionalPropIdentities.has([x.eventId,x.marketType,x.playerId,x.line].join('|'))).length;
+  const playerIdentityEvidence={provisionalPropMarkets:provisionalPropIdentities.size,
+    nonProvisionalIdentityClaims,playerIdentityCertified:false,
+    note:'Name-derived player IDs are provisional and never count as independently verified athlete identities.'};
+  const certificationGates={
+   providerEntitlement:{passed:false,reason:'AUTHORIZED_SPORTSBOOK_ENTITLEMENT_NOT_VERIFIED'},
+   persistedFreshDraftKingsOdds:{passed:freshDraftKingsQuotes>0,count:freshDraftKingsQuotes,
+    reason:freshDraftKingsQuotes>0?null:'NO_FRESH_DRAFTKINGS_ODDS'},
+   persistedPricedPlayerProps:{passed:pricedPlayerProps>0,count:pricedPlayerProps,
+    reason:pricedPlayerProps>0?null:'NO_FRESH_PRICED_PLAYER_PROPS'},
+   verifiedPlayerIdentity:{passed:false,count:nonProvisionalIdentityClaims,reason:'PLAYER_IDENTITY_NOT_INDEPENDENTLY_CERTIFIED'},
+   independentQuoteCorroboration:{passed:consensus.verifiedOutcomes>0,count:consensus.verifiedOutcomes,
+    reason:consensus.verifiedOutcomes>0?null:'NO_MATCHING_INDEPENDENT_UPSTREAMS'},
+   independentPriceAgreement:{passed:consensus.priceAlignedOutcomes>0,count:consensus.priceAlignedOutcomes,
+    reason:consensus.priceAlignedOutcomes>0?null:'NO_INDEPENDENT_PRICE_ALIGNMENT'},
+   expectedMarketCatalog:{passed:false,reason:'NO_INDEPENDENT_EXPECTED_CATALOG'},
+  };
+  const certification={status:'BLOCKED',certified:false,
+   gates:certificationGates,passedCount:Object.values(certificationGates).filter(g=>g.passed).length,
+   totalGates:Object.keys(certificationGates).length,
+   note:'Passing individual evidence gates never substitutes for verified provider entitlement, executable pricing, calibration or full market coverage.'};
+  return json({ok:true,mode:'PERSISTED_D1_ODDS',liveProviderConnected:false,sportsbookRegistry,sportsObservations,playerIdentityEvidence,certification,
+   discovered:{...report.observed},leagues,providers,independentVerification,freshDraftKingsQuotes,
    missingMarketCount:null,missingReason:'NO_INDEPENDENT_EXPECTED_CATALOG',
    rowsInspected:records.results.length,unrecognizedRows:unrecognized,rejected:report.rejected,
    asOf:report.asOf,warning:'D1 is a persisted observation source, not proof of complete DraftKings availability.'});

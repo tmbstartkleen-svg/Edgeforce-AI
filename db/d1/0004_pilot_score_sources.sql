@@ -8,4 +8,12 @@ INSERT OR IGNORE INTO intelligence_sources(source_id,upstream_id,source_type,ena
 ('espn-scoreboard-wnba','site.api.espn.com','scoreboard',1),
 ('espn-scoreboard-mlb','site.api.espn.com','scoreboard',1),
 ('espn-scoreboard-nhl','site.api.espn.com','scoreboard',1),
-('espn-scoreboard-soccer-epl','site.api.espn.com','scoreboard',1);
+('espn-scoreboard-soccer-epl','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-laliga','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-bundesliga','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-serie-a','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-ligue-1','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-mls','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-nwsl','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-ucl','site.api.espn.com','scoreboard',1),
+('espn-scoreboard-soccer-uel','site.api.espn.com','scoreboard',1);

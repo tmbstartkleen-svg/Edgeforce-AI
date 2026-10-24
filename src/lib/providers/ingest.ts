@@ -20,6 +20,9 @@ async function withDeadline<T>(promise:Promise<T>,ms:number,label:string):Promis
 export type IngestOddsOptions={
  forceLive?:boolean;
  storedReuseMaxAgeMin?:number;
+ /** Inspection-only mode: never write odds snapshots or mirror observations. */
+ persist?:boolean;
+ playerPropsOnly?:boolean;
 };
 
 function adaptiveLiveRefreshMs(){
@@ -86,9 +89,13 @@ export async function ingestOdds(options:IngestOddsOptions={}){
   };
  }
 
- const live=await fetchNormalizedOdds();
+ const live=await fetchNormalizedOdds({forceRefresh:options.forceLive===true,
+   providerIds:options.forceLive?['the-odds-api']:undefined,
+   quotaSafeSingleCall:options.forceLive===true,
+   playerPropsOnly:options.playerPropsOnly===true,
+   recordHealth:options.persist!==false});
  if(live.mode==='live'&&live.markets.length){
-  await Promise.all([
+  if(options.persist!==false)await Promise.all([
    withDeadline(
     saveMarketSnapshots(live.markets,live.providerId||'consensus-panel',live.targetBook||'DraftKings'),
     1500,
@@ -101,7 +108,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
    ).catch(()=>undefined)
   ]);
   // Best-effort mirror: cannot block the existing sportsbook feed.
-  if(process.env.INTELLIGENCE_WAREHOUSE_MIRROR_ENABLED==='true'){
+  if(options.persist!==false&&process.env.INTELLIGENCE_WAREHOUSE_MIRROR_ENABLED==='true'){
    await withDeadline(mirrorLiveOddsToIntelligence({source:'live',providerId:live.providerId,markets:live.markets}),1000,'warehouse mirror').catch(()=>undefined);
   }
   return {...live,source:'live' as const,reuseAgeMin:reuseAge,liveRefreshMs,nextLiveRefreshMs:liveRefreshMs};

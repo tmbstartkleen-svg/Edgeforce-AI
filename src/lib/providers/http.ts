@@ -10,7 +10,7 @@ import {fetchEspnCoreOdds} from './espnCoreOdds';
 
 const untilNextMonthMs=()=>{const now=new Date();const next=Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1,0,5,0);return Math.max(3600000,next-Date.now());};
 
-export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
+export async function fetchProviderJson<T=unknown>(config:ProviderConfig,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean;playerPropsOnly?:boolean}={}):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
  if(config.url==='espn-core://odds'){
   return fetchEspnCoreOdds(config) as Promise<ProviderFetchResult<T>>;
@@ -34,7 +34,7 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
   return fetchSportsGameOddsBoard(config) as Promise<ProviderFetchResult<T>>;
  }
  if(config.url==='the-odds-api://live-board'){
-  const result=await fetchTheOddsApiBoard(config);
+  const result=await fetchTheOddsApiBoard(config,options);
   const quota=[
    result.quota.remaining===undefined?null:`remaining=${result.quota.remaining}`,
    result.quota.used===undefined?null:`used=${result.quota.used}`,
@@ -50,6 +50,7 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
    receivedAt:new Date().toISOString(),
    status:result.ok?200:(result.attempts.find(x=>!x.ok)?.status||502),
    data:result.data as T,
+   quota:result.quota,
    error:[result.error,warning,quota?`quota ${quota}`:null].filter(Boolean).join(' | ')||undefined,
    retryAfterMs:result.attempts.some(x=>x.status===429)?300000:/quota has been reached|OUT_OF_USAGE_CREDITS/i.test(result.error||'')?untilNextMonthMs():undefined
   };

@@ -7,13 +7,32 @@ export const scoreSports=Object.freeze([
  {id:'wnba',label:'WNBA',path:'basketball/wnba'},
  {id:'mlb',label:'MLB',path:'baseball/mlb'},
  {id:'nhl',label:'NHL',path:'hockey/nhl'},
- {id:'soccer-epl',label:'Premier League',path:'soccer/eng.1'}
+ {id:'soccer-epl',label:'Premier League',path:'soccer/eng.1'},
+ {id:'soccer-laliga',label:'LaLiga',path:'soccer/esp.1'},
+ {id:'soccer-bundesliga',label:'Bundesliga',path:'soccer/ger.1'},
+ {id:'soccer-serie-a',label:'Serie A',path:'soccer/ita.1'},
+ {id:'soccer-ligue-1',label:'Ligue 1',path:'soccer/fra.1'},
+ {id:'soccer-mls',label:'MLS',path:'soccer/usa.1'},
+ {id:'soccer-nwsl',label:'NWSL',path:'soccer/usa.nwsl'},
+ {id:'soccer-ucl',label:'UEFA Champions League',path:'soccer/uefa.champions'},
+ {id:'soccer-uel',label:'UEFA Europa League',path:'soccer/uefa.europa'}
 ]);
+function nextNflSundayDate(now=new Date()){
+ const utc=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()));
+ const daysUntilSunday=(7-utc.getUTCDay())%7;
+ utc.setUTCDate(utc.getUTCDate()+daysUntilSunday);
+ return utc.toISOString().slice(0,10).replace(/-/g,'');
+}
+function nextNcaafSaturdayDate(now=new Date()){
+ const utc=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()));
+ utc.setUTCDate(utc.getUTCDate()+(6-utc.getUTCDay()+7)%7);
+ return utc.toISOString().slice(0,10).replace(/-/g,'');
+}
 export function scoreboardSource(sport){
  const source=scoreSports.find(s=>s.id===sport);
  if(!source)throw Error('SPORT_NOT_APPROVED');
  return {sport:source.id,label:source.label,
-  endpoint:'https://site.api.espn.com/apis/site/v2/sports/'+source.path+'/scoreboard',
+  endpoint:'https://site.api.espn.com/apis/site/v2/sports/'+source.path+'/scoreboard'+(source.id==='nfl'?'?dates='+nextNflSundayDate()+'&limit=10':source.id==='ncaaf'?'?dates='+nextNcaafSaturdayDate()+'&limit=1':source.id==='nhl'?'?dates='+new Date().toISOString().slice(0,10).replace(/-/g,'')+'&limit=10':''),
   sourceId:'espn-scoreboard-'+source.id,upstreamId:'site.api.espn.com',
   classification:'SCORES_NOT_ODDS'};
 }

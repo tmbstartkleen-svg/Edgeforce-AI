@@ -18,12 +18,13 @@
     "INTELLIGENCE_D1_WRITE_ENABLED": "false",
     "SPORTS_D1_WRITE_ENABLED": "false",
     "SPORTS_SCORE_COLLECT_ENABLED": "false",
+    "SCHEDULED_SCORE_COLLECTION_ENABLED": "false",
     "STORAGE_STEWARD_SCHEDULE_ENABLED": "true",
     "SOURCE_FRESHNESS_SCHEDULE_ENABLED": "true"
   },
   "triggers": {
     "crons": [
-      "0 * * * *"
+      "*/5 * * * *"
     ]
   }
 }

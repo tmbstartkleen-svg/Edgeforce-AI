@@ -56,8 +56,8 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
 }
 
 function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,eventIndex:number):Market[]{
- const sport=str(row.sport_title,str(row.sport_key,'Unknown'));
- const league=sport;
+ const sport=str(row.sport_key,str(row.sport_title,'Unknown'));
+ const league=str(row.sport_title,sport);
  const home=str(row.home_team,'Home');
  const away=str(row.away_team,'Away');
  const startTime=str(row.commence_time,'');
@@ -71,22 +71,34 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
   for(const marketValue of markets){
    const marketObj=obj(marketValue);
    const marketKey=str(marketObj.key,'Moneyline');
+   // Market-level last_update is the provider's quote timestamp.
+   const updatedAt=str(marketObj.last_update,'');
+   const updatedMs=updatedAt?Date.parse(updatedAt):Number.NaN;
+   const quoteAgeMin=Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000
+    ?Math.max(0,(Date.now()-updatedMs)/60000):Number.MAX_SAFE_INTEGER;
    const outcomes=Array.isArray(marketObj.outcomes)?marketObj.outcomes:[];
    for(const outcomeValue of outcomes){
     const outcome=obj(outcomeValue);
     const odds=num(outcome.price,0);
     const baseSelection=str(outcome.name,'');
+    const description=str(outcome.description,'').trim();
     const point=num(outcome.point,Number.NaN);
+    const isPlayerProp=marketKey.startsWith('player_')&&description.length>0;
+    const outcomeLabel= isPlayerProp?`${description} — ${baseSelection}`:baseSelection;
     const selection=Number.isFinite(point)&&marketKey!=='h2h'
-     ?`${baseSelection} ${point>0?'+':''}${point}`
-     :baseSelection;
+     ?`${outcomeLabel} ${point>0?'+':''}${point}`
+     :outcomeLabel;
     if(!odds||!selection||!startTime)continue;
     const rawImpliedProb=impliedProbability(odds);
     out.push({
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
-     home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
-     confidence:.6,sourceAgeMin:0,period:new Date(startTime).getHours()<12?'AM':'PM'
+     home,away,odds,rawImpliedProb,sourceBook:bookTitle,sourceEventId:eventId,
+     marketProb:rawImpliedProb,modelProb:rawImpliedProb,
+     confidence:.6,sourceAgeMin:quoteAgeMin,
+     ...(Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000?{sourceTimestamp:new Date(updatedMs).toISOString()}:{}),
+     ...(isPlayerProp?{playerContext:{name:description,statKey:marketKey}}:{}),
+     period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
   }

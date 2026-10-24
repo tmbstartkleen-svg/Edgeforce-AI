@@ -25,7 +25,9 @@ export async function d1IngestGateway(request:Request,env:D1GatewayEnv):Promise<
  if(!Array.isArray(items)||items.length>25)return reply({ok:false,reason:'INVALID_BATCH'},400);
  try{
   const report=await appendD1Observations(db,items as D1Observation[]);
-  return reply({ok:true,...report},200);
+  // Never acknowledge an all-rejected batch as a successful certification ingest.
+  const persistedOrDeduplicated=report.accepted+report.duplicates;
+  return reply({ok:persistedOrDeduplicated>0,...report},persistedOrDeduplicated>0?200:422);
  }catch{return reply({ok:false,reason:'D1_WRITE_FAILED'},503);}
 }
 export async function d1RecentGateway(request:Request,env:D1GatewayEnv):Promise<Response>{

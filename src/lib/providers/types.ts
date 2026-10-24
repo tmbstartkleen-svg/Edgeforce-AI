@@ -33,6 +33,7 @@ export type ProviderFetchResult<T>={
  data?:T;
  error?:string;
  retryAfterMs?:number;
+ quota?:{remaining?:number;used?:number;last?:number};
 };
 
 export type NormalizedOddsResult={

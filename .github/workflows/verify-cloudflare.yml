@@ -19,7 +19,16 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
+      - run: npm install --no-audit --no-fund --include=optional
+      - name: Restore pinned Linux workerd package if npm omitted optional binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f node_modules/@cloudflare/workerd-linux-64/bin/workerd ]; then
+            version="$(node -p "require('./node_modules/workerd/package.json').optionalDependencies['@cloudflare/workerd-linux-64']")"
+            npm install --no-save --package-lock=false --no-audit --no-fund --include=optional "@cloudflare/workerd-linux-64@${version}"
+          fi
+          test -f node_modules/@cloudflare/workerd-linux-64/bin/workerd
       - name: Cloudflare preflight
         run: npm run preflight:cloudflare
       - name: TypeScript gate

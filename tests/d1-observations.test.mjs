@@ -14,3 +14,33 @@ test('D1 writer preserves original timestamps, approved sources, dedup and limit
  assert.match(source,/limit>100/);
  assert.doesNotMatch(source,/new Date\(\).toISOString\(\)/);
 });
+
+test('D1 odds ingestion rejects malformed, unpriced and already-started markets before persistence',()=>{
+ assert.match(source,/o.kind==='odds'/);
+ assert.match(source,/INVALID_ODDS_OBSERVATION/);
+ assert.match(source,/q.bookmaker,q.sport,q.league,q.marketType,q.outcomeId,q.startsAt/);
+ assert.match(source,/Number.isInteger\(q.priceAmerican\)/);
+ assert.match(source,/Date.parse\(String\(q.startsAt\)\)<=now/);
+});
+
+test('scoreboard registrations cannot be used as odds ingestion authority',()=>{
+ assert.match(source,/o\.kind==='odds'&&o\.provider\.startsWith\('espn-scoreboard-'\)/);
+ assert.match(source,/SCOREBOARD_SOURCE_CANNOT_SUPPLY_ODDS/);
+ assert.match(source,/SCOREBOARD_UPSTREAM_MISMATCH/);
+});
+
+test('D1 sportsbook odds use strictly nonfuture fifteen-minute collection freshness',()=>{
+ assert.match(source,/o\.kind==='odds'&&\(o\.observedAt>now\|\|now-o\.observedAt>15\*60\*1000\)/);
+ assert.match(source,/ODDS_QUOTE_TIMESTAMP_NOT_FRESH/);
+ // Scoreboard data retains independent longer-lived history acceptance.
+ assert.match(source,/if\(now-o\.observedAt>86400000\)/);
+});
+
+test('D1 writer requires an explicit sportsbook odds source type, not just an enabled registry row',()=>{
+ assert.match(source,/SELECT upstream_id,source_type FROM intelligence_sources/);
+ assert.match(source,/registry\.source_type!=='sportsbook-odds'/);
+ assert.match(source,/SOURCE_TYPE_NOT_AUTHORIZED_FOR_ODDS/);
+ assert.match(source,/UNVERIFIED_PLAYER_IDENTITY_CANNOT_PERSIST/);
+ assert.match(source,/q\.playerId\.trim\(\)\.toLowerCase\(\)\.startsWith\('name:'\)/);
+ assert.match(source,/provider storage entitlement and authenticated collection/);
+});

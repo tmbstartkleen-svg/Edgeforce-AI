@@ -30,8 +30,45 @@ export async function appendD1Observations(
   try{
    const o=normalizeObservation(item,now);
    if(now-o.observedAt>86400000)throw new Error('STALE_SOURCE_TIMESTAMP');
-   const registry=await db.prepare('SELECT upstream_id FROM intelligence_sources WHERE source_id=? AND enabled=1').bind(o.provider).first<{upstream_id:string}>();
+   // Trading prices have a much shorter lifetime than scores/history.
+   // Never persist future-dated odds or quotes older than fifteen minutes.
+   if(o.kind==='odds'&&(o.observedAt>now||now-o.observedAt>15*60*1000))
+    throw new Error('ODDS_QUOTE_TIMESTAMP_NOT_FRESH');
+   const registry=await db.prepare('SELECT upstream_id,source_type FROM intelligence_sources WHERE source_id=? AND enabled=1').bind(o.provider).first<{upstream_id:string;source_type:string}>();
    if(!registry||registry.upstream_id!==o.upstreamId)throw new Error('D1_SOURCE_NOT_APPROVED');
+   // A registered scoreboard, certification-only or other non-odds source
+   // must never be allowed to write prices by changing its source_id prefix.
+   // Explicit sportsbook-source registration is necessary, never sufficient:
+   // provider storage entitlement and authenticated collection require
+   // separate owner-controlled authorization before invoking this writer.
+   if(o.kind==='odds'&&registry.source_type!=='sportsbook-odds')
+    throw new Error('SOURCE_TYPE_NOT_AUTHORIZED_FOR_ODDS');
+   // Source registration alone is not an odds entitlement. The scoreboard
+   // namespace is categorically for fixture/score evidence, never prices.
+   if(o.kind==='odds'&&o.provider.startsWith('espn-scoreboard-'))
+    throw new Error('SCOREBOARD_SOURCE_CANNOT_SUPPLY_ODDS');
+   if(o.kind==='score'&&o.provider.startsWith('espn-scoreboard-')&&o.upstreamId!=='site.api.espn.com')
+    throw new Error('SCOREBOARD_UPSTREAM_MISMATCH');
+   // Reject malformed sportsbook records before they can appear in coverage evidence.
+   if(o.kind==='odds'){
+    const q=o.value as Record<string,unknown>|null;
+    const nonempty=(v:unknown)=>typeof v==='string'&&v.trim().length>0;
+    if(!q||typeof q!=='object'||Array.isArray(q)||
+       ![q.bookmaker,q.sport,q.league,q.marketType,q.outcomeId,q.startsAt].every(nonempty)||
+       !Number.isInteger(q.priceAmerican)||Math.abs(q.priceAmerican as number)<100||
+       !Number.isFinite(Date.parse(String(q.startsAt)))||Date.parse(String(q.startsAt))<=now)
+      throw new Error('INVALID_ODDS_OBSERVATION');
+   }
+   // Provider descriptions are not stable sportsbook athlete identifiers.
+   // Never persist research-only player props into the executable odds lane.
+   if(o.kind==='odds'){
+    const q=o.value as Record<string,unknown>;
+    if(String(q.marketType).startsWith('player_')&&
+       (typeof q.playerId!=='string'||!q.playerId.trim()||
+        q.playerId.trim().toLowerCase().startsWith('name:')||
+        q.playerIdentityStatus==='UNVERIFIED_NAME_ONLY'))
+     throw new Error('UNVERIFIED_PLAYER_IDENTITY_CANNOT_PERSIST');
+   }
    const payload=JSON.stringify(o.value);
    if(payload===undefined||new TextEncoder().encode(payload).length>32768)throw new Error('D1_PAYLOAD_TOO_LARGE');
    const hash=createHash('sha256').update(payload).digest('hex');
