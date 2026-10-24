@@ -14,6 +14,13 @@ export default function PredictionArbitrageStudio(){
  const [threshold,setThreshold]=useState('2');const [alertsEnabled,setAlertsEnabled]=useState(false);
  const [watched,setWatched]=useState<{event:string;roi:number;at:string}[]>([]);
  const [event,setEvent]=useState('');
+ const [catalog,setCatalog]=useState<Catalog|null>(null);const [catalogError,setCatalogError]=useState('');const [catalogLoading,setCatalogLoading]=useState(false);const [query,setQuery]=useState('');
+ async function loadPublicCatalog(){if(!operatorToken)return;setCatalogLoading(true);setCatalogError('');
+  try{const response=await fetch('/api/operations/prediction-catalog',{headers:{authorization:'Bearer '+operatorToken},cache:'no-store'});
+   const data:Catalog=await response.json();if(!response.ok||!data.ok){setCatalogError(data.error||'Catalog unavailable');setCatalog(null)}else setCatalog(data);
+  }catch{setCatalogError('Market discovery is unreachable.');setCatalog(null)}finally{setCatalogLoading(false)}
+ }
+ const filtered=(catalog?.markets||[]).filter(m=>(m.title+' '+m.exchange).toLowerCase().includes(query.toLowerCase()));
  const isNumber=(s:string)=>s.trim()!==''&&Number.isFinite(Number(s));
  const valid=[yes,no,size,yesFee,noFee,otherFee,yesLiquidity,noLiquidity].every(isNumber);
  const quote=useMemo(()=>{
@@ -27,6 +34,7 @@ export default function PredictionArbitrageStudio(){
  const pushAlert=()=>{if(canAlert&&quote?.netRoiPct!=null)setWatched(x=>[{event:event||'Unnamed comparison',roi:quote.netRoiPct!,at:new Date().toLocaleString()},...x].slice(0,10));};
  return <div className="efops-panel">
   <h2>Prediction Market Arbitrage Studio</h2>
+  <section className="efops-panel"><div className="efops-panel-head"><h2>Live public market discovery</h2><button className="efops-action" disabled={catalogLoading||!operatorToken} onClick={()=>void loadPublicCatalog()}>{catalogLoading?"Loading…":"Load exchange catalogs"}</button></div><p>Browse a bounded set of currently listed Kalshi and Polymarket contracts, including future years where available. These are public catalog listings, <b>not certified tradeable arbitrage</b>; do not use indicative bid/ask snapshots as executable prices.</p>{catalogError&&<p className="efops-error" role="alert">{catalogError}</p>}{catalog&&<><p>Observed: {catalog.asOf?new Date(catalog.asOf).toLocaleString():"Unavailable"} · Kalshi: {catalog.upstreamStatus?.Kalshi||"Unknown"} · Polymarket: {catalog.upstreamStatus?.Polymarket||"Unknown"} · Sample limited to 100 markets per exchange</p><label className="efops-field">Search title or exchange<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search markets, seasons or future years"/></label><div className="efops-tablebox"><table><thead><tr><th>Exchange</th><th>Market</th><th>Closing date</th><th>Indicative YES ask</th><th>Open</th></tr></thead><tbody>{filtered.slice(0,100).map(m=><tr key={m.exchange+m.id}><td>{m.exchange}</td><td>{m.title}</td><td>{m.closesAt?new Date(m.closesAt).toLocaleDateString():"Unknown"}</td><td>{m.yesAskCents===null?"Unavailable":m.yesAskCents.toFixed(2)+"¢"}</td><td><a href={m.url} target="_blank" rel="noopener noreferrer">Exchange</a></td></tr>)}</tbody></table>{!filtered.length&&<p>No matching markets in the bounded catalog sample.</p>}</div></>}</section>
   <p>Compare buying YES on one exchange against buying NO on the other. Enter the current executable <b>ask prices in cents</b>, not headline probabilities. The example values below are hypothetical until you replace them with observed quotes.</p>
   <div className="efops-grid">
    <div className="efops-stat"><span>Combined price</span><strong>{valid?(Number(yes)+Number(no)).toFixed(2)+'¢':'—'}</strong><small>Before fees</small></div>
