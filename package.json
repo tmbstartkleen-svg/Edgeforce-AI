@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:sports-archive && npm run test:staging-isolation && npm run test:odds-pulse && npm run test:odds-timestamps && npm run test:odds-freshness && npm run test:odds-bookmaker-provenance && npm run test:odds-source-readiness && npm run test:odds-ingest-provenance && npm run test:odds-config-readiness && npm run test:persisted-odds-coverage && npm run test:odds-launch-gate",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:sports-archive && npm run test:staging-isolation && npm run test:odds-pulse && npm run test:odds-timestamps && npm run test:odds-freshness && npm run test:odds-bookmaker-provenance && npm run test:odds-source-readiness && npm run test:odds-ingest-provenance && npm run test:odds-config-readiness && npm run test:persisted-odds-coverage && npm run test:odds-launch-gate && npm run test:odds-provenance-audit",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -52,7 +52,8 @@
     "test:odds-ingest-provenance": "node --test tests/odds-ingest-no-demo-fallback.test.mjs",
     "test:odds-config-readiness": "node --test tests/odds-configuration-readiness-route.test.mjs",
     "test:persisted-odds-coverage": "node --test tests/persisted-odds-coverage-route.test.mjs",
-    "test:odds-launch-gate": "node --test tests/odds-launch-gate-route.test.mjs"
+    "test:odds-launch-gate": "node --test tests/odds-launch-gate-route.test.mjs",
+    "test:odds-provenance-audit": "node --test tests/odds-provenance-audit-route.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
