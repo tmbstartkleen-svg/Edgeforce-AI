@@ -60,8 +60,8 @@ export async function ingestOdds(options:IngestOddsOptions={}){
  const reuseAge=options.storedReuseMaxAgeMin??adaptiveStoredReuseAge(stored);
  const reusableStored=stored.filter(x=>x.sourceAgeMin<=reuseAge);
  const liveRefreshMs=adaptiveLiveRefreshMs();
- const freshestStoredAgeMs=stored.length
-  ?Math.max(0,Math.min(...stored.map(x=>Number(x.sourceAgeMin)||0))*60000)
+ const freshestStoredAgeMs=stored.some(x=>Number.isFinite(x.sourceAgeMin))
+  ?Math.max(0,Math.min(...stored.filter(x=>Number.isFinite(x.sourceAgeMin)).map(x=>x.sourceAgeMin))*60000)
   :Number.POSITIVE_INFINITY;
 
  if(!options.forceLive&&reusableStored.length&&freshestStoredAgeMs<liveRefreshMs){
@@ -122,7 +122,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
   };
  }
  const production=(process.env.DEPLOYMENT_ENV==='production'||process.env.VERCEL_ENV==='production');
- const allowDemo=process.env.ALLOW_DEMO_DATA==='true'||!production;
+ const allowDemo=!production; // No fabricated demo odds in production.
  if(!allowDemo){
   return {
    ...live,
