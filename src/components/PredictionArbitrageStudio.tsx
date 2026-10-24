@@ -4,7 +4,9 @@ import {comparePredictionContracts} from '@/lib/intelligence-core/prediction-arb
 
 const usd=(v:number|null)=>v===null||!Number.isFinite(v)?'N/A':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(v);
 const percent=(v:number|null)=>v===null||!Number.isFinite(v)?'N/A':v.toFixed(2)+'%';
-export default function PredictionArbitrageStudio(){
+type Market={exchange:'Kalshi'|'Polymarket';id:string;title:string;url:string;closesAt:string|null;yesBidCents:number|null;yesAskCents:number|null;priceQuality:string};
+type Catalog={ok:boolean;error?:string;markets?:Market[];asOf?:string;upstreamStatus?:Record<string,string>;exhaustiveCatalog?:boolean};
+export default function PredictionArbitrageStudio({operatorToken}:{operatorToken:string}){
  const [yesExchange,setYesExchange]=useState('Kalshi');
  const [noExchange,setNoExchange]=useState('Polymarket');
  const [yes,setYes]=useState('44');const [no,setNo]=useState('52');
