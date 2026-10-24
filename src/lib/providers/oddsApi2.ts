@@ -279,7 +279,10 @@ function flattenSportPayload(
           outcome.odds
         );
 
-        if(!Number.isFinite(Date.parse(updatedAt))){
+        const quoteTime=Date.parse(updatedAt);
+        const quoteAgeMs=Date.now()-quoteTime;
+        const maxQuoteAgeMs=Math.max(60000,Number(process.env.ODDS_API_2_MAX_AGE_MIN||20)*60000);
+        if(!Number.isFinite(quoteTime)||quoteAgeMs< -30000||quoteAgeMs>maxQuoteAgeMs){
           continue;
         }
 
