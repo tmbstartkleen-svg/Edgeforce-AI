@@ -28,7 +28,7 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const league=str(row.league,str(row.sportTitle,str(row.sport_title,sport)));
  const id=str(row.id,`${sport}-${index}-${startTime}`);
  const event=str(row.event,home&&away?`${away} @ ${home}`:selection);
- const sourceTimestamp=str(row.sourceTimestamp,str(row.source_timestamp,str(row.pulledAt,str(row.pulled_at,''))));
+ const sourceTimestamp=str(row.sourceTimestamp,str(row.source_timestamp,str(row.timestamp,str(row.updatedAt,str(row.updated_at,str(row.pulledAt,str(row.pulled_at,'')))))));
  const sourceTimestampMs=sourceTimestamp?Date.parse(sourceTimestamp):Number.NaN;
  const sourceAgeMin=Number.isFinite(sourceTimestampMs)?Math.max(0,(Date.now()-sourceTimestampMs)/60000):Number.POSITIVE_INFINITY;
  const rawImpliedProb=impliedProbability(odds);
