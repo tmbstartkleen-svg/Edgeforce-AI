@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:sports-archive && npm run test:staging-isolation && npm run test:odds-pulse && npm run test:odds-timestamps && npm run test:odds-freshness && npm run test:odds-bookmaker-provenance && npm run test:odds-source-readiness && npm run test:odds-ingest-provenance && npm run test:odds-config-readiness && npm run test:persisted-odds-coverage && npm run test:odds-launch-gate && npm run test:odds-provenance-audit && npm run test:normalize-source-time && npm run test:sports-network-engine && npm run test:market-opportunity-engine && npm run test:persisted-opportunity-bridge && npm run test:quote-store-integrity && npm run test:real-book-quotes && npm run test:remote-operations && npm run test:d1-remote-dashboard && npm run test:d1-source-registry && npm run test:d1-native-release",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:sports-archive && npm run test:staging-isolation && npm run test:odds-pulse && npm run test:odds-timestamps && npm run test:odds-freshness && npm run test:odds-bookmaker-provenance && npm run test:odds-source-readiness && npm run test:odds-ingest-provenance && npm run test:odds-config-readiness && npm run test:persisted-odds-coverage && npm run test:odds-launch-gate && npm run test:odds-provenance-audit && npm run test:normalize-source-time && npm run test:sports-network-engine && npm run test:market-opportunity-engine && npm run test:persisted-opportunity-bridge && npm run test:quote-store-integrity && npm run test:real-book-quotes && npm run test:remote-operations && npm run test:d1-remote-dashboard && npm run test:d1-source-registry && npm run test:d1-native-release && npm run test:market-identity && npm run test:d1-opportunities && npm run test:prediction-arbs",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -63,7 +63,10 @@
     "test:remote-operations": "node --test tests/remote-operations-dashboard.test.mjs",
     "test:d1-remote-dashboard": "node --test tests/d1-remote-operations-dashboard.test.mjs",
     "test:d1-source-registry": "node --test tests/d1-licensed-odds-source-registry.test.mjs",
-    "test:d1-native-release": "node --test tests/d1-native-release-workflow.test.mjs"
+    "test:d1-native-release": "node --test tests/d1-native-release-workflow.test.mjs",
+    "test:market-identity": "node --test tests/market-identity-and-movement.test.mjs",
+    "test:d1-opportunities": "node --test tests/d1-sportsbook-opportunities.test.mjs",
+    "test:prediction-arbs": "node --test tests/prediction-arbitrage-calculator.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
