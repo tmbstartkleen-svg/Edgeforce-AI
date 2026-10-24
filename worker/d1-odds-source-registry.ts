@@ -42,6 +42,7 @@ export async function d1OddsSourceRegistry(request:Request,env:Env):Promise<Resp
   writeGateActive:activeWrite,willWrite:confirm==='APPLY_REGISTERED_SOURCE'&&permitted,
   requiresOperatorReview:true,providerRequests:0,oddsCreditsSpent:0};
  if(confirm==='PREVIEW_ONLY')return respond({ok:true,mode:'DRY_RUN',preview});
+ if(requestActivation)return respond({ok:false,reason:'ACTIVATION_NOT_SUPPORTED_BY_REGISTRATION_ENDPOINT',preview},409);
  if(!approved)return respond({ok:false,reason:'SOURCE_NOT_ALLOWLISTED_OR_LICENSE_NOT_ACKNOWLEDGED',preview},403);
  if(!activeWrite)return respond({ok:false,reason:'REGISTRY_WRITE_DISABLED',preview},503);
  // An established ID cannot be re-pointed at a different upstream operator.
