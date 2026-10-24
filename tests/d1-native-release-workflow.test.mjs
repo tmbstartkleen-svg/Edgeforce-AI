@@ -23,3 +23,16 @@ test('deploys existing secret-bearing Worker without rotating tokens and tests p
  assert.doesNotMatch(w,/wrangler secret put|secrets-file|openssl rand/);
  assert.match(w,/remote-dashboard/);assert.match(w,/\.error=="UNAUTHORIZED"/);
 });
+
+test('all remote D1 steps use the dedicated token; Worker deploy keeps its own token',()=>{
+ const steps=w.split('      - name: ').slice(1);
+ const remote=steps.filter(s=>s.includes('wrangler d1 execute'));
+ assert.equal(remote.length,3);
+ for(const step of remote){
+  assert.match(step,/CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_D1_API_TOKEN \}\}/);
+  assert.match(step,/if \[ -z "\$CLOUDFLARE_API_TOKEN" \]/);
+ }
+ const deploy=steps.find(s=>s.startsWith('Deploy existing production Worker'));
+ assert.doesNotMatch(deploy,/CLOUDFLARE_D1_API_TOKEN/);
+ assert.match(w,/CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
+});

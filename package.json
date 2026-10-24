@@ -63,7 +63,7 @@
     "test:remote-operations": "node --test tests/remote-operations-dashboard.test.mjs",
     "test:d1-remote-dashboard": "node --test tests/d1-remote-operations-dashboard.test.mjs",
     "test:d1-source-registry": "node --test tests/d1-licensed-odds-source-registry.test.mjs",
-    "test:d1-native-release": "node --test tests/d1-native-release-workflow.test.mjs",
+    "test:d1-native-release": "node --test tests/d1-native-release-workflow.test.mjs tests/d1-native-schema-gate.test.mjs",
     "test:market-identity": "node --test tests/market-identity-and-movement.test.mjs",
     "test:d1-opportunities": "node --test tests/d1-sportsbook-opportunities.test.mjs",
     "test:prediction-arbs": "node --test tests/prediction-arbitrage-calculator.test.mjs",
