@@ -131,10 +131,11 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  let bootstrap=options.quotaSafeSingleCall
   ?await jsonRequest<unknown[]>(bootstrapUrl,timeoutMs)
   :await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
- let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
+ let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:
+  options.playerPropsOnly&&bootstrap.data&&typeof bootstrap.data==='object'?[bootstrap.data]:[];
  let bootstrapError=bootstrap.error;
  attempts.push({
-  sportKey:'upcoming',events:bootstrapData.length,oddsEvents:bootstrapData.length,ok:bootstrap.ok,
+  sportKey:options.playerPropsOnly?'nba-event-player-props':'upcoming',events:bootstrapData.length,oddsEvents:bootstrapData.length,ok:bootstrap.ok,
   status:bootstrap.status,error:bootstrap.error,cost:bootstrap.last,remaining:bootstrap.remaining
  });
 
