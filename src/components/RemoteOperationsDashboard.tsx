@@ -32,14 +32,14 @@ export default function RemoteOperationsDashboard(){
   }catch{setError('Unable to reach EdgeForce dashboard API.');setSnapshot(null)}finally{setLoading(false)}
  },[token]);
  useEffect(()=>{if(!token||!snapshot)return;const t=setInterval(()=>{void refresh()},60000);return()=>clearInterval(t)},[token,snapshot,refresh]);
- useEffect(()=>{if(view==='opportunities'&&snapshot&&token){void loadOpportunities()}},[view,snapshot?.generatedAt,token,loadOpportunities]);
+
  const sports=[...new Set((snapshot?.marketSummary||[]).map(x=>x.sport))].sort();
  const markets=(snapshot?.marketSummary||[]).filter(x=>sport==='ALL'||x.sport===sport);
  const stale=!snapshot?.summary?.recent;
  return <div className="efops-app">
   <aside className="efops-side"><div className="efops-brand"><strong>EDGEFORCE</strong><span>INTELLIGENCE OPERATIONS</span></div>
    <div className="efops-side-caption">WORKSPACE</div>
-   {(['overview','markets','opportunities','agents'] as const).map(tab=><button key={tab} className={view===tab?'efops-tab active':'efops-tab'} onClick={()=>setView(tab)}>{tab==='overview'?'▣  Command Center':tab==='markets'?'≡  Sportsbook Coverage':tab==='opportunities'?'◇  Opportunity Review':'◈  Agent Monitoring'}</button>)}
+   {(['overview','markets','opportunities','agents'] as const).map(tab=><button key={tab} className={view===tab?'efops-tab active':'efops-tab'} onClick={()=>{setView(tab);if(tab==='opportunities'&&token&&snapshot)void loadOpportunities()}}>{tab==='overview'?'▣  Command Center':tab==='markets'?'≡  Sportsbook Coverage':tab==='opportunities'?'◇  Opportunity Review':'◈  Agent Monitoring'}</button>)}
    <div className="efops-side-caption">OTHER TOOLS</div>
    <Link className="efops-link" href="/">↗ EdgeForce Dashboard</Link>
    <Link className="efops-link" href="/network">↗ Agent Command Network</Link>
