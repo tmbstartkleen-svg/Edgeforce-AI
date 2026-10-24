@@ -33,7 +33,7 @@ export default function SportsbookOddsPanel(){
   .then(data=>{if(active)setProviders(data)})
   .catch(()=>{if(active)setProviders(null)});
   return()=>{active=false}},[refresh]);
- const refreshProvider=async()=>{
+ const refreshProvider=async(playerPropsOnly=false)=>{
   if(!/^[a-f0-9]{64}$/i.test(ownerToken.trim())){
    setError('Enter the 64-character owner network token before a metered provider refresh.');return;
   }
@@ -41,7 +41,7 @@ export default function SportsbookOddsPanel(){
   try{
    // Operator-initiated only: this existing route may fetch configured
    // providers and spend quota. It is NEVER invoked automatically.
-   const response=await fetch('/api/markets?forceLive=1',{cache:'no-store',headers:{Authorization:'Bearer '+ownerToken.trim()}});
+   const response=await fetch('/api/markets?forceLive=1'+(playerPropsOnly?'&playerProps=1':''),{cache:'no-store',headers:{Authorization:'Bearer '+ownerToken.trim()}});
    const body=await response.json() as Result&{markets?:Quote[];sportsbookQuotes?:Quote[];warnings?:string[];providerId?:string;source?:string;quoteScope?:string};
    if(!response.ok)throw Error(body.error||'Odds provider refresh failed');
    if(body.source==='demo')throw Error('Only demonstration markets were returned. No live sportsbook quotes are available.');
@@ -64,10 +64,11 @@ export default function SportsbookOddsPanel(){
  const quotaExhausted=Boolean(live?.attempts?.some(a=>a.quotaRemaining===0));
  return <section className="coveragePanel" aria-label="Sportsbook odds quotes" style={{padding:22,marginBottom:20}}>
   <div className="coveragePanelHead"><div><div className="eyebrow">SPORTSBOOK ODDS • RESEARCH ONLY</div><h2>DraftKings and reference sportsbook prices</h2></div></div>
-  <p className="coverageNote">See real provider-labeled markets when available. The default view reads existing stored snapshots only. The manual refresh targets The Odds API only and is limited to one paid bootstrap request, without retries or paid sport expansions. It never runs automatically. No bookmaker prices are inferred from scores.</p>
+  <p className="coverageNote">See real provider-labeled markets when available. The default view reads existing stored snapshots only. The manual refresh targets The Odds API only and is limited to one paid request, without retries or paid sport expansions. Player props use a separately configured NBA event ID. Neither probe runs automatically. No bookmaker prices are inferred from scores.</p>
   <div className="coverageTools">
    <label>Owner token (not stored) <input aria-label="Owner network token for sportsbook refresh" type="password" autoComplete="off" value={ownerToken} onChange={e=>setOwnerToken(e.target.value)} placeholder="64-character owner token"/></label>
    <button type="button" disabled={busy||quotaExhausted} onClick={refreshProvider}>{busy?'Contacting providers…':quotaExhausted?'Refresh blocked: provider reports zero credits':'Refresh DraftKings odds (one provider request; may use quota)'}</button>
+   <button type="button" disabled={busy||quotaExhausted} onClick={()=>refreshProvider(true)}>{busy?'Contacting provider…':'Probe NBA player props (one event; may use quota)'}</button>
    <button type="button" onClick={()=>{setLive(null);setError(null);setRefresh(x=>x+1)}}>Stored prices only</button>
    <label><input aria-label="Show DraftKings only" type="checkbox" checked={onlyDraftKings} onChange={e=>setOnlyDraftKings(e.target.checked)}/> DraftKings only</label>
   </div>
