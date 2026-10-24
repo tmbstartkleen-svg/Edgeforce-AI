@@ -28,8 +28,9 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const league=str(row.league,str(row.sportTitle,str(row.sport_title,sport)));
  const id=str(row.id,`${sport}-${index}-${startTime}`);
  const event=str(row.event,home&&away?`${away} @ ${home}`:selection);
- const pulled=str(row.pulledAt,str(row.pulled_at,receivedAt));
- const sourceAgeMin=Math.max(0,(Date.now()-new Date(pulled).getTime())/60000);
+ const sourceTimestamp=str(row.sourceTimestamp,str(row.source_timestamp,str(row.pulledAt,str(row.pulled_at,''))));
+ const sourceTimestampMs=sourceTimestamp?Date.parse(sourceTimestamp):Number.NaN;
+ const sourceAgeMin=Number.isFinite(sourceTimestampMs)?Math.max(0,(Date.now()-sourceTimestampMs)/60000):Number.POSITIVE_INFINITY;
  const rawImpliedProb=impliedProbability(odds);
  const suppliedNoVig=num(row.noVigProbability,num(row.no_vig_probability,num(row.marketProb,num(row.impliedProbability,num(row.implied_probability,rawImpliedProb)))));
  const sourceBook=str(row.bookmaker,str(row.book,str(row.sportsbook,'')))||undefined;
@@ -42,7 +43,9 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
   marketProb:suppliedNoVig,
   modelProb:num(row.modelProb,suppliedNoVig),
   confidence:num(row.confidence,.6),
-  sourceAgeMin:Number.isFinite(sourceAgeMin)?sourceAgeMin:0,
+  sourceAgeMin,
+  sourceTimestamp:Number.isFinite(sourceTimestampMs)?new Date(sourceTimestampMs).toISOString():undefined,
+  sourceEventId:str(row.sourceEventId,str(row.source_event_id,str(row.eventId,str(row.event_id,''))))||undefined,
   ...(row.liveEligible===false?{
    liveEligible:false,
    sourceDelaySeconds:Math.max(0,num(row.sourceDelaySeconds)),
@@ -86,7 +89,9 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
      id:`${eventId}:${marketKey}:${selection}:${bookTitle}`,
      sport,league,event:`${away} @ ${home}`,selection,market:marketKey,startTime,
      home,away,odds,rawImpliedProb,sourceBook:bookTitle,marketProb:rawImpliedProb,modelProb:rawImpliedProb,
-     confidence:.6,sourceAgeMin:0,period:new Date(startTime).getHours()<12?'AM':'PM'
+     confidence:.6,sourceAgeMin:Number.isFinite(Date.parse(str(marketObj.last_update,str(book.last_update,''))))?Math.max(0,(Date.now()-Date.parse(str(marketObj.last_update,str(book.last_update,''))))/60000):Number.POSITIVE_INFINITY,
+     sourceTimestamp:Number.isFinite(Date.parse(str(marketObj.last_update,str(book.last_update,''))))?new Date(Date.parse(str(marketObj.last_update,str(book.last_update,'')))).toISOString():undefined,
+     sourceEventId:eventId,period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
   }
