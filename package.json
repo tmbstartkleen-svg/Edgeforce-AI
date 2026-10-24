@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:sports-archive && npm run test:staging-isolation && npm run test:odds-pulse && npm run test:odds-timestamps && npm run test:odds-freshness && npm run test:odds-bookmaker-provenance && npm run test:odds-source-readiness && npm run test:odds-ingest-provenance && npm run test:odds-config-readiness && npm run test:persisted-odds-coverage && npm run test:odds-launch-gate && npm run test:odds-provenance-audit && npm run test:normalize-source-time && npm run test:sports-network-engine",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:coverage && npm run test:sports-archive && npm run test:staging-isolation && npm run test:odds-pulse && npm run test:odds-timestamps && npm run test:odds-freshness && npm run test:odds-bookmaker-provenance && npm run test:odds-source-readiness && npm run test:odds-ingest-provenance && npm run test:odds-config-readiness && npm run test:persisted-odds-coverage && npm run test:odds-launch-gate && npm run test:odds-provenance-audit && npm run test:normalize-source-time && npm run test:sports-network-engine && npm run test:market-opportunity-engine",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -55,7 +55,8 @@
     "test:odds-launch-gate": "node --test tests/odds-launch-gate-route.test.mjs",
     "test:odds-provenance-audit": "node --test tests/odds-provenance-audit-route.test.mjs",
     "test:normalize-source-time": "node --test --experimental-strip-types tests/normalize-odds-source-timestamp.test.mjs",
-    "test:sports-network-engine": "node --test tests/sports-network-engine.test.mjs"
+    "test:sports-network-engine": "node --test tests/sports-network-engine.test.mjs",
+    "test:market-opportunity-engine": "node --test tests/market-opportunity-engine.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
