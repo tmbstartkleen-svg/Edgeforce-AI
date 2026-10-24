@@ -51,26 +51,35 @@ export async function predictionCatalogGateway(request:Request,env:Env):Promise<
  if(request.headers.get('authorization')!=='Bearer '+env.CRON_SECRET)return reply({ok:false,error:'UNAUTHORIZED'},401);
  if(env.PREDICTION_CATALOG_ENABLED!=='true')return reply({ok:false,error:'CATALOG_POLLING_DISABLED',creditsSpent:0},503);
  const now=Date.now();const cutoff=new Date(now).toISOString();
+ const oneYearTs=Math.floor((now+365*86400000)/1000);
  const requests=[
   boundedFetch('https://api.elections.kalshi.com/trade-api/v2/markets?status=open&limit=100&min_close_ts='+Math.floor(now/1000)),
-  boundedFetch('https://gamma-api.polymarket.com/markets?closed=false&active=true&limit=100&order=endDate&ascending=true')
+  boundedFetch('https://api.elections.kalshi.com/trade-api/v2/markets?status=open&limit=100&min_close_ts='+oneYearTs),
+  boundedFetch('https://gamma-api.polymarket.com/markets?closed=false&active=true&limit=100&order=endDate&ascending=true'),
+  boundedFetch('https://gamma-api.polymarket.com/markets?closed=false&active=true&limit=100&order=endDate&ascending=false')
  ];
  const settled=await Promise.allSettled(requests);
- const kalshi=settled[0].status==='fulfilled'?normalizeKalshiCatalog(settled[0].value):[];
- const polymarket=settled[1].status==='fulfilled'?normalizePolymarketCatalog(settled[1].value):[];
- const markets=[...kalshi,...polymarket].filter(x=>!x.closesAt||x.closesAt>cutoff);
+ const collected=[
+  ...(settled[0].status==='fulfilled'?normalizeKalshiCatalog(settled[0].value):[]),
+  ...(settled[1].status==='fulfilled'?normalizeKalshiCatalog(settled[1].value):[]),
+  ...(settled[2].status==='fulfilled'?normalizePolymarketCatalog(settled[2].value):[]),
+  ...(settled[3].status==='fulfilled'?normalizePolymarketCatalog(settled[3].value):[])
+ ];
+ const byIdentity=new Map<string,CatalogItem>();
+ for(const item of collected)if(!byIdentity.has(item.exchange+'|'+item.id))byIdentity.set(item.exchange+'|'+item.id,item);
+ const markets=[...byIdentity.values()].filter(x=>!x.closesAt||x.closesAt>cutoff);
  const end=new Date(now+10*365.25*86400000);
  const longDated=markets.filter(x=>x.closesAt&&Date.parse(x.closesAt)>now+365*86400000);
  return reply({ok:true,mode:'PUBLIC_CATALOG_DISCOVERY_ONLY',asOf:new Date().toISOString(),
-   markets:markets.slice(0,200),count:markets.length,longDatedCount:longDated.length,
+   markets:markets.slice(0,400),count:markets.length,longDatedCount:longDated.length,
    requestedExchanges:['Kalshi','Polymarket'],
-   upstreamStatus:{Kalshi:settled[0].status==='fulfilled'?'RESPONSE_RECEIVED':'UNAVAILABLE',
-    Polymarket:settled[1].status==='fulfilled'?'RESPONSE_RECEIVED':'UNAVAILABLE'},
-   requestedMaxHorizonYears:10,horizonEndsAt:end.toISOString(),sampleLimitPerExchange:100,
+   upstreamStatus:{Kalshi:settled.slice(0,2).some(r=>r.status==='fulfilled')?'RESPONSE_RECEIVED':'UNAVAILABLE',
+    Polymarket:settled.slice(2,4).some(r=>r.status==='fulfilled')?'RESPONSE_RECEIVED':'UNAVAILABLE'},
+   requestedMaxHorizonYears:10,horizonEndsAt:end.toISOString(),sampleLimitPerExchange:200,
    exhaustiveCatalog:false,contractEquivalenceVerified:false,orderbookDepthVerified:false,
    executionPricesVerified:false,feeScheduleVerified:false,
    arbitrageOpportunities:[],signalsGenerated:0,ordersPlaced:0,creditsSpent:0,
    notes:['Market titles and quotes are discovery-only. They are not executable asks or settlement-equivalent contracts.',
-    'This is a bounded sample of public open markets; it is not full exchange coverage.',
+    'This is a bounded near-term plus long-horizon sample of public open markets; it is not full exchange coverage.',
     'Long-dated contract closing dates and settlement dates can differ; funds may be locked longer.']});
 }
