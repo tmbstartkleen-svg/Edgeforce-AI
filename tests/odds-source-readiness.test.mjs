@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {evaluateOddsReadiness} from '../scripts/odds-source-readiness.mjs';
+test('no source evidence never claims readiness',()=>{const r=evaluateOddsReadiness();assert.equal(r.status,'NOT_READY');assert.ok(r.reasons.includes('NO_VERIFIED_TARGET_BOOK_QUOTES'));assert.equal(r.independentCrossBookValueCertified,false)});
+test('one provider and DraftKings-labeled price cannot prove redundancy',()=>{const r=evaluateOddsReadiness({providers:[{configured:true,healthy:true,providerId:'agg',upstreamId:'agg'}],markets:[{bookmaker:'DraftKings',odds:-110}]});assert.equal(r.targetBookPricedQuotes,1);assert.equal(r.distinctHealthyUpstreams,1);assert.ok(r.reasons.includes('INDEPENDENT_UPSTREAM_REDUNDANCY_MISSING'));assert.equal(r.status,'NOT_READY')});
+test('two independent healthy sources and target prices only reach market validation',()=>{const r=evaluateOddsReadiness({providers:[{configured:true,healthy:true,upstreamId:'a'},{configured:true,healthy:true,upstreamId:'b'}],markets:[{bookmaker:'DraftKings',odds:-110}]});assert.equal(r.status,'READY_FOR_MARKET_VALIDATION');assert.equal(r.independentCrossBookValueCertified,false)});
