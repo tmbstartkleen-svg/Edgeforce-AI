@@ -2,7 +2,7 @@
 import {useState} from 'react';
 type Offer={priceCents:number;size:number}|null;
 type Review={ok:boolean;error?:string;asOf?:string;warnings?:string[];pairs?:{kalshiYesPolyNo:{kalshiYesAsk:Offer;polyNoAsk:Offer};polyYesKalshiNo:{polyYesAsk:Offer;kalshiNoAsk:Offer}};notes?:string[]};
-const printed=(v:Offer)=>v?'${v.priceCents.toFixed(2)}¢ / '+v.size.toLocaleString()+' contracts':'No verified book level';
+const printed=(v:Offer)=>v?v.priceCents.toFixed(2)+'¢ / '+v.size.toLocaleString()+' contracts':'No verified book level';
 export default function PredictionOrderbookReview({operatorToken}:{operatorToken:string}){
  const [ticker,setTicker]=useState(''),[yesToken,setYesToken]=useState(''),[noToken,setNoToken]=useState('');
  const [result,setResult]=useState<Review|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
