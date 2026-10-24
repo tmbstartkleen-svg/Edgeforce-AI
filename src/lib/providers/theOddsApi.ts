@@ -103,7 +103,7 @@ function nearestStartMinutes(rows:unknown[]){
  return Math.max(0,(Math.min(...times)-now)/60000);
 }
 
-export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean}={}):Promise<TheOddsApiResult>{
+export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean;playerPropsOnly?:boolean}={}):Promise<TheOddsApiResult>{
  if(!options.forceRefresh&&cache&&Date.now()-cache.at<cache.ttlMs)return cache.value;
 
  const key=config.apiKey||process.env.THE_ODDS_API_KEY;
@@ -112,9 +112,9 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const timeoutMs=Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000));
  const configuredCacheMs=Math.max(60000,int(process.env.THE_ODDS_API_CACHE_MS,600000));
  const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
- const configuredMaxSports=options.quotaSafeSingleCall?0:Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
+ const configuredMaxSports=(options.quotaSafeSingleCall||options.playerPropsOnly)?0:Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
  const expansionMarkets=String(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h');
- const markets=options.quotaSafeSingleCall?'h2h':String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
+ const markets=options.playerPropsOnly?'player_points,player_rebounds,player_assists':options.quotaSafeSingleCall?'h2h':String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
  const bookmakers=options.quotaSafeSingleCall?'draftkings':String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us');
  const regions=options.quotaSafeSingleCall?'us':String(process.env.THE_ODDS_API_REGIONS||'us');
  const warnings:string[]=[];
@@ -124,9 +124,11 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  // The Odds API treats regions and bookmakers as alternative selectors.
  // Sending both can cause a 422 response and an empty sportsbook board.
  const bootstrapParams:Record<string,string>={markets,oddsFormat:'american',dateFormat:'iso'};
+ if(options.playerPropsOnly)bootstrapParams.eventIds=String(process.env.THE_ODDS_API_EVENT_ID||'');
  if(bookmakers)bootstrapParams.bookmakers=bookmakers;
  else bootstrapParams.regions=regions;
- const bootstrapUrl=withKey('/sports/upcoming/odds',key,bootstrapParams);
+ const bootstrapUrl=withKey(options.playerPropsOnly?'/sports/basketball_nba/events/'+encodeURIComponent(String(process.env.THE_ODDS_API_EVENT_ID||''))+'/odds':'/sports/upcoming/odds',key,bootstrapParams);
+ if(options.playerPropsOnly&&!process.env.THE_ODDS_API_EVENT_ID)return {ok:false,data:[],attempts:[],warnings:['Player-prop probe requires a known event ID; no request sent'],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,error:'PLAYER_PROP_EVENT_ID_REQUIRED'};
  let bootstrap=options.quotaSafeSingleCall
   ?await jsonRequest<unknown[]>(bootstrapUrl,timeoutMs)
   :await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
@@ -195,6 +197,7 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  const expanded:unknown[]=[];
  if(sportsResponse&&!sportsResponse.ok)warnings.push(`Free active-sports discovery failed: ${sportsResponse.error||sportsResponse.status}`);
  if(options.quotaSafeSingleCall)warnings.push('Quota-safe manual refresh: one The Odds API bootstrap request only; no retries, fallback or paid sport expansions');
+ if(options.playerPropsOnly)warnings.push('Player-prop probe is limited to one selected NBA event and selected markets; no retries or sport expansions');
 
  for(const sportKey of policy.selectedSports){
   if(remaining!==undefined&&remaining<=reserve){
