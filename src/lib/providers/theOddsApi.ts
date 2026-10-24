@@ -124,7 +124,6 @@ export async function fetchTheOddsApiBoard(config:ProviderConfig,options:{forceR
  // The Odds API treats regions and bookmakers as alternative selectors.
  // Sending both can cause a 422 response and an empty sportsbook board.
  const bootstrapParams:Record<string,string>={markets,oddsFormat:'american',dateFormat:'iso'};
- if(options.playerPropsOnly)bootstrapParams.eventIds=String(process.env.THE_ODDS_API_EVENT_ID||'');
  if(bookmakers)bootstrapParams.bookmakers=bookmakers;
  else bootstrapParams.regions=regions;
  const bootstrapUrl=withKey(options.playerPropsOnly?'/sports/basketball_nba/events/'+encodeURIComponent(String(process.env.THE_ODDS_API_EVENT_ID||''))+'/odds':'/sports/upcoming/odds',key,bootstrapParams);
