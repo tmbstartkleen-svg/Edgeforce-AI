@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const route=read('worker/prediction-launch-audit.ts'),worker=read('worker/index.ts'),ui=read('src/components/PredictionLaunchReadiness.tsx');
+test('launch certification is owner-only and D1 read-only',()=>{assert.match(route,/request\.headers\.get\('authorization'\)/);assert.match(route,/OWNER_AUTH_NOT_CONFIGURED/);assert.match(route,/sqlite_master/);assert.doesNotMatch(route,/\.run\(|fetch\(|\.batch\(/);});
+test('missing schema never falls back to zeros falsely marked ready',()=>{assert.match(route,/D1_TABLES_MISSING/);assert.match(route,/READ_ONLY_LAUNCH_AUDIT_FAILED/);assert.match(route,/missingTables:missing/);});
+test('independently required proof cannot be inferred from counts or feature flags',()=>{for(const blocker of ['CROSS_EXCHANGE_SETTLEMENT_RULES_NOT_CERTIFIED','EXCHANGE_FEE_AND_EXECUTABLE_FILL_NOT_CERTIFIED','IN_DASHBOARD_BACKGROUND_ALERT_DELIVERY_NOT_CERTIFIED','OUT_OF_SAMPLE_MODEL_VALUE_NOT_CERTIFIED'])assert.ok(route.includes(blocker));assert.match(route,/launchCertified:false/);assert.match(route,/executableArbitrageCertified:false/);});
+test('future report is limited and does not spend credits or dispatch bets',()=>{assert.match(route,/paidOddsApiCreditsSpent:0/);assert.match(route,/ordersPlaced:0/);assert.match(route,/writesPerformed:0/);assert.match(route,/NOT_CERTIFIED/);});
+test('authenticated dashboard exposes actual D1 blocker panel',()=>{assert.match(worker,/predictionLaunchAudit\(request,env\)/);assert.match(ui,/Verify production evidence/);assert.match(ui,/Launch blockers/);assert.match(ui,/Required D1 table names present/);});
