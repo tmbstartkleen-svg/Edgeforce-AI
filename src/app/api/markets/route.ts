@@ -22,7 +22,11 @@ export async function GET(request:Request){
  try{
   // Never bypass the provider refresh cache unless the operator requests it.
   // The existing provider adapter still enforces its own quota policy.
-  const forceLive=new URL(request.url).searchParams.get('forceLive')==='1';
+  const params=new URL(request.url).searchParams;
+  const forceLive=params.get('forceLive')==='1';
+  const playerPropsOnly=params.get('playerProps')==='1';
+  if(playerPropsOnly&&!forceLive)return Response.json({ok:false,error:'OWNER_REFRESH_REQUIRED'},
+   {status:400,headers});
   if(forceLive){
    const hash=process.env.EDGEFORCE_NETWORK_TOKEN_SHA256;
    if(!hash)return Response.json({ok:false,error:'OWNER_REFRESH_NOT_CONFIGURED'},
@@ -31,7 +35,7 @@ export async function GET(request:Request){
     return Response.json({ok:false,error:'OWNER_AUTH_REQUIRED_FOR_METERED_REFRESH'},
      {status:401,headers});
   }
-  const result=await ingestOdds({forceLive,persist:!forceLive});
+  const result=await ingestOdds({forceLive,persist:!forceLive,playerPropsOnly});
   const now=Date.now();
   const input=result.source==='demo'?[]:result.panelMarkets||[];
   const quoteDiagnostics={received:input.length,missingTimestamp:0,invalidTimestamp:0,staleTimestamp:0,invalidAmericanOdds:0,startedOrInvalidEvent:0,missingBookmaker:0};
