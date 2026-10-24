@@ -262,7 +262,7 @@ function flattenSportPayload(
       const updatedAt=str(
         book.updated_at ??
         book.last_update,
-        new Date().toISOString()
+        ''
       );
 
       for(const outcomeValue of arr(book.outcomes)){
@@ -278,6 +278,10 @@ function flattenSportPayload(
           outcome.price ??
           outcome.odds
         );
+
+        if(!Number.isFinite(Date.parse(updatedAt))){
+          continue;
+        }
 
         if(
           !selectionBase ||
