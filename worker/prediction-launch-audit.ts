@@ -13,8 +13,7 @@ export async function predictionLaunchAudit(request:Request,env:Env):Promise<Res
  if(request.headers.get('authorization')!=='Bearer '+env.CRON_SECRET)return json({ok:false,error:'UNAUTHORIZED'},401);
  const db=env.INTELLIGENCE_DB as DB|undefined;if(!db?.prepare)return json({ok:false,error:'D1_BINDING_MISSING'},503);
  try{
-  const placeholders=required.map(()=>'?').join(',');
-  const schema=await db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name IN (${placeholders})`)
+  const schema=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('intelligence_sources','sports_market_snapshots','specialist_tasks','prediction_arbitrage_watches','prediction_arbitrage_observations','prediction_arbitrage_alerts')")
    .all<{name:string}>();
   // A missing table is a blocker; skip all dependent queries rather than returning misleading 0 counts.
   const existing=new Set((schema.results||[]).map(r=>r.name));
