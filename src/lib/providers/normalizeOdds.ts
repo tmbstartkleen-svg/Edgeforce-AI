@@ -81,10 +81,13 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
     const outcome=obj(outcomeValue);
     const odds=num(outcome.price,0);
     const baseSelection=str(outcome.name,'');
+    const description=str(outcome.description,'').trim();
     const point=num(outcome.point,Number.NaN);
+    const isPlayerProp=marketKey.startsWith('player_')&&description.length>0;
+    const outcomeLabel= isPlayerProp?`${description} — ${baseSelection}`:baseSelection;
     const selection=Number.isFinite(point)&&marketKey!=='h2h'
-     ?`${baseSelection} ${point>0?'+':''}${point}`
-     :baseSelection;
+     ?`${outcomeLabel} ${point>0?'+':''}${point}`
+     :outcomeLabel;
     if(!odds||!selection||!startTime)continue;
     const rawImpliedProb=impliedProbability(odds);
     out.push({
@@ -94,6 +97,7 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
      marketProb:rawImpliedProb,modelProb:rawImpliedProb,
      confidence:.6,sourceAgeMin:quoteAgeMin,
      ...(Number.isFinite(updatedMs)&&updatedMs<=Date.now()+60000?{sourceTimestamp:new Date(updatedMs).toISOString()}:{}),
+     ...(isPlayerProp?{playerContext:{name:description,statKey:marketKey}}:{}),
      period:new Date(startTime).getHours()<12?'AM':'PM'
     });
    }
