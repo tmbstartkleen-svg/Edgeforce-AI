@@ -87,7 +87,7 @@ type PanelResult={
  transportScore:number;
 };
 
-async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean;recordHealth?:boolean}={}):Promise<PanelResult>{
+async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean,options:{forceRefresh?:boolean;quotaSafeSingleCall?:boolean;recordHealth?:boolean;playerPropsOnly?:boolean}={}):Promise<PanelResult>{
  if(quarantined&&!options.forceRefresh){
   return {
    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
@@ -209,7 +209,7 @@ function aggregateQuality(rows:PanelResult[]){
  return {grade,qualityScore,rowCount,payloadAgeMin};
 }
 
-async function fetchNormalizedOddsUncached(options:{forceRefresh?:boolean;providerIds?:string[];quotaSafeSingleCall?:boolean;recordHealth?:boolean}={}):Promise<OddsIngestionResult>{
+async function fetchNormalizedOddsUncached(options:{forceRefresh?:boolean;providerIds?:string[];quotaSafeSingleCall?:boolean;recordHealth?:boolean;playerPropsOnly?:boolean}={}):Promise<OddsIngestionResult>{
  const configuredAll=configuredProviders('ODDS');
  const configured=options.providerIds?.length
   ?configuredAll.filter(p=>options.providerIds!.includes(p.id)):configuredAll;
@@ -231,7 +231,7 @@ async function fetchNormalizedOddsUncached(options:{forceRefresh?:boolean;provid
   const stored=states.get(config.id);
   const health=stored?providerHealth(stored,now):{score:.8,status:'HEALTHY',quarantined:false};
   try{
-   return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined,{forceRefresh:options.forceRefresh===true,quotaSafeSingleCall:options.quotaSafeSingleCall===true,recordHealth:options.recordHealth!==false});
+   return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined,{forceRefresh:options.forceRefresh===true,quotaSafeSingleCall:options.quotaSafeSingleCall===true,recordHealth:options.recordHealth!==false,playerPropsOnly:options.playerPropsOnly===true});
   }catch(error){
    return {
     config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
