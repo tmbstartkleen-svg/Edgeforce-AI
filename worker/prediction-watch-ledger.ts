@@ -38,8 +38,8 @@ export async function predictionWatchLedger(request:Request,env:Env):Promise<Res
   const {watchId,kalshiTicker,polyYesToken,polyNoToken,minimumNetRoiPct,contractPairs,expiryAt,confirm}=input;
   const expiry=expiryAt===null?null:date(expiryAt);
   if(confirm!=='CREATE_DISABLED_WATCH'||!watchId||!tickerId(kalshiTicker)||!numericId(polyYesToken)||!numericId(polyNoToken)||
-   polyYesToken===polyNoToken||!Number.isFinite(minimumNetRoiPct)||Number(minimumNetRoiPct)<0||Number(minimumNetRoiPct)>100||
-   !Number.isInteger(contractPairs)||Number(contractPairs)<1||Number(contractPairs)>100000||
+   polyYesToken===polyNoToken||typeof minimumNetRoiPct!=='number'||!Number.isFinite(minimumNetRoiPct)||Number(minimumNetRoiPct)<0||Number(minimumNetRoiPct)>100||
+   typeof contractPairs!=='number'||!Number.isInteger(contractPairs)||Number(contractPairs)<1||Number(contractPairs)>100000||
    !watchIdPattern(watchId)||expiryAt!==null&&!expiry)return respond({ok:false,error:'INVALID_WATCH_REGISTRATION'},400);
   try{
    const inserted=await db.prepare(`INSERT OR IGNORE INTO prediction_arbitrage_watches
