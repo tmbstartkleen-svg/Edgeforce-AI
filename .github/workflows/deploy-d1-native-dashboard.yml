@@ -81,6 +81,25 @@ jobs:
             --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('intelligence_sources','specialist_tasks','sports_market_snapshots')" \
             --json > /tmp/d1-native-readiness.json
           jq -e '.[0].results | map(.name) | sort == ["intelligence_sources","specialist_tasks","sports_market_snapshots"]' /tmp/d1-native-readiness.json
+      - name: Validate additive prediction watch migration locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate-prediction-watch-migration.mjs
+      - name: Apply prediction watch D1 migration (additive, no existing rows removed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute edgeforce-intelligence --remote --config wrangler.jsonc \
+            --file db/d1/0006_prediction_arbitrage_alerts.sql --yes
+      - name: Confirm prediction watch tables and safety constraints
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute edgeforce-intelligence --remote --config wrangler.jsonc \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('prediction_arbitrage_watches','prediction_arbitrage_observations','prediction_arbitrage_alerts')" \
+            --json > /tmp/prediction-watch-schema.json
+          jq -e '.[0].results | map(.name) | sort == ["prediction_arbitrage_alerts","prediction_arbitrage_observations","prediction_arbitrage_watches"]' /tmp/prediction-watch-schema.json
       - name: Ensure main was not superseded during build
         shell: bash
         run: |
@@ -92,7 +111,7 @@ jobs:
         run: |
           set -euo pipefail
           npx wrangler deploy --config dist/server/wrangler.json
-      - name: Smoke test deployed Worker and private D1 dashboard
+      - name: Smoke test deployed Worker, watchlist and private D1 dashboard
         shell: bash
         run: |
           set -euo pipefail
@@ -101,7 +120,9 @@ jobs:
             CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-dashboard-unauth.json \
               -w '%{http_code}' "$DEPLOY_URL/api/operations/remote-dashboard" || true)
             HEALTH=$(curl -sS --connect-timeout 5 --max-time 12 "$DEPLOY_URL/api/health" || true)
+            WATCH_CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-watch-unauth.json -w '%{http_code}' "$DEPLOY_URL/api/operations/prediction-watches" || true)
             if [ "$CODE" = "401" ] && jq -e '.error=="UNAUTHORIZED"' /tmp/d1-dashboard-unauth.json >/dev/null 2>&1 \
+                && [ "$WATCH_CODE" = "401" ] && jq -e '.error=="UNAUTHORIZED"' /tmp/d1-watch-unauth.json >/dev/null 2>&1 \
                 && printf '%s' "$HEALTH" | jq -e '.ok==true' >/dev/null 2>&1; then
               SUCCESS=1
               break
