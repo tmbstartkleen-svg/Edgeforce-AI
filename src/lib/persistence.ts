@@ -9,6 +9,7 @@ export async function saveMarketSnapshots(markets:Market[],provider='authorized-
   if(!sql)return {written:0,mode:'memory' as const};
   let written=0;
   for(const m of markets){
+    if(!Number.isFinite(m.sourceAgeMin)||m.sourceAgeMin<0||!Number.isFinite(m.odds))continue;
     await sql`
       insert into events(id,provider_event_id,sport,league,home_team_id,away_team_id,start_time,status)
       values(${m.id},${m.sourceEventId||m.id},${m.sport},${m.league},${m.home},${m.away},${m.startTime},'scheduled')
@@ -34,7 +35,7 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
   const sql=db();
   if(!sql)return [];
   const rows=await sql`
-    select distinct on (ms.event_id,ms.market_key,ms.selection_key)
+    select distinct on (ms.event_id,ms.market_key,ms.selection_key,ms.bookmaker,ms.provider)
       ms.event_id as id,
       e.sport,
       e.league,
@@ -55,13 +56,14 @@ export async function latestStoredMarkets(limit=500):Promise<Market[]>{
       coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float as "marketProb",
       coalesce((ms.raw->>'modelProb')::float,coalesce(ms.no_vig_probability,ms.implied_probability,0.5)::float) as "modelProb",
       coalesce((ms.raw->>'confidence')::float,0.6) as confidence,
-      greatest(0,extract(epoch from (now()-ms.pulled_at))/60)::float as "sourceAgeMin",
+      (greatest(0,extract(epoch from (now()-ms.pulled_at))/60) + greatest(0,coalesce(ms.source_age_seconds,0))/60)::float as "sourceAgeMin",
+      nullif(ms.raw->>'sourceTimestamp','') as "sourceTimestamp",
       case when extract(hour from e.start_time at time zone 'America/Chicago')<12 then 'AM' else 'PM' end as period,
       coalesce(ms.raw->'sportFeatures','{}'::jsonb) as "sportFeatures"
     from market_snapshots ms
     join events e on e.id=ms.event_id
     where e.start_time >= now() and e.start_time <= now()+interval '8 days'
-    order by ms.event_id,ms.market_key,ms.selection_key,ms.pulled_at desc
+    order by ms.event_id,ms.market_key,ms.selection_key,ms.bookmaker,ms.provider,ms.pulled_at desc
     limit ${limit}
   `;
   return rows as unknown as Market[];
