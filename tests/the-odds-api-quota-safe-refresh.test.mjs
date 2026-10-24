@@ -76,3 +76,43 @@ test('normal Odds API bookmaker requests never combine regions and bookmakers se
  assert.match(source,/if\(bookmakers\)expansionParams\.bookmakers=bookmakers;\s*else expansionParams\.regions=regions/);
  assert.match(source,/const fallbackUrl=withKey\('\/sports\/upcoming\/odds',key,\{\s*regions:'us',markets:'h2h'/);
 });
+
+test('NBA player-prop probe uses one event-specific request and accepts object-shaped event responses',async()=>{
+ process.env.THE_ODDS_API_KEY='test-key-not-real';
+ process.env.THE_ODDS_API_BASE_URL='https://odds-mock.invalid/v4';
+ process.env.THE_ODDS_API_EVENT_ID='nba-event-123';
+ const original=globalThis.fetch;const calls=[];
+ globalThis.fetch=async input=>{calls.push(new URL(String(input)));return Response.json({
+  id:'nba-event-123',sport_key:'basketball_nba',sport_title:'NBA',
+  commence_time:new Date(Date.now()+3600000).toISOString(),home_team:'Home',away_team:'Away',
+  bookmakers:[{key:'draftkings',title:'DraftKings',markets:[
+   {key:'player_points',last_update:new Date().toISOString(),outcomes:[
+    {name:'Over',description:'Example Player',price:-115,point:24.5}]}]}]
+ },{headers:{'x-requests-remaining':'248','x-requests-used':'252','x-requests-last':'1'}})};
+ try{
+  const {fetchTheOddsApiBoard}=await import(moduleUrl+'#player-prop-event');
+  const result=await fetchTheOddsApiBoard(config,{forceRefresh:true,quotaSafeSingleCall:true,playerPropsOnly:true});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].pathname,'/v4/sports/basketball_nba/events/nba-event-123/odds');
+  assert.equal(calls[0].searchParams.get('bookmakers'),'draftkings');
+  assert.equal(calls[0].searchParams.get('markets'),'player_points,player_rebounds,player_assists');
+  assert.equal(result.data.length,1);
+  assert.equal(result.quota.remaining,248);
+ }finally{
+  globalThis.fetch=original;
+  delete process.env.THE_ODDS_API_KEY;
+  delete process.env.THE_ODDS_API_BASE_URL;
+  delete process.env.THE_ODDS_API_EVENT_ID;
+ }
+});
+test('missing configured NBA event ID fails before any provider request',async()=>{
+ process.env.THE_ODDS_API_KEY='test-key-not-real';
+ delete process.env.THE_ODDS_API_EVENT_ID;
+ const original=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('should not fetch')};
+ try{
+  const {fetchTheOddsApiBoard}=await import(moduleUrl+'#player-prop-no-event');
+  const result=await fetchTheOddsApiBoard(config,{forceRefresh:true,quotaSafeSingleCall:true,playerPropsOnly:true});
+  assert.equal(calls,0);
+  assert.equal(result.error,'PLAYER_PROP_EVENT_ID_REQUIRED');
+ }finally{globalThis.fetch=original;delete process.env.THE_ODDS_API_KEY}
+});
