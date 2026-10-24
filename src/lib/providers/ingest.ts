@@ -22,6 +22,7 @@ export type IngestOddsOptions={
  storedReuseMaxAgeMin?:number;
  /** Inspection-only mode: never write odds snapshots or mirror observations. */
  persist?:boolean;
+ playerPropsOnly?:boolean;
 };
 
 function adaptiveLiveRefreshMs(){
@@ -91,6 +92,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
  const live=await fetchNormalizedOdds({forceRefresh:options.forceLive===true,
    providerIds:options.forceLive?['the-odds-api']:undefined,
    quotaSafeSingleCall:options.forceLive===true,
+   playerPropsOnly:options.playerPropsOnly===true,
    recordHealth:options.persist!==false});
  if(live.mode==='live'&&live.markets.length){
   if(options.persist!==false)await Promise.all([
