@@ -16,6 +16,9 @@ if(!fs.existsSync(configPath)){
 }
 
 if(config){
+  const network=config.d1_databases?.find(x=>x.binding==='SPORTS_NETWORK_DB');
+  if(network?.database_id!=='a0a52a55-0e2e-42c5-b9c0-a2bc906bb32a')failures.push('Generated Worker must retain the existing isolated sports-network D1 binding.');
+
   const MAX_CLOUDFLARE_FREE_BINDINGS=64;
   const MAX_RUNTIME_SECRET_BINDINGS=8;
   const configuredBindings=Object.keys(config.vars||{}).length;

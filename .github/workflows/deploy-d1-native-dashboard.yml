@@ -139,8 +139,10 @@ jobs:
               -w '%{http_code}' "$DEPLOY_URL/api/operations/remote-dashboard" || true)
             HEALTH=$(curl -sS --connect-timeout 5 --max-time 12 "$DEPLOY_URL/api/health" || true)
             WATCH_CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/d1-watch-unauth.json -w '%{http_code}' "$DEPLOY_URL/api/operations/prediction-watches" || true)
+            EVIDENCE_CODE=$(curl -sS --connect-timeout 5 --max-time 12 -o /tmp/sports-evidence-unauth.json -w '%{http_code}' "$DEPLOY_URL/api/operations/sports-evidence" || true)
             if [ "$CODE" = "401" ] && jq -e '.error=="UNAUTHORIZED"' /tmp/d1-dashboard-unauth.json >/dev/null 2>&1 \
                 && [ "$WATCH_CODE" = "401" ] && jq -e '.error=="UNAUTHORIZED"' /tmp/d1-watch-unauth.json >/dev/null 2>&1 \
+                && [ "$EVIDENCE_CODE" = "401" ] && jq -e '.error=="UNAUTHORIZED"' /tmp/sports-evidence-unauth.json >/dev/null 2>&1 \
                 && printf '%s' "$HEALTH" | jq -e '.ok==true' >/dev/null 2>&1; then
               SUCCESS=1
               break

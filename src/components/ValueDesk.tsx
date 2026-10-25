@@ -24,7 +24,7 @@ export default function ValueDesk(){
   void load();
   return()=>{cancelled=true;};
  },[tick]);
- const allRows=board?.ok?board.rows??[]:[];
+ const allRows=useMemo(()=>board?.ok?board.rows??[]:[],[board]);
  const sports=useMemo(()=>['ALL',...new Set(allRows.map(r=>r.sport))].sort((a,b)=>a==='ALL'?-1:b==='ALL'?1:a.localeCompare(b)),[allRows]);
  const visible=useMemo(()=>allRows.filter(r=>(sport==='ALL'||r.sport===sport)&&
   [r.event,r.league,r.selection,r.market,r.book].some(x=>x.toLowerCase().includes(query.toLowerCase())))
@@ -43,6 +43,6 @@ export default function ValueDesk(){
  {board?.ok&&<p className="valueCaption">Last response: {board.generatedAt?new Date(board.generatedAt).toLocaleString():'Unknown'} · Ranked across all included sports · Showing {visible.length} rows</p>}
  {board?.ok&&!visible.length?<p className="valueEmpty">No provisional value opportunities matched these filters. This does not imply that all DraftKings markets were scanned.</p>:null}
  {board&&!board.ok?<p className="valueEmpty" role="alert">Live data unavailable. {board.error||'Please retry.'} No example bets are substituted.</p>:null}
- <div className="valueTableWrap"><table className="valueTable"><thead><tr><th>#</th><th>Sport / League</th><th>Event / Selection</th><th>Book / Odds</th><th>Win %</th><th>Break-even</th><th>Edge</th><th>ROI</th><th>Evidence</th></tr></thead><tbody>{visible.map((r,i)=><tr key={r.sport+'|'+r.event+'|'+r.market+'|'+r.selection+'|'+r.book+'|'+i}><td>{i+1}</td><td><strong>{r.sport}</strong><small>{r.league}</small></td><td><strong>{r.event}</strong><small>{r.selection} · {r.market}</small></td><td><strong>{r.book}</strong><small>{r.odds>0?'+':''}{r.odds}</small></td><td>{number(r.modelWinPercent)}%</td><td>{number(r.breakEvenPercent)}%</td><td className={r.edgePp>0?'valuePositive':''}>{r.edgePp>0?'+':''}{number(r.edgePp)} pp</td><td className={r.expectedRoiPercent>0?'valuePositive':''}>{r.expectedRoiPercent>0?'+':''}{number(r.expectedRoiPercent)}%</td><td><span className="valueEvidence">Provisional</span><small>{r.reference}</small></td></tr>)}</tbody></table></div>
+ <div className="valueTableWrap"><table className="valueTable"><thead><tr><th>#</th><th>Sport / League</th><th>Event / Selection</th><th>Book / Odds</th><th>Market reference %</th><th>Break-even</th><th>Edge</th><th>ROI</th><th>Evidence</th></tr></thead><tbody>{visible.map((r,i)=><tr key={r.sport+'|'+r.event+'|'+r.market+'|'+r.selection+'|'+r.book+'|'+i}><td>{i+1}</td><td><strong>{r.sport}</strong><small>{r.league}</small></td><td><strong>{r.event}</strong><small>{r.selection} · {r.market}</small></td><td><strong>{r.book}</strong><small>{r.odds>0?'+':''}{r.odds}</small></td><td>{number(r.modelWinPercent)}%</td><td>{number(r.breakEvenPercent)}%</td><td className={r.edgePp>0?'valuePositive':''}>{r.edgePp>0?'+':''}{number(r.edgePp)} pp</td><td className={r.expectedRoiPercent>0?'valuePositive':''}>{r.expectedRoiPercent>0?'+':''}{number(r.expectedRoiPercent)}%</td><td><span className="valueEvidence">Provisional</span><small>{r.reference}</small></td></tr>)}</tbody></table></div>
  </section>;
 }
