@@ -1,6 +1,7 @@
 'use client';
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
+import {createOperationsRequestScope,readOperationsResponse} from '@/lib/operations-request.mjs';
 import './remote-operations-dashboard.css';
 import PredictionArbitrageStudio from './PredictionArbitrageStudio';
 type Summary={total:number;recent:number;draftKingsRecent:number;independentProvidersRecent:number;mostRecentAt?:string|null};
@@ -16,31 +17,53 @@ export default function RemoteOperationsDashboard(){
  const [error,setError]=useState('');const [loading,setLoading]=useState(false);
  const [opportunityData,setOpportunityData]=useState<OpportunityReview|null>(null);const [opportunityError,setOpportunityError]=useState('');const [opportunityLoading,setOpportunityLoading]=useState(false);
  const [sport,setSport]=useState('ALL');const [view,setView]=useState<'overview'|'markets'|'agents'|'opportunities'|'prediction-arbs'>('overview');
+ const dashboardRequests=useRef(createOperationsRequestScope());
+ const opportunityRequests=useRef(createOperationsRequestScope());
+ const [autoRefresh,setAutoRefresh]=useState(false);
+ const clearSession=useCallback(()=>{
+  dashboardRequests.current.reset();opportunityRequests.current.reset();
+  setSnapshot(null);setOpportunityData(null);setError('');setOpportunityError('');
+  setLoading(false);setOpportunityLoading(false);setAutoRefresh(false);setSport('ALL');
+ },[]);
+ useEffect(()=>{
+  const dashboard=dashboardRequests.current;const opportunities=opportunityRequests.current;
+  return()=>{dashboard.reset();opportunities.reset()};
+ },[]);
  const loadOpportunities=useCallback(async()=>{
-  if(!token)return;setOpportunityLoading(true);setOpportunityError('');
-  try{const response=await fetch('/api/operations/sportsbook-opportunities',{headers:{authorization:'Bearer '+token},cache:'no-store'});
-   const data:OpportunityReview=await response.json();if(!response.ok||!data.ok){setOpportunityError(data.error||'D1 opportunity review unavailable');setOpportunityData(null)}else setOpportunityData(data);
-  }catch{setOpportunityError('Cannot reach the archived-odds review endpoint.');setOpportunityData(null)}finally{setOpportunityLoading(false)}
+  if(!token.trim())return;
+  const request=opportunityRequests.current.begin();setOpportunityLoading(true);setOpportunityError('');
+  try{
+   const response=await fetch('/api/operations/sportsbook-opportunities',{headers:{authorization:'Bearer '+token.trim()},cache:'no-store',signal:request.signal});
+   const data=await readOperationsResponse<OpportunityReview>(response);
+   if(request.isCurrent())setOpportunityData(data);
+  }catch(e){if(request.isCurrent()){setOpportunityError(request.signal.aborted?'Request timed out. Try again.':e instanceof Error?e.message:'Unable to load opportunity evidence.');setOpportunityData(null)}}
+  finally{request.finish();if(request.isCurrent())setOpportunityLoading(false)}
  },[token]);
  const refresh=useCallback(async()=>{
   if(!token.trim()){setError('Enter the authorized operator token to load private operations data.');return}
-  setLoading(true);setError('');
+  const request=dashboardRequests.current.begin();setLoading(true);setError('');
   try{
-   const response=await fetch('/api/operations/remote-dashboard',{headers:{authorization:'Bearer '+token},cache:'no-store'});
-   const data:Snapshot=await response.json();
-   if(!response.ok||!data.ok){setError(response.status===401?'Operator token was not accepted.':(data.error||data.reason||'Dashboard temporarily unavailable'));setSnapshot(null)}
-   else setSnapshot(data);
-  }catch{setError('Unable to reach EdgeForce dashboard API.');setSnapshot(null)}finally{setLoading(false)}
+   const response=await fetch('/api/operations/remote-dashboard',{headers:{authorization:'Bearer '+token.trim()},cache:'no-store',signal:request.signal});
+   const data=await readOperationsResponse<Snapshot>(response);
+   if(request.isCurrent())setSnapshot(data);
+  }catch(e){if(request.isCurrent()){
+   setError(request.signal.aborted?'Request timed out. Try again.':e instanceof Error?e.message:'Unable to reach the dashboard.');
+   setSnapshot(null);setOpportunityData(null);opportunityRequests.current.reset();setOpportunityLoading(false);setAutoRefresh(false);
+  }}finally{request.finish();if(request.isCurrent())setLoading(false)}
  },[token]);
- useEffect(()=>{if(!token||!snapshot)return;const t=setInterval(()=>{void refresh()},60000);return()=>clearInterval(t)},[token,snapshot,refresh]);
+ useEffect(()=>{
+  if(!autoRefresh||!token||!snapshot)return;
+  const t=setInterval(()=>{if(document.visibilityState==='visible'&&!loading)void refresh()},60000);
+  return()=>clearInterval(t);
+ },[autoRefresh,token,snapshot,loading,refresh]);
 
  const sports=[...new Set((snapshot?.marketSummary||[]).map(x=>x.sport))].sort();
  const markets=(snapshot?.marketSummary||[]).filter(x=>sport==='ALL'||x.sport===sport);
  const stale=!snapshot?.summary?.recent;
  return <div className="efops-app">
-  <aside className="efops-side"><div className="efops-brand"><strong>EDGEFORCE</strong><span>INTELLIGENCE OPERATIONS</span></div>
+  <aside className="efops-side" aria-label="Operations navigation"><div className="efops-brand"><strong>EDGEFORCE</strong><span>INTELLIGENCE OPERATIONS</span></div>
    <div className="efops-side-caption">WORKSPACE</div>
-   {(['overview','markets','opportunities','prediction-arbs','agents'] as const).map(tab=><button key={tab} className={view===tab?'efops-tab active':'efops-tab'} onClick={()=>{setView(tab);if(tab==='opportunities'&&token&&snapshot)void loadOpportunities()}}>{tab==='overview'?'▣  Command Center':tab==='markets'?'≡  Sportsbook Coverage':tab==='opportunities'?'◇  Opportunity Review':tab==='prediction-arbs'?'↔  Kalshi / Polymarket':'◈  Agent Monitoring'}</button>)}
+   {(['overview','markets','opportunities','prediction-arbs','agents'] as const).map(tab=><button key={tab} aria-current={view===tab?'page':undefined} className={view===tab?'efops-tab active':'efops-tab'} onClick={()=>{setView(tab);if(tab==='opportunities'&&token&&snapshot)void loadOpportunities()}}>{tab==='overview'?'▣  Command Center':tab==='markets'?'≡  Sportsbook Coverage':tab==='opportunities'?'◇  Opportunity Review':tab==='prediction-arbs'?'↔  Kalshi / Polymarket':'◈  Agent Monitoring'}</button>)}
    <div className="efops-side-caption">OTHER TOOLS</div>
    <Link className="efops-link" href="/">↗ EdgeForce Dashboard</Link>
    <Link className="efops-link" href="/network">↗ Agent Command Network</Link>
@@ -49,9 +72,9 @@ export default function RemoteOperationsDashboard(){
   </aside>
   <main className="efops-main">
    <header className="efops-header"><div><div className="efops-eyebrow">EDGEFORCE / SECURE REMOTE OPERATIONS</div><h1>Sports Intelligence Command Center</h1><p>Source coverage, odds availability and specialist workload — without consuming odds API credits.</p></div><span className="efops-pill">READ-ONLY</span></header>
-   <section className="efops-auth"><label htmlFor="efops-token">Operator authentication</label><div><input id="efops-token" autoComplete="off" type="password" value={token} onChange={e=>setToken(e.target.value)} placeholder="Enter your configured operator / cron token"/><button onClick={()=>void refresh()} disabled={loading||!token}>{loading?'Checking…':'Refresh dashboard'}</button><button className="efops-quiet" onClick={()=>{setToken('');setSnapshot(null);setOpportunityData(null);setError('')}}>Lock</button></div><small>Token stays in this page memory only. It is never added to the URL or stored in browser storage.</small>{error&&<p className="efops-error" role="alert">{error}</p>}</section>
+   <form className="efops-auth" onSubmit={e=>{e.preventDefault();void refresh()}}><label htmlFor="efops-token">Operator authentication</label><div><input id="efops-token" autoComplete="off" type="password" value={token} onChange={e=>{clearSession();setToken(e.target.value)}} placeholder="Enter your configured operator / cron token"/><button type="submit" disabled={loading||!token.trim()}>{loading?'Checking…':'Refresh dashboard'}</button><button type="button" className="efops-quiet" onClick={()=>{clearSession();setToken('')}}>Lock</button></div><small>Token stays in this page memory only. It is never added to the URL or stored in browser storage.</small>{error&&<p className="efops-error" role="alert">{error}</p>}</form>
    {!snapshot?<div className="efops-empty"><h2>Connect to view your operational data</h2><p>After authentication, EdgeForce reports actual stored odds, DraftKings-labelled availability, registered providers and recorded agent tasks. Missing information remains explicitly unavailable.</p></div>:<>
-    <div className="efops-status"><strong>{snapshot.status==='DEGRADED'?'● Data coverage needs attention':snapshot.status==='BLOCKED'?'● Database connection blocked':'● Read-only operational snapshot'}</strong><span>Updated {displayTime(snapshot.generatedAt)} · Build {snapshot.build??'—'}</span></div>
+    <label className="efops-check"><input type="checkbox" checked={autoRefresh} onChange={e=>setAutoRefresh(e.target.checked)}/> Refresh every minute while this tab is visible</label><div className="efops-status" role="status"><strong>{snapshot.status==='DEGRADED'?'● Data coverage needs attention':snapshot.status==='BLOCKED'?'● Database connection blocked':'● Read-only operational snapshot'}</strong><span>Updated {displayTime(snapshot.generatedAt)} · Build {snapshot.build??'—'}</span></div>
     {view==='overview'&&<><div className="efops-grid">
      <div className="efops-stat"><span>Stored quotes</span><strong>{snapshot.summary?.total.toLocaleString()??'—'}</strong><small>Historical records</small></div>
      <div className="efops-stat"><span>Last 20 minutes</span><strong>{snapshot.summary?.recent.toLocaleString()??'—'}</strong><small>{stale?'No recent stored prices':'Persistence observed'}</small></div>
