@@ -61,3 +61,7 @@ Five additional user-supplied credentials were saved outside the repository with
 - football-data.org: competitions request returned HTTP 200 with 13 records; remaining-minute header was 9. Catalog size does not establish permission to retrieve every listed competition. Email verification remains unconfirmed.
 
 No production secrets were installed, no billing changed, no scheduled collectors enabled and no D1 archive writes performed. Credentials are ready for server-side integration only after their data and access checks pass.
+
+### Replacement key follow-up
+
+The user supplied a replacement The Odds API credential. Sports catalog authentication now succeeds (HTTP 200, 76 entries, 498 remaining credits reported). This supersedes the earlier 401 result; catalog access does not certify price freshness. The football-data confirmation link opened the authenticated Free account page listing 12 available competitions; no separate email-confirmed banner was shown. No production collection or billing changes were made.
