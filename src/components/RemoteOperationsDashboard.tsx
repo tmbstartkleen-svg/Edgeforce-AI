@@ -3,6 +3,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {createOperationsRequestScope,readOperationsResponse} from '@/lib/operations-request.mjs';
 import './remote-operations-dashboard.css';
+import DailyWeeklyResearchPanel from './DailyWeeklyResearchPanel';
 import SportsEvidencePanel from './SportsEvidencePanel';
 import PredictionArbitrageStudio from './PredictionArbitrageStudio';
 type Summary={total:number;recent:number;draftKingsRecent:number;independentProvidersRecent:number;mostRecentAt?:string|null};
@@ -17,7 +18,7 @@ export default function RemoteOperationsDashboard(){
  const [token,setToken]=useState('');const [snapshot,setSnapshot]=useState<Snapshot|null>(null);
  const [error,setError]=useState('');const [loading,setLoading]=useState(false);
  const [opportunityData,setOpportunityData]=useState<OpportunityReview|null>(null);const [opportunityError,setOpportunityError]=useState('');const [opportunityLoading,setOpportunityLoading]=useState(false);
- const [sport,setSport]=useState('ALL');const [view,setView]=useState<'overview'|'markets'|'agents'|'opportunities'|'prediction-arbs'>('overview');
+ const [sport,setSport]=useState('ALL');const [view,setView]=useState<'overview'|'markets'|'agents'|'opportunities'|'prediction-arbs'|'research'>('overview');
  const dashboardRequests=useRef(createOperationsRequestScope());
  const opportunityRequests=useRef(createOperationsRequestScope());
  const [autoRefresh,setAutoRefresh]=useState(false);
@@ -64,7 +65,7 @@ export default function RemoteOperationsDashboard(){
  return <div className="efops-app">
   <aside className="efops-side" aria-label="Operations navigation"><div className="efops-brand"><strong>EDGEFORCE</strong><span>INTELLIGENCE OPERATIONS</span></div>
    <div className="efops-side-caption">WORKSPACE</div>
-   {(['overview','markets','opportunities','prediction-arbs','agents'] as const).map(tab=><button key={tab} aria-current={view===tab?'page':undefined} className={view===tab?'efops-tab active':'efops-tab'} onClick={()=>{setView(tab);if(tab==='opportunities'&&token&&snapshot)void loadOpportunities()}}>{tab==='overview'?'▣  Command Center':tab==='markets'?'≡  Sportsbook Coverage':tab==='opportunities'?'◇  Opportunity Review':tab==='prediction-arbs'?'↔  Kalshi / Polymarket':'◈  Agent Monitoring'}</button>)}
+   {(['overview','markets','opportunities','research','prediction-arbs','agents'] as const).map(tab=><button key={tab} aria-current={view===tab?'page':undefined} className={view===tab?'efops-tab active':'efops-tab'} onClick={()=>{setView(tab);if(tab==='opportunities'&&token&&snapshot)void loadOpportunities()}}>{tab==='overview'?'▣  Command Center':tab==='markets'?'≡  Sportsbook Coverage':tab==='opportunities'?'◇  Opportunity Review':tab==='research'?'▤  Daily & Weekly Research':tab==='prediction-arbs'?'↔  Kalshi / Polymarket':'◈  Agent Monitoring'}</button>)}
    <div className="efops-side-caption">OTHER TOOLS</div>
    <Link className="efops-link" href="/">↗ EdgeForce Dashboard</Link>
    <Link className="efops-link" href="/network">↗ Agent Command Network</Link>
@@ -74,7 +75,8 @@ export default function RemoteOperationsDashboard(){
   <main className="efops-main">
    <header className="efops-header"><div><div className="efops-eyebrow">EDGEFORCE / SECURE REMOTE OPERATIONS</div><h1>Sports Intelligence Command Center</h1><p>Source coverage, odds availability and specialist workload — without consuming odds API credits.</p></div><span className="efops-pill">READ-ONLY</span></header>
    <form className="efops-auth" onSubmit={e=>{e.preventDefault();void refresh()}}><label htmlFor="efops-token">Operator authentication</label><div><input id="efops-token" autoComplete="off" type="password" value={token} onChange={e=>{clearSession();setToken(e.target.value)}} placeholder="Enter your configured operator / cron token"/><button type="submit" disabled={loading||!token.trim()}>{loading?'Checking…':'Refresh dashboard'}</button><button type="button" className="efops-quiet" onClick={()=>{clearSession();setToken('')}}>Lock</button></div><small>Token stays in this page memory only. It is never added to the URL or stored in browser storage.</small>{error&&<p className="efops-error" role="alert">{error}</p>}</form>
-   {!snapshot?<div className="efops-empty"><h2>Connect to view your operational data</h2><p>After authentication, EdgeForce reports actual stored odds, DraftKings-labelled availability, registered providers and recorded agent tasks. Missing information remains explicitly unavailable.</p></div>:<>
+   {view==='research'&&<DailyWeeklyResearchPanel/>}
+   {view==='research'?null:!snapshot?<div className="efops-empty"><h2>Connect to view your operational data</h2><p>After authentication, EdgeForce reports actual stored odds, DraftKings-labelled availability, registered providers and recorded agent tasks. Missing information remains explicitly unavailable.</p></div>:<>
     <label className="efops-check"><input type="checkbox" checked={autoRefresh} onChange={e=>setAutoRefresh(e.target.checked)}/> Refresh every minute while this tab is visible</label><div className="efops-status" role="status"><strong>{snapshot.status==='DEGRADED'?'● Data coverage needs attention':snapshot.status==='BLOCKED'?'● Database connection blocked':'● Read-only operational snapshot'}</strong><span>Updated {displayTime(snapshot.generatedAt)} · Build {snapshot.build??'—'}</span></div>
     {view==='overview'&&<><div className="efops-grid">
      <div className="efops-stat"><span>Stored quotes</span><strong>{snapshot.summary?.total.toLocaleString()??'—'}</strong><small>Historical records</small></div>
