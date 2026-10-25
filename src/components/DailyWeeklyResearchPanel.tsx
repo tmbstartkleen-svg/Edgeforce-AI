@@ -14,13 +14,17 @@ export default function DailyWeeklyResearchPanel(){
  const [period,setPeriod]=useState('daily');
  const [sport,setSport]=useState('ALL');
  const [session,setSession]=useState('ALL');
+ const [stake,setStake]=useState('');
+ const [offer,setOffer]=useState('');
+ const stakeAmount=Number(stake),offerAmount=Number(offer);
+ const hasOffer=stake.trim()!==''&&offer.trim()!==''&&Number.isFinite(stakeAmount)&&stakeAmount>0&&Number.isFinite(offerAmount)&&offerAmount>=0;
  const filtered=rows.filter(row=>(sport==='ALL'||row.sport===sport)&&(session==='ALL'||row.time.endsWith(session)));
  return <section className="efops-panel" aria-label="Daily and weekly research">
   <h2>Daily &amp; Weekly Research</h2>
   <p>Research edition: October 25, 2026 morning · All times America/New_York. This is a dated research snapshot, not a live odds feed or a completed bet list.</p>
   <div className="efops-panel-head"><label>Edition <select value={period} onChange={e=>setPeriod(e.target.value)}><option value="daily">Monday, October 26</option><option value="weekly">October 26–November 1</option></select></label><label>Sport <select value={sport} onChange={e=>setSport(e.target.value)}><option value="ALL">All researched sports</option>{['NBA','NHL','NFL','MLB'].map(x=><option key={x}>{x}</option>)}</select></label><label>Start window <select value={session} onChange={e=>setSession(e.target.value)}><option value="ALL">AM and PM</option><option value="AM">AM</option><option value="PM">PM</option></select></label></div>
-  <div className="efops-grid"><div className="efops-stat"><span>Verified bet recommendations</span><strong>0</strong><small>Prices and calibrated models missing</small></div><div className="efops-stat"><span>Matchups in research queue</span><strong>{rows.length}</strong><small>October 26 only; incomplete sports coverage</small></div><div className="efops-stat"><span>Parlays published</span><strong>0</strong><small>2–5 leg request awaiting qualifying evidence</small></div></div>
-  <p role="status">Awaiting sportsbook, state/country and clarification of the -400 / -200 price rules. No prices, win percentages or cash-out offers have been verified for these selections.</p>
+  <div className="efops-grid"><div className="efops-stat"><span>Verified bet recommendations</span><strong>0</strong><small>Prices and calibrated models missing</small></div><div className="efops-stat"><span>Matchups in research queue</span><strong>{rows.length}</strong><small>October 26 only; incomplete sports coverage</small></div><div className="efops-stat"><span>Parlays published</span><strong>0</strong><small>Sequential tickets awaiting qualifying evidence</small></div></div>
+  <p role="status">Working price rule: earlier legs at -400 or more negative; last leg at -200 or more negative. Sportsbook and region remain unconfirmed. No prices, win percentages or cash-out offers have been verified for these selections.</p>
   {period==='weekly'&&<p className="efops-error">Weekly research is incomplete. Only October 26 matchups are listed below. October 27–November 1 schedules, injuries, rosters and prices have not been reviewed; no weekly ticket is published.</p>}
   <h3>October 26 matchup research</h3>
   <div className="efops-tablebox"><table><thead><tr><th>Sport / Matchup</th><th>Start ET</th><th>Injuries &amp; roster review</th><th>Odds</th><th>Monte Carlo %</th><th>Decision</th></tr></thead><tbody>{filtered.map(row=><tr key={row.event}><td>{row.sport}<br/>{row.event}</td><td>{row.time}</td><td>{row.note}<br/><a href={row.source} target="_blank" rel="noreferrer">Reviewed source</a></td><td>Unavailable</td><td>Unavailable</td><td>Hold — research incomplete</td></tr>)}</tbody></table></div>
@@ -28,12 +32,30 @@ export default function DailyWeeklyResearchPanel(){
   <h3>Cowboys–Eagles: injury and activation review</h3>
   <p>Dallas: Turpin (ribs), Shelton (hamstring) and Winters (calf) out. Liufau and Locke are questionable and need IR activation. Philadelphia: DeVonta Smith, Wicks, Nolan Smith and Carter II out. Barkley remains questionable despite full Saturday practice; Goedert is cleared. Greenard and Hunt remain questionable. Bennett, Calcaterra, Dickerson and Stowers need IR activation.</p>
   <p>Analysis: receiving roles and pass protection may change materially. Check activations, final inactives and workload expectations before evaluating sides, totals or player props. This review does not establish a betting edge. <a href={nflReport} target="_blank" rel="noreferrer">Team report, October 24</a>.</p>
-  <h3>Requested parlay structure</h3>
-  <p>Target: 2–5 legs, AM or PM opening, with all events expected to finish within 24 hours of the first start. Event end times and settlement can run late. The final leg must start after earlier legs are expected to finish if the goal is to review a cash-out offer before it begins.</p>
-  <p>“Stronger” is ambiguous: -500 is a stronger favorite than -400 but pays less. The price filter is not applied until its meaning is confirmed. Combined win probability requires a joint model that accounts for dependence; multiplying displayed percentages is not a joint Monte Carlo simulation.</p>
-  <p>Cash-out availability is unconfirmed and can be suspended or withdrawn by the sportsbook. A final leg at -200 does not guarantee an offer or a profitable exit.</p>
+  <h3>Timed ticket plans</h3>
+  <p>The goal is to review an available cash-out offer after earlier legs settle, before the next event begins. Earlier legs must still win for an ordinary parlay to remain alive. Adding legs does not by itself improve the chance of reaching a profitable exit.</p>
+  <div className="efops-tablebox"><table><thead><tr><th>Plan</th><th>Timing rule</th><th>Leg count</th><th>Review points</th></tr></thead><tbody>
+   <tr><td>24-hour AM start</td><td>Morning opening; final estimated finish within 24 hours of first start</td><td>Start with 2–5; longer only if verified events fit</td><td>After each settled leg, before the next starts</td></tr>
+   <tr><td>24-hour PM start</td><td>Afternoon/evening opening; may finish the following day within 24 hours</td><td>Start with 2–5; longer only if verified events fit</td><td>After each settled leg, before the next starts</td></tr>
+   <tr><td>Weekly sequence</td><td>Final estimated finish within 7 days of first start</td><td>As many qualifying, non-overlapping events as the book permits; no filler</td><td>After each settled leg; repeat injury and lineup checks daily</td></tr>
+  </tbody></table></div>
+  <p>Each next start must follow the prior estimated finish plus a settlement buffer. Reject overlapping legs, duplicate events and tickets that cannot be combined at one sportsbook. Actual end and settlement times may change. A future tournament round with unknown participants is not a selectable leg.</p>
+  <h3>Price-fit research leads — not tickets</h3>
+  <p>A public PokerStars France page retrieved October 25 lists these October 26 Vienna match-winner prices. These are regional reference quotes, not verified account offers. Its repeated 12:00 listings do not establish a usable match order or timezone, so no timed parlay is built from them.</p>
+  <div className="efops-tablebox"><table><thead><tr><th>Selection / Opponent</th><th>Listed decimal</th><th>American equivalent</th><th>Timing / health / Monte Carlo</th></tr></thead><tbody>
+   <tr><td>Alexander Zverev / Martin Landaluce</td><td>1.03</td><td>Approximately -3333</td><td>Unverified / Unverified / Unavailable</td></tr>
+   <tr><td>Daniil Medvedev / Daniel Merida</td><td>1.15</td><td>Approximately -667</td><td>Unverified / Unverified / Unavailable</td></tr>
+   <tr><td>Carlos Alcaraz / Karen Khachanov</td><td>1.10</td><td>-1000</td><td>Unverified / Unverified / Unavailable</td></tr>
+  </tbody></table></div>
+  <p><a href="https://www.pokerstars.fr/en/sports/tennis/2/atp-vienna-2026/12840460/" target="_blank" rel="noreferrer">Public price source</a>. Passing the price filter alone does not establish value. No independent probabilities or cash-out prices are available for these leads.</p>
+  <p>Timing check: the <a href="https://www.erstebank-open.com/en/scores/schedule" target="_blank" rel="noreferrer">official schedule reviewed October 25</a> currently shows Sunday qualifying, not Monday match times. The <a href="https://www.erstebank-open.com/en/news/storys/erstes-training-von-carlos-alcaraz" target="_blank" rel="noreferrer">tournament reports Zverev and Alcaraz practicing October 24</a>; practice attendance is not medical clearance. <a href="https://www.erstebank-open.com/en/news/storys/medvedev-mit-rueckenwind-nach-wien" target="_blank" rel="noreferrer">Medvedev played a three-set Almaty final October 25 and then travels to Vienna</a>. That workload and travel need review before using him as an early leg.</p>
+  <h3>Review an actual cash-out offer</h3>
+  <p>Enter the original cash stake and the total amount currently offered by your sportsbook, in the same currency. This calculates the difference only; it does not predict an offer or tell you to accept it. Excludes promotions, fees, tax and any previous partial cash-out.</p>
+  <div className="efops-panel-head"><label>Original cash stake<input type="number" min="0.01" step="0.01" value={stake} onChange={e=>setStake(e.target.value)}/></label><label>Current total cash-out offer<input type="number" min="0" step="0.01" value={offer} onChange={e=>setOffer(e.target.value)}/></label></div>
+  <p role="status">{hasOffer?`Difference from original stake: ${(offerAmount-stakeAmount).toFixed(2)} (${((offerAmount/stakeAmount-1)*100).toFixed(1)}%). ${offerAmount>stakeAmount?'Offer exceeds the original stake.':offerAmount===stakeAmount?'Offer equals the original stake.':'Offer is below the original stake.'}`:'Enter a positive stake and a nonnegative actual offer to compare them.'}</p>
+  <p>Combined win probability requires a joint model that accounts for dependence. Multiplying displayed percentages is not a joint Monte Carlo simulation. Cash-out eligibility remains sportsbook-specific.</p>
   <h3>Coverage still to complete</h3>
-  <p>WNBA, soccer competitions, tennis, college sports, golf, combat sports, motorsport and other sports remain unverified for this edition. The sports-network connection does not establish complete odds, injury or roster coverage. Check Sportsbook Coverage for stored-source evidence.</p>
+  <p>WNBA, soccer competitions, verified tennis schedules and health reports, college sports, golf, combat sports, motorsport and other sports remain unverified for this edition. The sports-network connection does not establish complete odds, injury or roster coverage. Check Sportsbook Coverage for stored-source evidence.</p>
   <p>No paid collection, archive writes, automated wagers or provider activation are performed by this section.</p>
  </section>;
 }
