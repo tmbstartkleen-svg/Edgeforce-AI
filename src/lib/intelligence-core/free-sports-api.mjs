@@ -53,6 +53,16 @@ export function createFreeSportsApi({apiKey='',operatorToken='',fetchImpl=fetch,
    while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2000000){await reader.cancel();throw new Error('Too large')}chunks.push(value)}
    const data=JSON.parse(Buffer.concat(chunks).toString('utf8'));
    if(!Array.isArray(data))throw new Error('Expected collection');
+   // Catalog authentication is not evidence that schedule filters were honored.
+   if(resource==='events'){
+    const league=url.searchParams.get('league_key'),date=url.searchParams.get('date');
+    const mismatch=data.some(event=>{
+     if(league&&event?.league?.key!==league)return true;
+     if(date){const start=Date.parse(event?.commence_time);if(!Number.isFinite(start)||new Date(start).toISOString().slice(0,10)!==date)return true;}
+     return false;
+    });
+    if(mismatch)return json({ok:false,error:'UPSTREAM_SCHEDULE_FILTER_MISMATCH'},502);
+   }
    const receivedMs=now();
    const body={ok:true,provider:'betstack',resource,receivedAt:new Date(receivedMs).toISOString(),cached:false,data,oddsKind:resource==='lines'?'consensus':null,bookmakerExecutable:false,completeCoverageCertified:false,sourceTimestampsVerified:false};
    cache.delete(key);if(cache.size>=32)cache.delete(cache.keys().next().value);

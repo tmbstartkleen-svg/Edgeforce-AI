@@ -1,6 +1,6 @@
 # Free sports API gateway
 
-Status: implemented locally, account/key and real-data verification pending. Not deployed or connected to the production dashboard. No signup has been completed. This gateway covers the sports actually returned by BetStack, not every sport in existence.
+Status: implemented locally; account key authenticated on 2026-10-25. Not deployed or connected to the production dashboard. Sports and leagues catalog requests succeeded, but a dated NBA schedule request returned mismatched leagues and stale dates. Schedule quality verification failed. This gateway covers the sports actually returned by BetStack, not every sport in existence.
 
 The supplied Muse guide was checked against https://api.betstack.dev/docs and https://sharpapi.io/pricing on 2026-10-25. BetStack documents one request per 60 seconds per key, consensus odds, dynamic sports/leagues and separate events/results/lines/teams collections. Its docs permit personal and commercial use. SharpAPI already has an opt-in adapter in src/lib/providers/sharpApi.ts; the published free plan has two sportsbooks, 12 requests/minute and a 60-second delay. FieldFunded is another candidate but its precise available leagues and response contracts have not been integrated or verified.
 
@@ -28,4 +28,6 @@ This is NOT a distributed limiter. Do not run several instances with the same ke
 
 ## Activation still required
 
-Confirm the account email, complete provider email verification, install the resulting secret, then verify sports, leagues and sample events sequentially respecting the rate limit. Catalog presence alone does not prove usable odds or injuries for every league. Keep source gaps visible. Any separate provider signup that asks for payment or a paid trial is out of scope.
+The account credential is saved outside the repository in an owner-only local file. Production secret installation remains pending. Resolve the schedule mismatch and verify sample events and lines sequentially respecting the rate limit before activation. Catalog presence alone does not prove usable odds or injuries for every league. Keep source gaps visible. Any separate provider signup that asks for payment or a paid trial is out of scope.
+
+See [coverage audit](sports-data-coverage-audit.md) for evidence and additional providers. Event responses now fail closed when requested league or UTC date does not match the returned records. Other response contracts and freshness still require verification.

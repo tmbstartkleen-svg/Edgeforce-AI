@@ -33,3 +33,18 @@ test('concurrent requests share quota and Retry-After extends it',async()=>{
  const first=api(request('sports'));assert.equal((await api(request('leagues'))).status,429);release();
  assert.equal((await first).headers.get('retry-after'),'120');assert.equal((await api(request('events'))).headers.get('retry-after'),'120');
 });
+
+test('rejects stale or wrong-league schedules instead of presenting them as requested games',async()=>{
+ for(const event of [
+  {league:{key:'basketball_nbl'},commence_time:'2026-10-26T12:00:00Z'},
+  {league:{key:'basketball_nba'},commence_time:'2025-11-01T12:00:00Z'},
+  {league:{key:'basketball_nba'},commence_time:null},
+  null
+ ]){
+  const api=createFreeSportsApi({apiKey:'secret',operatorToken:token,fetchImpl:async()=>Response.json([event])});
+  const r=await api(request('events?league_key=basketball_nba&date=2026-10-26'));
+  assert.equal(r.status,502);assert.equal((await r.json()).error,'UPSTREAM_SCHEDULE_FILTER_MISMATCH');
+ }
+ const api=createFreeSportsApi({apiKey:'secret',operatorToken:token,fetchImpl:async()=>Response.json([{league:{key:'basketball_nba'},commence_time:'2026-10-26T12:00:00Z'}])});
+ assert.equal((await api(request('events?league_key=basketball_nba&date=2026-10-26'))).status,200);
+});
