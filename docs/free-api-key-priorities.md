@@ -49,3 +49,15 @@ A simulation percentage needs calibrated, held-out model testing and explicit un
 - https://www.pandascore.co/pricing
 
 No accounts, subscriptions, paid trials, production switches or billing changes were made during this review.
+
+## Credential validation update
+
+Five additional user-supplied credentials were saved outside the repository with owner-only file permissions. No secret values are included here.
+
+- API-Sports: all 12 product status endpoints returned HTTP 200, active Free, 100 requests/day/product. This proves subscription access, not current-season data availability. Football EPL fixtures and injuries with season=2026 returned HTTP 200 containing a plan error and zero results: free access restricted to 2022–2024. Treat API-level errors as failures even when HTTP status is 200. Do not use this plan for current soccer injury claims.
+- CFBD: authenticated 2026 Michigan games request returned 12 records. User's onboarding email specifies 1,000 requests/calendar month. Independent schedule accuracy, player/roster coverage and CBBD entitlement remain unverified.
+- SharpAPI: bounded odds request returned five records, with rate-limit header 12/minute. Freshness, sportsbook identity and entitlement details still need validation before production activation.
+- The Odds API: supplied credential returned HTTP 401 on sports catalog. Preserve it privately, but mark access unavailable until account/key issue is resolved. Do not retry repeatedly or activate collection.
+- football-data.org: competitions request returned HTTP 200 with 13 records; remaining-minute header was 9. Catalog size does not establish permission to retrieve every listed competition. Email verification remains unconfirmed.
+
+No production secrets were installed, no billing changed, no scheduled collectors enabled and no D1 archive writes performed. Credentials are ready for server-side integration only after their data and access checks pass.
