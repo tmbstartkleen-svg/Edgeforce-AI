@@ -1,3 +1,4 @@
+import {d1SportsEvidence} from './d1-sports-evidence';
 import handler from 'vinext/server/fetch-handler';
 import {atlasGateway} from './atlas-mission-gateway';
 import {d1CoverageGateway} from './d1-coverage';
@@ -97,6 +98,7 @@ async function runDailyShard(controller:ScheduledControllerLike,env:EdgeforceEnv
 const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
   const pathname=new URL(request.url).pathname;
+  if(pathname==='/api/operations/sports-evidence')return d1SportsEvidence(request,env);
   if(pathname==='/api/operations/prediction-launch-audit')return predictionLaunchAudit(request,env);
   if(pathname==='/api/operations/prediction-watches')return predictionWatchLedger(request,env);
   if(pathname==='/api/operations/prediction-orderbooks')return predictionOrderbookGateway(request,env);
