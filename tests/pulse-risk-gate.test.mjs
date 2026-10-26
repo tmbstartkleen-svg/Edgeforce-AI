@@ -47,8 +47,8 @@ test('thin positive edge is a watchlist, not an actionable recommendation', () =
   const result = evaluatePulseCandidate({...base,scenarios:[
     {weight:0.7,probability:0.47},{weight:0.3,probability:0.45},
   ]},{now,minEdge:0.03,scenarioRiskPenalty:0.25});
-  assert.equal(result.status,'PASS');
-  assert.ok(result.edge <= 0);
+  assert.equal(result.status,'WATCHLIST');
+  assert.ok(result.edge > 0 && result.edge < 0.03);
 });
 
 test('scenario weights must sum to one', () => {
