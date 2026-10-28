@@ -17,6 +17,6 @@ function mod(file,extras={}) { const exports={}; vm.runInNewContext(ts.transpile
  assert.equal((await call('/api/research/csv?league=bad&season=2627')).status,400);assert.equal(fetched,0);
  assert.equal((await call('/api/research/csv?league=E0&season=2627','POST')).status,405);
  await call('/api/research/csv?league=E0&season=2627');await call('/api/research/csv?league=E0&season=2627');assert.equal(fetched,1);
- const feed=await(await call('/api/live-state')).json();assert.equal(feed.quotes.length,0);assert.equal(feed.readiness.simulations,false);assert.equal(fetched,1);
+ assert.equal((await call('/api/live-state')).status,503);assert.equal(fetched,1);
  console.log('PASS: earlier-only learning, result correction, deduplication, disabled collection, safe flags, endpoint validation, cache reuse.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

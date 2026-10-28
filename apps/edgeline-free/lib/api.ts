@@ -51,7 +51,10 @@ export const api = {
   },
   async post(path: string, body?: any): Promise<{data: any}> {
     if (path === '/api/research/import') return {data: await history(body.league, body.season, true)};
-    if (path === '/api/live-state/refresh') return this.get('/api/live-state');
+    if (path === '/api/live-state/refresh') {
+      const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{}),signal:AbortSignal.timeout(30000)});
+      const data=await r.json();if(!r.ok)throw new Error(data.error||'Refresh failed');return {data};
+    }
     throw new Error('Unsupported action');
   }
 };

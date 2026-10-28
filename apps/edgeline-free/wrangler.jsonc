@@ -17,6 +17,23 @@
   "vars": {
     "D1_SPORTS_MARKET_ARCHIVE_ENABLED": "false",
     "ATLAS_SCHEDULE_EXECUTION_ENABLED": "false",
-    "PAID_ODDS_ENABLED": "false"
-  }
+    "PAID_ODDS_ENABLED": "false",
+    "FREE_ODDS_ENABLED": "true"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "FREE_ODDS",
+        "class_name": "FreeOdds"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "free-odds-v1",
+      "new_sqlite_classes": [
+        "FreeOdds"
+      ]
+    }
+  ]
 }

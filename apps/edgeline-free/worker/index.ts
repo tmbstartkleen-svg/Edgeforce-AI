@@ -1,3 +1,4 @@
+export { FreeOdds } from './odds';
 import { getCoverage, getCoverageEvents } from '../backend/coverage';
 const leagues = ['E0','SP1','D1','I1','F1'];
 const seasons = ['2122','2223','2324','2425','2526','2627'];
@@ -6,10 +7,22 @@ export default {
   async fetch(request: Request, env: any, ctx: any) {
     const url = new URL(request.url), path = url.pathname;
     if (!path.startsWith('/api/')) return env.ASSETS.fetch(request);
+    if (['/api/live-state','/api/live-state/refresh','/api/sports','/api/odds-budget'].includes(path)) {
+      if (!env.FREE_ODDS) return json({error:'Free odds service not configured'},503);
+      let sport=url.searchParams.get('sport')||'';
+      if(path.endsWith('/refresh')) {
+        if(request.method!=='POST')return json({error:'Use POST'},405);
+        if(request.headers.get('Origin') && request.headers.get('Origin')!==url.origin)return json({error:'Origin not allowed'},403);
+        const body=await request.text();if(body.length>1000)return json({error:'Request too large'},413);
+        try { sport=JSON.parse(body||'{}').sport||''; }catch{return json({error:'Invalid request'},400);}
+      } else if(request.method!=='GET')return json({error:'Method not allowed'},405);
+      if(typeof sport!=='string'||(sport&&!/^[a-z0-9_]{1,100}$/.test(sport)))return json({error:'Invalid league'},400);
+      const operation=path.endsWith('/refresh')?'refresh':path==='/api/sports'?'sports':path==='/api/odds-budget'?'budget':'state';
+      try { return await env.FREE_ODDS.get(env.FREE_ODDS.idFromName('shared-free-budget-v1')).fetch(new Request('https://odds/'+operation+'?'+new URLSearchParams({sport}))); } catch { return json({error:'Free odds service unavailable; cached source must be rechecked'},502); }
+    }
     if (request.method !== 'GET') return json({error:'Method not allowed'},405);
     try {
-      if (path === '/api/monitoring' || path === '/api/_healthcheck') return json({ok:true,checkedAt:new Date().toISOString(),release:'free-monitoring-v1',paidOddsEnabled:env.PAID_ODDS_ENABLED !== 'false',archiveWritesEnabled:env.D1_SPORTS_MARKET_ARCHIVE_ENABLED !== 'false',scheduledExecutionEnabled:env.ATLAS_SCHEDULE_EXECUTION_ENABLED !== 'false',billingVerified:false,storage:'Browser IndexedDB; no cloud database',learning:'On use, at most daily per league in this browser; five soccer leagues only',quota:'Account-wide Worker usage unavailable; requests can stop at the free quota. Static assets are served separately.'});
-      if (path === '/api/live-state') return json({version:0,generatedAt:new Date().toISOString(),researchArchiveError:null,mode:'odds',events:[],quotes:[],feed:{fetchedAt:null,nextCheckAt:null,remaining:null,problem:'Automatic sportsbook collection is disabled in free mode. Use International coverage for public Kalshi and Polymarket snapshots.',refreshMessage:'No odds credits consumed.',manualRefreshesRemaining:0},coverage:{horizonDays:7,scheduledEvents:0,pricedEvents:0,simulationReadySelections:0},readiness:{prices:false,playerModels:false,injuries:false,weather:false,simulations:false}});
+      if (path === '/api/monitoring' || path === '/api/_healthcheck') return json({ok:true,checkedAt:new Date().toISOString(),release:'free-odds-v2',freeOddsEnabled:env.FREE_ODDS_ENABLED==='true',paidOddsEnabled:env.PAID_ODDS_ENABLED !== 'false',archiveWritesEnabled:env.D1_SPORTS_MARKET_ARCHIVE_ENABLED !== 'false',scheduledExecutionEnabled:env.ATLAS_SCHEDULE_EXECUTION_ENABLED !== 'false',billingVerified:false,storage:'Browser research; shared latest-odds cache and credit counter',learning:'On use, at most daily per league in this browser; five soccer leagues only',quota:'Account-wide Worker usage unavailable; requests can stop at the free quota. Static assets are served separately.'});
       if (path === '/api/research/current') return json({day:url.searchParams.get('day'),rows:[],settlement:'Sports archive writes disabled. No unsettled observations are used for learning.'});
       const q = url.searchParams;
       if (!['/api/coverage','/api/coverage/events','/api/research/csv'].includes(path)) return json({error:'Not found'},404);

@@ -1,33 +1,39 @@
-# Edgeline free-mode dashboard
+# Edgeline free-tier analysis dashboard
 
-Independent deployment: https://edgeline-free.tmbstartkleen.workers.dev/#monitoring
+Live: https://edgeline-free.tmbstartkleen.workers.dev/#board
 
-This static Next.js export replaces the paused AppDeploy dashboard for free-mode research. It does not alter the existing EdgeForce Worker. The Worker only handles on-demand public-data reads; no secrets, database bindings, schedules, trading, paid collectors, or archive writes are configured. Billing was not changed; OAuth cannot read account subscriptions, so current billing details are not independently verified. Static assets are free; API requests remain subject to the existing account's Workers plan and quota.
+Independent static Next.js deployment; the existing EdgeForce Worker is unchanged. The dashboard connects real DraftKings prices through The Odds API and compares matching markets with other books. Select an active league or the provider's next-eight-games feed. Catalog inclusion does not guarantee DraftKings coverage.
 
-## Run and validate
+## Free-credit protection
+
+A single SQLite Durable Object coordinates all users and persists the latest snapshot per league and its credit counter. Reservations occur before requests, including failed requests. Concurrent visits cannot spend separate credits for the same refresh. Limits: 3 refreshes per UTC day, 300 reserved credits per calendar month, 30-minute global cooldown, 3 credits reserved per refresh. The free sports-catalog endpoint verifies remaining provider credits before collection, maintaining a 10-credit reserve. Unknown quota fails closed. The provider's remaining-credit header also accounts for use outside this app. Successful snapshots can refresh on use after six hours; there are no background alarms or cron jobs.
+
+Only THE_ODDS_API_KEY is stored as a Worker secret. No keys are sent to the browser. Paid odds flag, D1 archive writes and ATLAS scheduling remain false. No subscriptions or billing settings were changed. The connected OAuth session cannot independently inspect billing. SQLite Durable Objects are available on Workers Free; account-wide runtime quotas still apply.
+
+## Analysis integrity
+
+Quotes older than five minutes are excluded from ready cards and arbitrage. Historical snapshot parlay constructions remain visible with a warning and disabled slip loading. Market-implied Monte Carlo probabilities are not independent forecasts. Negative differences against the market estimate are labeled as having no positive price edge. Injuries, lineups and all-sport independent forecasts remain unverified.
+
+Arbitrage scanning currently compares DraftKings and FanDuel full-game moneylines only, with identical outcome sets, fresh prices and future start times. Results are theoretical candidates requiring settlement-rule, limits and executable-price confirmation. Exchange contracts, spread/total arbitrage and fee-adjusted execution are excluded. Zero candidates is a valid result, not an error.
+
+## Learning and monitoring
+
+Research lab checks completed results from five soccer leagues on use. Successful imports are cached in browser IndexedDB for 24 hours. Forecasts use earlier dates only; corrections replace partitions and duplicates do not multiply training games. This is historical replay, not live profitability evidence. Export research to retain a backup; browser data is local to this device/origin. Old AppDeploy paper tickets are not migrated.
+
+Monitoring shows API health and paid/free collection flags. International coverage provides cached public Kalshi and Polymarket catalogs and paginated event inspections with source status and capture times. Catalog counts are not live-game counts.
+
+## Validation and deployment
 
 ```
 npm ci
 node verification/check.cjs
 node verification/free.cjs
+node verification/odds.cjs
+npx tsc --noEmit --target es2022 --module esnext --moduleResolution bundler --lib es2022,dom --skipLibCheck --strict worker/odds.ts worker/index.ts backend/normalize-odds.ts
 npm run build
 wrangler deploy --dry-run
 ```
 
-Deploy manually with an authenticated Wrangler installation using `wrangler deploy`. No automated deployment or paid upgrade is configured.
+Store THE_ODDS_API_KEY using Wrangler secret input, then deploy with `wrangler deploy`. No automatic deployment or paid upgrade is configured.
 
-## Learning
-
-Research lab checks five current-season soccer result files on use. Successful imports are cached in browser IndexedDB for 24 hours. Explicit historical import covers five leagues across six seasons. Each day's forecasts use only earlier dates; results are deduplicated by game identity and corrections replace each partition. Computation runs in the browser, not metered server compute. No automatic live-model promotion occurs. Brier/log-loss comparisons are historical replay, not live profitability evidence. IndexedDB is local to this origin/device; export research to retain a backup. Old AppDeploy paper tickets are not migrated.
-
-## Coverage and limitations
-
-Public Kalshi series and Polymarket competition catalogs are cached for 15 minutes, event pages for one minute, errors briefly. Full cursor pagination is supported. Catalog size is not live-game count. Odds are indicative snapshots, not executable prices or forecasts. DraftKings/FanDuel automatic collection is disabled; schedule, ticket and simulation tabs therefore have no new sportsbook inputs. Injuries, rosters and all-sport independent models remain unverified.
-
-## Verified October 27, 2026
-
-- Production build, type checks, Worker dry run and both regression suites passed.
-- New host rendered Monitoring and returned all paid/archive/scheduled flags false.
-- Browser learning imported 394 completed matches; 90 eligible comparison games. Market Brier 0.5329, Poisson 0.6113, Monte Carlo 0.6118. This sample favors the market benchmark.
-- Polymarket catalog: 491 entries; EuroLeague inspection: 21 events / 66 markets (including futures, not 21 live games).
-- Kalshi returned HTTP 429 and was displayed as unavailable rather than fabricated coverage.
+Live verification October 28, 2026 at 10:57 UTC: 8 upcoming matches, 16 DraftKings selections, 478 provider credits remaining, 3 app credits reserved, no provider error, 0 qualifying arbitrage candidates. These are snapshot results, not permanent counts. Browser verification confirmed populated parlay builders and timed candidate cards. Prior learning verification imported 394 matches with 90 eligible model comparisons; the market benchmark outperformed the Poisson model in that sample.

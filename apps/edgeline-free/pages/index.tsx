@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import type { Arb } from '../lib/arbitrage';
 import Research from '../components/Research';
 import { easternDay, easternPeriod, USER_TIME_ZONE } from '../lib/eastern-time';
 import Monitoring from '../components/Monitoring';
@@ -62,9 +63,13 @@ type Quote = {
   consensusEdge: number | null;
 };
 type Snapshot = {
+  arbitrage?: Arb[];
   events: Event[];
   quotes: Quote[];
   feed: {
+    sport?: string;
+    creditsReserved?: number;
+    monthlyLimit?: number;
     fetchedAt: string | null;
     nextCheckAt: string;
     remaining: number | null;
@@ -226,6 +231,7 @@ const panels = [
   'tools',
   'coverage',
   'monitoring',
+  'arbitrage',
 ] as const;
 type Panel = (typeof panels)[number];
 function readSavedArray<T>(key: string): T[] {
@@ -258,7 +264,8 @@ export default function Home() {
       | 'tools'
       | 'coverage'
       | 'monitoring'
-    >('monitoring'),
+      | 'arbitrage'
+    >('board'),
     [detail, setDetail] = useState<SimulationDetail | null>(null),
     [gameDetail, setGameDetail] = useState<Event | null>(null),
     [paperTickets, setPaperTickets] = useState<PaperTicket[]>([]),
@@ -266,16 +273,21 @@ export default function Home() {
     [storageError, setStorageError] = useState(''),
     [now, setNow] = useState(Date.now()),
     [shareMessage, setShareMessage] = useState('');
+  const [feedSport, setFeedSport] = useState('upcoming');
+  const [feedSports,setFeedSports]=useState<{key:string;title:string}[]>([]);
+  const [catalogError,setCatalogError]=useState('');
+  useEffect(()=>{api.get('/api/sports').then(({data})=>{setFeedSports(data.sports||[]);setCatalogError(data.problem||'');}).catch(()=>setCatalogError('League catalog unavailable'));},[]);
   const load = async (force = false, quiet = false) => {
     if (!quiet) force ? setRefreshing(true) : setBusy(true);
     setError('');
     try {
       const r = force
-        ? await api.post('/api/live-state/refresh')
+        ? await api.post('/api/live-state/refresh',{sport:feedSport})
         : await api.get('/api/live-state');
       const payload = (r as any)?.data ?? r;
       if (!Array.isArray(payload?.events) || !Array.isArray(payload?.quotes))
         throw new Error('Invalid feed');
+      if(!force && payload.feed?.sport)setFeedSport(payload.feed.sport);
       const clock = Date.now();
       setData({
         ...payload,
@@ -331,8 +343,10 @@ export default function Home() {
     };
     onHash();
     window.addEventListener('hashchange', onHash);
+    const freshnessClock=window.setInterval(()=>{setNow(Date.now());setData(old=>{if(!old)return old;const quotes=old.quotes.map(q=>({...q,stale:!isFreshPrice(q.updatedAt)}));return quotes.some((q,i)=>q.stale!==old.quotes[i].stale)?{...old,quotes}:old;});},15000);
     return () => {
       window.removeEventListener('hashchange', onHash);
+      window.clearInterval(freshnessClock);
     };
   }, []);
   const navigate = (target: Panel) => {
@@ -580,7 +594,7 @@ export default function Home() {
         .filter((quote) => {
           const event = data.events.find((item) => item.id === quote.eventId);
           const start = event ? Date.parse(event.startsAt) : 0;
-          return !quote.stale && start >= now && start <= end;
+          return start >= now && start <= end;
         })
         .forEach((quote) => {
           const old = best.get(quote.eventId);
@@ -604,7 +618,7 @@ export default function Home() {
         (total, leg) => total * (americanToDecimal(leg.price) || 1),
         1,
       );
-      const simulationProbability = chance(legs);
+      const simulationProbability = legs.length ? chance(legs) : 0;
       return {
         id,
         name,
@@ -864,7 +878,7 @@ export default function Home() {
         <div className="status">
           <b />{' '}
           {error || data?.feed.problem
-            ? 'FREE RESEARCH MODE'
+            ? 'SOURCE NEEDS ATTENTION'
             : data?.feed.fetchedAt
               ? 'FREE BETA · CACHED PRICES'
               : 'CONNECTING'}
@@ -930,7 +944,7 @@ export default function Home() {
             <a className="active" href="#today">
               Command center
             </a>
-            <a href="#monitoring">Monitoring & learning</a><a href="#research">Research lab</a><a href="#coverage">International coverage</a>
+            <a href="#arbitrage">Arbitrage scan</a><a href="#monitoring">Monitoring & learning</a><a href="#research">Research lab</a><a href="#coverage">International coverage</a>
             <a href="#ready">
               Ready cards <b>{packs.length}</b>
             </a>
@@ -973,7 +987,7 @@ export default function Home() {
                 <em>command center.</em>
               </h1>
               <p>
-                Public prediction-market snapshots, historical soccer research and transparent monitoring. Sportsbook collection is paused to preserve free usage. Times shown in Eastern Time.
+                Real DraftKings odds, cross-book comparisons, timed parlay research and public prediction-market snapshots. Free credits fund bounded snapshots, not continuous live prices. Times shown in Eastern Time.
               </p>
             </div>
             <div className="heroStats">
@@ -991,8 +1005,8 @@ export default function Home() {
               </div>
             </div>
           </section>
-          <section className="feedline"><span>Free research mode</span><span>Kalshi / Polymarket: inspect public snapshots in International coverage</span><button onClick={() => navigate('monitoring')}>View monitoring</button></section>
-          <div className="feedPolicy"><strong>No automatic sportsbook requests</strong><span>Historical research updates on use, at most daily per league in this browser. No paid odds credits, cloud archive writes or scheduled collectors.</span></div>
+          <section className="feedline"><label>Odds league <select aria-label="Odds league" value={feedSport} onChange={e=>setFeedSport(e.target.value)}><option value="upcoming">Next 8 games across sports</option>{feedSports.map(s=><option key={s.key} value={s.key}>{s.title}</option>)}</select></label><button disabled={refreshing} onClick={()=>load(true)}>{refreshing?'Refreshing…':'Refresh selected league'}</button><span>Displayed: {data?.feed.sport || 'Connecting'} · Snapshot: {data?.feed.fetchedAt?new Date(data.feed.fetchedAt).toLocaleString('en-US',{timeZone:USER_TIME_ZONE}):'None'}</span></section>
+          <div className="feedPolicy"><strong>Free-tier credit protection</strong><span>{data?.feed.manualRefreshesRemaining??'—'} refreshes left today · {data?.feed.creditsReserved??'—'}/{data?.feed.monthlyLimit??300} app credits reserved this month · Provider credits left: {data?.feed.remaining??'Unknown'}</span><span>Shared 30-minute cooldown, 3 refreshes/day. Up to 3 credits per refresh. Quotes older than five minutes are excluded from ready parlays and arbitrage.</span><span role="status">{data?.feed.refreshMessage || catalogError}</span></div>
           {storageError && (
             <div className="alert" role="alert">
               {storageError}
@@ -1047,10 +1061,12 @@ export default function Home() {
               <BarChart3 size={17} /> Research lab
             </button>
             <button className={panel === 'tools' ? 'active' : ''} onClick={() => navigate('tools')}>Professional tools</button>
+            <button className={panel === 'arbitrage' ? 'active' : ''} onClick={() => navigate('arbitrage')}>Arbitrage scan</button>
             <button className={panel === 'monitoring' ? 'active' : ''} onClick={() => navigate('monitoring')}>Monitoring & learning</button>
             <button className={panel === 'coverage' ? 'active' : ''} onClick={() => navigate('coverage')}>International coverage</button>
           </section>
-          <p role="status">Free mode: automatic sportsbook collection is disabled. Kalshi contracts, injuries and player forecasts are not connected here. Only future events appear; stale prices are not simulation-ready.</p>
+          <p role="status">Source-backed pregame analysis. Market-implied simulations are not independent forecasts. Injuries and lineups remain unverified; prediction-market contracts are inspected separately.</p>
+          {panel === 'arbitrage' && <section><span className="eyebrow">CROSS-BOOK PRICE CHECK</span><h2>Arbitrage candidates</h2><p>DraftKings vs FanDuel full-game moneylines only. Every outcome must match, all prices must be under five minutes old, and the event must not have started. These are theoretical price discrepancies; confirm identical settlement rules, limits and available stakes before considering execution. Exchange contracts and fees are not included.</p>{(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).length===0?<div className="alert">No qualifying arbitrage in this snapshot. This is not a claim that none exists elsewhere.</div>:(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).map(a=><article key={a.eventId}><h3>{a.matchup}</h3><p>{a.margin.toFixed(2)}% theoretical return before execution constraints · {a.market}</p>{a.legs.map(l=><p key={l.selection}>{l.book}: {l.selection} · {fmt(l.price)} · {(l.share*100).toFixed(2)}% of total stake · {new Date(l.updatedAt).toLocaleTimeString()}</p>)}</article>)}</section>}
           {panel === 'monitoring' && <Monitoring />}
           {panel === 'research' && <Research />}
           {panel === 'tools' && <ProfessionalDesk />}
@@ -1262,12 +1278,13 @@ export default function Home() {
                           <strong>{fmt(p.fairOdds)}</strong>
                         </div>
                         <div>
-                          <span>DK vs model gap</span>
+                          <span>Estimate minus implied chance</span>
                           <strong>
-                            {(p.rawChance - p.chance).toFixed(1)} pts
+                            {(p.chance - p.rawChance).toFixed(1)} pts
                           </strong>
                         </div>
                       </div>
+                      <p>{p.chance > p.rawChance ? "Positive market-price discrepancy; independent validation pending." : "No positive price edge against this market estimate."}</p>
                       <div className="cardActions">
                         <button
                           className="inspect"
@@ -1472,12 +1489,13 @@ export default function Home() {
                           : `Waiting for ${30 - plan.legs.length} additional independently priced games.`}
                       </span>
                     </div>
+                    {plan.legs.some(q=>q.stale) && <p role="status">Snapshot research only: some quotes are older than five minutes. Slip loading is disabled until prices are refreshed.</p>}
                     <div className="megaMath">
                       <div>
                         <span>DraftKings combined</span>
                         <strong>{fmt(plan.draftKingsOdds)}</strong>
                         <small>
-                          {plan.decimalOdds.toExponential(3)} decimal
+                          {plan.legs.length ? plan.decimalOdds.toExponential(3)+' decimal' : 'No priced legs'}
                         </small>
                       </div>
                       <div>
@@ -1525,7 +1543,7 @@ export default function Home() {
                     </div>
                     <button
                       className="addTicket"
-                      disabled={!plan.legs.length}
+                      disabled={!plan.legs.length || plan.legs.some(q=>q.stale)}
                       onClick={() =>
                         setSelected(plan.legs.map((leg) => leg.id))
                       }

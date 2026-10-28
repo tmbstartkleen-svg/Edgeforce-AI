@@ -47,11 +47,11 @@ export default function ProfessionalDesk({ coverage = false }: { coverage?: bool
     .filter((row) => (provider === 'All' || row.provider === provider) && `${row.name} ${row.group} ${row.id}`.toLowerCase().includes(query.toLowerCase()));
   return <section aria-label='International coverage'>
     <span className='eyebrow'>COVERAGE AUDIT</span><h2>Live & international coverage</h2>
-    <p>Catalog discovery and on-demand event inspection are connected below. Catalog entries are not live games or simulation-ready selections. Automatic sportsbook collection is disabled in free mode.</p>
+    <p>Catalog discovery and on-demand event inspection are connected below. Catalog entries are not live games or simulation-ready selections. Free sportsbook snapshots are available on the main desk.</p>
     <div className='alert'>DraftKings in-play, Kalshi contract prices and Polymarket executable prices are not connected to the simulation engine. The reported 39 DK / 87 Polymarket figures have not been verified as comparable live-game totals.</div>
     <h3>DraftKings international gap</h3>
     <p>Observed October 26, 2026: 30 basketball competitions in the public menu, including EuroLeague, EuroCup, Australia NBL/WNBL, Lebanon FLB, Israel, Germany, Brazil, Argentina and Uruguay. Soccer also includes lower divisions and international leagues beyond the major European competitions.</p>
-    <p>Sportsbook refresh is currently disabled to avoid consuming odds credits. Schedule coverage does not imply available DraftKings odds. Full in-play coverage needs a licensed source with those exact leagues and suitable refresh limits.</p>
+    <p>Choose a provider league on the main desk and refresh within the shared free-credit budget. Schedule coverage does not imply available DraftKings odds. Full in-play coverage needs a licensed source with those exact leagues and suitable refresh limits.</p>
     <p><a href='https://sportsbook.draftkings.com/sports/basketball' target='_blank' rel='noopener noreferrer'>DK basketball directory ↗</a> · <a href='https://sportsbook.draftkings.com/sports/soccer' target='_blank' rel='noopener noreferrer'>DK soccer directory ↗</a> · <a href='https://sportsbook.draftkings.com/live' target='_blank' rel='noopener noreferrer'>DK live board ↗</a></p>
     <h3>Public prediction-market catalogs</h3>
     <p>Search league names and aliases. Kalshi lists contract series; Polymarket lists sports/competitions. Some are inactive or futures. Polymarket.com is view-only for US visitors; its US product has separate availability.</p>
