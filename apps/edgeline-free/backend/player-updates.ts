@@ -22,7 +22,7 @@ export async function playerUpdates(league:string,team:string,origin:string,ctx:
  if(!Object.hasOwn(PLAYER_LEAGUES,league)|| (team&&!/^\d{1,9}$/.test(team)))throw new Error('Unsupported league or team');
  const path=PLAYER_LEAGUES[league];const cache=(caches as any).default;
  async function read(kind:string,url:string,ttl:number){
-  const key=new Request(`${origin}/_source-cache/${league}/${kind}/${kind==='roster'?team:'all'}`);
+  const key=new Request(`${origin}/_source-cache-v2/${league}/${kind}/${kind==='roster'?team:'all'}`);
   const saved=await cache.match(key);if(saved)return saved.json();
   let result:any;
   try {
@@ -33,7 +33,7 @@ export async function playerUpdates(league:string,team:string,origin:string,ctx:
  }
  const [teams,injuries,news,roster]=await Promise.all([
   read('teams',`https://site.api.espn.com/apis/site/v2/sports/${path}/teams?limit=500`,86400),
-  read('injuries',`https://site.web.api.espn.com/apis/site/v2/sports/${path}/injuries?region=us&lang=en&contentorigin=espn`,300),
+  read('injuries',`https://site.api.espn.com/apis/site/v2/sports/${path}/injuries`,300),
   read('news',`https://site.api.espn.com/apis/site/v2/sports/${path}/news?limit=10`,300),
   team?read('roster',`https://site.api.espn.com/apis/site/v2/sports/${path}/teams/${team}/roster`,900):Promise.resolve(null),
  ]);
