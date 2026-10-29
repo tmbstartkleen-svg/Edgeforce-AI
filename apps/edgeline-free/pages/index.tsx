@@ -1,5 +1,6 @@
 import Strategies from '../components/Strategies';
 import PlayerUpdates from '../components/PlayerUpdates';
+import GamePlayers from '../components/GamePlayers';
 import Head from 'next/head';
 import type { Arb } from '../lib/arbitrage';
 import Research from '../components/Research';
@@ -2118,9 +2119,10 @@ export default function Home() {
               <span className={openedGameQuotes.length ? 'readyState' : ''}>
                 {openedGameQuotes.length ? 'PROVIDER SNAPSHOT' : 'ODDS PENDING'}
               </span>
-              <span>Roster/injury feed not connected</span>
+              <span>Player reports reviewed separately below</span>
               <span>Venue weather feed not connected</span>
             </div>
+            <GamePlayers key={gameDetail.id} sport={gameDetail.sport} home={gameDetail.home} away={gameDetail.away} />
             {openedGameQuotes.length ? (
               <div className="gameOdds">
                 <div className="gameOddsHead">
