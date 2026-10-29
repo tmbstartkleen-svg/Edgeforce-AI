@@ -1,3 +1,4 @@
+import Tracker from '../components/Tracker';
 import Strategies from '../components/Strategies';
 import PlayerUpdates from '../components/PlayerUpdates';
 import GamePlayers from '../components/GamePlayers';
@@ -224,6 +225,7 @@ const shortDate = (date: Date) =>
   });
 
 const panels = [
+  'tracker',
   'week',
   'ready',
   'simulations',
@@ -272,6 +274,7 @@ export default function Home() {
       | 'arbitrage'
       | 'strategies'
       | 'players'
+      | 'tracker'
     >('board'),
     [detail, setDetail] = useState<SimulationDetail | null>(null),
     [gameDetail, setGameDetail] = useState<Event | null>(null),
@@ -1067,6 +1070,7 @@ export default function Home() {
             >
               <BarChart3 size={17} /> Research lab
             </button>
+            <button className={panel === 'tracker' ? 'active' : ''} onClick={() => navigate('tracker')}>Wins & losses tracker</button>
             <button className={panel === 'tools' ? 'active' : ''} onClick={() => navigate('tools')}>Professional tools</button>
             <button className={panel === 'strategies' ? 'active' : ''} onClick={()=>navigate('strategies')}>Compare strategies</button><button className={panel === 'players' ? 'active' : ''} onClick={()=>navigate('players')}>Player updates</button>
             <button className={panel === 'arbitrage' ? 'active' : ''} onClick={() => navigate('arbitrage')}>Arbitrage scan</button>
@@ -1076,6 +1080,7 @@ export default function Home() {
           <p role="status">Source-backed pregame analysis. Market-implied simulations are not independent forecasts. Public injury and roster reports are in Player updates; confirmed lineups and probability adjustments remain unverified. Prediction-market contracts are inspected separately.</p>
           {panel === 'arbitrage' && <section><span className="eyebrow">CROSS-BOOK PRICE CHECK</span><h2>Arbitrage candidates</h2><p>DraftKings vs FanDuel full-game moneylines only. Every outcome must match, all prices must be under five minutes old, and the event must not have started. These are theoretical price discrepancies; confirm identical settlement rules, limits and available stakes before considering execution. Exchange contracts and fees are not included.</p>{(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).length===0?<div className="alert">No qualifying arbitrage in this snapshot. This is not a claim that none exists elsewhere.</div>:(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).map(a=><article key={a.eventId}><h3>{a.matchup}</h3><p>{a.margin.toFixed(2)}% theoretical return before execution constraints · {a.market}</p>{a.legs.map(l=><p key={l.selection}>{l.book}: {l.selection} · {fmt(l.price)} · {(l.share*100).toFixed(2)}% of total stake · {new Date(l.updatedAt).toLocaleTimeString()}</p>)}</article>)}</section>}
           {panel === 'strategies' && <Strategies />}
+          {panel === 'tracker' && <Tracker tickets={paperTickets} />}
           {panel === 'players' && <PlayerUpdates />}
           {panel === 'monitoring' && <Monitoring />}
           {panel === 'research' && <Research />}
