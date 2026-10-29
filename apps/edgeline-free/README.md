@@ -37,3 +37,11 @@ wrangler deploy --dry-run
 Store THE_ODDS_API_KEY using Wrangler secret input, then deploy with `wrangler deploy`. No automatic deployment or paid upgrade is configured.
 
 Live verification October 28, 2026 at 10:57 UTC: 8 upcoming matches, 16 DraftKings selections, 478 provider credits remaining, 3 app credits reserved, no provider error, 0 qualifying arbitrage candidates. These are snapshot results, not permanent counts. Browser verification confirmed populated parlay builders and timed candidate cards. Prior learning verification imported 394 matches with 90 eligible model comparisons; the market benchmark outperformed the Poisson model in that sample.
+
+## Strategy comparison and player updates
+
+Compare strategies separates pre-match analysis, live analysis, sharp-money signals and prediction-market discovery, with explicit connected/missing capabilities. The platform matrix does not claim every U.S. platform.
+
+Player updates requests public ESPN team directories, reported injuries, team rosters and linked headlines for eight configured leagues. Each upstream request has a timeout and independent error state. Injuries/news cache for five minutes; rosters for 15 minutes; directories for one day. While the section is visible, the browser checks every five minutes; it stops network checks when hidden or unmounted. No odds credits or paid plans are used. Browser-local roster comparisons report observed additions/removals, not confirmed transfers. Provider report dates differ from retrieval dates. Confirmed starters and injury-adjusted model probabilities are not implemented.
+
+Run `node verification/players.cjs` for normalization, caching, input validation, unsafe-link rejection and partial-failure regressions.
