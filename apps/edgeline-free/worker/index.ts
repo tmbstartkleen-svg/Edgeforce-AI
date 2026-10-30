@@ -1,3 +1,4 @@
+import {getSchedule} from '../backend/schedule';
 import { playerUpdates, PLAYER_LEAGUES } from '../backend/player-updates';
 export { FreeOdds } from './odds';
 import { getCoverage, getCoverageEvents } from '../backend/coverage';
@@ -23,6 +24,7 @@ export default {
     }
     if (request.method !== 'GET') return json({error:'Method not allowed'},405);
     try {
+      if(path==='/api/schedule')return json(await getSchedule(url.origin,ctx));
       if(path==='/api/player-updates'){const league=url.searchParams.get('league')||'nba',team=url.searchParams.get('team')||'';if(!Object.hasOwn(PLAYER_LEAGUES,league)||(team&&!/^\d{1,9}$/.test(team)))return json({error:'Unsupported league or team'},400);return json(await playerUpdates(league,team,url.origin,ctx));}
       if (path === '/api/monitoring' || path === '/api/_healthcheck') return json({ok:true,checkedAt:new Date().toISOString(),release:'free-odds-v2',freeOddsEnabled:env.FREE_ODDS_ENABLED==='true',paidOddsEnabled:env.PAID_ODDS_ENABLED !== 'false',archiveWritesEnabled:env.D1_SPORTS_MARKET_ARCHIVE_ENABLED !== 'false',scheduledExecutionEnabled:env.ATLAS_SCHEDULE_EXECUTION_ENABLED !== 'false',billingVerified:false,storage:'Browser research; shared latest-odds cache and credit counter',learning:'On use, at most daily per league in this browser; five soccer leagues only',quota:'Account-wide Worker usage unavailable; requests can stop at the free quota. Static assets are served separately.'});
       if (path === '/api/research/current') return json({day:url.searchParams.get('day'),rows:[],settlement:'Sports archive writes disabled. No unsettled observations are used for learning.'});

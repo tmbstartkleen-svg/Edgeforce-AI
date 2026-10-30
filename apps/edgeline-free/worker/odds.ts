@@ -46,14 +46,17 @@ export class FreeOdds {
      const remaining=r.headers.get('x-requests-remaining');budget.remaining=remaining!==null&&Number.isFinite(Number(remaining))?Number(remaining):null;this.write('budget',budget);
      if(!r.ok)throw new Error(r.status===401?'Provider rejected credential':`Odds source unavailable (${r.status})`);
      const raw:any=await r.json();if(!Array.isArray(raw)||JSON.stringify(raw).length>1500000)throw new Error('Unexpected odds payload');
-     cached={raw,fetchedAt:new Date().toISOString()};this.write('feed:'+sport,cached);this.write('lastSport',sport);message='Real provider snapshot refreshed within the free budget';
+     cached={raw,fetchedAt:new Date().toISOString()};this.write('feed:'+sport,cached);this.write('feedIndex',[...new Set([...(this.read('feedIndex')||[]),sport])].slice(-100));this.write('lastSport',sport);message='Real provider snapshot refreshed within the free budget';
     }catch(e){problem=e instanceof Error?e.message:'Odds request failed';}
    }
   }
   if(!cached){const previous=this.read('lastSport');const saved=previous?this.read('feed:'+previous):null;if(saved){cached=saved;displayedSport=previous;message=(message||problem||'Refresh unavailable')+'. Showing the previous '+previous+' snapshot.';}else if(!problem)problem='No snapshot for this league yet. Refresh when the shared budget allows.';}
-  const normalized=normalizeFeed(cached?.raw||[]);
+  const snapshots=[...(this.read('feedIndex')||[]).map((key:string)=>this.read('feed:'+key)).filter(Boolean),cached].filter(Boolean).sort((a:any,b:any)=>Date.parse(a.fetchedAt)-Date.parse(b.fetchedAt));
+  const merged=new Map<string,any>();for(const snapshot of snapshots)for(const event of snapshot.raw||[])if(event?.id)merged.set(event.id,event);
+  const combined=[...merged.values()];
+  const normalized=normalizeFeed(combined);
   const events=normalized.events.filter(e=>Date.parse(e.startsAt)>now&&Date.parse(e.startsAt)<now+7*86400000).map(e=>({...e,matchup:`${e.away} at ${e.home}`,markets:normalized.quotes.filter(q=>q.eventId===e.id).length}));
   const ids=new Set(events.map(e=>e.id));const quotes=normalized.quotes.filter(q=>ids.has(q.eventId)).map(q=>({...q,stale:!isFreshPrice(q.updatedAt,now)}));
-  return Response.json({events,quotes,arbitrage:scanArbitrage(cached?.raw||[],now),feed:{sport:displayedSport,fetchedAt:cached?.fetchedAt||null,nextCheckAt:new Date(Math.max(budget.last+COOLDOWN,budget.calls>=DAILY_LIMIT?Date.parse(day)+86400000:now)).toISOString(),remaining:budget.remaining,problem,refreshMessage:message,manualRefreshesRemaining:Math.max(0,DAILY_LIMIT-budget.calls),creditsReserved:budget.used,monthlyLimit:MONTH_LIMIT},readiness:{prices:quotes.some(q=>!q.stale),simulations:quotes.some(q=>!q.stale),injuries:false,playerModels:false},generatedAt:new Date(now).toISOString()},{headers});
+  return Response.json({events,quotes,arbitrage:scanArbitrage(combined,now),feed:{sport:displayedSport,fetchedAt:cached?.fetchedAt||null,nextCheckAt:new Date(Math.max(budget.last+COOLDOWN,budget.calls>=DAILY_LIMIT?Date.parse(day)+86400000:now)).toISOString(),remaining:budget.remaining,problem,refreshMessage:message,manualRefreshesRemaining:Math.max(0,DAILY_LIMIT-budget.calls),creditsReserved:budget.used,monthlyLimit:MONTH_LIMIT},readiness:{prices:quotes.some(q=>!q.stale),simulations:quotes.some(q=>!q.stale),injuries:false,playerModels:false},generatedAt:new Date(now).toISOString()},{headers});
  });}
 }

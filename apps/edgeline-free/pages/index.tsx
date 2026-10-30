@@ -292,6 +292,10 @@ export default function Home() {
   const [feedSport, setFeedSport] = useState('upcoming');
   const [feedSports,setFeedSports]=useState<{key:string;title:string}[]>([]);
   const [catalogError,setCatalogError]=useState('');
+  const [scheduleStatus,setScheduleStatus]=useState('');
+  const [scheduleEvents,setScheduleEvents]=useState<Event[]>([]);
+  useEffect(()=>{api.get('/api/schedule').then(({data:s})=>{setScheduleEvents(s.events||[]);setScheduleStatus(`${s.events.length} upcoming schedule entries across ${s.sources.length} checked leagues · ${s.sources.filter((x:any)=>x.error).length} source errors · Retrieved ${s.checkedAt}. Odds are separate; coverage is not exhaustive.`);}).catch(()=>setScheduleStatus('Schedule source unavailable; odds snapshots remain separate.'));},[]);
+  const broadEvents=useMemo(()=>{const existing=data?.events||[];const key=(e:Event)=>[e.sport,e.home,e.away,e.startsAt].join('|');const keys=new Set(existing.map(key));return [...existing,...scheduleEvents.filter(e=>Date.parse(e.startsAt)>now&&!keys.has(key(e)))].sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt));},[data,scheduleEvents,now]);
   useEffect(()=>{api.get('/api/sports').then(({data})=>{setFeedSports(data.sports||[]);setCatalogError(data.problem||'');}).catch(()=>setCatalogError('League catalog unavailable'));},[]);
   const load = async (force = false, quiet = false) => {
     if (!quiet) force ? setRefreshing(true) : setBusy(true);
@@ -1028,6 +1032,7 @@ export default function Home() {
           {panel === 'arbitrage' && <section><span className="eyebrow">CROSS-BOOK PRICE CHECK</span><h2>Arbitrage candidates</h2><p>DraftKings vs FanDuel full-game moneylines only. Every outcome must match, all prices must be under five minutes old, and the event must not have started. These are theoretical price discrepancies; confirm identical settlement rules, limits and available stakes before considering execution. Exchange contracts and fees are not included.</p>{(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).length===0?<div className="alert">No qualifying arbitrage in this snapshot. This is not a claim that none exists elsewhere.</div>:(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).map(a=><article key={a.eventId}><h3>{a.matchup}</h3><p>{a.margin.toFixed(2)}% theoretical return before execution constraints · {a.market}</p>{a.legs.map(l=><p key={l.selection}>{l.book}: {l.selection} · {fmt(l.price)} · {(l.share*100).toFixed(2)}% of total stake · {new Date(l.updatedAt).toLocaleTimeString()}</p>)}</article>)}</section>}
           {panel === 'predictions' && <PredictionDesk />}
           {panel === 'timed' && <TimedParlays data={data} now={now} onUse={ids=>{setSelected(ids);document.querySelector('#slip')?.scrollIntoView({behavior:'smooth'});}} />}
+          {panel === 'board' && <section className="researchPanel"><h2>Upcoming games — free schedule coverage</h2><p>{scheduleStatus||'Loading independent league schedules…'}</p><details><summary>Browse {broadEvents.length} scheduled games, including games without odds</summary><table><thead><tr><th>League</th><th>Game</th><th>Start</th><th>Pricing</th></tr></thead><tbody>{broadEvents.map(e=><tr key={e.id}><td>{e.sport}</td><td><button onClick={()=>setGameDetail(e)}>{e.matchup}</button></td><td>{new Date(e.startsAt).toLocaleString()}</td><td>{e.markets?'Snapshot available — check age':'Odds unavailable'}</td></tr>)}</tbody></table></details></section>}
           {panel === 'strategies' && <Strategies />}
           {panel === 'tracker' && <Tracker tickets={paperTickets} />}
           {panel === 'players' && <PlayerUpdates />}
