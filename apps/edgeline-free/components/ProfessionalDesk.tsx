@@ -1,3 +1,4 @@
+import PolymarketUS from './PolymarketUS';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import CoverageEvents from './CoverageEvents';
@@ -53,7 +54,8 @@ export default function ProfessionalDesk({ coverage = false }: { coverage?: bool
     <p>Observed October 26, 2026: 30 basketball competitions in the public menu, including EuroLeague, EuroCup, Australia NBL/WNBL, Lebanon FLB, Israel, Germany, Brazil, Argentina and Uruguay. Soccer also includes lower divisions and international leagues beyond the major European competitions.</p>
     <p>Choose a provider league on the main desk and refresh within the shared free-credit budget. Schedule coverage does not imply available DraftKings odds. Full in-play coverage needs a licensed source with those exact leagues and suitable refresh limits.</p>
     <p><a href='https://sportsbook.draftkings.com/sports/basketball' target='_blank' rel='noopener noreferrer'>DK basketball directory ↗</a> · <a href='https://sportsbook.draftkings.com/sports/soccer' target='_blank' rel='noopener noreferrer'>DK soccer directory ↗</a> · <a href='https://sportsbook.draftkings.com/live' target='_blank' rel='noopener noreferrer'>DK live board ↗</a></p>
-    <h3>Public prediction-market catalogs</h3>
+    <PolymarketUS />
+    <h3>Kalshi & international Polymarket catalogs</h3>
     <p>Search league names and aliases. Kalshi lists contract series; Polymarket lists sports/competitions. Some are inactive or futures. Polymarket.com is view-only for US visitors; its US product has separate availability.</p>
     {error && <p role='alert'>{error}</p>}
     {!sources.length && !error && <p role='status'>Loading public coverage catalogs…</p>}
