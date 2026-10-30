@@ -11,5 +11,5 @@ export default defineConfig([
    '@typescript-eslint/no-unused-vars':['warn',{argsIgnorePattern:'^_',varsIgnorePattern:'^_'}]
   }
  },
- globalIgnores(['.next/**','.vercel/**','node_modules/**','coverage/**'])
+ globalIgnores(['.next/**','.vercel/**','node_modules/**','coverage/**','apps/edgeline-free/**'])
 ]);
