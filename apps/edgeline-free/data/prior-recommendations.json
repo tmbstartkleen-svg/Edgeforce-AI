@@ -13,8 +13,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-2",
@@ -30,8 +31,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-3",
@@ -47,8 +49,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-4",
@@ -64,8 +67,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-5",
@@ -81,8 +85,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-6",
@@ -98,8 +103,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-7",
@@ -115,8 +121,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-8",
@@ -132,8 +139,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-9",
@@ -149,8 +157,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-10",
@@ -166,8 +175,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-11",
@@ -183,8 +193,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-12",
@@ -200,8 +211,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-13",
@@ -217,8 +229,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-14",
@@ -234,8 +247,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-15",
@@ -251,8 +265,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-16",
@@ -268,8 +283,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-17",
@@ -285,8 +301,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-18",
@@ -302,8 +319,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-19",
@@ -319,8 +337,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-20",
@@ -336,8 +355,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-21",
@@ -353,8 +373,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-22",
@@ -370,8 +391,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-23",
@@ -387,8 +409,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-24",
@@ -404,8 +427,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-25",
@@ -421,8 +445,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-26",
@@ -438,8 +463,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-27",
@@ -455,8 +481,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-28",
@@ -472,8 +499,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-29",
@@ -489,8 +517,9 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   },
   {
     "id": "pasted-pick-30",
@@ -506,7 +535,8 @@
     "dateVerified": false,
     "placementStatus": "user_declared_placed",
     "placementSource": "User instruction: treat previously listed picks as placed bets",
-    "stake": null,
-    "placedAt": null
+    "stake": 1,
+    "placedAt": null,
+    "stakeBasis": "User-requested $1 display assumption"
   }
 ]

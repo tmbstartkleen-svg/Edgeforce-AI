@@ -261,7 +261,7 @@ export default function Home() {
     [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string[]>([]),
     [favorites, setFavorites] = useState<string[]>([]),
-    [stake, setStake] = useState(10),
+    [stake, setStake] = useState(1),
     [advanced, setAdvanced] = useState(false),
     [tour, setTour] = useState(false),
     [panel, setPanel] = useState<
