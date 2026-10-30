@@ -1,3 +1,5 @@
+import PredictionDesk from '../components/PredictionDesk';
+import TimedParlays from '../components/TimedParlays';
 import Tracker from '../components/Tracker';
 import Strategies from '../components/Strategies';
 import PlayerUpdates from '../components/PlayerUpdates';
@@ -225,6 +227,8 @@ const shortDate = (date: Date) =>
   });
 
 const panels = [
+  'predictions',
+  'timed',
   'tracker',
   'week',
   'ready',
@@ -275,6 +279,8 @@ export default function Home() {
       | 'strategies'
       | 'players'
       | 'tracker'
+      | 'predictions'
+      | 'timed'
     >('board'),
     [detail, setDetail] = useState<SimulationDetail | null>(null),
     [gameDetail, setGameDetail] = useState<Event | null>(null),
@@ -951,26 +957,13 @@ export default function Home() {
       <div className="shell">
         <aside>
           <nav>
-            <a className="active" href="#today">
-              Command center
-            </a>
-            <a href="#strategies">Compare strategies</a><a href="#players">Player updates</a><a href="#arbitrage">Arbitrage scan</a><a href="#monitoring">Monitoring & learning</a><a href="#research">Research lab</a><a href="#coverage">International coverage</a>
-            <a href="#ready">
-              Ready cards <b>{packs.length}</b>
-            </a>
-            <a href="#week">
-              7-day schedule <b>{data?.events.length || 0}</b>
-            </a>
-            <a href="#simulations">
-              Top 30 sims <b>{topSimulations.length}</b>
-            </a>
-            <a href="#parlays">
-              30-leg lab <b>2</b>
-            </a>
-            <a href="#ledger">
-              Paper results <b>{paperTickets.length}</b>
-            </a>
-            <a href="#board">All markets</a>
+            <a href="#board">Market board</a>
+            <a href="#predictions">Prediction markets</a>
+            <a href="#timed">Timed parlays</a>
+            <a href="#tracker">Results tracker <b>{paperTickets.length}</b></a>
+            <a href="#players">Player research</a>
+            <a href="#coverage">Coverage audit</a>
+            <a href="#monitoring">System & learning</a>
             <a href="#slip">
               My bet slip <b>{chosen.length}</b>
             </a>
@@ -1027,58 +1020,14 @@ export default function Home() {
               {error || data?.feed.problem}
             </div>
           )}
-          <section className="viewSwitch">
-            <button
-              className={panel === 'week' ? 'active' : ''}
-              onClick={() => navigate('week')}
-            >
-              <CalendarDays size={17} /> 7-day schedule
-            </button>
-            <button
-              className={panel === 'ready' ? 'active' : ''}
-              onClick={() => navigate('ready')}
-            >
-              <Sparkles size={17} /> Ready tickets
-            </button>
-            <button
-              className={panel === 'simulations' ? 'active' : ''}
-              onClick={() => navigate('simulations')}
-            >
-              <BarChart3 size={17} /> Top 30 sim bets
-            </button>
-            <button
-              className={panel === 'parlays' ? 'active' : ''}
-              onClick={() => navigate('parlays')}
-            >
-              <Network size={17} /> 30-leg lab
-            </button>
-            <button
-              className={panel === 'board' ? 'active' : ''}
-              onClick={() => navigate('board')}
-            >
-              <TrendingUp size={17} /> All available markets
-            </button>
-            <button
-              className={panel === 'ledger' ? 'active' : ''}
-              onClick={() => navigate('ledger')}
-            >
-              <ClipboardList size={17} /> Paper results
-            </button>
-            <button
-              className={panel === 'research' ? 'active' : ''}
-              onClick={() => navigate('research')}
-            >
-              <BarChart3 size={17} /> Research lab
-            </button>
-            <button className={panel === 'tracker' ? 'active' : ''} onClick={() => navigate('tracker')}>Wins & losses tracker</button>
-            <button className={panel === 'tools' ? 'active' : ''} onClick={() => navigate('tools')}>Professional tools</button>
-            <button className={panel === 'strategies' ? 'active' : ''} onClick={()=>navigate('strategies')}>Compare strategies</button><button className={panel === 'players' ? 'active' : ''} onClick={()=>navigate('players')}>Player updates</button>
-            <button className={panel === 'arbitrage' ? 'active' : ''} onClick={() => navigate('arbitrage')}>Arbitrage scan</button>
-            <button className={panel === 'monitoring' ? 'active' : ''} onClick={() => navigate('monitoring')}>Monitoring & learning</button>
-            <button className={panel === 'coverage' ? 'active' : ''} onClick={() => navigate('coverage')}>International coverage</button>
-          </section>
+          <nav className="viewSwitch" aria-label="Main workspace">
+            {([['board','Market board'],['arbitrage','Edges & arbitrage'],['predictions','Prediction markets'],['timed','Timed parlays'],['tracker','Results tracker'],['players','Player research'],['coverage','Coverage'],['monitoring','System & learning']] as const).map(([id,label])=><button key={id} className={panel===id?'active':''} onClick={()=>navigate(id)}>{label}</button>)}
+          </nav>
+          <details style={{margin:'12px 0'}}><summary>Research tools & saved tickets</summary><div className="viewSwitch">{([['ledger','Grade paper tickets'],['research','Historical validation'],['week','Schedule'],['strategies','Strategy guide'],['simulations','Market simulation diagnostics'],['parlays','Extended parlay lab'],['tools','Provider references'],['ready','Legacy candidates']] as const).map(([id,label])=><button key={id} onClick={()=>navigate(id)}>{label}</button>)}</div></details>
           <p role="status">Source-backed pregame analysis. Market-implied simulations are not independent forecasts. Public injury and roster reports are in Player updates; confirmed lineups and probability adjustments remain unverified. Prediction-market contracts are inspected separately.</p>
           {panel === 'arbitrage' && <section><span className="eyebrow">CROSS-BOOK PRICE CHECK</span><h2>Arbitrage candidates</h2><p>DraftKings vs FanDuel full-game moneylines only. Every outcome must match, all prices must be under five minutes old, and the event must not have started. These are theoretical price discrepancies; confirm identical settlement rules, limits and available stakes before considering execution. Exchange contracts and fees are not included.</p>{(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).length===0?<div className="alert">No qualifying arbitrage in this snapshot. This is not a claim that none exists elsewhere.</div>:(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).map(a=><article key={a.eventId}><h3>{a.matchup}</h3><p>{a.margin.toFixed(2)}% theoretical return before execution constraints · {a.market}</p>{a.legs.map(l=><p key={l.selection}>{l.book}: {l.selection} · {fmt(l.price)} · {(l.share*100).toFixed(2)}% of total stake · {new Date(l.updatedAt).toLocaleTimeString()}</p>)}</article>)}</section>}
+          {panel === 'predictions' && <PredictionDesk />}
+          {panel === 'timed' && <TimedParlays data={data} now={now} onUse={ids=>{setSelected(ids);document.querySelector('#slip')?.scrollIntoView({behavior:'smooth'});}} />}
           {panel === 'strategies' && <Strategies />}
           {panel === 'tracker' && <Tracker tickets={paperTickets} />}
           {panel === 'players' && <PlayerUpdates />}
@@ -1342,11 +1291,11 @@ export default function Home() {
             <section id="simulations">
               <div className="titleRow">
                 <div>
-                  <span className="eyebrow">10,000-RUN PROBABILITY ENGINE</span>
-                  <h2>Top 30 simulation bets</h2>
+                  <span className="eyebrow">MARKET-BASED DIAGNOSTICS</span>
+                  <h2>Market probability diagnostics</h2>
                 </div>
                 <p>
-                  Ranked by conservative expected value · 100-run visual audit
+                  Ranked by market-derived expected value · 100-run visual audit
                   remains available in every detail view
                 </p>
               </div>
@@ -2067,9 +2016,9 @@ export default function Home() {
       </div>
       <nav className="mobile">
         <button onClick={() => navigate('week')}>7 Days</button>
-        <button onClick={() => navigate('simulations')}>Top 30</button>
-        <button onClick={() => navigate('parlays')}>30-Leg</button>
-        <button onClick={() => navigate('ledger')}>Results</button>
+        <button onClick={() => navigate('predictions')}>Predictions</button>
+        <button onClick={() => navigate('timed')}>Parlays</button>
+        <button onClick={() => navigate('tracker')}>Results</button>
         <button onClick={() => navigate('research')}>Research</button>
         <a href="#slip">
           Slip <b>{chosen.length}</b>
