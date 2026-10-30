@@ -10,7 +10,11 @@
     "odds": 185,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-2",
@@ -23,7 +27,11 @@
     "odds": 180,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-3",
@@ -36,7 +44,11 @@
     "odds": 115,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-4",
@@ -49,7 +61,11 @@
     "odds": 175,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-5",
@@ -62,7 +78,11 @@
     "odds": 120,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-6",
@@ -75,7 +95,11 @@
     "odds": 125,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-7",
@@ -88,7 +112,11 @@
     "odds": 165,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-8",
@@ -101,7 +129,11 @@
     "odds": -115,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-9",
@@ -114,7 +146,11 @@
     "odds": -130,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-10",
@@ -127,7 +163,11 @@
     "odds": -145,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-11",
@@ -140,7 +180,11 @@
     "odds": -180,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-12",
@@ -153,7 +197,11 @@
     "odds": -115,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-13",
@@ -166,7 +214,11 @@
     "odds": -235,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-14",
@@ -179,7 +231,11 @@
     "odds": -110,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-15",
@@ -192,7 +248,11 @@
     "odds": -115,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-16",
@@ -205,7 +265,11 @@
     "odds": 150,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-17",
@@ -218,7 +282,11 @@
     "odds": -135,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-18",
@@ -231,7 +299,11 @@
     "odds": -110,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-19",
@@ -244,7 +316,11 @@
     "odds": -120,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-20",
@@ -257,7 +333,11 @@
     "odds": 250,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-21",
@@ -270,7 +350,11 @@
     "odds": -110,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-22",
@@ -283,7 +367,11 @@
     "odds": -320,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-23",
@@ -296,7 +384,11 @@
     "odds": -115,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-24",
@@ -309,7 +401,11 @@
     "odds": 110,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-25",
@@ -322,7 +418,11 @@
     "odds": -110,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-26",
@@ -335,7 +435,11 @@
     "odds": -115,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-27",
@@ -348,7 +452,11 @@
     "odds": -110,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-28",
@@ -361,7 +469,11 @@
     "odds": -205,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-29",
@@ -374,7 +486,11 @@
     "odds": -185,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   },
   {
     "id": "pasted-pick-30",
@@ -387,6 +503,10 @@
     "odds": 190,
     "source": "User-supplied dashboard snapshot",
     "status": "ungraded",
-    "dateVerified": false
+    "dateVerified": false,
+    "placementStatus": "user_declared_placed",
+    "placementSource": "User instruction: treat previously listed picks as placed bets",
+    "stake": null,
+    "placedAt": null
   }
 ]
