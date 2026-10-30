@@ -999,7 +999,7 @@ export default function Home() {
             </div>
             <div className="heroStats">
               <div>
-                <strong>{data?.events.length || 0}</strong>
+                <strong>{broadEvents.length}</strong>
                 <span>scheduled events</span>
               </div>
               <div>
