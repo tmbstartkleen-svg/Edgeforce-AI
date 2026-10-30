@@ -294,7 +294,7 @@ export default function Home() {
   const [catalogError,setCatalogError]=useState('');
   const [scheduleStatus,setScheduleStatus]=useState('');
   const [scheduleEvents,setScheduleEvents]=useState<Event[]>([]);
-  useEffect(()=>{api.get('/api/schedule').then(({data:s})=>{setScheduleEvents(s.events||[]);setScheduleStatus(`${s.events.length} upcoming schedule entries across ${s.sources.length} checked leagues · ${s.sources.filter((x:any)=>x.error).length} source errors · Retrieved ${s.checkedAt}. Odds are separate; coverage is not exhaustive.`);}).catch(()=>setScheduleStatus('Schedule source unavailable; odds snapshots remain separate.'));},[]);
+  useEffect(()=>{api.get('/api/schedule').then(({data:s})=>{setScheduleEvents(s.events||[]);setScheduleStatus(`${s.events.length} upcoming schedule entries (today + next two UTC days) across ${s.sources.length} checked leagues · ${s.sources.filter((x:any)=>x.error).length} source errors · Retrieved ${s.checkedAt}. Odds are separate; coverage is not exhaustive.`);}).catch(()=>setScheduleStatus('Schedule source unavailable; odds snapshots remain separate.'));},[]);
   const broadEvents=useMemo(()=>{const existing=data?.events||[];const key=(e:Event)=>[e.sport,e.home,e.away,e.startsAt].join('|');const keys=new Set(existing.map(key));return [...existing,...scheduleEvents.filter(e=>Date.parse(e.startsAt)>now&&!keys.has(key(e)))].sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt));},[data,scheduleEvents,now]);
   useEffect(()=>{api.get('/api/sports').then(({data})=>{setFeedSports(data.sports||[]);setCatalogError(data.problem||'');}).catch(()=>setCatalogError('League catalog unavailable'));},[]);
   const load = async (force = false, quiet = false) => {
