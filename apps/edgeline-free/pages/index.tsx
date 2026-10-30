@@ -1,3 +1,4 @@
+import GamesOverview from '../components/GamesOverview';
 import PredictionDesk from '../components/PredictionDesk';
 import TimedParlays from '../components/TimedParlays';
 import Tracker from '../components/Tracker';
@@ -989,9 +990,9 @@ export default function Home() {
                 <Activity size={14} /> SEVEN-DAY SPORTS MARKET
               </div>
               <h1>
-                Your sports research
+                Your market
                 <br />
-                <em>command center.</em>
+                <em>desk.</em>
               </h1>
               <p>
                 Real DraftKings odds, cross-book comparisons, timed parlay research and public prediction-market snapshots. Free credits fund bounded snapshots, not continuous live prices. Times shown in Eastern Time.
@@ -1032,7 +1033,7 @@ export default function Home() {
           {panel === 'arbitrage' && <section><span className="eyebrow">CROSS-BOOK PRICE CHECK</span><h2>Arbitrage candidates</h2><p>DraftKings vs FanDuel full-game moneylines only. Every outcome must match, all prices must be under five minutes old, and the event must not have started. These are theoretical price discrepancies; confirm identical settlement rules, limits and available stakes before considering execution. Exchange contracts and fees are not included.</p>{(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).length===0?<div className="alert">No qualifying arbitrage in this snapshot. This is not a claim that none exists elsewhere.</div>:(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).map(a=><article key={a.eventId}><h3>{a.matchup}</h3><p>{a.margin.toFixed(2)}% theoretical return before execution constraints · {a.market}</p>{a.legs.map(l=><p key={l.selection}>{l.book}: {l.selection} · {fmt(l.price)} · {(l.share*100).toFixed(2)}% of total stake · {new Date(l.updatedAt).toLocaleTimeString()}</p>)}</article>)}</section>}
           {panel === 'predictions' && <PredictionDesk />}
           {panel === 'timed' && <TimedParlays data={data} now={now} onUse={ids=>{setSelected(ids);document.querySelector('#slip')?.scrollIntoView({behavior:'smooth'});}} />}
-          {panel === 'board' && <section className="researchPanel"><h2>Upcoming games — free schedule coverage</h2><p>{scheduleStatus||'Loading independent league schedules…'}</p><details><summary>Browse {broadEvents.length} scheduled games, including games without odds</summary><table><thead><tr><th>League</th><th>Game</th><th>Start</th><th>Pricing</th></tr></thead><tbody>{broadEvents.map(e=><tr key={e.id}><td>{e.sport}</td><td><button onClick={()=>setGameDetail(e)}>{e.matchup}</button></td><td>{new Date(e.startsAt).toLocaleString()}</td><td>{e.markets?'Snapshot available — check age':'Odds unavailable'}</td></tr>)}</tbody></table></details></section>}
+          {panel === 'board' && <GamesOverview events={broadEvents} status={scheduleStatus} onOpen={setGameDetail} />}
           {panel === 'strategies' && <Strategies />}
           {panel === 'tracker' && <Tracker tickets={paperTickets} />}
           {panel === 'players' && <PlayerUpdates />}
@@ -1841,7 +1842,7 @@ export default function Home() {
                                         onClick={() => toggle(q)}
                                       >
                                         <span>{q.selection}</span>
-                                        <strong>{fmt(q.price)}</strong>
+                                        <strong>{fmt(q.price)}</strong><small>$1 → ${americanToDecimal(q.price)?.toFixed(2)} return</small>
                                         {advanced && (
                                           <small>
                                             {modelProbability(q)}% model ·{' '}
@@ -1862,7 +1863,7 @@ export default function Home() {
                                 <div>
                                   <strong>DraftKings odds not posted</strong>
                                   <span>
-                                    Scheduled · 100-run simulation queued
+                                    Scheduled · price unavailable
                                   </span>
                                 </div>
                               </div>
@@ -2020,11 +2021,11 @@ export default function Home() {
         </main>
       </div>
       <nav className="mobile">
-        <button onClick={() => navigate('week')}>7 Days</button>
-        <button onClick={() => navigate('predictions')}>Predictions</button>
-        <button onClick={() => navigate('timed')}>Parlays</button>
-        <button onClick={() => navigate('tracker')}>Results</button>
-        <button onClick={() => navigate('research')}>Research</button>
+        <button className={panel==='board'?'active':''} onClick={() => navigate('board')}><CalendarDays size={20}/>Games</button>
+        <button className={panel==='predictions'?'active':''} onClick={() => navigate('predictions')}><TrendingUp size={20}/>Markets</button>
+        <button className={panel==='timed'?'active':''} onClick={() => navigate('timed')}><Network size={20}/>Parlays</button>
+        <button className={panel==='tracker'?'active':''} onClick={() => navigate('tracker')}><ClipboardList size={20}/>Track</button>
+        <button className={panel==='arbitrage'?'active':''} onClick={() => navigate('arbitrage')}><ShieldCheck size={20}/>Arbs</button>
         <a href="#slip">
           Slip <b>{chosen.length}</b>
         </a>
