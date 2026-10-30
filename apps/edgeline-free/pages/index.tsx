@@ -1,3 +1,5 @@
+import {opportunities} from '../lib/opportunities';
+import EdgeBoard from '../components/EdgeBoard';
 import GamesOverview from '../components/GamesOverview';
 import PredictionDesk from '../components/PredictionDesk';
 import TimedParlays from '../components/TimedParlays';
@@ -228,6 +230,7 @@ const shortDate = (date: Date) =>
   });
 
 const panels = [
+  'edges',
   'predictions',
   'timed',
   'tracker',
@@ -280,6 +283,7 @@ export default function Home() {
       | 'strategies'
       | 'players'
       | 'tracker'
+      | 'edges'
       | 'predictions'
       | 'timed'
     >('board'),
@@ -290,6 +294,7 @@ export default function Home() {
     [storageError, setStorageError] = useState(''),
     [now, setNow] = useState(Date.now()),
     [shareMessage, setShareMessage] = useState('');
+  const opportunity=useMemo(()=>opportunities(data,now),[data,now]);
   const [feedSport, setFeedSport] = useState('upcoming');
   const [feedSports,setFeedSports]=useState<{key:string;title:string}[]>([]);
   const [catalogError,setCatalogError]=useState('');
@@ -694,7 +699,7 @@ export default function Home() {
       1,
     ),
     combined = chosen.length ? decimalToAmerican(decimal) : null;
-  const visible = (data?.events || []).filter(
+  const visible = (data?.events || []).filter(e=>opportunity.tags[e.id]).filter(
     (e) =>
       (sport === 'All' || e.sport === sport) &&
       (when === 'All' || period(e.startsAt) === when) &&
@@ -1000,12 +1005,12 @@ export default function Home() {
             </div>
             <div className="heroStats">
               <div>
-                <strong>{broadEvents.length}</strong>
-                <span>scheduled events</span>
+                <strong>{opportunity.events.length}</strong>
+                <span>qualifying games</span>
               </div>
               <div>
                 <strong>{pricedEventIds.size}</strong>
-                <span>games with odds</span>
+                <span>priced games scanned</span>
               </div>
               <div>
                 <strong>{data?.quotes.filter((quote) => !quote.stale && isFreshPrice(quote.updatedAt, now)).length || 0}</strong>
@@ -1026,14 +1031,15 @@ export default function Home() {
             </div>
           )}
           <nav className="viewSwitch" aria-label="Main workspace">
-            {([['board','Market board'],['arbitrage','Edges & arbitrage'],['predictions','Prediction markets'],['timed','Timed parlays'],['tracker','Results tracker'],['players','Player research'],['coverage','Coverage'],['monitoring','System & learning']] as const).map(([id,label])=><button key={id} className={panel===id?'active':''} onClick={()=>navigate(id)}>{label}</button>)}
+            {([['board','Games'],['arbitrage','Arbs'],['edges','+EV'],['predictions','Prediction markets'],['timed','Timed parlays'],['tracker','Results tracker'],['players','Player research'],['coverage','Coverage'],['monitoring','System & learning']] as const).map(([id,label])=><button key={id} className={panel===id?'active':''} onClick={()=>navigate(id)}>{label}</button>)}
           </nav>
           <details style={{margin:'12px 0'}}><summary>Research tools & saved tickets</summary><div className="viewSwitch">{([['ledger','Grade paper tickets'],['research','Historical validation'],['week','Schedule'],['strategies','Strategy guide'],['simulations','Market simulation diagnostics'],['parlays','Extended parlay lab'],['tools','Provider references'],['ready','Legacy candidates']] as const).map(([id,label])=><button key={id} onClick={()=>navigate(id)}>{label}</button>)}</div></details>
           <p role="status">Source-backed pregame analysis. Market-implied simulations are not independent forecasts. Public injury and roster reports are in Player updates; confirmed lineups and probability adjustments remain unverified. Prediction-market contracts are inspected separately.</p>
           {panel === 'arbitrage' && <section><span className="eyebrow">CROSS-BOOK PRICE CHECK</span><h2>Arbitrage candidates</h2><p>DraftKings vs FanDuel full-game moneylines only. Every outcome must match, all prices must be under five minutes old, and the event must not have started. These are theoretical price discrepancies; confirm identical settlement rules, limits and available stakes before considering execution. Exchange contracts and fees are not included.</p>{(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).length===0?<div className="alert">No qualifying arbitrage in this snapshot. This is not a claim that none exists elsewhere.</div>:(data?.arbitrage||[]).filter(a=>Date.parse(a.startsAt)>now&&a.legs.every(l=>isFreshPrice(l.updatedAt,now))).map(a=><article key={a.eventId}><h3>{a.matchup}</h3><p>{a.margin.toFixed(2)}% theoretical return before execution constraints · {a.market}</p>{a.legs.map(l=><p key={l.selection}>{l.book}: {l.selection} · {fmt(l.price)} · {(l.share*100).toFixed(2)}% of total stake · {new Date(l.updatedAt).toLocaleTimeString()}</p>)}</article>)}</section>}
           {panel === 'predictions' && <PredictionDesk />}
           {panel === 'timed' && <TimedParlays data={data} now={now} onUse={ids=>{setSelected(ids);document.querySelector('#slip')?.scrollIntoView({behavior:'smooth'});}} />}
-          {panel === 'board' && <GamesOverview events={broadEvents} status={scheduleStatus} onOpen={setGameDetail} />}
+          {panel === 'board' && <GamesOverview events={opportunity.events} status={`${opportunity.events.length} qualifying games from ${data?.events.length||0} priced games; ${broadEvents.length} schedule entries. Prices expire after five minutes. Sharp-money and player props are not connected.`} onOpen={setGameDetail} />}
+          {panel === 'edges' && <EdgeBoard edges={opportunity.edges} onAdd={toggle} />}
           {panel === 'strategies' && <Strategies />}
           {panel === 'tracker' && <Tracker tickets={paperTickets} />}
           {panel === 'players' && <PlayerUpdates />}
@@ -1845,7 +1851,7 @@ export default function Home() {
                                         <strong>{fmt(q.price)}</strong><small>$1 → ${americanToDecimal(q.price)?.toFixed(2)} return</small>
                                         {advanced && (
                                           <small>
-                                            {modelProbability(q)}% model ·{' '}
+                                            {modelProbability(q)}% market reference ·{' '}
                                             {q.consensusBooks
                                               ? `${q.consensusBooks} books`
                                               : 'DK fallback'}

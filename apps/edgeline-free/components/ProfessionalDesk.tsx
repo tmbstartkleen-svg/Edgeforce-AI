@@ -48,7 +48,7 @@ export default function ProfessionalDesk({ coverage = false }: { coverage?: bool
   return <section aria-label='International coverage'>
     <span className='eyebrow'>COVERAGE AUDIT</span><h2>Live & international coverage</h2>
     <p>Catalog discovery and on-demand event inspection are connected below. Catalog entries are not live games or simulation-ready selections. Free sportsbook snapshots are available on the main desk.</p>
-    <div className='alert'>DraftKings in-play, Kalshi contract prices and Polymarket executable prices are not connected to the simulation engine. The reported 39 DK / 87 Polymarket figures have not been verified as comparable live-game totals.</div>
+
     <h3>DraftKings international gap</h3>
     <p>Observed October 26, 2026: 30 basketball competitions in the public menu, including EuroLeague, EuroCup, Australia NBL/WNBL, Lebanon FLB, Israel, Germany, Brazil, Argentina and Uruguay. Soccer also includes lower divisions and international leagues beyond the major European competitions.</p>
     <p>Choose a provider league on the main desk and refresh within the shared free-credit budget. Schedule coverage does not imply available DraftKings odds. Full in-play coverage needs a licensed source with those exact leagues and suitable refresh limits.</p>

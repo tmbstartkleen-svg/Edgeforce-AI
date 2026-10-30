@@ -34,6 +34,7 @@ type ProviderSport = {
   has_outrights: boolean;
 };
 type Quote = {
+  bookPrices: {book:string;price:number;updatedAt:string}[];
   id: string;
   eventId: string;
   marketKey: string;
@@ -155,7 +156,12 @@ export function normalizeFeed(input: unknown) {
           ? consensusValues.reduce((sum, value) => sum + value, 0) /
             consensusValues.length
           : null;
-        quotes.push({
+        const bookPrices=(event.bookmakers||[]).flatMap(b=>{
+          if(bookmakerProbability(b,market.key,outcome,outcomes)===null)return [];
+          const m=b.markets.find(m=>m.key===market.key)!;const o=m.outcomes.find(o=>sameOutcome(o,outcome))!;
+          return [{book:b.key,price:o.price,updatedAt:m.last_update||b.last_update}];
+        });
+        quotes.push({bookPrices,
           id: quoteIdentity(
             event.id,
             market.key,
