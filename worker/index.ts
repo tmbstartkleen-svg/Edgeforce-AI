@@ -9,6 +9,7 @@ import {predictionCatalogGateway} from './prediction-public-catalog';
 import {predictionOrderbookGateway} from './prediction-orderbook-review';
 import {predictionWatchLedger} from './prediction-watch-ledger';
 import {predictionLaunchAudit} from './prediction-launch-audit';
+import {polymarketUSSlipGateway} from '../src/lib/intelligence-core/polymarket-us-slips.mjs';
 export {AtlasMissionRoom} from './atlas-mission-room';
 import {kalshiConnectionDiagnostic} from './kalshi-connection-diagnostic';
 import {d1PilotReadiness} from './d1-pilot';
@@ -98,6 +99,7 @@ async function runDailyShard(controller:ScheduledControllerLike,env:EdgeforceEnv
 const worker={
  fetch(request:Request,env:EdgeforceEnv,ctx:ExecutionContextLike){
   const pathname=new URL(request.url).pathname;
+  if(pathname.startsWith('/api/polymarket-us/'))return polymarketUSSlipGateway(request,env);
   if(pathname==='/api/operations/sports-evidence')return d1SportsEvidence(request,env);
   if(pathname==='/api/operations/prediction-launch-audit')return predictionLaunchAudit(request,env);
   if(pathname==='/api/operations/prediction-watches')return predictionWatchLedger(request,env);
