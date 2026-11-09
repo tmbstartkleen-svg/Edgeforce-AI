@@ -42,7 +42,7 @@ async function readLimitedText(target, limit, code, status = 502) {
 async function jsonRequest(fetchImpl, url, options = {}) {
   let response;
   try {
-    response = await fetchImpl(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(8000) });
+    response = await fetchImpl(url, { ...options, redirect: 'manual', signal: AbortSignal.timeout(8000) });
   } catch { fail('POLYMARKET_US_UNREACHABLE', 502); }
   if (!response.ok) {
     const status = response.status;

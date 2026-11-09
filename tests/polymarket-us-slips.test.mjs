@@ -30,6 +30,16 @@ const seed = privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(-32);
 const env = { POLYMARKET_US_KEY_ID: 'test-only-id', POLYMARKET_US_SECRET_KEY: seed.toString('base64'),
   POLYMARKET_US_COMBOS_ENABLED: 'true', CRON_SECRET: 'test-operator-secret-with-more-than-32-characters' };
 
+test('uses Worker-supported manual redirects and rejects redirects without forwarding credentials', async () => {
+  let calls = 0;
+  await assert.rejects(checkUSConnection(env, { now, fetchImpl: async (url, options) => {
+    calls++;
+    assert.equal(options.redirect, 'manual');
+    return new Response(null, { status: 302, headers: { location: 'https://untrusted.invalid/' } });
+  } }), /POLYMARKET_US_REQUEST_REJECTED/);
+  assert.equal(calls, 1);
+});
+
 test('resolves the requested short outcome explicitly and never invents an app slip URL', async () => {
   const p = await prepareUSCombo(choices, { now, fetchImpl: mockEvents() });
   assert.deepEqual(p.requestBody.legs, [
