@@ -1,6 +1,6 @@
 // Build 410: opt-in, alarm-driven source-health audits. No paid APIs or wagering.
 export type AuditConfig={enabled:boolean; intervalMinutes:number; nextRunAt:number|null; updatedAt:string};
-export type AuditTask={id:string;createdAt:string;status:'QUEUED'|'RUNNING'|'RETRY'|'COMPLETED'|'FAILED';attempts:number;dueAt:number;error?:string;summary?:string};
+export type AuditTask={id:string;createdAt:string;status:'QUEUED'|'RUNNING'|'RETRY'|'COMPLETED'|'FAILED'|'CANCELLED';attempts:number;dueAt:number;error?:string;summary?:string};
 export type AuditAlert={id:string;createdAt:string;kind:'EMPTY'|'STALE'|'FAILED';message:string};
 type Store={get<T>(k:string):Promise<T|undefined>;put<T>(k:string,v:T):Promise<void>;setAlarm(at:number):Promise<void>;deleteAlarm():Promise<void>};
 type D1={prepare(sql:string):{all<T>():Promise<{results:T[]}>}};
@@ -12,7 +12,7 @@ export class AtlasAuditController{
  constructor(private storage:Store,private env:AuditEnv){}
  async snapshot(){return {config:await this.storage.get<AuditConfig>(CONFIG)||DEFAULT,jobs:await this.storage.get<AuditTask[]>(JOBS)||[],alerts:await this.storage.get<AuditAlert[]>(ALERTS)||[],mode:'READ_ONLY_D1_METADATA',costlyCalls:false,externalAlerts:false};}
  private async arm(){const s=await this.snapshot();const candidates=s.jobs.filter(j=>j.status==='QUEUED'||j.status==='RETRY').map(j=>j.dueAt);if(s.config.enabled&&s.config.nextRunAt!==null)candidates.push(s.config.nextRunAt);if(candidates.length)await this.storage.setAlarm(Math.max(Date.now()+1000,Math.min(...candidates)));else await this.storage.deleteAlarm();}
- async configure(enabled:boolean,intervalMinutes:number){if(![60,180,360].includes(intervalMinutes))throw Error('BAD_INTERVAL');const config:AuditConfig={enabled,intervalMinutes,nextRunAt:enabled?Date.now()+15000:null,updatedAt:new Date().toISOString()};await this.storage.put(CONFIG,config);await this.arm();return config;}
+ async configure(enabled:boolean,intervalMinutes:number){if(![60,180,360].includes(intervalMinutes))throw Error('BAD_INTERVAL');const config:AuditConfig={enabled,intervalMinutes,nextRunAt:enabled?Date.now()+15000:null,updatedAt:new Date().toISOString()};await this.storage.put(CONFIG,config);if(!enabled){const old=await this.storage.get<AuditTask[]>(JOBS)||[];await this.storage.put(JOBS,old.map(j=>j.status==='QUEUED'||j.status==='RETRY'?{...j,status:'CANCELLED' as const,error:'Cancelled by Founder'}:j));}await this.arm();return config;}
  async enqueue(){const now=Date.now(),jobs=await this.storage.get<AuditTask[]>(JOBS)||[];if(jobs.some(j=>['QUEUED','RUNNING','RETRY'].includes(j.status)&&now-Date.parse(j.createdAt)<600000))throw Error('AUDIT_PENDING');const task:AuditTask={id:crypto.randomUUID(),status:'QUEUED',attempts:0,createdAt:new Date().toISOString(),dueAt:now+1000};await this.storage.put(JOBS,[...jobs,task].slice(-MAX_JOBS));await this.arm();return task;}
  private async alert(kind:AuditAlert['kind'],message:string){const entries=await this.storage.get<AuditAlert[]>(ALERTS)||[];if(entries.some(x=>x.kind===kind&&Date.now()-Date.parse(x.createdAt)<3600000))return;entries.push({id:crypto.randomUUID(),kind,message,createdAt:new Date().toISOString()});await this.storage.put(ALERTS,entries.slice(-MAX_ALERTS));}
  async executeAlarm(){const now=Date.now();const s=await this.snapshot();let {jobs}=s;const config=s.config;
