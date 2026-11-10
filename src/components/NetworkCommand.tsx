@@ -17,7 +17,7 @@ type AuditState={
  config:{enabled:boolean;intervalMinutes:number;nextRunAt:number|null;updatedAt:string};
  jobs:Array<{id:string;createdAt:string;status:string;attempts:number;summary?:string;error?:string}>;
  alerts:Array<{id:string;createdAt:string;kind:string;message:string}>;
- mode?:string;
+ mode?:string;globalSchedulePermission?:boolean;
 };
 type DirectorTask={
  id:string;missionId:string;agent:string;question:string;stage:string;
@@ -188,6 +188,7 @@ export default function NetworkCommand(){
      <section className="networkAuditPanel">
       <div className="networkAuditTop"><b>OBSERVATION HEALTH SCHEDULE</b><span>{auditState?.config.enabled?'ENABLED BY FOUNDER':'DISABLED BY DEFAULT'}</span></div>
       <p>The scheduler checks only existing source timestamps in the D1 database. It cannot prove complete coverage of DraftKings. Alerts are stored here for your review; nothing is sent externally.</p>
+      {auditState&&!auditState.globalSchedulePermission&&<p className="networkAuditGate">Global execution remains locked in Cloudflare. Founder approval and an explicit environment configuration change are required before scheduling can start.</p>}
       <div className="networkAuditControls">
        <label htmlFor="audit-interval">Frequency</label>
        <select id="audit-interval" value={auditInterval} onChange={e=>setAuditInterval(Number(e.target.value))}>
@@ -195,9 +196,9 @@ export default function NetworkCommand(){
         <option value={180}>Every 3 hours</option>
         <option value={360}>Every 6 hours</option>
        </select>
-       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',true)}>Enable monitoring</button>
+       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',true)} disabled={busy||!auth.trim()||!auditState?.globalSchedulePermission}>Enable monitoring</button>
        <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',false)}>Disable monitoring</button>
-       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('queue')}>Run one audit</button>
+       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('queue')} disabled={busy||!auth.trim()||!auditState?.globalSchedulePermission}>Run one audit</button>
        <button disabled={busy||!auth.trim()} type="button" onClick={()=>void loadAudit()}>Refresh</button>
       </div>
       <small>Next scheduled check: {auditState?.config.nextRunAt?new Date(auditState.config.nextRunAt).toLocaleString():'None'} · Runs are limited to three attempts, including recoverable failures.</small>
