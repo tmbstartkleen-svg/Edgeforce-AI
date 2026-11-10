@@ -20,7 +20,9 @@ The scheduler checks the **existing** D1 observations. It does **not** discover 
 ### Activation
 The preview is code/build testable without credentials, but live writes and scheduled execution require deploying the registered Durable Object binding to a configured Cloudflare environment. Set `EDGEFORCE_NETWORK_OWNER_TOKEN` as a private Worker secret. Do not share tokens in chat.
 
-### Verification
+#The current-main Cloudflare configuration retains `ATLAS_SCHEDULE_EXECUTION_ENABLED=false` as a global kill switch. Founder authentication **and** an explicitly approved environment change to `true` are required before enabling recurrence or queuing a manual audit. The status screen identifies this gate. This build does not flip that flag on behalf of the Founder.
+
+## Verification
 - `npm run test:network-autonomous-audit`
 - `npm run test:network-director-tasks`
 - `npm run lint`
