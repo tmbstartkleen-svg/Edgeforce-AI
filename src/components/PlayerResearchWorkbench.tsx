@@ -4,6 +4,16 @@ import { buildPlayerResearchSnapshot } from '@/lib/intelligence-core/player-rese
 import { normalizeStoredPlayerHistory } from '@/lib/intelligence-core/stored-player-history.mjs';
 
 type Result = ReturnType<typeof buildPlayerResearchSnapshot>;
+type ArchiveReview={
+ ok:boolean;error?:string;status?:string;player?:{name?:string};
+ archivedRows?:number;excludedArchiveRows?:Array<{eventId:string|null;reasons:string[]}>;
+ caveat?:string;streak?:{
+   last5:{observed:number;hits:number;hitRate:number|null};
+   last10:{observed:number;hits:number;hitRate:number|null};
+   consecutive:number;verifiedGames:number;status:string;
+ };
+};
+
 export default function PlayerResearchWorkbench() {
  const [playerId,setPlayerId]=useState('');
  const [sport,setSport]=useState('nba');
@@ -14,6 +24,7 @@ export default function PlayerResearchWorkbench() {
  const [error,setError]=useState('');
  const [loadInfo,setLoadInfo]=useState('');
  const [fetching,setFetching]=useState(false);
+ const [archiveReview,setArchiveReview]=useState<ArchiveReview|null>(null);
  async function loadExistingHistory() {
   setLoadInfo('');setError('');setResult(null);
   const id=playerId.trim();
@@ -28,6 +39,23 @@ export default function PlayerResearchWorkbench() {
    setLoadInfo(normalized.rows.length+' archived rows loaded; '+normalized.status+'. Historical rows without independent provenance remain ineligible for verified streaks.');
   } catch(e) {setError(e instanceof Error?e.message:'Unable to load history.');}
   finally {setFetching(false);}
+ }
+ async function inspectArchivedStreak(){
+  const id=playerId.trim();
+  const value=Number(threshold);
+  setError('');setArchiveReview(null);
+  if(!/^[a-zA-Z0-9:_-]{1,100}$/.test(id)||!Number.isFinite(value)||value<0||value>10000){
+   setError('Enter a valid player ID and threshold before inspecting the archive.');return;
+  }
+  setFetching(true);
+  try{
+   const params=new URLSearchParams({stat,threshold:String(value)});
+   const response=await fetch('/api/player/'+encodeURIComponent(id)+'/streak?'+params.toString(),{cache:'no-store'});
+   const data:ArchiveReview=await response.json();
+   if(!response.ok||!data.ok){setError(data.status||data.error||'Archive evidence unavailable.');return;}
+   setArchiveReview(data);
+  }catch{setError('Archive streak endpoint unavailable.')}
+  finally{setFetching(false)}
  }
  function analyze() {
   setError('');setResult(null);
@@ -54,6 +82,17 @@ export default function PlayerResearchWorkbench() {
    <label style={css.label}>At least<input style={css.input} type="number" min="0" step="0.5" value={threshold} onChange={e=>setThreshold(e.target.value)}/></label>
   </div>
   <button style={{padding:'10px 18px',background:'#244c68',color:'white',border:0,borderRadius:8,cursor:'pointer',marginBottom:12,marginRight:8}} type="button" disabled={fetching} onClick={()=>void loadExistingHistory()}>{fetching?'Loading history…':'Load existing player history'}</button>
+  <button style={{padding:'10px 18px',background:'#155d60',color:'white',border:0,borderRadius:8,cursor:'pointer',marginBottom:12}} type="button" disabled={fetching} onClick={()=>void inspectArchivedStreak()}>Inspect archived streaks</button>
+  {archiveReview?.streak&&<div style={{background:'#142736',border:'1px solid #355767',padding:16,borderRadius:12,marginBottom:14}} role="status">
+   <h2>Archived final-game streak evidence</h2>
+   <p>{archiveReview.player?.name||playerId} · {stat} at least {threshold} · {archiveReview.streak.status.replaceAll('_',' ')}</p>
+   <table style={{width:'100%',textAlign:'left'}}><thead><tr><th>Window</th><th>Hits</th><th>Observed</th><th>Rate</th></tr></thead><tbody>
+    {([['Last 5',archiveReview.streak.last5],['Last 10',archiveReview.streak.last10]] as const).map(([label,w])=><tr key={label}><td>{label}</td><td>{w.hits}</td><td>{w.observed}</td><td>{w.hitRate===null?'Incomplete':(w.hitRate*100).toFixed(1)+'%'}</td></tr>)}
+   </tbody></table>
+   <p>Consecutive hits: {archiveReview.streak.consecutive}. Eligible games: {archiveReview.streak.verifiedGames}. Archived rows: {archiveReview.archivedRows??0}. Excluded rows: {archiveReview.excludedArchiveRows?.length??0}.</p>
+   <p style={{fontSize:13}}>{archiveReview.caveat} This read-only report is not a calibrated forecast or a wager recommendation.</p>
+  </div>}
+
   {loadInfo&&<p role="status">{loadInfo}</p>}
   <label style={css.label}>Sourced game-log JSON<textarea style={{...css.input,minHeight:160,fontFamily:'monospace'}} spellCheck={false} value={raw} onChange={e=>setRaw(e.target.value)} aria-label="Sourced game log JSON"/></label>
   <p style={{fontSize:13}}>Required per row: playerId, eventId, upstreamId, observedAt, date, completed=true, sourceUrl and stats keyed by the statistic selected. No data is fetched or stored.</p>
