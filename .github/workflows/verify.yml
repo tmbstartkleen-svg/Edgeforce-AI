@@ -45,6 +45,8 @@ jobs:
         run: npm run test:network-director-tasks
       - name: Test opt-in autonomous source audits
         run: npm run test:network-autonomous-audit
+      - name: Test audit schedule and retry runtime
+        run: npm run test:network-autonomous-runtime
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
