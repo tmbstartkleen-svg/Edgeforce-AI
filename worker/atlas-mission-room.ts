@@ -56,7 +56,7 @@ export class AtlasMissionRoom {
    try{
     const task=await new AtlasAuditController(this.state.storage,this.env).enqueue();
     return json({ok:true,task,mode:'READ_ONLY_D1_METADATA'},202);
-   }catch{return json({ok:false,error:'AUDIT_ALREADY_QUEUED'},409);}
+   }catch(e){const error=e instanceof Error?e.message:'AUDIT_UNAVAILABLE';return json({ok:false,error},error==='AUDIT_HOURLY_LIMIT'?429:409);}
   }
   if(request.method==='GET'&&url.pathname==='/history'){
    const missions=await this.state.storage.get<AtlasJournalItem[]>('missions')||[];
