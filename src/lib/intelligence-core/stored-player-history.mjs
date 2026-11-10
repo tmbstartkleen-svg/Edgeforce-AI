@@ -19,13 +19,13 @@ export function normalizeStoredPlayerHistory(payload, playerId) {
   const date = typeof item.stat_date === 'string' ? item.stat_date : item.stat_date ?? null;
   return {
    playerId, eventId, upstreamId: typeof item.source === 'string' ? item.source : '',
-   date, completed: item.completed === true, stats,
+   date, completed: item.completedEvidence === 'true' && item.source === 'espn-public-gamelog', stats,
    // The old schema does not certify when the row was first observed, or its URL.
-   observedAt: typeof item.observed_at === 'string' ? item.observed_at : null,
-   sourceUrl: typeof item.source_url === 'string' ? item.source_url : null,
+   observedAt: typeof item.observedAt === 'string' ? item.observedAt : null,
+   sourceUrl: typeof item.sourceUrl === 'string' ? item.sourceUrl : null,
   };
  });
- const ready = rows.filter(r=>r.completed && r.observedAt && r.sourceUrl).length;
+ const ready = rows.filter(r=>r.completed && r.observedAt && r.sourceUrl && r.eventId).length;
  return { status: ready ? 'PROVENANCE_REVIEW_REQUIRED' : 'MISSING_PROVENANCE',
   rows, warnings: ready < rows.length ? ['SOME_ROWS_MISSING_VERIFIED_COMPLETION_AND_PROVENANCE'] : [] };
 }
