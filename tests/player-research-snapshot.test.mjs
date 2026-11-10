@@ -30,3 +30,15 @@ test('stale report and mismatched athlete never enter streak calculations', () =
 test('invalid as-of time is rejected', () => {
   assert.throws(()=>buildPlayerResearchSnapshot({playerId:'p',sport:'nba',games:[],stat:'points',threshold:10,asOf:'bad'}),/INVALID_RESEARCH_AS_OF/);
 });
+
+test('future-dated games cannot count as verified streak records', () => {
+  const row = {...game(0), date:'2026-11-10T12:00:00Z'};
+  const r=run([row,game(1),game(2),game(3),game(4)]);
+  assert.equal(r.streak.acceptedCount,4);
+  assert.equal(r.status,'RESEARCH_INCOMPLETE');
+});
+test('repeated event IDs cannot inflate the last-five sample', () => {
+  const r=run([game(0),game(0),game(1),game(2),game(3)]);
+  assert.equal(r.streak.acceptedCount,4);
+  assert.equal(r.status,'RESEARCH_INCOMPLETE');
+});
