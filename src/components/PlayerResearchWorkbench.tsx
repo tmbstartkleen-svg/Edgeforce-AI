@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { buildPlayerResearchSnapshot } from '@/lib/intelligence-core/player-research-snapshot.mjs';
+import { normalizeStoredPlayerHistory } from '@/lib/intelligence-core/stored-player-history.mjs';
 
 type Result = ReturnType<typeof buildPlayerResearchSnapshot>;
 export default function PlayerResearchWorkbench() {
@@ -11,6 +12,23 @@ export default function PlayerResearchWorkbench() {
  const [raw,setRaw]=useState('[]');
  const [result,setResult]=useState<Result|null>(null);
  const [error,setError]=useState('');
+ const [loadInfo,setLoadInfo]=useState('');
+ const [fetching,setFetching]=useState(false);
+ async function loadExistingHistory() {
+  setLoadInfo('');setError('');setResult(null);
+  const id=playerId.trim();
+  if(!id || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)){setError('Enter a valid player ID before loading.');return;}
+  setFetching(true);
+  try {
+   const response=await fetch('/api/player/'+encodeURIComponent(id),{cache:'no-store'});
+   if(!response.ok)throw new Error('Player history unavailable (HTTP '+response.status+').');
+   const payload=await response.json();
+   const normalized=normalizeStoredPlayerHistory(payload,id);
+   setRaw(JSON.stringify(normalized.rows,null,2));
+   setLoadInfo(normalized.rows.length+' archived rows loaded; '+normalized.status+'. Historical rows without independent provenance remain ineligible for verified streaks.');
+  } catch(e) {setError(e instanceof Error?e.message:'Unable to load history.');}
+  finally {setFetching(false);}
+ }
  function analyze() {
   setError('');setResult(null);
   try {
@@ -35,6 +53,8 @@ export default function PlayerResearchWorkbench() {
    <label style={css.label}>Statistic<input style={css.input} value={stat} onChange={e=>setStat(e.target.value)} placeholder="assists"/></label>
    <label style={css.label}>At least<input style={css.input} type="number" min="0" step="0.5" value={threshold} onChange={e=>setThreshold(e.target.value)}/></label>
   </div>
+  <button style={{padding:'10px 18px',background:'#244c68',color:'white',border:0,borderRadius:8,cursor:'pointer',marginBottom:12,marginRight:8}} type="button" disabled={fetching} onClick={()=>void loadExistingHistory()}>{fetching?'Loading history…':'Load existing player history'}</button>
+  {loadInfo&&<p role="status">{loadInfo}</p>}
   <label style={css.label}>Sourced game-log JSON<textarea style={{...css.input,minHeight:160,fontFamily:'monospace'}} spellCheck={false} value={raw} onChange={e=>setRaw(e.target.value)} aria-label="Sourced game log JSON"/></label>
   <p style={{fontSize:13}}>Required per row: playerId, eventId, upstreamId, observedAt, date, completed=true, sourceUrl and stats keyed by the statistic selected. No data is fetched or stored.</p>
   <button style={{padding:'10px 18px',background:'#177e66',color:'white',border:0,borderRadius:8,cursor:'pointer'}} type="button" onClick={analyze}>Analyze historical record</button>
