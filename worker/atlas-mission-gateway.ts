@@ -37,10 +37,11 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
  const url=new URL(request.url);
  const isHistory=url.pathname==='/api/network/missions';
  const isTasks=url.pathname==='/api/network/tasks';
+ const isAudit=url.pathname==='/api/network/audit';
  const isDirector=url.pathname==='/api/network/director';
- if(!isHistory&&!isTasks&&!isDirector)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
+ if(!isHistory&&!isTasks&&!isDirector&&!isAudit)return json({ok:false,error:'UNKNOWN_NETWORK_PATH'},404);
  if(isDirector&&request.method==='GET')return forward(request);
- if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')){
+ if((isDirector&&request.method!=='POST')||((isHistory||isTasks)&&request.method!=='GET')||(isAudit&&!['GET','POST'].includes(request.method))){
   return json({ok:false,error:'METHOD_NOT_ALLOWED'},405);
  }
  const required=env.EDGEFORCE_NETWORK_OWNER_TOKEN;
@@ -55,6 +56,32 @@ export async function atlasGateway(request:Request,env:Env,forward:Forward):Prom
   message:'The durable mission room binding is missing. This endpoint will not claim persistent missions.'
  },503);
 
+ if(isAudit){
+  try{
+   if(request.method==='GET'){
+    const res=await instance.fetch(roomRequest('/audit/status','GET'));
+    return res.ok?json(await res.json()):json({ok:false,error:'AUDIT_STATUS_UNAVAILABLE'},503);
+   }
+   const raw=await request.text();
+   if(raw.length>800)return json({ok:false,error:'REQUEST_TOO_LARGE'},413);
+   const value=JSON.parse(raw) as unknown;
+   if(!value||typeof value!=='object'||Array.isArray(value))return json({ok:false,error:'INVALID_REQUEST'},400);
+   const command=value as Record<string,unknown>;
+   if(command.operation==='configure'){
+    if(typeof command.enabled!=='boolean'||![60,180,360].includes(Number(command.intervalMinutes)))
+     return json({ok:false,error:'INVALID_AUDIT_CONFIGURATION'},400);
+    const res=await instance.fetch(roomRequest('/audit/configure','POST',{
+     enabled:command.enabled,intervalMinutes:Number(command.intervalMinutes)
+    }));
+    return json(await res.json(),res.status);
+   }
+   if(command.operation==='queue'){
+    const res=await instance.fetch(roomRequest('/audit/queue','POST',{}));
+    return json(await res.json(),res.status);
+   }
+   return json({ok:false,error:'UNKNOWN_AUDIT_OPERATION'},400);
+  }catch{return json({ok:false,error:'AUDIT_CONTROL_UNAVAILABLE'},503);}
+ }
  if(isTasks){
   try{
    const agent=url.searchParams.get('agent')||'';
