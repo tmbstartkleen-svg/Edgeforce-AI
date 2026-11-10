@@ -9,8 +9,8 @@ const record = x => x && typeof x === 'object' && !Array.isArray(x) ? x : {};
 const espnStatAliases={
   points:['pts'],rebounds:['reb','rebs'],assists:['ast'],
   steals:['stl'],blocks:['blk'],turnovers:['to','tov'],
-  shotsongoal:['sog'],saves:['sv'],goals:['g'],
-  passingyards:['yds'],rushingyards:['rushyds'],receivingyards:['recyds']
+  shotsongoal:['sog'],saves:['sv'],
+  rushingyards:['rushyds'],receivingyards:['recyds']
 };
 /** Explicit, non-ambiguous numeric ESPN stat aliases. Never infer model probabilities. */
 function normalizeEspnStats(stats,source){
