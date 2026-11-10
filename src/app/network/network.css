@@ -128,3 +128,26 @@
 .networkTaskStatus{border:1px solid #66836d;color:#c6eacc;background:#1b392a;font-size:9px;font-weight:800;padding:6px 9px;border-radius:99px}
 .networkTaskStatus.failed,.networkTaskStatus.interrupted{border-color:#916359;color:#ffd5bb;background:#3b2528}
 .networkTaskStatus.running{border-color:#998658;color:#f9e1a4;background:#3f3220}
+
+.networkAuditPanel{background:#101f2a;border:1px solid #35644f;border-radius:14px;padding:20px;margin-top:24px}
+.networkAuditTop{display:flex;justify-content:space-between;gap:15px;align-items:center}
+.networkAuditTop b{font-size:12px;letter-spacing:.09em;color:#c1f6d5}
+.networkAuditTop span{font-size:9px;color:#f5d59a;background:#342d23;border:1px solid #76603c;border-radius:50px;padding:8px}
+.networkAuditPanel p,.networkAuditPanel small{color:#9bb3c1;font-size:11px;line-height:1.7}
+.networkAuditControls{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:18px 0}
+.networkAuditControls label{color:#b5d3c6;font-size:11px}
+.networkAuditControls select{background:#142b35;color:#deffe9;border:1px solid #4d715f;border-radius:8px;padding:9px;font-size:11px}
+.networkAuditControls button{background:#193a31;color:#d3ffe4;border:1px solid #427c61;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:11px;font-weight:800}
+.networkAuditControls button:hover{background:#26513e}
+.networkAuditControls button:disabled{opacity:.4;cursor:not-allowed}
+.networkAuditTwo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+.networkAuditTwo>section{background:#0e1b27;border:1px solid #294053;border-radius:12px;padding:16px}
+.networkAuditTwo h2{font-size:16px;margin:0 0 14px}
+.networkAuditTwo p{color:#a5bbc9;font-size:11px;line-height:1.6}
+.networkAuditItem{border-top:1px solid #293c4b;padding:14px 0;overflow-wrap:anywhere}
+.networkAuditItem>div{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.networkAuditItem b{font-size:11px;color:#d4f4df}
+.networkAuditItem small{font-size:9px;color:#8da2b4}
+@media(max-width:760px){.networkAuditTwo{grid-template-columns:1fr}.networkAuditTop{align-items:flex-start;flex-direction:column}}
+
+.networkAuditPanel .networkAuditGate{color:#f1cb94;font-weight:700;padding:12px;border:1px solid #80633c;border-radius:8px;background:#342d20}

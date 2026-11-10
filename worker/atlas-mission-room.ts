@@ -1,3 +1,4 @@
+import {AtlasAuditController,type AuditEnv,type AuditStore} from './atlas-autonomous-audit';
 // Build 408: private durable journal for the Founder-led ATLAS mission room.
 // The native Cloudflare Durable Object maintains one serialized room state.
 // It is intentionally NOT public-routed: only the authenticated Worker gateway
@@ -11,7 +12,7 @@ type RoomStore={
  delete(key:string):Promise<boolean>;
  transaction<T>(operation:(txn:RoomStore)=>Promise<T>):Promise<T>;
 };
-type RoomState={storage:RoomStore};
+type RoomState={storage:RoomStore&AuditStore};
 export type DirectorTask={
  id:string;missionId:string;agent:string;question:string;stage:string;
  status:'RUNNING'|'COMPLETED'|'FAILED'|'INTERRUPTED';
@@ -30,10 +31,42 @@ const MAX_MINUTE=2;
 const MAX_HOUR=12;
 
 export class AtlasMissionRoom {
- constructor(private readonly state:RoomState){}
+ constructor(private readonly state:RoomState,private readonly env:AuditEnv&{ATLAS_SCHEDULE_EXECUTION_ENABLED?:string}){}
+ async alarm(){
+  if(this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')return;
+  await new AtlasAuditController(this.state.storage,this.env).executeAlarm();
+ }
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
+  if(url.pathname==='/audit/status'&&request.method==='GET'){
+   const state=await new AtlasAuditController(this.state.storage,this.env).snapshot();
+   return json({ok:true,...state,globalSchedulePermission:this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED==='true'});
+  }
+  if(url.pathname==='/audit/configure'&&request.method==='POST'){
+   let input:Record<string,unknown>;
+   try{const raw=await request.text();if(raw.length>500)return json({ok:false,error:'TOO_LARGE'},413);
+    const parsed=JSON.parse(raw) as unknown;
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return json({ok:false,error:'BAD_REQUEST'},400);
+    input=parsed as Record<string,unknown>;
+   }catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(typeof input.enabled!=='boolean')return json({ok:false,error:'ENABLED_REQUIRED'},400);
+   if(input.enabled&&this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
+    return json({ok:false,error:'GLOBAL_SCHEDULE_DISABLED'},403);
+   const interval=input.intervalMinutes===undefined?60:Number(input.intervalMinutes);
+   try{
+    const config=await new AtlasAuditController(this.state.storage,this.env).configure(input.enabled,interval);
+    return json({ok:true,config,operation:'READ_ONLY_D1_METADATA',paymentAllowed:false,bettingAllowed:false});
+   }catch{return json({ok:false,error:'INVALID_INTERVAL'},400);}
+  }
+  if(url.pathname==='/audit/queue'&&request.method==='POST'){
+   if(this.env.ATLAS_SCHEDULE_EXECUTION_ENABLED!=='true')
+    return json({ok:false,error:'GLOBAL_SCHEDULE_DISABLED'},403);
+   try{
+    const task=await new AtlasAuditController(this.state.storage,this.env).enqueue();
+    return json({ok:true,task,mode:'READ_ONLY_D1_METADATA'},202);
+   }catch(e){const error=e instanceof Error?e.message:'AUDIT_UNAVAILABLE';return json({ok:false,error},error==='AUDIT_HOURLY_LIMIT'?429:409);}
+  }
   // Separate, bounded proof key; never writes a real mission or schedules agents.
   if(url.pathname==='/staging-certification'){
    const nonce=url.searchParams.get('nonce')||'';
