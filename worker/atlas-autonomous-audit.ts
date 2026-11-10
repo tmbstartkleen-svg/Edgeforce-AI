@@ -2,14 +2,14 @@
 export type AuditConfig={enabled:boolean; intervalMinutes:number; nextRunAt:number|null; updatedAt:string};
 export type AuditTask={id:string;createdAt:string;status:'QUEUED'|'RUNNING'|'RETRY'|'COMPLETED'|'FAILED'|'CANCELLED';attempts:number;dueAt:number;error?:string;summary?:string};
 export type AuditAlert={id:string;createdAt:string;kind:'EMPTY'|'STALE'|'FAILED';message:string};
-type Store={get<T>(k:string):Promise<T|undefined>;put<T>(k:string,v:T):Promise<void>;setAlarm(at:number):Promise<void>;deleteAlarm():Promise<void>};
+export type AuditStore={get<T>(k:string):Promise<T|undefined>;put<T>(k:string,v:T):Promise<void>;setAlarm(at:number):Promise<void>;deleteAlarm():Promise<void>};
 type D1={prepare(sql:string):{all<T>():Promise<{results:T[]}>}};
 export type AuditEnv={INTELLIGENCE_DB?:D1};
 const CONFIG='atlas.audit.config.v1',JOBS='atlas.audit.jobs.v1',ALERTS='atlas.audit.alerts.v1';
 const DEFAULT:AuditConfig={enabled:false,intervalMinutes:60,nextRunAt:null,updatedAt:'not-configured'};
 const MAX_JOBS=60,MAX_ALERTS=35,MAX_ATTEMPTS=3;
 export class AtlasAuditController{
- constructor(private storage:Store,private env:AuditEnv){}
+ constructor(private storage:AuditStore,private env:AuditEnv){}
  async snapshot(){return {config:await this.storage.get<AuditConfig>(CONFIG)||DEFAULT,jobs:await this.storage.get<AuditTask[]>(JOBS)||[],alerts:await this.storage.get<AuditAlert[]>(ALERTS)||[],mode:'READ_ONLY_D1_METADATA',costlyCalls:false,externalAlerts:false};}
  private async arm(){const s=await this.snapshot();const candidates=s.jobs.filter(j=>j.status==='QUEUED'||j.status==='RETRY').map(j=>j.dueAt);if(s.config.enabled&&s.config.nextRunAt!==null)candidates.push(s.config.nextRunAt);if(candidates.length)await this.storage.setAlarm(Math.max(Date.now()+1000,Math.min(...candidates)));else await this.storage.deleteAlarm();}
  async configure(enabled:boolean,intervalMinutes:number){if(![60,180,360].includes(intervalMinutes))throw Error('BAD_INTERVAL');const config:AuditConfig={enabled,intervalMinutes,nextRunAt:enabled?Date.now()+15000:null,updatedAt:new Date().toISOString()};await this.storage.put(CONFIG,config);if(!enabled){const old=await this.storage.get<AuditTask[]>(JOBS)||[];await this.storage.put(JOBS,old.map(j=>j.status==='QUEUED'||j.status==='RETRY'?{...j,status:'CANCELLED' as const,error:'Cancelled by Founder'}:j));}await this.arm();return config;}
