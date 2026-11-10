@@ -1,3 +1,4 @@
+import {AtlasAuditController,type AuditEnv,type AuditStore} from './atlas-autonomous-audit';
 // Build 408: private durable journal for the Founder-led ATLAS mission room.
 // The native Cloudflare Durable Object maintains one serialized room state.
 // It is intentionally NOT public-routed: only the authenticated Worker gateway
@@ -10,7 +11,7 @@ type RoomStore={
  put<T>(key:string,value:T):Promise<void>;
  transaction<T>(operation:(txn:RoomStore)=>Promise<T>):Promise<T>;
 };
-type RoomState={storage:RoomStore};
+type RoomState={storage:RoomStore&AuditStore};
 export type DirectorTask={
  id:string;missionId:string;agent:string;question:string;stage:string;
  status:'RUNNING'|'COMPLETED'|'FAILED'|'INTERRUPTED';
@@ -29,10 +30,34 @@ const MAX_MINUTE=2;
 const MAX_HOUR=12;
 
 export class AtlasMissionRoom {
- constructor(private readonly state:RoomState){}
+ constructor(private readonly state:RoomState,private readonly env:AuditEnv){}
+ async alarm(){await new AtlasAuditController(this.state.storage,this.env).executeAlarm();}
  async fetch(request:Request):Promise<Response>{
   const url=new URL(request.url);
   if(url.hostname!=='atlas.internal')return json({ok:false,error:'INTERNAL_ONLY'},403);
+  if(url.pathname==='/audit/status'&&request.method==='GET'){
+   return json({ok:true,...await new AtlasAuditController(this.state.storage,this.env).snapshot()});
+  }
+  if(url.pathname==='/audit/configure'&&request.method==='POST'){
+   let input:Record<string,unknown>;
+   try{const raw=await request.text();if(raw.length>500)return json({ok:false,error:'TOO_LARGE'},413);
+    const parsed=JSON.parse(raw) as unknown;
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return json({ok:false,error:'BAD_REQUEST'},400);
+    input=parsed as Record<string,unknown>;
+   }catch{return json({ok:false,error:'INVALID_JSON'},400);}
+   if(typeof input.enabled!=='boolean')return json({ok:false,error:'ENABLED_REQUIRED'},400);
+   const interval=input.intervalMinutes===undefined?60:Number(input.intervalMinutes);
+   try{
+    const config=await new AtlasAuditController(this.state.storage,this.env).configure(input.enabled,interval);
+    return json({ok:true,config,operation:'READ_ONLY_D1_METADATA',paymentAllowed:false,bettingAllowed:false});
+   }catch{return json({ok:false,error:'INVALID_INTERVAL'},400);}
+  }
+  if(url.pathname==='/audit/queue'&&request.method==='POST'){
+   try{
+    const task=await new AtlasAuditController(this.state.storage,this.env).enqueue();
+    return json({ok:true,task,mode:'READ_ONLY_D1_METADATA'},202);
+   }catch{return json({ok:false,error:'AUDIT_ALREADY_QUEUED'},409);}
+  }
   if(request.method==='GET'&&url.pathname==='/history'){
    const missions=await this.state.storage.get<AtlasJournalItem[]>('missions')||[];
    const max=Math.min(30,Math.max(1,Number(url.searchParams.get('limit')||15)||15));
