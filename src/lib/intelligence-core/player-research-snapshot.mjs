@@ -22,11 +22,19 @@ export function buildPlayerResearchSnapshot({
   }));
   const audit = auditPlayerIntelligence(observations, { now, maxAgeMs: maxReportAgeMs });
   const auditReady = new Set();
+  const observedKeys = new Set();
   for (const g of games) {
     const observedAt = Date.parse(g?.observedAt ?? '');
-    if (g?.playerId !== playerId || !g?.upstreamId || !g?.eventId ||
+    const eventId = String(g?.eventId ?? '').trim();
+    const upstreamId = String(g?.upstreamId ?? '').trim();
+    const eventDate = Date.parse(g?.date ?? '');
+    if (g?.playerId !== playerId || !upstreamId || !eventId ||
+        !Number.isFinite(eventDate) || eventDate > now ||
         !Number.isFinite(observedAt) || observedAt > now ||
         now - observedAt > maxReportAgeMs) continue;
+    const eventKey = JSON.stringify([providerId, upstreamId, playerId, eventId]);
+    if (observedKeys.has(eventKey)) continue;
+    observedKeys.add(eventKey);
     auditReady.add(g);
   }
   const streak = reviewPlayerStreakEvidence({
@@ -34,7 +42,7 @@ export function buildPlayerResearchSnapshot({
     games: games.filter(g => auditReady.has(g)),
   });
   const reasons = [];
-  if (audit.accepted !== games.length) reasons.push('INCOMPLETE_SOURCE_AUDIT');
+  if (audit.accepted !== games.length || auditReady.size !== games.length) reasons.push('INCOMPLETE_SOURCE_AUDIT');
   if (streak.acceptedCount < 5) reasons.push('INSUFFICIENT_VERIFIED_GAME_LOG');
   if (streak.rejectedCount > 0) reasons.push('INVALID_GAME_LOG_ROWS');
   return {
