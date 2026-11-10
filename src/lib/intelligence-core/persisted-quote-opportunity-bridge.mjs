@@ -31,6 +31,7 @@ export function normalizePersistedQuoteEvidence(rows,{now=Date.now(),maxRows=100
   if(sourceTime>storedTime+60000||sourceTime>now+60000){reason('FUTURE_SOURCE_OBSERVATION');continue;}
   if(raw.venueType!=='SPORTSBOOK'||(raw.side&&raw.side!=='BACK')){reason('UNSUPPORTED_VENUE_OR_SIDE');continue;}
   quotes.push({eventId,marketKey,settlementKey,currency:raw.currency==='USD'?'USD':raw.currency,
+   lineKey:raw.lineKey,periodKey:raw.periodKey,playerId:raw.playerId,statKey:raw.statKey,lineValue:raw.lineValue,
    venueType:'SPORTSBOOK',side:'BACK',outcomeSetType,outcomes,selection,
    bookmaker,providerId,upstreamId,observedAt:sourceTime,odds});
  }

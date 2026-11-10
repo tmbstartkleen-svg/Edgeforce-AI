@@ -10,7 +10,10 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
   }
   const players=await sql`select * from athletes where id=${id} limit 1`;
   const history=await sql`
-    select event_id,stat_date,stats,source
+    select event_id,stat_date,stats,source,
+      raw->>'completed' as "completedEvidence",
+      raw->>'observedAt' as "observedAt",
+      raw->>'sourceUrl' as "sourceUrl"
     from player_game_stats where athlete_id=${id}
     order by stat_date desc limit 50
   `;
