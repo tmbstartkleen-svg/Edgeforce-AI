@@ -6,6 +6,29 @@ const finalStatuses = new Set(['final', 'finished', 'completed', 'post']);
 const safeString = x => typeof x === 'string' ? x.trim() : '';
 const record = x => x && typeof x === 'object' && !Array.isArray(x) ? x : {};
 
+const espnStatAliases={
+  points:['pts'],rebounds:['reb','rebs'],assists:['ast'],
+  steals:['stl'],blocks:['blk'],turnovers:['to','tov'],
+  shotsongoal:['sog'],saves:['sv'],goals:['g'],
+  passingyards:['yds'],rushingyards:['rushyds'],receivingyards:['recyds']
+};
+/** Explicit, non-ambiguous numeric ESPN stat aliases. Never infer model probabilities. */
+function normalizeEspnStats(stats,source){
+  if(!source.startsWith('espn'))return stats;
+  const output={...stats};
+  for(const [canonical,aliases] of Object.entries(espnStatAliases)){
+    if(typeof output[canonical]==='number'&&Number.isFinite(output[canonical]))continue;
+    for(const alias of aliases){
+      const candidate=stats[alias];
+      if(typeof candidate==='number'&&Number.isFinite(candidate)&&candidate>=0){
+        output[canonical]=candidate;
+        break;
+      }
+    }
+  }
+  return output;
+}
+
 function safeSourceUrl(value, source) {
   if (typeof value !== 'string' || value.length > 600) return null;
   try {
@@ -53,7 +76,7 @@ export function normalizeStoredPlayerGames(rows, playerId) {
       omitted.push({eventId:eventId || null,reasons});
       continue;
     }
-    games.push({eventId,playerId,date,completed:true,stats,sourceUrl,source,
+    games.push({eventId,playerId,date,completed:true,stats:normalizeEspnStats(stats,source),sourceUrl,source,
       sourceLinkType,completionEvidence:finalStatuses.has(eventStatus)?'EVENT_FINAL_STATUS':'ARCHIVED_COMPLETED_FLAG'});
   }
   return {games,omitted,archivedRows:rows.length,sourceAuthenticated:false};
