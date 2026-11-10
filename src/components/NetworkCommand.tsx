@@ -13,6 +13,12 @@ type Reply=DirectorRun&{
 };
 type ErrorReply={ok:false;error:string;message:string};
 type Exchange={key:number;request:string;response:Reply};
+type AuditState={
+ config:{enabled:boolean;intervalMinutes:number;nextRunAt:number|null;updatedAt:string};
+ jobs:Array<{id:string;createdAt:string;status:string;attempts:number;summary?:string;error?:string}>;
+ alerts:Array<{id:string;createdAt:string;kind:string;message:string}>;
+ mode?:string;
+};
 type DirectorTask={
  id:string;missionId:string;agent:string;question:string;stage:string;
  status:'RUNNING'|'COMPLETED'|'FAILED'|'INTERRUPTED';
@@ -41,13 +47,45 @@ export default function NetworkCommand(){
  const [busy,setBusy]=useState(false);
  const [history,setHistory]=useState<Exchange[]>([]);
  const [error,setError]=useState('');
- const [tab,setTab]=useState<'room'|'org'|'tasks'>('room');
+ const [tab,setTab]=useState<'room'|'org'|'tasks'|'operations'>('room');
  const [tasks,setTasks]=useState<DirectorTask[]>([]);
  const [taskAgent,setTaskAgent]=useState('all');
  const [tasksLoaded,setTasksLoaded]=useState(false);
+ const [auditState,setAuditState]=useState<AuditState|null>(null);
+ const [auditInterval,setAuditInterval]=useState(60);
  const [selected,setSelected]=useState<string>('atlas');
  const [sequence,setSequence]=useState(0);
  const selectedRole=NETWORK_ORG.find(x=>x.id===selected)||NETWORK_ORG[1];
+ const loadAudit=useCallback(async()=>{
+  if(!auth.trim()){setError('Founder token required to inspect autonomous operations.');return;}
+  if(busy)return;
+  setBusy(true);setError('');
+  try{
+   const res=await fetch('/api/network/audit',{headers:{Authorization:'Bearer '+auth.trim()},cache:'no-store'});
+   const data=await res.json() as AuditState&{ok?:boolean;error?:string};
+   if(!res.ok||!data.ok)throw new Error(data.error||'Audit operations unavailable');
+   setAuditState(data);setAuditInterval(data.config.intervalMinutes);
+  }catch(e){setError(e instanceof Error?e.message:'Audit status unavailable');}
+  finally{setBusy(false);}
+ },[auth,busy]);
+ const commandAudit=useCallback(async(operation:'configure'|'queue',enabled?:boolean)=>{
+  if(!auth.trim()){setError('Founder token required to authorize audit operations.');return;}
+  if(busy)return;
+  setBusy(true);setError('');
+  try{
+   const res=await fetch('/api/network/audit',{
+    method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+auth.trim()},
+    body:JSON.stringify(operation==='configure'?{operation,enabled,intervalMinutes:auditInterval}:{operation}),cache:'no-store'
+   });
+   const data=await res.json() as {ok?:boolean;error?:string};
+   if(!res.ok||!data.ok)throw new Error(data.error||'Audit command rejected');
+   const fresh=await fetch('/api/network/audit',{headers:{Authorization:'Bearer '+auth.trim()},cache:'no-store'});
+   const state=await fresh.json() as AuditState&{ok?:boolean;error?:string};
+   if(!fresh.ok||!state.ok)throw new Error(state.error||'Audit status reload failed');
+   setAuditState(state);setAuditInterval(state.config.intervalMinutes);
+  }catch(e){setError(e instanceof Error?e.message:'Audit command failed');}
+  finally{setBusy(false);}
+ },[auth,busy,auditInterval]);
  const loadTasks=useCallback(async()=>{
   if(!auth.trim()){setError('Enter the Founder access token to view director tasks.');return;}
   if(busy)return;
@@ -108,6 +146,7 @@ export default function NetworkCommand(){
     <button type="button" onClick={()=>setTab('room')} className={'networkNav '+(tab==='room'?'current':'')}>◈ <span>ATLAS Command Room</span></button>
     <button type="button" onClick={()=>setTab('org')} className={'networkNav '+(tab==='org'?'current':'')}>▦ <span>Organization Chart</span></button>
     <button type="button" onClick={()=>{setTab('tasks');void loadTasks();}} className={'networkNav '+(tab==='tasks'?'current':'')}>≡ <span>Director Task Board</span></button>
+    <button type="button" onClick={()=>{setTab('operations');void loadAudit();}} className={'networkNav '+(tab==='operations'?'current':'')}>◷ <span>Autonomous Operations</span></button>
     <div className="networkSideTitle">DIRECTORS</div>
     {DIRECTORS.map(x=><button type="button" key={x.id} className={'networkMember '+(selected===x.id?'memberSelected':'')} onClick={()=>{setSelected(x.id);setTab('org')}}><span className="networkInitial">{x.name[0]}</span><span><b>{x.name}</b><small>{x.title.replace('Director, ','')}</small></span></button>)}
     <div className="networkAccessNote"><b>FOUNDER CONTROL</b><p>Research only. No deployment, payment, vendor activation, public verified picks, or bets without your explicit approval.</p></div>
@@ -144,6 +183,43 @@ export default function NetworkCommand(){
       <label htmlFor="network-task">DIRECTIVE TO ATLAS</label>
       <div><textarea id="network-task" rows={3} maxLength={500} placeholder="Tell ATLAS what you want the network to research, verify, or plan…" value={question} onChange={e=>setQuestion(e.target.value)} disabled={busy}/><button type="submit" disabled={busy||!question.trim()}>Issue directive ↗</button></div><small>Read-only research. Completed missions are stored in the private Founder journal. Autonomous scheduled agents are not yet enabled.</small>
      </form>
+    </>:tab==='operations'?<>
+     <div className="networkHero"><div><div className="networkEyebrow">ATLAS / AUTONOMOUS OPERATIONS</div><h1>Source <span>Watchtower</span></h1><p>Founder-controlled, recurring read-only checks of existing D1 source observations. No external data purchases, sportsbook requests, model calls, wagers, or outgoing notifications.</p></div></div>
+     <section className="networkAuditPanel">
+      <div className="networkAuditTop"><b>OBSERVATION HEALTH SCHEDULE</b><span>{auditState?.config.enabled?'ENABLED BY FOUNDER':'DISABLED BY DEFAULT'}</span></div>
+      <p>The scheduler checks only existing source timestamps in the D1 database. It cannot prove complete coverage of DraftKings. Alerts are stored here for your review; nothing is sent externally.</p>
+      <div className="networkAuditControls">
+       <label htmlFor="audit-interval">Frequency</label>
+       <select id="audit-interval" value={auditInterval} onChange={e=>setAuditInterval(Number(e.target.value))}>
+        <option value={60}>Every hour</option>
+        <option value={180}>Every 3 hours</option>
+        <option value={360}>Every 6 hours</option>
+       </select>
+       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',true)}>Enable monitoring</button>
+       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',false)}>Disable monitoring</button>
+       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('queue')}>Run one audit</button>
+       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void loadAudit()}>Refresh</button>
+      </div>
+      <small>Next scheduled check: {auditState?.config.nextRunAt?new Date(auditState.config.nextRunAt).toLocaleString():'None'} · Runs are limited to three attempts, including recoverable failures.</small>
+     </section>
+     {error&&<div className="networkError" role="alert">{error}</div>}
+     <div className="networkAuditTwo">
+      <section><h2>Audit jobs</h2>
+       {!auditState&&<p>Use the private Founder token from the command room to view the audit journal.</p>}
+       {auditState&&!auditState.jobs.length&&<p>No audits recorded yet.</p>}
+       {auditState?.jobs.slice().reverse().slice(0,12).map(job=><article className="networkAuditItem" key={job.id}>
+        <div><b>{job.status}</b><small>{new Date(job.createdAt).toLocaleString()} · Attempt {job.attempts}/3</small></div>
+        <p>{job.summary||job.error||'Queued for the next alarm.'}</p>
+       </article>)}
+      </section>
+      <section><h2>Internal alerts</h2>
+       {auditState&&!auditState.alerts.length&&<p>No audit alerts recorded.</p>}
+       {auditState?.alerts.slice().reverse().slice(0,12).map(alert=><article className="networkAuditItem" key={alert.id}>
+        <div><b>{alert.kind}</b><small>{new Date(alert.createdAt).toLocaleString()}</small></div>
+        <p>{alert.message}</p>
+       </article>)}
+      </section>
+     </div>
     </>:tab==='tasks'?<>
      <div className="networkHero"><div><div className="networkEyebrow">EXECUTIVE OPERATIONS / TASK HISTORY</div><h1>Director <span>Collaboration</span></h1><p>View recorded ATLAS missions and division reports, filtered by director. Tasks are logged during individual research requests; background autonomous execution is not active.</p></div></div>
      <div className="networkTasksTools">
