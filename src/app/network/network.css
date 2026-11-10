@@ -149,3 +149,5 @@
 .networkAuditItem b{font-size:11px;color:#d4f4df}
 .networkAuditItem small{font-size:9px;color:#8da2b4}
 @media(max-width:760px){.networkAuditTwo{grid-template-columns:1fr}.networkAuditTop{align-items:flex-start;flex-direction:column}}
+
+.networkAuditPanel .networkAuditGate{color:#f1cb94;font-weight:700;padding:12px;border:1px solid #80633c;border-radius:8px;background:#342d20}
