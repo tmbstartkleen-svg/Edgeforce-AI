@@ -35,13 +35,13 @@ test('incomplete market and stale/unknown quotes do not create arbitrage',()=>{
 });
 test('profitable-looking but model-uncalibrated edges remain not actionable',()=>{
  const quotes=[quote('Home','DraftKings',150),quote('Home','FanDuel',135,{upstreamId:'operatorB',providerId:'pB'})];
- const a=screenValueEdges(quotes,[{eventId:base.eventId,marketKey:base.marketKey,selection:'Home',probability:.5,modelType:'INDEPENDENT',sourceAudited:true}],{now});
+ const a=screenValueEdges(quotes,[{...base,selection:'Home',probability:.5,modelType:'INDEPENDENT',sourceAudited:true}],{now});
  assert.equal(a.results.length,1);assert.equal(a.results[0].status,'NOT_ACTIONABLE');
  assert.ok(a.results[0].blockers.includes('INDEPENDENT_MODEL_CALIBRATION_MISSING'));
  assert.ok(Math.abs(a.results[0].expectedRoi-25)<1e-8);
 });
 test('verified independent sources with calibrated model can become review candidates',()=>{
  const quotes=[quote('Home','DraftKings',150),quote('Home','FanDuel',135,{upstreamId:'operatorB',providerId:'pB'})];
- const a=screenValueEdges(quotes,[{eventId:base.eventId,marketKey:base.marketKey,selection:'Home',probability:.5,modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true}],{now});
+ const a=screenValueEdges(quotes,[{...base,selection:'Home',probability:.5,modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true}],{now});
  assert.equal(a.results[0].status,'CANDIDATE_FOR_FURTHER_REVIEW');assert.equal(a.networkRequests,0);
 });
