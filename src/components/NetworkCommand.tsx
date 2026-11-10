@@ -196,9 +196,9 @@ export default function NetworkCommand(){
         <option value={180}>Every 3 hours</option>
         <option value={360}>Every 6 hours</option>
        </select>
-       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',true)} disabled={busy||!auth.trim()||!auditState?.globalSchedulePermission}>Enable monitoring</button>
+       <button disabled={busy||!auth.trim()||!auditState?.globalSchedulePermission} type="button" onClick={()=>void commandAudit('configure',true)}>Enable monitoring</button>
        <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('configure',false)}>Disable monitoring</button>
-       <button disabled={busy||!auth.trim()} type="button" onClick={()=>void commandAudit('queue')} disabled={busy||!auth.trim()||!auditState?.globalSchedulePermission}>Run one audit</button>
+       <button disabled={busy||!auth.trim()||!auditState?.globalSchedulePermission} type="button" onClick={()=>void commandAudit('queue')}>Run one audit</button>
        <button disabled={busy||!auth.trim()} type="button" onClick={()=>void loadAudit()}>Refresh</button>
       </div>
       <small>Next scheduled check: {auditState?.config.nextRunAt?new Date(auditState.config.nextRunAt).toLocaleString():'None'} · Runs are limited to three attempts, including recoverable failures.</small>
