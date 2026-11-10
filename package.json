@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.mjs",
-    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:network-autonomous-audit",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run check-migrations && npm run release-audit && npm run smoke && npm run load-check && npm run test:team && npm run test:network && npm run test:network-persistence && npm run test:network-director-tasks && npm run test:network-autonomous-audit && npm run test:network-autonomous-runtime",
     "smoke": "node scripts/smoke.mjs",
     "load-check": "node scripts/load-check.mjs",
     "validate-env": "node scripts/validate-env.mjs",
@@ -39,7 +39,8 @@
     "test:network": "node --test tests/network-director.test.mjs",
     "test:network-persistence": "node --test tests/network-persistence.test.mjs",
     "test:network-director-tasks": "node --test tests/network-director-tasks.test.mjs",
-    "test:network-autonomous-audit": "node --test tests/network-autonomous-audit.test.mjs"
+    "test:network-autonomous-audit": "node --test tests/network-autonomous-audit.test.mjs",
+    "test:network-autonomous-runtime": "node --test tests/network-autonomous-runtime.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",
