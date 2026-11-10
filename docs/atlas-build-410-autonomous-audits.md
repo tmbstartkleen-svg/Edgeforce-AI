@@ -10,7 +10,7 @@ Build 410 adds Cloudflare Durable Object alarm scheduling for a **read-only D1 s
 - Only D1 `intelligence_observations` metadata is queried: source ID, latest observation timestamp and count per source; no raw payload, sportsbook scraping or paid-provider/API traffic.
 - Cloudflare Durable Object `alarm()` triggers audits. One-off audits can be enqueued manually.
 - Audit jobs are bounded to 60 historical entries, three attempts, retries at 1 and 5 minutes. Stale RUNNING jobs can be retried after an interruption.
-- Duplicate in-flight audits are rejected. Failed/empty/stale source conditions become private alerts, capped at 35 records, with one-hour deduplication by alert type.
+- Duplicate in-flight audits are rejected, and manual one-shot audit submissions are limited to six per hour. Failed/empty/stale source conditions become private alerts, capped at 35 records, with one-hour deduplication by alert type.
 - `GET/POST /api/network/audit` routes through the Worker gateway. The same Founder authorization gate protects status and state-changing operations.
 - Neither AI models nor external notifications are invoked from the alarm handler. No betting, financial transactions, purchases, or deployments are permitted.
 
