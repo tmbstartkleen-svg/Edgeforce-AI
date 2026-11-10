@@ -46,3 +46,14 @@ test('accepts provider source link only if https; rejects mismatched ESPN domain
 test('rejects malformed batch',()=>{
   assert.throws(()=>normalizeStoredPlayerGames([],''),/INVALID_STORED_PLAYER_GAMES/);
 });
+
+test('normalizes known numeric ESPN stat abbreviations but not unrelated providers',()=>{
+  const espn=normalizeStoredPlayerGames([row('401999001',{stats:{ast:8,pts:27,reb:11}})],'player-11');
+  assert.equal(espn.games[0].stats.assists,8);
+  assert.equal(espn.games[0].stats.points,27);
+  assert.equal(espn.games[0].stats.rebounds,11);
+  const other=normalizeStoredPlayerGames([row('custom-1',{
+    source:'provider-b',stats:{ast:8},raw:{playerId:'player-11',sourceUrl:'https://provider.example/game/1'}
+  })],'player-11');
+  assert.equal(other.games[0].stats.assists,undefined);
+});
