@@ -1,5 +1,6 @@
 import type {Market} from './types';
-// @ts-ignore TS5097: Node 22 strip-types runtime requires the explicit .ts extension.\nimport {runCorrelatedGameSimulation, type JointSimulationResult} from './correlatedGameSimulation.ts';
+// @ts-ignore TS5097: Node 22 strip-types runtime requires the explicit .ts extension.
+import {runCorrelatedGameSimulation, type JointSimulationResult} from './correlatedGameSimulation.ts';
 
 /**
  * Explicit, read-only bridge from an EdgeForce game selection to Monte.
