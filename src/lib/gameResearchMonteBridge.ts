@@ -44,6 +44,7 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
   }
   if (!Number.isSafeInteger(input.seed) || input.seed === 0 || ![500000, 1000000].includes(input.trials)) reasons.push('INVALID_SIMULATION_CONFIGURATION');
   const ids = new Set<string>();
+  const gameStarts = new Set<number>();
   for (const f of Array.isArray(input.forecasts) ? input.forecasts : []) {
     if (!f || typeof f !== 'object') { reasons.push('INVALID_FORECAST'); continue; }
     const m = f.market;
@@ -57,6 +58,7 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
     const injury = validTime(f.injuryCheckedAt);
     const roster = validTime(f.rosterCheckedAt);
     const start = validTime(m.startTime);
+    if (start !== null) gameStarts.add(start);
     if (generated === null || injury === null || roster === null || start === null) reasons.push('MISSING_TIMESTAMPS');
     else {
       if (generated > start || injury > generated || roster > generated) reasons.push('INVALID_PREGAME_EVIDENCE_ORDER');
@@ -69,6 +71,7 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
     if (typeof f.injurySource !== 'string' || !f.injurySource.trim() || typeof f.rosterSource !== 'string' || !f.rosterSource.trim()) reasons.push('MISSING_SOURCE_PROVENANCE');
     if (typeof f.calibrationEvidenceId !== 'string' || !f.calibrationEvidenceId.trim()) reasons.push('MISSING_CALIBRATION_EVIDENCE');
   }
+  if (gameStarts.size > 1) reasons.push('INCONSISTENT_EVENT_START');
   if (reasons.length) return {status:'BLOCKED', eventId:input.eventId, reasons:[...new Set(reasons)]};
   const result = runCorrelatedGameSimulation({
     eventId:input.eventId, modelVersion:input.modelVersion, seed:input.seed, trials:input.trials,
