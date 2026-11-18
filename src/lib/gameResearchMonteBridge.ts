@@ -1,5 +1,5 @@
 import type {Market} from './types';
-import {runCorrelatedGameSimulation, type JointSimulationResult} from './correlatedGameSimulation';
+import {runCorrelatedGameSimulation, type JointSimulationResult} from './correlatedGameSimulation.ts';
 
 /**
  * Explicit, read-only bridge from an EdgeForce game selection to Monte.
