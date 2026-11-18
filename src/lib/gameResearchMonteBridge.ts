@@ -45,6 +45,7 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
   if (!Number.isSafeInteger(input.seed) || input.seed === 0 || ![500000, 1000000].includes(input.trials)) reasons.push('INVALID_SIMULATION_CONFIGURATION');
   const ids = new Set<string>();
   const gameStarts = new Set<number>();
+  const gameTeams = new Set<string>();
   for (const f of Array.isArray(input.forecasts) ? input.forecasts : []) {
     if (!f || typeof f !== 'object') { reasons.push('INVALID_FORECAST'); continue; }
     const m = f.market;
@@ -52,6 +53,13 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
     ids.add(m.id);
     if (typeof m.sport !== 'string' || m.sport.toUpperCase() !== input.sport) reasons.push('SPORT_MISMATCH');
     if (m.sourceEventId !== input.eventId) reasons.push('EVENT_ID_MISMATCH');
+    if (typeof m.home !== 'string' || !m.home.trim() || typeof m.away !== 'string' || !m.away.trim()) {
+      reasons.push('MISSING_GAME_TEAMS');
+    } else {
+      const teams = [m.home.trim().toLowerCase(),m.away.trim().toLowerCase()];
+      if (teams[0] === teams[1]) reasons.push('INVALID_GAME_TEAMS');
+      gameTeams.add(teams.sort().join('|'));
+    }
     if (!Number.isFinite(m.modelProb) || m.modelProb <= 0 || m.modelProb >= 1) reasons.push('INVALID_MODEL_PROBABILITY');
     if (f.factorLoading === null || !Number.isFinite(f.factorLoading) || Math.abs(f.factorLoading) > 1) reasons.push('MISSING_VERIFIED_CORRELATION');
     const generated = validTime(f.modelGeneratedAt);
@@ -72,6 +80,7 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
     if (typeof f.calibrationEvidenceId !== 'string' || !f.calibrationEvidenceId.trim()) reasons.push('MISSING_CALIBRATION_EVIDENCE');
   }
   if (gameStarts.size > 1) reasons.push('INCONSISTENT_EVENT_START');
+  if (gameTeams.size > 1) reasons.push('INCONSISTENT_EVENT_TEAMS');
   if (reasons.length) return {status:'BLOCKED', eventId:input.eventId, reasons:[...new Set(reasons)]};
   const result = runCorrelatedGameSimulation({
     eventId:input.eventId, modelVersion:input.modelVersion, seed:input.seed, trials:input.trials,
