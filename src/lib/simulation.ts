@@ -1,6 +1,13 @@
 import type {Market} from './types';
 
-export type SimulationTier=100|1000|10000|100000;
+export type SimulationTier=100|1000|10000|100000|500000|1000000;
+// Large tiers require an explicit caller selection; automatic tier selection remains bounded at 100k.
+export function validatedSimulationRuns(requested:number):SimulationTier{
+ if(![100,1000,10000,100000,500000,1000000].includes(requested)){
+  throw new RangeError('Unsupported simulation trial count');
+ }
+ return requested as SimulationTier;
+}
 export type SimulationResult={runs:SimulationTier;hits:number;probability:number;ciLow:number;ciHigh:number;volatility:number};
 
 export function simulationTier(edge:number,confidence:number):SimulationTier{
@@ -14,6 +21,7 @@ const clamp=(x:number,min=.01,max=.99)=>Math.max(min,Math.min(max,x));
 const feat=(m:Market,k:string)=>Math.max(-1,Math.min(1,Number(m.sportFeatures?.[k]||0)));
 
 export function runGameStateSimulation(m:Market,runs:SimulationTier):SimulationResult{
+ validatedSimulationRuns(runs);
  const playerConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerSampleConfidence||0)));
  const v64PlayerOpponentConfidence=Math.max(0,Math.min(1,Number(m.sportFeatures?.playerVsOpponentConfidence||0)));
  const opponentHistoryAdjustment=v64PlayerOpponentConfidence>=.15
