@@ -72,3 +72,10 @@ test('blocks inconsistent game start times within the same event',()=>{
   assert.equal(result.status,'BLOCKED');
   assert.ok(result.reasons.includes('INCONSISTENT_EVENT_START'));
 });
+
+test('blocks mixed matchup teams even when event IDs and start times agree',()=>{
+  const second={...base.forecasts[0],market:{...market,id:'nba-game-1-other',home:'Different Home',away:'Different Away'}};
+  const result=runSelectedGameResearch({...base,forecasts:[base.forecasts[0],second]});
+  assert.equal(result.status,'BLOCKED');
+  assert.ok(result.reasons.includes('INCONSISTENT_EVENT_TEAMS'));
+});
