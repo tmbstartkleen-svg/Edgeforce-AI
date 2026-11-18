@@ -42,7 +42,7 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
   if (!Array.isArray(input.forecasts) || input.forecasts.length < 1 || input.forecasts.length > 20) {
     reasons.push('INVALID_FORECAST_COUNT');
   }
-  if (!Number.isSafeInteger(input.seed) || ![500000, 1000000].includes(input.trials)) reasons.push('INVALID_SIMULATION_CONFIGURATION');
+  if (!Number.isSafeInteger(input.seed) || input.seed === 0 || ![500000, 1000000].includes(input.trials)) reasons.push('INVALID_SIMULATION_CONFIGURATION');
   const ids = new Set<string>();
   for (const f of Array.isArray(input.forecasts) ? input.forecasts : []) {
     if (!f || typeof f !== 'object') { reasons.push('INVALID_FORECAST'); continue; }
