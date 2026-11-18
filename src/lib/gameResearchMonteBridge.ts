@@ -38,15 +38,16 @@ const validTime = (value: string) => {
 export function runSelectedGameResearch(input: GameResearchSelection): GameResearchResponse {
   const reasons: string[] = [];
   if (!['NBA','CBB','NFL','CFB'].includes(input.sport)) reasons.push('UNSUPPORTED_SPORT');
-  if (!input.eventId || !input.modelVersion) reasons.push('MISSING_EVENT_OR_MODEL');
+  if (typeof input.eventId !== 'string' || !input.eventId.trim() || typeof input.modelVersion !== 'string' || !input.modelVersion.trim()) reasons.push('MISSING_EVENT_OR_MODEL');
   if (!Array.isArray(input.forecasts) || input.forecasts.length < 1 || input.forecasts.length > 20) {
     reasons.push('INVALID_FORECAST_COUNT');
   }
   if (!Number.isSafeInteger(input.seed) || ![500000, 1000000].includes(input.trials)) reasons.push('INVALID_SIMULATION_CONFIGURATION');
   const ids = new Set<string>();
-  for (const f of input.forecasts || []) {
+  for (const f of Array.isArray(input.forecasts) ? input.forecasts : []) {
+    if (!f || typeof f !== 'object') { reasons.push('INVALID_FORECAST'); continue; }
     const m = f.market;
-    if (!m || !m.id || ids.has(m.id)) { reasons.push('INVALID_MARKET_ID'); continue; }
+    if (!m || typeof m.id !== 'string' || !m.id.trim() || ids.has(m.id)) { reasons.push('INVALID_MARKET_ID'); continue; }
     ids.add(m.id);
     if (typeof m.sport !== 'string' || m.sport.toUpperCase() !== input.sport) reasons.push('SPORT_MISMATCH');
     if (m.sourceEventId !== input.eventId) reasons.push('EVENT_ID_MISMATCH');
@@ -65,8 +66,8 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
       }
     }
     if (f.calibrationStatus !== 'VALIDATED') reasons.push('UNCALIBRATED_MODEL');
-    if (!f.injurySource?.trim() || !f.rosterSource?.trim()) reasons.push('MISSING_SOURCE_PROVENANCE');
-    if (!f.calibrationEvidenceId?.trim()) reasons.push('MISSING_CALIBRATION_EVIDENCE');
+    if (typeof f.injurySource !== 'string' || !f.injurySource.trim() || typeof f.rosterSource !== 'string' || !f.rosterSource.trim()) reasons.push('MISSING_SOURCE_PROVENANCE');
+    if (typeof f.calibrationEvidenceId !== 'string' || !f.calibrationEvidenceId.trim()) reasons.push('MISSING_CALIBRATION_EVIDENCE');
   }
   if (reasons.length) return {status:'BLOCKED', eventId:input.eventId, reasons:[...new Set(reasons)]};
   const result = runCorrelatedGameSimulation({
