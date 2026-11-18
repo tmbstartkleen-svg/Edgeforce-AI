@@ -20,6 +20,9 @@ export type GameResearchSelection = {
     rosterCheckedAt: string;
     calibrationStatus: 'VALIDATED' | 'UNCALIBRATED';
     factorLoading: number | null;
+    injurySource?: string;
+    rosterSource?: string;
+    calibrationEvidenceId?: string;
   }>;
 };
 
@@ -39,12 +42,13 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
   if (!Array.isArray(input.forecasts) || input.forecasts.length < 1 || input.forecasts.length > 20) {
     reasons.push('INVALID_FORECAST_COUNT');
   }
+  if (!Number.isSafeInteger(input.seed) || ![500000, 1000000].includes(input.trials)) reasons.push('INVALID_SIMULATION_CONFIGURATION');
   const ids = new Set<string>();
   for (const f of input.forecasts || []) {
     const m = f.market;
     if (!m || !m.id || ids.has(m.id)) { reasons.push('INVALID_MARKET_ID'); continue; }
     ids.add(m.id);
-    if (m.sport.toUpperCase() !== input.sport) reasons.push('SPORT_MISMATCH');
+    if (typeof m.sport !== 'string' || m.sport.toUpperCase() !== input.sport) reasons.push('SPORT_MISMATCH');
     if (m.sourceEventId !== input.eventId) reasons.push('EVENT_ID_MISMATCH');
     if (!Number.isFinite(m.modelProb) || m.modelProb <= 0 || m.modelProb >= 1) reasons.push('INVALID_MODEL_PROBABILITY');
     if (f.factorLoading === null || !Number.isFinite(f.factorLoading) || Math.abs(f.factorLoading) > 1) reasons.push('MISSING_VERIFIED_CORRELATION');
@@ -55,6 +59,8 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
     if (generated === null || injury === null || roster === null || start === null) reasons.push('MISSING_TIMESTAMPS');
     else if (generated > start || injury > generated || roster > generated) reasons.push('INVALID_PREGAME_EVIDENCE_ORDER');
     if (f.calibrationStatus !== 'VALIDATED') reasons.push('UNCALIBRATED_MODEL');
+    if (!f.injurySource?.trim() || !f.rosterSource?.trim()) reasons.push('MISSING_SOURCE_PROVENANCE');
+    if (!f.calibrationEvidenceId?.trim()) reasons.push('MISSING_CALIBRATION_EVIDENCE');
   }
   if (reasons.length) return {status:'BLOCKED', eventId:input.eventId, reasons:[...new Set(reasons)]};
   const result = runCorrelatedGameSimulation({
