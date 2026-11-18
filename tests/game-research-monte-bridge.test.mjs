@@ -55,3 +55,13 @@ test('blocks stale injury and roster evidence before costly simulations',()=>{
   assert.equal(result.status,'BLOCKED');
   assert.ok(result.reasons.includes('STALE_PREGAME_EVIDENCE'));
 });
+
+test('blocks malformed source references and forecast records',()=>{
+  const malformed=runSelectedGameResearch({...base,forecasts:[{...base.forecasts[0],injurySource:12,rosterSource:[],calibrationEvidenceId:9}]});
+  assert.equal(malformed.status,'BLOCKED');
+  assert.ok(malformed.reasons.includes('MISSING_SOURCE_PROVENANCE'));
+  assert.ok(malformed.reasons.includes('MISSING_CALIBRATION_EVIDENCE'));
+  const missing=runSelectedGameResearch({...base,forecasts:[null]});
+  assert.equal(missing.status,'BLOCKED');
+  assert.ok(missing.reasons.includes('INVALID_FORECAST'));
+});
