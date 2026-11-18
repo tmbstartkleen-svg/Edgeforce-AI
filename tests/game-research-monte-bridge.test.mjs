@@ -14,7 +14,8 @@ const base = {
     market,modelGeneratedAt:'2026-11-18T20:00:00Z',
     injuryCheckedAt:'2026-11-18T19:30:00Z',
     rosterCheckedAt:'2026-11-18T19:35:00Z',
-    calibrationStatus:'VALIDATED',factorLoading:0.4
+    calibrationStatus:'VALIDATED',factorLoading:0.4,
+    injurySource:'official-injury-report',rosterSource:'official-team-roster',calibrationEvidenceId:'holdout-2026-v1'
   }]
 };
 
@@ -37,4 +38,13 @@ test('runs explicitly selected research game, never promotes a betting signal', 
   assert.equal(result.status,'RESEARCH_ONLY');
   assert.equal(result.result.completedTrials,500000);
   assert.ok(result.warnings.includes('NOT_A_WAGERING_SIGNAL'));
+});
+
+test('blocks unproven evidence provenance and invalid simulation settings',()=>{
+  const forecast={...base.forecasts[0],injurySource:'',rosterSource:'',calibrationEvidenceId:''};
+  const result=runSelectedGameResearch({...base,seed:1.5,trials:10,forecasts:[forecast]});
+  assert.equal(result.status,'BLOCKED');
+  assert.ok(result.reasons.includes('MISSING_SOURCE_PROVENANCE'));
+  assert.ok(result.reasons.includes('MISSING_CALIBRATION_EVIDENCE'));
+  assert.ok(result.reasons.includes('INVALID_SIMULATION_CONFIGURATION'));
 });
