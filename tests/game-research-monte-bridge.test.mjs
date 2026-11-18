@@ -65,3 +65,10 @@ test('blocks malformed source references and forecast records',()=>{
   assert.equal(missing.status,'BLOCKED');
   assert.ok(missing.reasons.includes('INVALID_FORECAST'));
 });
+
+test('blocks inconsistent game start times within the same event',()=>{
+  const second={...base.forecasts[0],market:{...market,id:'nba-game-1-total',startTime:'2026-11-19T01:00:00Z'}};
+  const result=runSelectedGameResearch({...base,forecasts:[base.forecasts[0],second]});
+  assert.equal(result.status,'BLOCKED');
+  assert.ok(result.reasons.includes('INCONSISTENT_EVENT_START'));
+});
