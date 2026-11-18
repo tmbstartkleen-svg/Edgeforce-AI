@@ -57,7 +57,13 @@ export function runSelectedGameResearch(input: GameResearchSelection): GameResea
     const roster = validTime(f.rosterCheckedAt);
     const start = validTime(m.startTime);
     if (generated === null || injury === null || roster === null || start === null) reasons.push('MISSING_TIMESTAMPS');
-    else if (generated > start || injury > generated || roster > generated) reasons.push('INVALID_PREGAME_EVIDENCE_ORDER');
+    else {
+      if (generated > start || injury > generated || roster > generated) reasons.push('INVALID_PREGAME_EVIDENCE_ORDER');
+      const hour = 3600000;
+      if (start - generated > 48 * hour || generated - injury > 24 * hour || generated - roster > 24 * hour) {
+        reasons.push('STALE_PREGAME_EVIDENCE');
+      }
+    }
     if (f.calibrationStatus !== 'VALIDATED') reasons.push('UNCALIBRATED_MODEL');
     if (!f.injurySource?.trim() || !f.rosterSource?.trim()) reasons.push('MISSING_SOURCE_PROVENANCE');
     if (!f.calibrationEvidenceId?.trim()) reasons.push('MISSING_CALIBRATION_EVIDENCE');
