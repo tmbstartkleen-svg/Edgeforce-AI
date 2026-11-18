@@ -48,3 +48,10 @@ test('blocks unproven evidence provenance and invalid simulation settings',()=>{
   assert.ok(result.reasons.includes('MISSING_CALIBRATION_EVIDENCE'));
   assert.ok(result.reasons.includes('INVALID_SIMULATION_CONFIGURATION'));
 });
+
+test('blocks stale injury and roster evidence before costly simulations',()=>{
+  const stale={...base.forecasts[0],injuryCheckedAt:'2026-11-16T00:00:00Z'};
+  const result=runSelectedGameResearch({...base,forecasts:[stale]});
+  assert.equal(result.status,'BLOCKED');
+  assert.ok(result.reasons.includes('STALE_PREGAME_EVIDENCE'));
+});
