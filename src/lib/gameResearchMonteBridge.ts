@@ -1,5 +1,5 @@
 import type {Market} from './types';
-// @ts-ignore TS5097: Node 22 strip-types runtime requires the explicit .ts extension.
+// @ts-expect-error TS5097: Node 22 strip-types runtime requires the explicit .ts extension.
 import {runCorrelatedGameSimulation, type JointSimulationResult} from './correlatedGameSimulation.ts';
 
 /**
