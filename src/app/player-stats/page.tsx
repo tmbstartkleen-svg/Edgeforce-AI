@@ -1,3 +1,4 @@
+import {answerStatQuestion} from '@/lib/playerStatQuestions';
 'use client';
 
 import {useEffect,useMemo,useState} from 'react';
@@ -10,6 +11,7 @@ const label=(key:string)=>key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/_/g,' 
 export default function PlayerStatsExplorer(){
  const [players,setPlayers]=useState<Player[]>([]);
  const [query,setQuery]=useState('');
+ const [question,setQuestion]=useState('');
  const [sport,setSport]=useState('');
  const [selected,setSelected]=useState<Player|null>(null);
  const [history,setHistory]=useState<Game[]>([]);
@@ -39,6 +41,7 @@ export default function PlayerStatsExplorer(){
  const sports=useMemo(()=>Array.from(new Set(players.map(p=>p.sport).filter((s):s is string=>Boolean(s)))).sort(),[players]);
  const visible=useMemo(()=>players.filter(p=>(!sport||p.sport===sport)&&[p.name,p.team,p.position].some(v=>(v||'').toLowerCase().includes(query.toLowerCase()))).slice(0,60),[players,sport,query]);
  const recent=history.slice(0,windowSize);
+ const answer=useMemo(()=>question.trim()&&selected?answerStatQuestion(history,question):null,[history,question,selected]);
  const stats=useMemo(()=>{
   const values=new Map<string,number[]>();
   for(const game of recent)for(const [key,raw] of Object.entries(game.stats||{})){
@@ -58,7 +61,7 @@ export default function PlayerStatsExplorer(){
   {error&&<p role="alert" style={{color:'#dc2626'}}>{error}</p>}
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:24}}>
    <section><h2>Players</h2><div style={{maxHeight:560,overflow:'auto'}}>{visible.map(p=><button key={p.id} onClick={()=>setSelected(p)} style={{display:'block',width:'100%',textAlign:'left',padding:12,marginBottom:6,border:'1px solid #8885',borderRadius:8,background:selected?.id===p.id?'#166534':'transparent',color:'inherit',cursor:'pointer'}}><strong>{p.name}</strong><div style={{fontSize:13}}>{[p.team,p.sport,p.position].filter(Boolean).join(' · ')}</div></button>)}{!visible.length&&<p>No matching players in the loaded directory.</p>}</div></section>
-   <section><h2>{selected?selected.name:'Select a player'}</h2>{selected&&<><p>{[selected.team,selected.sport,selected.position].filter(Boolean).join(' · ')}</p><label>Sample window <select value={windowSize} onChange={e=>setWindowSize(Number(e.target.value))} style={{padding:8,color:'#111'}}>{[5,10,20,50].map(n=><option key={n} value={n}>Last {n} games</option>)}</select></label>{loading?<p>Loading game logs…</p>:!history.length?<p>No verified game logs available for this player.</p>:<><p>Available games in window: {recent.length}. Each average uses only games where that statistic was recorded.</p><div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr><th style={{textAlign:'left'}}>Statistic</th><th>Average</th><th>Games</th></tr></thead><tbody>{stats.map(s=><tr key={s.key}><td style={{padding:8,borderBottom:'1px solid #8885'}}>{label(s.key)}</td><td style={{textAlign:'center'}}>{s.average.toFixed(2)}</td><td style={{textAlign:'center'}}>{s.count}</td></tr>)}</tbody></table></div><h3>Recent games</h3><div style={{maxHeight:220,overflow:'auto'}}>{recent.map((g,i)=><div key={g.event_id||i} style={{padding:8,borderBottom:'1px solid #8885'}}>{g.stat_date?new Date(g.stat_date).toLocaleDateString():'Unknown date'} · {g.source||'Unknown source'} · {Object.keys(g.stats||{}).length} stats</div>)}</div></>}</>}</section>
+   <section><h2>{selected?selected.name:'Select a player'}</h2>{selected&&<><p>{[selected.team,selected.sport,selected.position].filter(Boolean).join(' · ')}</p><div style={{marginBottom:16}}><label htmlFor="stat-question">Ask about this player's statistics</label><input id="stat-question" placeholder="Average points in last 10 games?" value={question} onChange={e=>setQuestion(e.target.value)} style={{width:'100%',padding:10,color:'#111',boxSizing:'border-box'}}/>{answer&&<div aria-live="polite" style={{padding:12,border:'1px solid #8885',borderRadius:8,marginTop:8}}>{answer.status==='ok'?<><strong>{answer.average.toFixed(2)} per game</strong><p>{answer.sampleSize} recorded games · Total {answer.total.toFixed(1)} · Range {answer.min}–{answer.max}</p></>:<p>{answer.message}</p>}</div>}</div><label>Sample window <select value={windowSize} onChange={e=>setWindowSize(Number(e.target.value))} style={{padding:8,color:'#111'}}>{[5,10,20,50].map(n=><option key={n} value={n}>Last {n} games</option>)}</select></label>{loading?<p>Loading game logs…</p>:!history.length?<p>No verified game logs available for this player.</p>:<><p>Available games in window: {recent.length}. Each average uses only games where that statistic was recorded.</p><div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr><th style={{textAlign:'left'}}>Statistic</th><th>Average</th><th>Games</th></tr></thead><tbody>{stats.map(s=><tr key={s.key}><td style={{padding:8,borderBottom:'1px solid #8885'}}>{label(s.key)}</td><td style={{textAlign:'center'}}>{s.average.toFixed(2)}</td><td style={{textAlign:'center'}}>{s.count}</td></tr>)}</tbody></table></div><h3>Recent games</h3><div style={{maxHeight:220,overflow:'auto'}}>{recent.map((g,i)=><div key={g.event_id||i} style={{padding:8,borderBottom:'1px solid #8885'}}>{g.stat_date?new Date(g.stat_date).toLocaleDateString():'Unknown date'} · {g.source||'Unknown source'} · {Object.keys(g.stats||{}).length} stats</div>)}</div></>}</>}</section>
   </div>
  </main>;
 }
