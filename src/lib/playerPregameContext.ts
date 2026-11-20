@@ -38,6 +38,6 @@ export function assessVerifiedPlayerContext(context:VerifiedPlayerContext|null|u
 export function pregameHistory(games:StatGame[],gameTime:string):StatGame[]{
  const cutoff=Date.parse(gameTime);
  if(!Number.isFinite(cutoff))return [];
- return games.filter(g=>g.stat_date&&Number.isFinite(Date.parse(g.stat_date))&&Date.parse(g.stat_date)<cutoff)
+ return games.filter(g=>g.stat_date&&Number.isFinite(Date.parse(g.stat_date))&&Date.parse(g.stat_date)<cutoff&&(!/^\d{4}-\d{2}-\d{2}$/.test(g.stat_date)||g.stat_date<gameTime.slice(0,10)))
   .sort((a,b)=>Date.parse(b.stat_date||'')-Date.parse(a.stat_date||''));
 }
