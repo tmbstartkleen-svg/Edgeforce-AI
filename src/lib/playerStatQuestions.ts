@@ -10,7 +10,8 @@ const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 const value=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v:typeof v==='string'&&v.trim()!==''&&Number.isFinite(Number(v))?Number(v):null;
 export function parseStatQuestion(question:string):StatQuery|null{
  const q=question.toLowerCase();
- const stat=Object.entries(aliases).find(([key,names])=>names.some(n=>q.includes(n)||q.includes(key)))?.[0];
+ const tokens=q.match(/[a-z0-9]+/g)||[];
+ const stat=Object.entries(aliases).find(([,names])=>names.some(n=>tokens.includes(n)))?.[0];
  if(!stat)return null;
  const windowMatch=q.match(/(?:last|past)\s+(\d{1,3})\s+games?/);
  const window=Math.min(50,Math.max(1,windowMatch?Number(windowMatch[1]):10));
