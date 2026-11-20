@@ -29,3 +29,17 @@ test('client component directive precedes imports and stale results reset',()=>{
  assert.match(page,/setMonteResult\(null\)/);
  assert.match(page,/Live forecast readiness: Not verified/);
 });
+
+const playerApi=fs.readFileSync(new URL('../src/app/api/player/[id]/route.ts',import.meta.url),'utf8');
+const parser=source('playerStatQuestions.ts');
+test('player API exposes opponent, venue, minutes and source evidence',()=>{
+ for(const field of ['opponent','home_away','minutes','source'])assert.match(playerApi,new RegExp('\\b'+field+'\\b'));
+});
+test('question parser matches complete tokens rather than substrings',()=>{
+ assert.match(parser,/tokens\.includes\(n\)/);
+ assert.doesNotMatch(parser,/q\.includes\(n\)/);
+});
+test('Monte is disabled during loading or demo history',()=>{
+ assert.match(page,/disabled=\{loading\|\|propResearch\.status/);
+ assert.match(page,/playerSource!=='database'/);
+});
