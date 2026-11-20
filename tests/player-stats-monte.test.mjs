@@ -22,6 +22,7 @@ test('pregame simulation blocks missing context and future game logs',()=>{
  assert.match(s,/if\(!assessed\.ready/);
  assert.match(s,/pregameHistory\(games,context\.gameTime\)/);
  assert.match(ctx,/Date\.parse\(g\.stat_date\)<cutoff/);
+ assert.match(ctx,/g\.stat_date<gameTime\.slice\(0,10\)/);
  assert.match(ctx,/source or freshness check failed/);
 });
 test('client component directive precedes imports and stale results reset',()=>{
