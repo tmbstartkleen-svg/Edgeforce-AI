@@ -46,7 +46,13 @@ export async function fetchHistoricalTradePages(
   let page:ExchangeTradePage;
   try{page=config.parsePage(body,cursor);}catch{return result('invalid');}
   if(page.exchange!==config.exchange||page.marketId!==config.marketId||
-    page.requestCursor!==cursor||!Array.isArray(page.trades))return result('invalid');
+    page.requestCursor!==cursor||!Array.isArray(page.trades)||
+    typeof page.sourceUrl!=='string'||!page.sourceUrl.startsWith(origin.origin+'/')||
+    !Number.isFinite(Date.parse(page.fetchedAt))||
+    (page.nextCursor!==null&&typeof page.nextCursor!=='string')||
+    page.trades.some(t=>!Number.isFinite(Date.parse(t.timestamp))||
+      !Number.isFinite(Number(t.price))||Number(t.price)<0||Number(t.price)>1||
+      !Number.isFinite(Number(t.size))||Number(t.size)<=0))return result('invalid');
   pages.push(page);
   if(page.nextCursor===null)return result('ok');
   if(!page.nextCursor||seen.has(page.nextCursor))return result('invalid');
