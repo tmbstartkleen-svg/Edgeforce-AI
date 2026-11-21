@@ -47,7 +47,7 @@ export async function fetchHistoricalTradePages(
   try{page=config.parsePage(body,cursor);}catch{return result('invalid');}
   if(page.exchange!==config.exchange||page.marketId!==config.marketId||
     page.requestCursor!==cursor||!Array.isArray(page.trades)||
-    typeof page.sourceUrl!=='string'||!page.sourceUrl.startsWith(origin.origin+'/')||
+    typeof page.sourceUrl!=='string'||page.sourceUrl!==url.toString()||
     !Number.isFinite(Date.parse(page.fetchedAt))||
     (page.nextCursor!==null&&typeof page.nextCursor!=='string')||
     page.trades.some(t=>!Number.isFinite(Date.parse(t.timestamp))||
