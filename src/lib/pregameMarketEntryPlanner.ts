@@ -41,7 +41,7 @@ export function planPregameEntries(input:PregameEntryInputs):PregameEntryPlan{
  input.scenarios.some(s=>!s.period||!s.source||!Number.isFinite(s.projectedYesPrice)||s.projectedYesPrice<0||s.projectedYesPrice>1||
  !validProbability(s.touchProbability)||!validProbability(s.fillProbability)||
  (s.fillProbability!==null&&s.touchProbability!==null&&s.fillProbability>s.touchProbability)))return result('invalid');
- if(input.scenarios.length===0)return result('insufficient_evidence');
+ if(input.scenarios.length<3||new Set(input.scenarios.map(s=>s.projectedYesPrice)).size<3)return result('insufficient_evidence');
  // Only a supplied, evidence-backed scenario can identify a projected low window.
  const lowest=input.scenarios.reduce((best,s)=>s.projectedYesPrice<best.projectedYesPrice?s:best);
  // Price tiers are observed scenario quantiles, not arbitrary discounts.
