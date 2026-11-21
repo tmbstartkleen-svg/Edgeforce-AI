@@ -47,3 +47,9 @@ test('Monte is disabled during loading or demo history',()=>{
  assert.match(page,/disabled=\{loading\|\|propResearch\.status/);
  assert.match(page,/playerSource!=='database'/);
 });
+
+test('Monte rejects out-of-range expected minutes rather than silently ignoring them',()=>{
+ const monte=source('playerPropMonteResearch.ts');
+ assert.match(monte,/options\.expectedMinutes!==undefined&&\(!Number\.isFinite\(options\.expectedMinutes\)\|\|options\.expectedMinutes<=0\|\|options\.expectedMinutes>60\)/);
+ assert.match(monte,/return empty\('invalid'\)/);
+});
