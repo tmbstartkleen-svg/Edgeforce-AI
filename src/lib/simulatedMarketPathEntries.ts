@@ -34,8 +34,14 @@ export function planFromSimulatedMarketPaths(input:MarketPathPlanInputs):Pregame
  const quantiles=[0.1,0.5,0.9];
  const scenarios:PregameDipScenario[]=quantiles.map(q=>{
   const item=sorted[Math.min(sorted.length-1,Math.floor(q*(sorted.length-1)))];
-  const touches=minima.filter(p=>p.yesPrice<=item.yesPrice).length/minima.length;
-  return {period:item.period,projectedYesPrice:item.yesPrice,touchProbability:touches,
+  const reached=minima.filter(p=>p.yesPrice<=item.yesPrice);
+  const touches=reached.length/minima.length;
+  // The window is the most frequent minimum period among qualifying paths,
+  // not the arbitrary period of the selected quantile's single path.
+  const counts=new Map<string,number>();
+  for(const p of reached)counts.set(p.period,(counts.get(p.period)??0)+1);
+  const period=[...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0]?.[0]??'Unknown';
+  return {period,projectedYesPrice:item.yesPrice,touchProbability:touches,
    fillProbability:null,source:`validated market-path replay: ${paths[0].modelVersion}`};
  });
  return planPregameEntries({...market,scenarios});
