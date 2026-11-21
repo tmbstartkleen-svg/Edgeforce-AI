@@ -53,3 +53,7 @@ test('Monte rejects out-of-range expected minutes rather than silently ignoring 
  assert.match(monte,/options\.expectedMinutes!==undefined&&\(!Number\.isFinite\(options\.expectedMinutes\)\|\|options\.expectedMinutes<=0\|\|options\.expectedMinutes>60\)/);
  assert.match(monte,/return empty\('invalid'\)/);
 });
+
+test('player game history has deterministic ordering for same-date events',()=>{
+ assert.match(playerApi,/order by stat_date desc, event_id desc limit 50/);
+});
