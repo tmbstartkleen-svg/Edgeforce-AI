@@ -29,6 +29,8 @@ export function replayExchangeLimit(request:ExchangeLimitReplayRequest):Exchange
  if(!request.marketId||request.exchange!==request.batch.exchange||
   request.marketId!==request.batch.marketId)return base('invalid');
  const coverage=validateExchangeCoverage(request.batch,request.coverage);
+ if(request.coverage.requestedStart!==request.gameStartedAt||
+  request.coverage.requestedEnd!==request.gameEndedAt)return base('invalid');
  if(coverage.status==='invalid')return base('invalid');
  if(coverage.status!=='covered')return base('incomplete');
  const normalized=normalizeExchangeTrades(request.batch);
