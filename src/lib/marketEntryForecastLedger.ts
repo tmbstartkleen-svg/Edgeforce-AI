@@ -10,6 +10,8 @@ export type ForecastLedgerRow={
  gameId:string;
  forecastCreatedAt:string;
  gameStartedAt:string;
+ gameEndedAt:string;
+ historyComplete:boolean;
  limitPrice:number;
  predictedTouchProbability:number;
  prints:MarketTradePrint[];
