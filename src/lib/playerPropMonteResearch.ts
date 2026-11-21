@@ -20,6 +20,7 @@ export function simulatePlayerPropResearch(games:StatGame[],stat:string,line:num
  const warning='UNCALIBRATED: empirical bootstrap, not a forecast or verified betting edge. Injury, opponent and lineup effects are not modeled.';
  const empty=(status:ExploratoryMonteResult['status']):ExploratoryMonteResult=>({status,runs:0,hits:0,pushes:0,simulatedOverRate:null,simulatedUnderRate:null,mean:null,standardDeviation:null,seed,warning});
  if(!Number.isFinite(line)||!Number.isInteger(runs)||runs<100||runs>100000||!Number.isInteger(options.window??20)||typeof seed!=='string'||seed.length>256)return empty('invalid');
+ if(options.expectedMinutes!==undefined&&(!Number.isFinite(options.expectedMinutes)||options.expectedMinutes<=0||options.expectedMinutes>60))return empty('invalid');
  const window=options.window??20;
  const research=researchPlayerProp(games,stat,line,options.expectedMinutes,window);
  if(research.status!=='ok'||research.observedMean===null||research.projectedMean===null)return empty('insufficient_data');
