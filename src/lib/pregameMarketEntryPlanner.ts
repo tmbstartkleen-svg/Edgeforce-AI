@@ -33,7 +33,7 @@ export function planPregameEntries(input:PregameEntryInputs):PregameEntryPlan{
  const warning='RESEARCH ONLY: pregame price dips and execution cannot be guaranteed. A touch does not imply an order fill; independent historical market replay and calibration are required.';
  const market=planInPlayEntries(input);
  const result=(status:PregameEntryPlan['status'],window:string|null=null):PregameEntryPlan=>({
-  status,gameId:input.gameId,gameStart:input.gameStart,market,projectedLowestWindow:window,scenarioCount:input.scenarios.length,warning
+  status,gameId:input.gameId,gameStart:input.gameStart,market,projectedLowestWindow:window,scenarioCount:Array.isArray(input.scenarios)?input.scenarios.length:0,warning
  });
  if(!input.gameId||!Number.isFinite(Date.parse(input.gameStart))||market.status==='invalid'||!Array.isArray(input.scenarios)||
  input.scenarios.some(s=>!s.period||!s.source||!Number.isFinite(s.projectedYesPrice)||s.projectedYesPrice<0||s.projectedYesPrice>1||
