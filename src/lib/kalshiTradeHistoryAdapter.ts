@@ -5,7 +5,8 @@ import {fetchHistoricalTradePages} from './historicalTradeFetcher';
 /**
  * Read-only Kalshi public trade-history adapter.
  * Prices are in cents, converted to 0..1 YES dollars.
- * Only YES-side prints are included; NO trades must not be interpreted as YES.
+ * Both taker sides may execute a YES/NO binary contract; yes_price is the
+ * contract's YES-equivalent transaction price, not a taker-side indicator.
  * A successful fetch does not certify complete game-window coverage.
  */
 export async function fetchKalshiYesTradeHistory(
@@ -33,7 +34,7 @@ export async function fetchKalshiYesTradeHistory(
    const trades=raw.trades.map((item:unknown)=>{
     if(!item||typeof item!=='object')throw Error('invalid trade');
     const t=item as Record<string,unknown>;
-    if(t.ticker!==ticker||t.taker_side!=='yes')throw Error('trade side or ticker mismatch');
+    if(t.ticker!==ticker||!['yes','no'].includes(String(t.taker_side)))throw Error('trade side or ticker mismatch');
     if(typeof t.yes_price!=='number'||typeof t.count!=='number'||typeof t.created_time!=='string')throw Error('unsupported trade schema');
     return {timestamp:t.created_time,price:t.yes_price/100,size:t.count};
    });
