@@ -85,3 +85,13 @@ test('pregame market-path bridge requires validated paths and does not invent fi
  assert.match(planner,/quantiles=\[0\.1,0\.5,0\.9\]/);
  assert.doesNotMatch(planner,/orders\.create\(|placeOrder\(/);
 });
+
+test('market entry calibration checks pregame chronology and separates touch from fill',()=>{
+ const planner=source('marketEntryReplayCalibration.ts');
+ assert.match(planner,/forecastCreatedAt\)>=Date\.parse\(o\.gameStartedAt\)/);
+ assert.match(planner,/o\.observedFill===true&&!o\.observedTouch/);
+ assert.match(planner,/touchBrierScore/);
+ assert.match(planner,/observedFillRate/);
+ assert.match(planner,/calibrationBins/);
+ assert.doesNotMatch(planner,/orders\.create\(|placeOrder\(/);
+});
