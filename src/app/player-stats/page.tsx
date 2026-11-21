@@ -6,6 +6,7 @@ import {researchPlayerProp} from '@/lib/playerPropResearch';
 import {assessPlayerEvidence} from '@/lib/playerEvidenceStatus';
 import {simulatePlayerPropResearch} from '@/lib/playerPropMonteResearch';
 import {PregameEntryComparisonPanel} from '@/components/PregameEntryComparisonPanel';
+import {MarketEntryAccuracyPanel} from '@/components/MarketEntryAccuracyPanel';
 
 import {useEffect,useMemo,useState} from 'react';
 
@@ -69,6 +70,7 @@ export default function PlayerStatsExplorer(){
  return <main style={{maxWidth:1150,margin:'0 auto',padding:'clamp(12px,3vw,24px)',color:'inherit'}}>
   <h1>Player Stats Explorer</h1>
   <PregameEntryComparisonPanel comparison={null}/>
+  <MarketEntryAccuracyPanel report={null}/>
   <p>Search players, inspect game logs, and compare recent per-game averages. All figures come from the EdgeForce player warehouse; no synthetic stats are shown.</p>
   <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:18}}>
    <input aria-label="Search players" placeholder="Search player or team" value={query} onChange={e=>setQuery(e.target.value)} style={{padding:10,flex:2,minWidth:200,color:'#111'}}/>
