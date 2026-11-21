@@ -44,7 +44,7 @@ test('question parser matches complete tokens rather than substrings',()=>{
  assert.match(parser,/keys\.some\(alias=>norm\(alias\)===norm\(k\)\)/);
 });
 test('Monte is disabled during loading or demo history',()=>{
- assert.match(page,/disabled=\{loading\|\|propResearch\.status/);
+ assert.match(page,/disabled=\{loading\|\|!minutesInputValid\|\|propResearch\.status/);
  assert.match(page,/playerSource!=='database'/);
 });
 
