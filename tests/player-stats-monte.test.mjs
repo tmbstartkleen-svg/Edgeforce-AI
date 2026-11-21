@@ -95,3 +95,12 @@ test('market entry calibration checks pregame chronology and separates touch fro
  assert.match(planner,/calibrationBins/);
  assert.doesNotMatch(planner,/orders\.create\(|placeOrder\(/);
 });
+
+test('market entry readiness never auto-approves live trading',()=>{
+ const planner=source('marketEntryReadiness.ts');
+ assert.match(planner,/minimumDistinctGames\?\?50/);
+ assert.match(planner,/maximumBrierScore\?\?0\.2/);
+ assert.match(planner,/no_observed_fill_evidence/);
+ assert.match(planner,/review_required/);
+ assert.doesNotMatch(planner,/status:'approved'|orders\.create\(|placeOrder\(/);
+});
