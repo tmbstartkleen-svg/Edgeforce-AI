@@ -6,6 +6,8 @@ export type ExchangeTradePage={
  marketId:string;
  sourceUrl:string;
  fetchedAt:string;
+ /** Cursor used to request this page; null for the first page. */
+ requestCursor:string|null;
  /** Null only when the provider explicitly signals the final page. */
  nextCursor:string|null;
  trades:ExchangeTradeRow[];
@@ -31,9 +33,12 @@ export function assembleExchangeTradePages(
   const p=pages[i];
   if(p.exchange!==first.exchange||p.marketId!==first.marketId||
    !p.sourceUrl.startsWith('https://')||!Number.isFinite(Date.parse(p.fetchedAt))||
-   !Array.isArray(p.trades)||typeof p.nextCursor!=='string'&&p.nextCursor!==null)return fail('invalid');
-  if(i<pages.length-1&&(!p.nextCursor||seen.has(p.nextCursor)))return fail('invalid');
-  if(p.nextCursor)seen.add(p.nextCursor);
+   !Array.isArray(p.trades)||typeof p.nextCursor!=='string'&&p.nextCursor!==null||
+ (typeof p.requestCursor!=='string'&&p.requestCursor!==null))return fail('invalid');
+  if(i===0&&p.requestCursor!==null)return fail('invalid');
+  if(i>0&&p.requestCursor!==pages[i-1].nextCursor)return fail('invalid');
+  if(i<pages.length-1&&!p.nextCursor)return fail('invalid');
+  if(p.nextCursor){if(seen.has(p.nextCursor))return fail('invalid');seen.add(p.nextCursor);}
   all.push(...p.trades);
  }
  if(pages[pages.length-1].nextCursor!==null||windowComplete!==true)return fail('incomplete');
