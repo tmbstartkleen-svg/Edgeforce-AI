@@ -57,3 +57,13 @@ test('Monte rejects out-of-range expected minutes rather than silently ignoring 
 test('player game history has deterministic ordering for same-date events',()=>{
  assert.match(playerApi,/order by stat_date desc, event_id desc limit 50/);
 });
+
+test('in-play entry planner is research only and does not submit orders',()=>{
+ const planner=source('inPlayLimitEntryPlanner.ts');
+ assert.match(planner,/platform:'kalshi'\|'polymarket'/);
+ assert.match(planner,/strategy:EntryStrategy/);
+ assert.match(planner,/targetFillProbability:0\.6\|0\.8\|0\.95/);
+ assert.match(planner,/estimatedFillProbability:fill/);
+ assert.match(planner,/no guaranteed fill/);
+ assert.doesNotMatch(planner,/fetch\(|orders\.create\(|placeOrder\(/);
+});
