@@ -67,3 +67,11 @@ test('in-play entry planner is research only and does not submit orders',()=>{
  assert.match(planner,/no guaranteed fill/);
  assert.doesNotMatch(planner,/fetch\(|orders\.create\(|placeOrder\(/);
 });
+
+test('pregame planner requires sourced price-path scenarios and separates touches from fills',()=>{
+ const planner=source('pregameMarketEntryPlanner.ts');
+ assert.match(planner,/if\(input\.scenarios\.length===0\)return result\('insufficient_evidence'\)/);
+ assert.match(planner,/fillProbability>s\.touchProbability/);
+ assert.match(planner,/A touch does not imply an order fill/);
+ assert.doesNotMatch(planner,/orders\.create\(|placeOrder\(/);
+});
