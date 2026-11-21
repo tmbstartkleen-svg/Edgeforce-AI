@@ -2,16 +2,17 @@ export type StatGame = {stat_date?:string;opponent?:string|null;home_away?:strin
 export type StatQuery = {stat:string;window:number;opponent?:string;venue?:'home'|'away'};
 const aliases:Record<string,string[]> = {
  points:['points','pts'],rebounds:['rebounds','reb'],assists:['assists','ast'],
- steals:['steals','stl'],blocks:['blocks','blk'],threes:['threepointersmade','threepointfieldgoalsmade','3pm','threes'],
- passingyards:['passingyards'],rushingyards:['rushingyards'],receivingyards:['receivingyards'],
- receptions:['receptions'],goals:['goals'],shots:['shots','shotsongoal'],hits:['hits'],strikeouts:['strikeouts','pitchingstrikeouts']
+ steals:['steals','stl'],blocks:['blocks','blk'],threes:['threepointersmade','threepointfieldgoalsmade','three pointers made','three point field goals made','3pm','threes'],
+ passingyards:['passingyards','passing yards'],rushingyards:['rushingyards','rushing yards'],receivingyards:['receivingyards','receiving yards'],
+ receptions:['receptions'],goals:['goals'],shots:['shots','shotsongoal','shots on goal'],hits:['hits'],strikeouts:['strikeouts','pitchingstrikeouts']
 };
 const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 const value=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v:typeof v==='string'&&v.trim()!==''&&Number.isFinite(Number(v))?Number(v):null;
 export function parseStatQuestion(question:string):StatQuery|null{
  const q=question.toLowerCase();
  const tokens:string[]=Array.from(q.match(/[a-z0-9]+/g)??[]);
- const stat=Object.entries(aliases).find(([,names])=>names.some(n=>tokens.includes(n)))?.[0];
+ const phrase=' '+tokens.join(' ')+' ';
+ const stat=Object.entries(aliases).find(([,names])=>names.some(n=>tokens.includes(n)||phrase.includes(' '+n+' ')))?.[0];
  if(!stat)return null;
  const windowMatch=q.match(/(?:last|past)\s+(\d{1,3})\s+games?/);
  const window=Math.min(50,Math.max(1,windowMatch?Number(windowMatch[1]):10));
@@ -29,7 +30,7 @@ export function answerStatQuestion(games:StatGame[],question:string){
  }).slice(0,parsed.window);
  const keys=aliases[parsed.stat]||[parsed.stat];
  const observations=filtered.map(g=>{
-  const entry=Object.entries(g.stats||{}).find(([k])=>keys.includes(norm(k)));
+  const entry=Object.entries(g.stats||{}).find(([k])=>keys.some(alias=>norm(alias)===norm(k)));
   return entry?value(entry[1]):null;
  }).filter((v):v is number=>v!==null);
  if(!observations.length)return {status:'no_data' as const,message:'No matching recorded statistics. The result is unavailable, not zero.',sampleSize:0,query:parsed};
