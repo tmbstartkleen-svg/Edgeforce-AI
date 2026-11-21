@@ -75,3 +75,13 @@ test('pregame planner requires sourced price-path scenarios and separates touche
  assert.match(planner,/A touch does not imply an order fill/);
  assert.doesNotMatch(planner,/orders\.create\(|placeOrder\(/);
 });
+
+test('pregame market-path bridge requires validated paths and does not invent fill rates',()=>{
+ const planner=source('simulatedMarketPathEntries.ts');
+ assert.match(planner,/!path\.modelValidated\|\|!path\.marketReplayValidated/);
+ assert.match(planner,/minimumPaths<100/);
+ assert.match(planner,/new Set\(paths\.map\(p=>p\.simulationId\)\)/);
+ assert.match(planner,/fillProbability:null/);
+ assert.match(planner,/quantiles=\[0\.1,0\.5,0\.9\]/);
+ assert.doesNotMatch(planner,/orders\.create\(|placeOrder\(/);
+});
