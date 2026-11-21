@@ -1,5 +1,6 @@
 import {normalizeExchangeTrades,type ExchangeTradeBatch} from './exchangeTradeNormalization';
 import {replayLimitTouches,type LimitTouchReplayResult} from './marketLimitTouchReplay';
+import {validateExchangeCoverage,type ExchangeCoverageEvidence} from './exchangeCoverageEvidence';
 
 /** Ensures replay trades belong to the exact contract selected by the forecast. */
 export type ExchangeLimitReplayRequest={
@@ -11,6 +12,7 @@ export type ExchangeLimitReplayRequest={
  gameEndedAt:string;
  limitPrice:number;
  batch:ExchangeTradeBatch;
+ coverage:ExchangeCoverageEvidence;
 };
 export type ExchangeLimitReplayResult={
  status:'invalid'|'incomplete'|'ok';
@@ -26,6 +28,9 @@ export function replayExchangeLimit(request:ExchangeLimitReplayRequest):Exchange
  });
  if(!request.marketId||request.exchange!==request.batch.exchange||
   request.marketId!==request.batch.marketId)return base('invalid');
+ const coverage=validateExchangeCoverage(request.batch,request.coverage);
+ if(coverage.status==='invalid')return base('invalid');
+ if(coverage.status!=='covered')return base('incomplete');
  const normalized=normalizeExchangeTrades(request.batch);
  if(normalized.status!=='ok')return base(normalized.status);
  const replay=replayLimitTouches({gameId:request.gameId,forecastCreatedAt:request.forecastCreatedAt,
