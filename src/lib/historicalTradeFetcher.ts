@@ -9,6 +9,8 @@ export type HistoricalTradeFetcher={
  exchange:'kalshi'|'polymarket';
  marketId:string;
  baseUrl:string;
+ /** Exact provider-approved hostname; required to prevent arbitrary network access. */
+ approvedHostname:string;
  maxPages:number;
  buildUrl:(cursor:string|null)=>string;
  parsePage:(body:unknown,cursor:string|null)=>ExchangeTradePage;
@@ -28,6 +30,7 @@ export async function fetchHistoricalTradePages(
  let origin:URL;
  try{origin=new URL(config.baseUrl);}catch{return result('invalid');}
  if(origin.protocol!=='https:'||origin.username||origin.password||
+  !config.approvedHostname||origin.hostname!==config.approvedHostname||
   !config.marketId||!['kalshi','polymarket'].includes(config.exchange)||
   !Number.isInteger(config.maxPages)||config.maxPages<1||config.maxPages>100||
   typeof config.buildUrl!=='function'||typeof config.parsePage!=='function')return result('invalid');
@@ -36,7 +39,8 @@ export async function fetchHistoricalTradePages(
  for(let i=0;i<config.maxPages;i++){
   let url:URL;
   try{url=new URL(config.buildUrl(cursor));}catch{return result('invalid');}
-  if(url.origin!==origin.origin||url.protocol!=='https:'||url.username||url.password)return result('invalid');
+  if(url.origin!==origin.origin||url.hostname!==config.approvedHostname||
+   url.protocol!=='https:'||url.username||url.password)return result('invalid');
   let response:Response;
   try{response=await fetcher(url.toString(),{method:'GET',redirect:'error',headers:{accept:'application/json'}});}
   catch{return result('incomplete');}
