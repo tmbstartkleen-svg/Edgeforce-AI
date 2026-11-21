@@ -39,6 +39,9 @@ test('player API exposes opponent, venue, minutes and source evidence',()=>{
 test('question parser matches complete tokens rather than substrings',()=>{
  assert.match(parser,/tokens\.includes\(n\)/);
  assert.doesNotMatch(parser,/q\.includes\(n\)/);
+ assert.match(parser,/phrase\.includes\(' '\+n\+' '\)/);
+ assert.match(parser,/passing yards/);
+ assert.match(parser,/keys\.some\(alias=>norm\(alias\)===norm\(k\)\)/);
 });
 test('Monte is disabled during loading or demo history',()=>{
  assert.match(page,/disabled=\{loading\|\|propResearch\.status/);
