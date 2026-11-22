@@ -50,7 +50,6 @@ export function advancePaperScalp(
   return {status:'paper_order_created',reason:'sell_after_confirmed_fill',order,book:transition.book,cycle:{...cycle,nextOrderSequence:cycle.nextOrderSequence+1}};
  }
  if(active.some(o=>o.side==='buy'))return done('waiting','awaiting_confirmed_buy_fill');
- if(active.some(o=>o.side==='buy'))return done('waiting','awaiting_confirmed_buy_fill');
  if(book.owned>=cycle.maxPosition)return done('waiting','position_limit_reached');
  if(active.some(o=>o.side==='sell'))return done('waiting','awaiting_confirmed_sell_fill');
  const quantity=cycle.maxPosition-book.owned;
