@@ -2,6 +2,7 @@
 import {useMemo,useState} from 'react';
 import {runArbPreset,type ArbPreset} from '@/lib/guaranteedPayoutPresets';
 import {scanGuaranteedPayout} from '@/lib/guaranteedPayoutScanner';
+import {analyzeThreeWayDip} from '@/lib/soccerThreeWayDipArb';
 
 const examples:{id:ArbPreset;name:string}[]=[
  {id:'soccer_three_way',name:'Soccer · Home / Draw / Away'},
@@ -15,12 +16,20 @@ export function GuaranteedPayoutResearchPanel(){
  const [draw,setDraw]=useState(20);
  const [away,setAway]=useState(35);
  const [fee,setFee]=useState(1);
+ const [fills,setFills]=useState([100,100,100]);
+ const [feeMode,setFeeMode]=useState<'maker'|'taker'>('maker');
+ const [takerFee,setTakerFee]=useState(2);
  const report=useMemo(()=>{
   if(preset!=='soccer_three_way')return runArbPreset(preset);
   const prices=[home,draw,away];
   return scanGuaranteedPayout([{id:'soccer',outcomes:['home','draw','away']}],
    ['home','draw','away'].map((outcome,i)=>({id:outcome,venue:'paper_fixture',selections:{soccer:outcome},stake:prices[i],decimalOdds:100/prices[i],fees:fee,fullyFilled:true})),true);
  },[preset,home,draw,away,fee]);
+ const partial=useMemo(()=>analyzeThreeWayDip(
+  (['home','draw','away'] as const).map((outcome,i)=>({
+   outcome,venue:'kalshi' as const,price:[home,draw,away][i]/100,
+   feePerContract:(feeMode==='maker'?fee:takerFee)/100,filledContracts:fills[i]
+  })),true),[home,draw,away,fee,takerFee,feeMode,fills]);
  const money=(value:number|null)=>value===null?'Unavailable':(value<0?'−':'')+'$'+Math.abs(value).toFixed(2);
  return <section aria-label="Guaranteed payout research scanner" style={{border:'1px solid #64748b',borderRadius:12,padding:16,marginTop:16}}>
   <h2>Guaranteed-Payout Scanner</h2>
@@ -43,7 +52,31 @@ export function GuaranteedPayoutResearchPanel(){
      onChange={e=>setFee(Math.max(0,Math.min(25,Number(e.target.value)||0)))}
      style={{display:'block',maxWidth:120,width:'100%',padding:8,marginTop:4}}/>
    </label>
-   <p style={{fontSize:12}}>Each outcome pays $100 in this illustrative 100-contract complete-set model. Fees shown are dollars per 100-contract outcome ticket; use exchange-confirmed fee totals.</p>
+   <label style={{display:'block',marginTop:12}}>Fee scenario
+    <select value={feeMode} onChange={e=>setFeeMode(e.target.value as 'maker'|'taker')}
+     style={{display:'block',width:'100%',maxWidth:220,padding:8}}>
+     <option value="maker">Maker (illustrative)</option>
+     <option value="taker">Taker (illustrative)</option>
+    </select>
+   </label>
+   {feeMode==='taker'&&<label style={{display:'block',marginTop:8}}>Taker fee per 100 contracts ($)
+    <input type="number" min="0" max="25" step="0.25" value={takerFee}
+     onChange={e=>setTakerFee(Math.max(0,Math.min(25,Number(e.target.value)||0)))}
+     style={{display:'block',maxWidth:120,width:'100%',padding:8}}/>
+   </label>}
+   <p><strong>Confirmed fills (paper)</strong></p>
+   {(['Home','Draw','Away'] as const).map((name,i)=><label key={name} style={{display:'block',marginBottom:8}}>
+    {name}: {fills[i]} / 100
+    <input type="range" min="0" max="100" step="1" value={fills[i]}
+     onChange={e=>setFills(old=>old.map((n,j)=>j===i?Number(e.target.value):n))}
+     style={{display:'block',width:'100%'}}/>
+   </label>)}
+   <div aria-live="polite">
+    <p>Actual modeled filled-position cost + fees: {money(partial.cost+partial.fees)}</p>
+    <p>Worst-case filled-position P&amp;L: <strong>{money(partial.worstCaseProfit)}</strong></p>
+    <p>Complete matched sets: {partial.completeSets} · {partial.status==='partial_exposure'?'Unequal fills: directional exposure':'Equal filled quantities'}</p>
+   </div>
+   <p style={{fontSize:12}}>The summary below assumes 100 fills per outcome and uses the maker fee input. The separate filled-position calculation above uses your selected fee scenario and quantities. Neither fee scenario is an exchange quote.</p>
   </fieldset>}
   <dl style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12}}>
    <div><dt>Outcome combinations</dt><dd>{report.scenarios}</dd></div>
