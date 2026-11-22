@@ -30,6 +30,10 @@ export function GuaranteedPayoutResearchPanel(){
    outcome,venue:'kalshi' as const,price:[home,draw,away][i]/100,
    feePerContract:(feeMode==='maker'?fee:takerFee)/100,filledContracts:fills[i]
   })),true),[home,draw,away,fee,takerFee,feeMode,fills]);
+ const activeCost=preset==='soccer_three_way'?partial.cost+partial.fees:report.totalCost;
+ const activeWorst=preset==='soccer_three_way'?partial.worstCaseProfit:report.worstCaseNet;
+ const activeBest=preset==='soccer_three_way'?Math.max(...Object.values(partial.profitByOutcome)):report.bestCaseNet;
+ const activeGuaranteed=preset==='soccer_three_way'?partial.guaranteedProfit:report.guaranteedProfit;
  const money=(value:number|null)=>value===null?'Unavailable':(value<0?'−':'')+'$'+Math.abs(value).toFixed(2);
  return <section aria-label="Guaranteed payout research scanner" style={{border:'1px solid #64748b',borderRadius:12,padding:16,marginTop:16}}>
   <h2>Guaranteed-Payout Scanner</h2>
@@ -76,16 +80,16 @@ export function GuaranteedPayoutResearchPanel(){
     <p>Worst-case filled-position P&amp;L: <strong>{money(partial.worstCaseProfit)}</strong></p>
     <p>Complete matched sets: {partial.completeSets} · {partial.status==='partial_exposure'?'Unequal fills: directional exposure':'Equal filled quantities'}</p>
    </div>
-   <p style={{fontSize:12}}>The summary below assumes 100 fills per outcome and uses the maker fee input. The separate filled-position calculation above uses your selected fee scenario and quantities. Neither fee scenario is an exchange quote.</p>
+   <p style={{fontSize:12}}>The summary below uses the selected filled quantities and fee scenario. Neither fee scenario is an exchange quote.</p>
   </fieldset>}
   <dl style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12}}>
    <div><dt>Outcome combinations</dt><dd>{report.scenarios}</dd></div>
-   <div><dt>Total cost</dt><dd>{money(report.totalCost)}</dd></div>
-   <div><dt>Worst-case net</dt><dd>{money(report.worstCaseNet)}</dd></div>
-   <div><dt>Best-case net</dt><dd>{money(report.bestCaseNet)}</dd></div>
+   <div><dt>Total cost</dt><dd>{money(activeCost)}</dd></div>
+   <div><dt>Worst-case net</dt><dd>{money(activeWorst)}</dd></div>
+   <div><dt>Best-case net</dt><dd>{money(activeBest)}</dd></div>
    <div><dt>Uncovered outcomes</dt><dd>{report.uncoveredScenarios}</dd></div>
   </dl>
-  <p role="status"><strong>{report.guaranteedProfit?'Positive in all modeled outcomes':'No guaranteed profit established'}</strong></p>
+  <p role="status"><strong>{activeGuaranteed?'Positive in all modeled outcomes':'No guaranteed profit established'}</strong></p>
   <p style={{fontSize:12}}>{report.warning}</p>
   <p style={{fontSize:12}}>All prices and filled positions are hypothetical. Actual settlement, exchange fees, liquidity and fill evidence are not connected.</p>
  </section>;
