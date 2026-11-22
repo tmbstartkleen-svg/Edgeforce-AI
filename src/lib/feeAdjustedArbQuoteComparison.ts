@@ -20,7 +20,7 @@ export function evaluateFeeAdjustedPair(
   return {status:'invalid',maxSets:0,netPerSet:null,netAtDepth:null,totalFeePerSet:null,warning};
  const base=compareComplementaryQuotes(yes,no,nowMs,maxAgeMs);
  if(base.status!=='candidate'||base.grossProfitPerSet===null)
-  return {status:base.status,maxSets:base.maxSets,netPerSet:null,netAtDepth:null,totalFeePerSet:null,warning};
+  return {status:base.status==='candidate'?'invalid':base.status,maxSets:base.maxSets,netPerSet:null,netAtDepth:null,totalFeePerSet:null,warning};
  const totalFeePerSet=yesFeePerContract+noFeePerContract;
  const netPerSet=base.grossProfitPerSet-totalFeePerSet;
  return {status:netPerSet>0?'paper_candidate':'not_profitable',maxSets:base.maxSets,
