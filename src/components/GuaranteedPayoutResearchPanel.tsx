@@ -1,0 +1,34 @@
+'use client';
+import {useMemo,useState} from 'react';
+import {runArbPreset,type ArbPreset} from '@/lib/guaranteedPayoutPresets';
+
+const examples:{id:ArbPreset;name:string}[]=[
+ {id:'soccer_three_way',name:'Soccer · Home / Draw / Away'},
+ {id:'binary_cross_venue',name:'YES / NO · Two venues'},
+ {id:'two_game_full_cover',name:'Two games · Full coverage'},
+ {id:'incomplete_cover',name:'Two games · Missing outcome'}
+];
+export function GuaranteedPayoutResearchPanel(){
+ const [preset,setPreset]=useState<ArbPreset>('soccer_three_way');
+ const report=useMemo(()=>runArbPreset(preset),[preset]);
+ const money=(value:number|null)=>value===null?'Unavailable':(value<0?'−':'')+'$'+Math.abs(value).toFixed(2);
+ return <section aria-label="Guaranteed payout research scanner" style={{border:'1px solid #64748b',borderRadius:12,padding:16,marginTop:16}}>
+  <h2>Guaranteed-Payout Scanner</h2>
+  <p>Paper scenarios only · No live odds or submitted orders</p>
+  <label htmlFor="arb-research-preset">Select scenario</label>
+  <select id="arb-research-preset" value={preset} onChange={e=>setPreset(e.target.value as ArbPreset)}
+   style={{display:'block',width:'100%',maxWidth:440,padding:10,marginTop:8,marginBottom:16}}>
+   {examples.map(example=><option key={example.id} value={example.id}>{example.name}</option>)}
+  </select>
+  <dl style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12}}>
+   <div><dt>Outcome combinations</dt><dd>{report.scenarios}</dd></div>
+   <div><dt>Total cost</dt><dd>{money(report.totalCost)}</dd></div>
+   <div><dt>Worst-case net</dt><dd>{money(report.worstCaseNet)}</dd></div>
+   <div><dt>Best-case net</dt><dd>{money(report.bestCaseNet)}</dd></div>
+   <div><dt>Uncovered outcomes</dt><dd>{report.uncoveredScenarios}</dd></div>
+  </dl>
+  <p role="status"><strong>{report.guaranteedProfit?'Positive in all modeled outcomes':'No guaranteed profit established'}</strong></p>
+  <p style={{fontSize:12}}>{report.warning}</p>
+  <p style={{fontSize:12}}>All prices and filled positions are hypothetical. Actual settlement, exchange fees, liquidity and fill evidence are not connected.</p>
+ </section>;
+}
