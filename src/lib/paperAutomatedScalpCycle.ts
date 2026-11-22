@@ -30,7 +30,6 @@ export function advancePaperScalp(
   !Number.isSafeInteger(book.owned)||book.owned<0||!Number.isFinite(book.cashFlow))
   return done('blocked','invalid_paper_book');
  const active=book.orders.filter(o=>o.status==='open'||o.status==='partially_filled');
- if(active.some(o=>o.side==='buy'))return done('waiting','awaiting_confirmed_buy_fill');
  const openSell=active.filter(o=>o.side==='sell').reduce((n,o)=>n+o.quantity-o.filled,0);
  if(openSell>book.owned)return done('blocked','oversubscribed_inventory');
  const available=book.owned-openSell;
@@ -50,6 +49,7 @@ export function advancePaperScalp(
   if(!transition.accepted)return done('blocked',transition.reason??'paper_sell_rejected');
   return {status:'paper_order_created',reason:'sell_after_confirmed_fill',order,book:transition.book,cycle:{...cycle,nextOrderSequence:cycle.nextOrderSequence+1}};
  }
+ if(active.some(o=>o.side==='buy'))return done('waiting','awaiting_confirmed_buy_fill');
  if(active.some(o=>o.side==='buy'))return done('waiting','awaiting_confirmed_buy_fill');
  if(book.owned>=cycle.maxPosition)return done('waiting','position_limit_reached');
  if(active.some(o=>o.side==='sell'))return done('waiting','awaiting_confirmed_sell_fill');
