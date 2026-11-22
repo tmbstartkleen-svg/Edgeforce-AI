@@ -1,6 +1,7 @@
 'use client';
 import {useMemo,useState} from 'react';
 import {runArbPreset,type ArbPreset} from '@/lib/guaranteedPayoutPresets';
+import {scanGuaranteedPayout} from '@/lib/guaranteedPayoutScanner';
 
 const examples:{id:ArbPreset;name:string}[]=[
  {id:'soccer_three_way',name:'Soccer · Home / Draw / Away'},
@@ -10,7 +11,16 @@ const examples:{id:ArbPreset;name:string}[]=[
 ];
 export function GuaranteedPayoutResearchPanel(){
  const [preset,setPreset]=useState<ArbPreset>('soccer_three_way');
- const report=useMemo(()=>runArbPreset(preset),[preset]);
+ const [home,setHome]=useState(30);
+ const [draw,setDraw]=useState(20);
+ const [away,setAway]=useState(35);
+ const [fee,setFee]=useState(1);
+ const report=useMemo(()=>{
+  if(preset!=='soccer_three_way')return runArbPreset(preset);
+  const prices=[home,draw,away];
+  return scanGuaranteedPayout([{id:'soccer',outcomes:['home','draw','away']}],
+   ['home','draw','away'].map((outcome,i)=>({id:outcome,venue:'paper_fixture',selections:{soccer:outcome},stake:prices[i],decimalOdds:100/prices[i],fees:fee,fullyFilled:true})),true);
+ },[preset,home,draw,away,fee]);
  const money=(value:number|null)=>value===null?'Unavailable':(value<0?'−':'')+'$'+Math.abs(value).toFixed(2);
  return <section aria-label="Guaranteed payout research scanner" style={{border:'1px solid #64748b',borderRadius:12,padding:16,marginTop:16}}>
   <h2>Guaranteed-Payout Scanner</h2>
@@ -20,6 +30,21 @@ export function GuaranteedPayoutResearchPanel(){
    style={{display:'block',width:'100%',maxWidth:440,padding:10,marginTop:8,marginBottom:16}}>
    {examples.map(example=><option key={example.id} value={example.id}>{example.name}</option>)}
   </select>
+  {preset==='soccer_three_way'&&<fieldset style={{border:'1px solid #64748b',borderRadius:8,padding:12,marginBottom:16}}>
+   <legend>Editable paper buy prices (cents)</legend>
+   {([{name:'Home',value:home,set:setHome},{name:'Draw',value:draw,set:setDraw},{name:'Away',value:away,set:setAway}] as const).map(item=>
+    <label key={item.name} style={{display:'block',marginBottom:12}}>
+     {item.name}: {item.value}¢
+     <input type="range" min="1" max="99" step="1" value={item.value}
+      onChange={e=>item.set(Number(e.target.value))} style={{display:'block',width:'100%'}}/>
+    </label>)}
+   <label>Fee per outcome ticket ($)
+    <input type="number" min="0" max="25" step="0.25" value={fee}
+     onChange={e=>setFee(Math.max(0,Math.min(25,Number(e.target.value)||0)))}
+     style={{display:'block',maxWidth:120,width:'100%',padding:8,marginTop:4}}/>
+   </label>
+   <p style={{fontSize:12}}>Each outcome pays $100 in this illustrative 100-contract complete-set model. Fees shown are dollars per 100-contract outcome ticket; use exchange-confirmed fee totals.</p>
+  </fieldset>}
   <dl style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:12}}>
    <div><dt>Outcome combinations</dt><dd>{report.scenarios}</dd></div>
    <div><dt>Total cost</dt><dd>{money(report.totalCost)}</dd></div>
