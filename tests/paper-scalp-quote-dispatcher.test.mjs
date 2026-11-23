@@ -25,3 +25,14 @@ test('unverified quote and kill switch prevent dispatch',()=>{
  assert.equal(dispatchPaperScalpFromQuotes([{...quote(),status:'blocked'}],risk(),book(),cycleSettings(),Date.now()).status,'blocked');
  assert.equal(dispatchPaperScalpFromQuotes([quote()],risk(),book(),{...cycleSettings(),killSwitch:true},Date.now()).status,'blocked');
 });
+
+test('stale quote and insufficient quoted depth fail closed',()=>{
+ const stale=dispatchPaperScalpFromQuotes([{...quote(),ageMs:90000}],risk(),book(),cycleSettings(),Date.now());
+ assert.equal(stale.status,'blocked');assert.equal(stale.book.orders.length,0);
+ const emptyDepth=dispatchPaperScalpFromQuotes([{...quote(),askDepth:0}],risk(),book(),cycleSettings(),Date.now());
+ assert.equal(emptyDepth.status,'blocked');assert.equal(emptyDepth.book.orders.length,0);
+});
+test('insufficient after-fee spread fails closed',()=>{
+ const r=dispatchPaperScalpFromQuotes([{...quote(),bestAsk:.41}],{...risk(),buyFeePerContract:.04},book(),cycleSettings(),Date.now());
+ assert.equal(r.status,'blocked');assert.equal(r.book.orders.length,0);
+});
