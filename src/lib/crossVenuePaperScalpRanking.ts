@@ -47,7 +47,7 @@ export function rankSingleMarketScalps(
   return {venue:book.venue,marketId:book.marketId,outcomeId:book.outcomeId,
    entryLimit,exitLimit,estimatedNetPerContract,availableContracts,
    estimatedNetAtDepth:estimatedNetPerContract*availableContracts,
-   status:reasons.length?'blocked':'indicative_spread',reasons};
+   status:(reasons.length?'blocked':'indicative_spread') as ScalpCandidate['status'],reasons};
  }).sort((a,b)=>{
   if(a.status!==b.status)return a.status==='indicative_spread'?-1:1;
   return b.estimatedNetAtDepth-a.estimatedNetAtDepth;
