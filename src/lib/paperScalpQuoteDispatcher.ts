@@ -25,8 +25,8 @@ export function dispatchPaperScalpFromQuotes(
  const matching=books.filter(x=>x.marketId===cycle.marketId);
  if(!matching.length)return blocked('no_market_quote');
  const ranked=rankSingleMarketScalps(matching,settings);
- const candidate=ranked.find(x=>x.status==='paper_candidate');
- if(!candidate)return blocked('no_verified_profitable_candidate');
+ const candidate=ranked.find(x=>x.status==='indicative_spread');
+ if(!candidate)return blocked('no_valid_indicative_spread');
  const quote=matching.find(x=>x.venue===candidate.venue&&x.outcomeId===candidate.outcomeId);
  if(!quote||quote.status!=='verified_read_only')return blocked('unverified_market_quote');
  const result=advancePaperScalp(book,{
