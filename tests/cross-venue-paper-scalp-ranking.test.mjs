@@ -9,7 +9,7 @@ const settings=()=>({maxSpread:.1,minimumNetPerContract:.01,buyFeePerContract:.0
 const book=(venue,bid,ask)=>({venue,marketId:'m1',outcomeId:'yes',status:'verified_read_only',bestBid:bid,bestAsk:ask,bidDepth:5,askDepth:8});
 test('ranks theoretical single-market spreads after fees and depth caps',()=>{
  const results=rankSingleMarketScalps([book('kalshi',.4,.45),book('polymarket_us',.4,.43)],settings());
- assert.equal(results[0].venue,'kalshi');assert.equal(results[0].status,'paper_candidate');
+ assert.equal(results[0].venue,'kalshi');assert.equal(results[0].status,'indicative_spread');
  assert.equal(results[0].availableContracts,5);
  assert.ok(Math.abs(results[0].estimatedNetPerContract-.04)<1e-10);
 });
