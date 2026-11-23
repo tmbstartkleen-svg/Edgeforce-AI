@@ -2,14 +2,14 @@ import type {NormalizedMarketBook} from './readOnlyScalpMarketBook';
 
 /**
  * Research-only cross-venue scalp candidate ranking.
- * A bid/ask spread is NOT a guaranteed profit: buy and sell fills may never
+ * A bid/ask spread is NOT executable profit: buying at the bid and selling at the ask requires passive fills on both sides; buy and sell fills may never
  * happen, fees may change, and settlement rules may differ. No orders sent.
  */
 export type ScalpCandidate={
  venue:'kalshi'|'polymarket_us';marketId:string;outcomeId:string;
  entryLimit:number;exitLimit:number;estimatedNetPerContract:number;
  availableContracts:number;estimatedNetAtDepth:number;
- status:'paper_candidate'|'blocked';reasons:string[];
+ status:'indicative_spread'|'blocked';reasons:string[];
 };
 export type ScalpRankSettings={
  maxSpread:number;minimumNetPerContract:number;buyFeePerContract:number;
@@ -47,9 +47,9 @@ export function rankSingleMarketScalps(
   return {venue:book.venue,marketId:book.marketId,outcomeId:book.outcomeId,
    entryLimit,exitLimit,estimatedNetPerContract,availableContracts,
    estimatedNetAtDepth:estimatedNetPerContract*availableContracts,
-   status:reasons.length?'blocked':'paper_candidate',reasons};
+   status:reasons.length?'blocked':'indicative_spread',reasons};
  }).sort((a,b)=>{
-  if(a.status!==b.status)return a.status==='paper_candidate'?-1:1;
+  if(a.status!==b.status)return a.status==='indicative_spread'?-1:1;
   return b.estimatedNetAtDepth-a.estimatedNetAtDepth;
  });
 }
