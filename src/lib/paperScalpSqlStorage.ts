@@ -24,11 +24,11 @@ export function createPaperScalpSqlStorage(db:PaperScalpSqlDatabase):PaperScalpL
  return {
   async read(marketId:string):Promise<unknown>{
    if(!marketId||marketId.length>200)throw Error('invalid_market_id');
-   const row=await db.prepare('SELECT snapshot_json FROM paper_scalp_ledgers WHERE market_id = ?')
-    .bind(marketId).first<{snapshot_json:string}>();
+   const row=await db.prepare('SELECT revision, snapshot_json FROM paper_scalp_ledgers WHERE market_id = ?')
+    .bind(marketId).first<{revision:number;snapshot_json:string}>();
    if(!row)return null;
    const parsed:unknown=JSON.parse(row.snapshot_json);
-   if(!validatePaperLedgerSnapshot(parsed)||(parsed as ScalpLedgerSnapshot).marketId!==marketId)
+   if(!validatePaperLedgerSnapshot(parsed)||(parsed as ScalpLedgerSnapshot).marketId!==marketId||\n    (parsed as ScalpLedgerSnapshot).revision!==row.revision)
     throw Error('invalid_stored_snapshot');
    return parsed;
   },
