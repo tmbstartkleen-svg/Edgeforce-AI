@@ -116,17 +116,19 @@ test('CLI sanitizes malformed API input and returns failure without reflecting s
   } finally { fs.rmSync(folder, {recursive: true, force: true}); }
 });
 
-test('production auto-dispatch requires successful Verify Edgeforce on main and binds the exact verified SHA', () => {
-  assert.match(workflow, /workflow_run:\n    workflows: \["Verify Edgeforce"\]\n    types: \[completed\]\n    branches: \[main\]/);
-  assert.match(workflow, /budget-preflight:\n    if: github\.event_name == 'workflow_dispatch' \|\| github\.event\.workflow_run\.conclusion == 'success'/);
-  assert.match(workflow, /DEPLOY_COMMIT: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/);
-  assert.match(workflow, /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/);
+test('Vercel production is manual disaster-recovery only and binds the selected main SHA', () => {
+  assert.match(workflow, /on:\n  workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /\n  workflow_run:/);
+  assert.doesNotMatch(workflow, /\n  push:/);
+  assert.match(workflow, /budget-preflight:\n    if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /DEPLOY_COMMIT: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
   const binding = step('Verify exact deployment commit binding');
+  assert.match(binding, /test "\$GITHUB_EVENT_NAME" = "workflow_dispatch"/);
+  assert.match(binding, /test "\$GITHUB_REF" = "refs\/heads\/main"/);
   assert.match(binding, /git rev-parse HEAD/);
   assert.match(binding, /test "\$ACTUAL_COMMIT" = "\$DEPLOY_COMMIT"/);
-  assert.match(binding, /workflow_run\.name.*Verify Edgeforce/);
-  assert.match(binding, /workflow_run\.conclusion.*success/);
-  assert.match(binding, /workflow_run\.head_branch.*main/);
+  assert.match(binding, /test "\$DEPLOY_COMMIT" = "\$GITHUB_SHA"/);
 });
 
 test('production execution and strict certification use the current V119 migration identity', () => {

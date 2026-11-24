@@ -2,10 +2,6 @@ name: Edgeforce Production Deploy
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Verify Edgeforce"]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
@@ -17,7 +13,7 @@ concurrency:
 
 jobs:
   budget-preflight:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       allowed: ${{ steps.budget.outputs.allowed }}
@@ -93,27 +89,24 @@ jobs:
       ML_SERVICE_BASE_URL: ${{ secrets.RENDER_ML_SERVICE_BASE_URL }}
       ML_SERVICE_KEY: ${{ secrets.ML_SERVICE_KEY }}
       ML_ACTIVATION_SECRET: ${{ secrets.ML_ACTIVATION_SECRET }}
-      DEPLOY_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_COMMIT: ${{ github.sha }}
     steps:
       - name: Verify deployment credential
         run: test -n "$VERCEL_TOKEN"
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Verify exact deployment commit binding
         shell: bash
         run: |
           set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "workflow_dispatch"
+          test "$GITHUB_REF" = "refs/heads/main"
           ACTUAL_COMMIT="$(git rev-parse HEAD)"
           test "$ACTUAL_COMMIT" = "$DEPLOY_COMMIT"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
-            test "${{ github.event.workflow_run.name }}" = "Verify Edgeforce"
-            test "${{ github.event.workflow_run.conclusion }}" = "success"
-            test "${{ github.event.workflow_run.head_branch }}" = "main"
-            test "$DEPLOY_COMMIT" = "${{ github.event.workflow_run.head_sha }}"
-          fi
+          test "$DEPLOY_COMMIT" = "$GITHUB_SHA"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:

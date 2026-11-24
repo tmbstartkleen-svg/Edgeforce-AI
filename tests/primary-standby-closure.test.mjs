@@ -57,6 +57,7 @@ test('V145 final closure derives release gates from primary standby topology',()
 test('V145 Vercel remains manual disaster recovery only',()=>{
  assert.match(vercelWorkflow,/on:\n  workflow_dispatch:/);
  assert.doesNotMatch(vercelWorkflow,/push:\n\s+branches: \[main\]/);
+ assert.doesNotMatch(vercelWorkflow,/\n  workflow_run:/);
  assert.match(workflow,/Closure policy: Cloudflare current \+ Vercel standby healthy; standby commit drift is allowed/);
 });
 
