@@ -73,6 +73,10 @@ jobs:
         run: npm run test:network-persistence
       - name: Test director task collaboration
         run: npm run test:network-director-tasks
+      - name: Test autonomous source audit guards
+        run: npm run test:network-autonomous-audit
+      - name: Test source audit scheduler runtime
+        run: npm run test:network-autonomous-runtime
       - name: Write verification evidence
         run: npm run write-execution-evidence
         env:
