@@ -938,7 +938,12 @@ add('V102 release notes',exists('EDGEFORCE_V102_RELEASE.md'),'V102 release docum
 add('V103 convergence schema',exists('db/v113.sql')&&read('db/v113.sql').includes('release_platform_convergence'),'durable cross-platform convergence ledger exists');
 add('V103 convergence evaluator',read('src/lib/releasePlatformConvergence.ts').includes('recordPlatformEvidence')&&read('src/lib/releasePlatformConvergence.ts').includes('latestPlatformConvergence'),'platform convergence evaluator exists');
 add('V103 convergence API',exists('src/app/api/release/platform-convergence/route.ts')&&exists('src/app/api/testing/platform-convergence/route.ts'),'convergence API and regression endpoint exist');
-add('V103 Vercel evidence writer',read('.github/workflows/deploy-production.yml').includes('/api/release/platform-convergence')&&read('.github/workflows/deploy-production.yml').includes('platform:"vercel"'),'Vercel production writes convergence evidence');
+add('V103 Vercel standby evidence refresh',
+ read('.github/workflows/deploy-production.yml').includes('/api/release/platform-convergence')&&
+ read('.github/workflows/deploy-production.yml').includes('Refresh Vercel standby within Cloudflare-primary topology')&&
+ read('.github/workflows/deploy-production.yml').includes('topology:"cloudflare-primary-vercel-standby"')&&
+ !read('.github/workflows/deploy-production.yml').includes('{platform:"vercel",deploymentUrl:$deploymentUrl'),
+ 'Vercel refresh preserves Cloudflare-primary manual-standby convergence semantics');
 add('V103 Cloudflare evidence writer',read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/platform-convergence')&&read('.github/workflows/deploy-cloudflare.yml').includes('platform:"cloudflare"'),'Cloudflare production writes convergence evidence');
 add('V103 strict convergence gate',read('src/lib/productionCertification.ts').includes('platformConvergence')&&read('src/lib/productionCertification.ts').includes('platform convergence'),'strict production certification checks convergence');
 add('V103 readiness evidence',read('src/lib/v1ReleaseReadiness.ts').includes("'platform-convergence'")&&read('src/lib/v1ReleaseReadiness.ts').includes('platformConverged'),'V1 readiness exposes cross-platform convergence');
@@ -949,7 +954,11 @@ add('V103 release notes',exists('EDGEFORCE_V103_RELEASE.md'),'V103 release docum
 add('V104 closure schema',exists('db/v114.sql')&&read('db/v114.sql').includes('release_final_closures'),'durable final closure ledger exists');
 add('V104 closure evaluator',read('src/lib/finalProductionClosure.ts').includes('evaluateFinalProductionClosure')&&read('src/lib/finalProductionClosure.ts').includes('saveFinalProductionClosure'),'final production closure evaluator exists');
 add('V104 closure API',exists('src/app/api/release/final-closure/route.ts')&&exists('src/app/api/testing/final-closure/route.ts'),'final closure API and regression endpoint exist');
-add('V104 dual-platform closure writers',read('.github/workflows/deploy-production.yml').includes('/api/release/final-closure')&&read('.github/workflows/deploy-cloudflare.yml').includes('/api/release/final-closure'),'both production workflows can seal closure');
+add('V104 primary closure plus standby verification',
+ read('.github/workflows/deploy-cloudflare.yml').includes('Attempt final production closure')&&
+ read('.github/workflows/deploy-production.yml').includes('Verify Cloudflare primary closure remains certified')&&
+ !read('.github/workflows/deploy-production.yml').includes('      - name: Attempt final production closure'),
+ 'Cloudflare primary seals workflow-bound closure; Vercel standby verifies without rewriting it');
 add('V104 Cloudflare commit stamp',exists('scripts/stamp-cloudflare-deployment.mjs')&&read('.github/workflows/deploy-cloudflare.yml').includes('stamp-cloudflare-deployment.mjs'),'Cloudflare runtime receives exact deployment commit');
 add('V104 convergence fail-fast',read('src/app/api/release/platform-convergence/route.ts').includes('status:invalid?422:200'),'invalid convergence evidence fails fast');
 add('V104 bootstrap-safe convergence',read('src/lib/productionCertification.ts').includes('awaiting evidence from the second production platform'),'one-sided convergence remains bootstrap-safe');
