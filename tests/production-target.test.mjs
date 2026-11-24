@@ -129,6 +129,15 @@ test('production auto-dispatch requires successful Verify Edgeforce on main and 
   assert.match(binding, /workflow_run\.head_branch.*main/);
 });
 
+test('production execution and strict certification use the current V119 migration identity', () => {
+  const execution = step('Record V119 execution certification');
+  assert.match(execution, /migrationVersion:118/);
+  assert.doesNotMatch(execution, /migrationVersion:114/);
+  const strict = step('Certify final production release');
+  assert.match(strict, /EXPECTED_MIGRATION_VERSION: "118"/);
+  assert.doesNotMatch(strict, /EXPECTED_MIGRATION_VERSION: "114"/);
+});
+
 test('workflow stages a production-built artifact with automatic domain assignment disabled', () => {
   assert.match(step('Build staged production artifact'), /build --prod/);
   const deploy = step('Deploy prebuilt remediation candidate');
