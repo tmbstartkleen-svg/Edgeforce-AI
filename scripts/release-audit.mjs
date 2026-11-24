@@ -27,7 +27,7 @@ const security=read('src/lib/security.ts');
 const proxy=read('src/proxy.ts');
 const vercel=JSON.parse(read('vercel.json'));
 const wrangler=read('wrangler.jsonc');
-const productionWorkflow=read('.github/workflows/deploy-production.yml');
+const productionDeployWorkflow=read('.github/workflows/deploy-production.yml');
 const supervisionSources=[
  read('src/lib/sloGovernor.ts'),
  read('src/lib/preventiveSupervisionCycle.ts'),
@@ -48,8 +48,8 @@ add('migration checker identity',migrationCheck.includes(`const expected=${expec
 add('environment validator model identity',validateEnv.includes(`const expectedModel='${expected.modelVersion}'`),expected.modelVersion);
 add('latest migration exists',exists(`db/v${expected.migrationVersion}.sql`),`db/v${expected.migrationVersion}.sql`);
 add('production workflow migration identity',
- productionWorkflow.includes(`migrationVersion:${expected.migrationVersion}`)&&
- productionWorkflow.includes(`EXPECTED_MIGRATION_VERSION: "${expected.migrationVersion}"`),
+ productionDeployWorkflow.includes(`migrationVersion:${expected.migrationVersion}`)&&
+ productionDeployWorkflow.includes(`EXPECTED_MIGRATION_VERSION: "${expected.migrationVersion}"`),
  `production execution and strict certification must use migration ${expected.migrationVersion}`);
 
 const requiredFiles=[
