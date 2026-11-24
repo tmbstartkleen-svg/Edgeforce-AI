@@ -1,6 +1,7 @@
 import {db} from './db';
 import type {Market} from './types';
 import {ingestPlayerHistoryPayload,normalizePlayerName} from './playerWarehouse';
+import {normalizeEspnGameLogEvidence} from './intelligence-core/espn-game-log-evidence.mjs';
 
 type AnyRow=Record<string,unknown>;
 type EspnSpec={sport:string;league:string;searchSport:string;edgeSport:string};
@@ -189,6 +190,8 @@ function numericStats(names:string[],values:unknown[]){
 }
 
 function gamelogRows(payload:unknown,athlete:{id:string;name:string},spec:EspnSpec){
+ const evidence=normalizeEspnGameLogEvidence({athleteId:athlete.id,payload,observedAt:new Date().toISOString()});
+ const verifiedById=new Map(evidence.rows.map(x=>[x.eventId,x]));
  const root=obj(payload);
  const statNames=arr(root.names).map(String);
  const metadata=obj(root.events);
@@ -212,7 +215,13 @@ function gamelogRows(payload:unknown,athlete:{id:string;name:string},spec:EspnSp
    team:str(team.displayName||team.name||meta.teamName),
    homeAway:str(meta.atVs||meta.homeAway),
    stats,
-   source:'espn-public-gamelog'
+   source:'espn-public-gamelog',
+   ...(verifiedById.has(eventId)?{
+    completed:true,
+    observedAt:verifiedById.get(eventId)?.observedAt,
+    sourceUrl:verifiedById.get(eventId)?.sourceUrl,
+    upstreamId:'espn-public-gamelog',
+   }:{completed:false})
   });
  };
 

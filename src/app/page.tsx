@@ -5,6 +5,7 @@ export default function Page(){
  return <>
   <Link className="predictionShortcut" href="/predictions">Prediction Terminal</Link>
   <Link className="predictionShortcut researchShortcut" href="/research">Forecast Research</Link>
+  <Link className="predictionShortcut" style={{bottom:260}} href="/player-research">Player Stat Research</Link>
   <Dashboard/>
   <Link className="predictionShortcut" style={{bottom:211}} href="/operations/dashboard">Remote Operations</Link>
   <Link className="predictionShortcut" style={{bottom:162}} href="/network">Founder AI Network</Link>

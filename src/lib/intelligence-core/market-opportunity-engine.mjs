@@ -1,5 +1,5 @@
 /** EdgeForce first-party market intelligence: observation-backed only, no polling or synthetic odds. */
-import {auditMarketObservations,evaluateVerifiedEdge} from './sports-network-engine.mjs';
+import {evaluateVerifiedEdge} from './sports-network-engine.mjs';
 import {canonicalMarketIdentity} from './market-identity-and-movement.mjs';
 
 const validPrice=(n)=>Number.isFinite(n)&&Number.isInteger(n)&&(n<=-100||n>=100);
@@ -15,7 +15,8 @@ export function validatedQuote(quote,{now=Date.now(),maxAgeMs=1200000}={}){
   !['SPORTSBOOK','PREDICTION_MARKET'].includes(quote.venueType)||
   !['BACK','YES'].includes(quote.side)||
   !['TWO_WAY','THREE_WAY'].includes(quote.outcomeSetType)||
-  ![2,3].includes(quote.outcomes?.length)||quote.outcomes.length!==(quote.outcomeSetType==='TWO_WAY'?2:3)||
+  !Array.isArray(quote.outcomes)||![2,3].includes(quote.outcomes.length)||
+  !quote.outcomes.every(x=>typeof x==='string'&&x.trim())||quote.outcomes.length!==(quote.outcomeSetType==='TWO_WAY'?2:3)||
   new Set(quote.outcomes).size!==quote.outcomes.length||!quote.outcomes.includes(quote.selection)||
   ![quote.eventId,quote.marketKey,quote.selection,quote.bookmaker,quote.upstreamId,quote.providerId,
     quote.settlementKey,quote.currency].every(x=>typeof x==='string'&&x.trim())||
@@ -72,29 +73,42 @@ export function scanArbitrage(quotes,{now=Date.now(),maxAgeMs=1200000,maxMarkets
 
 /** Screen for EV only when independent model probability and target bookmaker quote both exist. */
 export function screenValueEdges(quotes,forecasts,{now=Date.now(),targetBook='DraftKings',maxAgeMs=1200000}={}){
- if(!Array.isArray(quotes)||!Array.isArray(forecasts))throw new TypeError('INVALID_VALUE_SCAN');
- const provenance=auditMarketObservations(quotes.filter(q=>q?.venueType==='SPORTSBOOK').map(q=>({
-   providerId:q.providerId,upstreamId:q.upstreamId,bookmaker:q.bookmaker,eventId:q.eventId,
-   marketKey:q.marketKey,selectionKey:q.selection,odds:q.odds,observedAt:q.observedAt
-  })),{now,targetBook,maxAgeMs});
- const byKey=new Map(provenance.markets.map(p=>[p.marketId,p]));
+ if(!Array.isArray(quotes)||!Array.isArray(forecasts)||!Number.isFinite(now)||
+  !Number.isFinite(maxAgeMs)||maxAgeMs<=0||typeof targetBook!=='string'||!targetBook.trim())
+  throw new TypeError('INVALID_VALUE_SCAN');
+ // Consensus must refer to the same settlement, player, line, period, currency
+ // and exhaustive outcome set. Invalid quotes cannot supply corroboration.
+ const groups=new Map();
+ const keyFor=q=>JSON.stringify([q.marketIdentity,q.sport??null,q.selection,q.currency,q.side,
+  q.outcomeSetType,[...q.outcomes].sort()]);
+ for(const raw of quotes.slice(0,10000)){
+  const checked=validatedQuote(raw,{now,maxAgeMs});
+  if(!checked.ok||checked.quote.venueType!=='SPORTSBOOK')continue;
+  const q=checked.quote,key=keyFor(q);
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(q);
+ }
  const results=[];
  for(const forecast of forecasts.slice(0,5000)){
   if(!forecast||!['INDEPENDENT','CALIBRATED'].includes(forecast.modelType)||
    typeof forecast.eventId!=='string'||typeof forecast.marketKey!=='string'||typeof forecast.selection!=='string')continue;
-  const key=[forecast.eventId,forecast.marketKey,forecast.selection].join('|');
-  const observed=byKey.get(key);
-  const target=quotes.filter(q=>q.eventId===forecast.eventId&&q.marketKey===forecast.marketKey&&
-   q.selection===forecast.selection&&q.bookmaker?.toLowerCase()===targetBook.toLowerCase()&&
-   q.venueType==='SPORTSBOOK'&&validatedQuote(q,{now,maxAgeMs}).ok)
-    .sort((a,b)=>b.observedAt-a.observedAt)[0];
+  const identity=canonicalMarketIdentity(forecast);
+  if(!identity.ok)continue;
+  // Forecasts must name the same contract currency and outcome set as the quote.
+  if(typeof forecast.currency!=='string'||!Array.isArray(forecast.outcomes))continue;
+  const group=groups.get(keyFor({...forecast,marketIdentity:identity.identity}));
+  if(!group)continue;
+  const target=group.filter(q=>q.bookmaker.toLowerCase()===targetBook.toLowerCase())
+   .sort((a,b)=>b.observedAt-a.observedAt)[0];
   if(!target)continue;
   const edge=evaluateVerifiedEdge({americanOdds:target.odds,modelProbability:forecast.probability,
    modelCalibrated:forecast.modelType==='CALIBRATED'&&forecast.outOfSampleVerified===true,
-   sourceAudited:forecast.sourceAudited===true,independentUpstreams:observed?.independentUpstreamCount??0,
-   targetBookObserved:Boolean(observed?.targetBookObserved)});
+   sourceAudited:forecast.sourceAudited===true,
+   independentUpstreams:new Set(group.map(q=>q.upstreamId)).size,targetBookObserved:true});
   results.push({eventId:forecast.eventId,marketKey:forecast.marketKey,selection:forecast.selection,
-   targetBook,sourceObservedAt:target.observedAt,odds:target.odds,...edge});
+   marketIdentity:identity.identity,currency:target.currency,
+   targetBook,sourceObservedAt:target.observedAt,odds:target.odds,...edge,
+   sourceAuthenticityCertified:false,productionBetRecommendationAuthorized:false});
  }
  return {mode:'VERIFIED_PRICE_MODEL_SCREEN',results:results.sort((a,b)=>(b.expectedRoi??-Infinity)-(a.expectedRoi??-Infinity)),
   pricesInvented:0,modelProbabilitiesInvented:0,networkRequests:0};
