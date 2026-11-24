@@ -235,3 +235,24 @@ test('strict Vercel certification waits for successful exact-main Cloudflare pri
   assert.match(cloudflare,/Exact-main Cloudflare primary deployment failed/);
   assert.doesNotMatch(cloudflare,/continue-on-error|\|\| true/);
 });
+
+test('postpromotion Vercel refresh preserves Cloudflare-primary standby topology', () => {
+  const refresh = step('Refresh Vercel standby within Cloudflare-primary topology');
+  assert.match(refresh, /topology:"cloudflare-primary-vercel-standby"/);
+  assert.match(refresh, /platform:"cloudflare"/);
+  assert.match(refresh, /manualOnly:true/);
+  assert.match(refresh, /CANDIDATE_DEPLOYMENT_ID/);
+  assert.doesNotMatch(refresh, /platform:"vercel"/);
+  assert.match(refresh, /PRIMARY_URL/);
+  assert.match(refresh, /migrationVersion==118/);
+});
+
+test('Vercel standby verifies the Cloudflare closure instead of rewriting workflow-bound closure evidence', () => {
+  const closure = step('Verify Cloudflare primary closure remains certified');
+  assert.match(closure, /api\/release\/final-closure/);
+  assert.match(closure, /\.latest\.closed==true/);
+  assert.match(closure, /\.latest\.source=="production-cloudflare"/);
+  assert.match(closure, /certificateChain\.valid==true/);
+  assert.doesNotMatch(closure, /-X POST|--data/);
+  assert.equal(workflow.includes('      - name: Attempt final production closure\n'), false);
+});
