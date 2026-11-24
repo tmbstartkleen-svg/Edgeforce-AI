@@ -36,3 +36,11 @@ test('insufficient after-fee spread fails closed',()=>{
  const r=dispatchPaperScalpFromQuotes([{...quote(),bestAsk:.41}],{...risk(),buyFeePerContract:.04},book(),cycleSettings(),Date.now());
  assert.equal(r.status,'blocked');assert.equal(r.book.orders.length,0);
 });
+
+test('ambiguous exchange or outcome identity cannot create paper orders',()=>{
+ for(const other of [{...quote(),venue:'polymarket_us'},{...quote(),outcomeId:'no'}]){
+  const r=dispatchPaperScalpFromQuotes([quote(),other],risk(),book(),cycleSettings(),Date.now());
+  assert.equal(r.status,'blocked');assert.equal(r.reason,'ambiguous_market_identity');
+  assert.equal(r.book.orders.length,0);
+ }
+});
