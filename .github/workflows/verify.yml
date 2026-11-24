@@ -37,6 +37,8 @@ jobs:
       - run: npm run typecheck
       - name: Verify Monte V2 correlated research and reliability
         run: npm run test:monte-v2
+      - name: Verify player evidence research pipeline
+        run: npm run test:research-pipeline
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
