@@ -1,3 +1,5 @@
+import {validateProductionCertificationSmoke} from './smoke-transport.mjs';
+
 const base=process.env.SMOKE_BASE_URL||'http://127.0.0.1:3000';
 
 async function get(path){
@@ -592,8 +594,10 @@ assert(releaseExecutionCertification.body?.pass?.certified===true,'valid executi
 assert(releaseExecutionCertification.body?.fail?.certified===false,'failed execution evidence certified unexpectedly');
 
 const productionCertification=await post('/api/release/certify',{});
-assert(productionCertification.res.ok&&productionCertification.body?.ok===true,'production certification dry-run failed');
-assert(productionCertification.body?.certified===true,'local production certification did not certify');
+assert(validateProductionCertificationSmoke({
+ status:productionCertification.res.status,
+ body:productionCertification.body
+}),'production certification smoke contract failed');
 assert(productionCertification.body?.security?.ok===true,'production certification security posture failed');
 assert(productionCertification.body?.modelGovernance?.ok===true,'production certification model governance status missing');
 assert(productionCertification.body?.modelValidation?.ok===true,'production certification model validation status missing');
