@@ -114,7 +114,7 @@ test('Cloudflare deployment primes real core automations and topology only after
  assert.match(core,/api\/cron\/\$ROUTE/);
  assert.doesNotMatch(core,/for ROUTE in injuries/);
  assert.doesNotMatch(core,/topology-watchdog/);
- assert.match(wrangler,/"\*\/15 \* \* \* \*"/);
+ assert.ok(wrangler.triggers.crons.includes('*/15 * * * *'));
  assert.match(worker,/controller\.cron==='\*\/15 \* \* \* \*'/);
  const closure=deploy.indexOf('Attempt final production closure');
  const topology=deploy.indexOf('Prime topology watchdog after closure');
