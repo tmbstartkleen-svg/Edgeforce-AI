@@ -28,7 +28,8 @@ export function createPaperScalpSqlStorage(db:PaperScalpSqlDatabase):PaperScalpL
     .bind(marketId).first<{revision:number;snapshot_json:string}>();
    if(!row)return null;
    const parsed:unknown=JSON.parse(row.snapshot_json);
-   if(!validatePaperLedgerSnapshot(parsed)||(parsed as ScalpLedgerSnapshot).marketId!==marketId||\n    (parsed as ScalpLedgerSnapshot).revision!==row.revision)
+   if(!validatePaperLedgerSnapshot(parsed)||(parsed as ScalpLedgerSnapshot).marketId!==marketId||
+    (parsed as ScalpLedgerSnapshot).revision!==row.revision)
     throw Error('invalid_stored_snapshot');
    return parsed;
   },
