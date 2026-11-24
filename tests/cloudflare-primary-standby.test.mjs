@@ -35,6 +35,7 @@ test('V144 sportsbook quota cannot block Cloudflare platform deployment',()=>{
 test('V144 Vercel production is manual standby only',()=>{
  assert.match(vercel,/on:\n  workflow_dispatch:/);
  assert.doesNotMatch(vercel,/push:\n\s+branches: \[main\]/);
+ assert.doesNotMatch(vercel,/\n  workflow_run:/);
  const edge=config.projects.find(p=>p.key==='edgeforce');
  assert.equal(edge.autoRelease,false);
  assert.equal(edge.standbyRole,'manual-disaster-recovery');
