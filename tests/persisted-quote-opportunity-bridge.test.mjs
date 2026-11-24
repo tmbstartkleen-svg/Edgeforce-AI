@@ -27,3 +27,16 @@ test('persisted independent sportsbook prices can produce theoretical arbitrage'
  assert.equal(r.arbitrage.opportunities.length,1);assert.equal(r.arbitrage.opportunities[0].status,'THEORETICAL_ARBITRAGE');
  assert.equal(r.value.results.length,0);assert.equal(r.realOddsFabricated,0);
 });
+test('preserves exact player, stat, threshold and period evidence from persisted prop quotes',()=>{
+ const raw={...base.raw,lineKey:'assists:5.5',lineValue:5.5,periodKey:'full-plus-ot',
+  playerId:'fixture-player',statKey:'assists',outcomes:['Over','Under']};
+ const row={...base,market_key:'player-assists-over',selection_key:'Over',raw};
+ const q=normalizePersistedQuoteEvidence([row],{now}).quotes[0];
+ for(const key of ['lineKey','lineValue','periodKey','playerId','statKey'])assert.equal(q[key],raw[key]);
+ const other={...row,bookmaker:'fixture-other-book',provider:'other-provider',raw:{...raw,upstreamId:'ownerB'}};
+ const forecast={...q,probability:.6,modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true};
+ const report=analyzePersistedQuoteEvidence([row,other],[forecast],{now});
+ assert.equal(report.value.results.length,1);
+ assert.equal(report.value.results[0].status,'CANDIDATE_FOR_FURTHER_REVIEW');
+ assert.equal(report.value.results[0].sourceAuthenticityCertified,false);
+});
