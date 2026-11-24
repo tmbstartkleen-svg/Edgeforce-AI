@@ -614,6 +614,35 @@ jobs:
             --data "{\"launchId\":\"$LAUNCH_ID\",\"stage\":\"ATTESTED\",\"deploymentUrl\":\"$PRODUCTION_URL\",\"commitSha\":\"$DEPLOY_COMMIT\"}"
           echo
 
+      - name: Require exact-main Cloudflare primary deployment
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for ATTEMPT in {1..120}; do
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?branch=main&head_sha=$DEPLOY_COMMIT&per_page=100" \
+              --output /tmp/edgeforce-exact-cloudflare-primary.json
+            PASSED=$(jq '[.workflow_runs[]? | select(.name=="Deploy Edgeforce to Cloudflare" and .status=="completed" and .conclusion=="success")] | length' /tmp/edgeforce-exact-cloudflare-primary.json)
+            FAILED=$(jq '[.workflow_runs[]? | select(.name=="Deploy Edgeforce to Cloudflare" and .status=="completed" and (.conclusion=="failure" or .conclusion=="cancelled" or .conclusion=="timed_out" or .conclusion=="action_required"))] | length' /tmp/edgeforce-exact-cloudflare-primary.json)
+            if [ "$PASSED" -gt 0 ]; then
+              echo "Exact-main Cloudflare primary deployment is certified for $DEPLOY_COMMIT."
+              exit 0
+            fi
+            if [ "$FAILED" -gt 0 ]; then
+              echo "Exact-main Cloudflare primary deployment failed for $DEPLOY_COMMIT."
+              exit 1
+            fi
+            echo "Waiting for exact-main Cloudflare primary deployment ($ATTEMPT/120)."
+            sleep 5
+          done
+          echo "Exact-main Cloudflare primary deployment did not complete successfully."
+          exit 1
+
       - name: Certify final production release
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
@@ -795,7 +824,7 @@ jobs:
             --arg workflowRunId "$GITHUB_RUN_ID" \
             --arg workflowRunAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg launchId "$LAUNCH_ID" \
-            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,
+            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:118,commitSha:$commitSha,
               platform:"vercel",deploymentUrl:$deploymentUrl,source:"production-deploy",
               workflowRunId:$workflowRunId,workflowRunAttempt:$workflowRunAttempt,
               executionCertified:true,strictCertified:true,canaryPassed:true,v1Ready:true,promoted:true,rolledBack:false,
@@ -806,19 +835,48 @@ jobs:
             --data "$BODY"
           echo
 
-      - name: Record Vercel platform convergence evidence
+      - name: Refresh Vercel standby within Cloudflare-primary topology
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          HEALTH=$(vercel curl "/api/health" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error)
+          set -euo pipefail
+          CURRENT=$(vercel curl "/api/release/platform-convergence" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error)
+          printf '%s' "$CURRENT" | jq -e --arg commit "$DEPLOY_COMMIT" '
+            .ok==true
+            and .latest.certified==true
+            and .latest.commitSha==$commit
+            and .latest.evidence.topology=="cloudflare-primary-vercel-standby"
+            and .latest.evidence.primary.platform=="cloudflare"
+            and .latest.evidence.primary.exactMainCertified==true
+            and .latest.evidence.primary.hostedSmokePassed==true
+            and .latest.evidence.primary.platformReady==true
+          ' >/dev/null
+          PRIMARY_URL=$(printf '%s' "$CURRENT" | jq -er '.latest.evidence.primary.deploymentUrl')
+          PRIMARY_HEALTH=$(curl --fail --silent --show-error --connect-timeout 10 --max-time 30 "$PRIMARY_URL/api/health")
+          printf '%s' "$PRIMARY_HEALTH" | jq -e --arg commit "$DEPLOY_COMMIT" '
+            .ok==true and .version=="119.0.0" and .modelVersion=="edgeforce-v119"
+            and .migrationVersion==118 and .deploymentCommit==$commit and .releaseIdentityMatch==true
+          ' >/dev/null
+          STANDBY_HEALTH=$(vercel curl "/api/health" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error)
+          printf '%s' "$STANDBY_HEALTH" | jq -e --arg commit "$DEPLOY_COMMIT" '
+            .ok==true and .version=="119.0.0" and .modelVersion=="edgeforce-v119"
+            and .migrationVersion==118 and .deploymentCommit==$commit and .releaseIdentityMatch==true
+          ' >/dev/null
           BODY=$(jq -cn \
-            --arg deploymentUrl "$PRODUCTION_URL" \
+            --arg primaryUrl "$PRIMARY_URL" \
+            --arg standbyUrl "$PRODUCTION_URL" \
+            --arg standbyId "$CANDIDATE_DEPLOYMENT_ID" \
             --arg workflowRunId "$GITHUB_RUN_ID" \
-            --argjson runtime "$HEALTH" \
-            '{platform:"vercel",deploymentUrl:$deploymentUrl,version:$runtime.version,
-              modelVersion:$runtime.modelVersion,migrationVersion:$runtime.migrationVersion,
-              commitSha:$runtime.deploymentCommit,workflowRunId:$workflowRunId,source:"production-vercel"}')
+            --argjson primary "$PRIMARY_HEALTH" \
+            --argjson standby "$STANDBY_HEALTH" \
+            '{platform:"cloudflare",deploymentUrl:$primaryUrl,version:$primary.version,
+              modelVersion:$primary.modelVersion,migrationVersion:$primary.migrationVersion,
+              commitSha:$primary.deploymentCommit,workflowRunId:$workflowRunId,source:"production-vercel-standby-refresh",
+              topology:"cloudflare-primary-vercel-standby",
+              exactMainCertified:true,hostedSmokePassed:true,platformReady:true,
+              standby:{deploymentUrl:$standbyUrl,deploymentId:$standbyId,commitSha:$standby.deploymentCommit,
+                state:"READY",healthy:true,manualOnly:true,healthStatus:200}}')
           vercel curl "/api/release/platform-convergence" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error -X POST \
             -H "Authorization: Bearer $INGEST_SECRET" \
             -H "Content-Type: application/json" \
@@ -850,16 +908,21 @@ jobs:
             --data "$BODY"
           echo
 
-      - name: Attempt final production closure
+      - name: Verify Cloudflare primary closure remains certified
         env:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
         shell: bash
         run: |
-          BODY=$(jq -cn --arg commitSha "$DEPLOY_COMMIT" --arg workflowRunId "$GITHUB_RUN_ID" \
-            '{commitSha:$commitSha,workflowRunId:$workflowRunId,source:"production-vercel"}')
-          vercel curl "/api/release/final-closure" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error -X POST \
-            -H "Authorization: Bearer $INGEST_SECRET" -H "Content-Type: application/json" --data "$BODY"
-          echo
+          set -euo pipefail
+          CLOSURE=$(vercel curl "/api/release/final-closure" --deployment "$PRODUCTION_URL" --fail-with-body --silent --show-error)
+          printf '%s' "$CLOSURE" | jq -e --arg commit "$DEPLOY_COMMIT" '
+            .ok==true
+            and .latest.closed==true
+            and .latest.commitSha==$commit
+            and .latest.platformConverged==true
+            and .latest.source=="production-cloudflare"
+            and .diagnostics.certificateChain.valid==true
+          ' >/dev/null
 
       - name: Record failed launch before rollback
         if: failure() && steps.deploy.outcome == 'success'

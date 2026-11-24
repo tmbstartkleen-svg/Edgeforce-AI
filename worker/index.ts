@@ -130,7 +130,7 @@ const worker={
  async scheduled(controller:ScheduledControllerLike,env:EdgeforceEnv,ctx:ExecutionContextLike){
   const task=withDatabaseScope(async()=>{
    if(controller.cron==='*/15 * * * *')return runInjuries(env);
-   if(controller.cron==='3,13,23,33,43,53 * * * *')return runHourlyShard(controller,env);
+   if(controller.cron==='3,13,23,33,43,53,54 * * * *')return runHourlyShard(controller,env);
    if(controller.cron==='15,45 6 * * *')return runDailyShard(controller,env);
   },env,ctx);
   ctx.waitUntil(task);

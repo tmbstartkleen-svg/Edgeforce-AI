@@ -136,6 +136,9 @@ test('production execution and strict certification use the current V119 migrati
   const strict = step('Certify final production release');
   assert.match(strict, /EXPECTED_MIGRATION_VERSION: "118"/);
   assert.doesNotMatch(strict, /EXPECTED_MIGRATION_VERSION: "114"/);
+  const promotion = step('Record V119 production promotion provenance');
+  assert.match(promotion, /migrationVersion:118/);
+  assert.doesNotMatch(promotion, /migrationVersion:114/);
 });
 
 test('workflow stages a production-built artifact with automatic domain assignment disabled', () => {
@@ -219,4 +222,37 @@ test('healthy pre-V74 production stages the replacement as remediation without b
     'Run comparative canary guard', 'Require strict V1 readiness', 'Recheck production alias before promotion']) {
     assert.ok(workflow.includes(`      - name: ${name}\n`));
   }
+});
+
+test('strict Vercel certification waits for successful exact-main Cloudflare primary deployment', () => {
+  const cloudflare = step('Require exact-main Cloudflare primary deployment');
+  const strictIndex = workflow.indexOf('      - name: Certify final production release');
+  const cloudflareIndex = workflow.indexOf('      - name: Require exact-main Cloudflare primary deployment');
+  assert.ok(cloudflareIndex>=0&&cloudflareIndex<strictIndex);
+  assert.match(cloudflare,/head_sha=\$DEPLOY_COMMIT/);
+  assert.match(cloudflare,/name=="Deploy Edgeforce to Cloudflare"/);
+  assert.match(cloudflare,/conclusion=="success"/);
+  assert.match(cloudflare,/Exact-main Cloudflare primary deployment failed/);
+  assert.doesNotMatch(cloudflare,/continue-on-error|\|\| true/);
+});
+
+test('postpromotion Vercel refresh preserves Cloudflare-primary standby topology', () => {
+  const refresh = step('Refresh Vercel standby within Cloudflare-primary topology');
+  assert.match(refresh, /topology:"cloudflare-primary-vercel-standby"/);
+  assert.match(refresh, /platform:"cloudflare"/);
+  assert.match(refresh, /manualOnly:true/);
+  assert.match(refresh, /CANDIDATE_DEPLOYMENT_ID/);
+  assert.doesNotMatch(refresh, /platform:"vercel"/);
+  assert.match(refresh, /PRIMARY_URL/);
+  assert.match(refresh, /migrationVersion==118/);
+});
+
+test('Vercel standby verifies the Cloudflare closure instead of rewriting workflow-bound closure evidence', () => {
+  const closure = step('Verify Cloudflare primary closure remains certified');
+  assert.match(closure, /api\/release\/final-closure/);
+  assert.match(closure, /\.latest\.closed==true/);
+  assert.match(closure, /\.latest\.source=="production-cloudflare"/);
+  assert.match(closure, /certificateChain\.valid==true/);
+  assert.doesNotMatch(closure, /-X POST|--data/);
+  assert.equal(workflow.includes('      - name: Attempt final production closure\n'), false);
 });

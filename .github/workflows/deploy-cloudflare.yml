@@ -2,6 +2,10 @@ name: Deploy Edgeforce to Cloudflare
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Verify Edgeforce"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,7 +17,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -382,6 +386,44 @@ jobs:
             echo "- Settled slips: **$SETTLED**"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Prime core automation health
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ROUTE in injuries heartbeat scan decision slo-governor; do
+            SAFE_ROUTE=$(printf '%s' "$ROUTE" | tr -c 'a-zA-Z0-9_-' '_')
+            HTTP_CODE=000
+            CURL_CODE=1
+            for ATTEMPT in 1 2 3 4 5; do
+              set +e
+              HTTP_CODE=$(curl --silent --show-error --connect-timeout 10 --max-time 120 \
+                --output "/tmp/automation-$SAFE_ROUTE.json" --write-out "%{http_code}" \
+                "$DEPLOYMENT_URL/api/cron/$ROUTE" \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                -H "Cache-Control: no-store")
+              CURL_CODE=$?
+              set -e
+              if [ "$CURL_CODE" -eq 0 ] && [ "$HTTP_CODE" = "200" ] && jq -e '.ok==true' "/tmp/automation-$SAFE_ROUTE.json" >/dev/null 2>&1; then
+                break
+              fi
+              if [ "$ATTEMPT" -lt 5 ] && { [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "502" ] || [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "504" ] || [ "$HTTP_CODE" = "000" ]; }; then
+                echo "Waiting for $ROUTE automation route/secret convergence (attempt $ATTEMPT/5, HTTP $HTTP_CODE)."
+                sleep $((ATTEMPT*2))
+                continue
+              fi
+              break
+            done
+            cat "/tmp/automation-$SAFE_ROUTE.json" || true
+            echo
+            if [ "$CURL_CODE" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
+              echo "$ROUTE automation prime failed (curl $CURL_CODE, HTTP $HTTP_CODE)."
+              exit 1
+            fi
+            jq -e '.ok==true' "/tmp/automation-$SAFE_ROUTE.json" >/dev/null
+          done
+
       - name: Strict Cloudflare platform launch doctor
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
@@ -526,6 +568,24 @@ jobs:
             echo "- Certificate head: `$CERT_HEAD`"
             echo "- Workflow run: **$GITHUB_RUN_ID**"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prime topology watchdog after closure
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          HTTP_CODE=$(curl --silent --show-error --connect-timeout 10 --max-time 45 \
+            --output /tmp/topology-watchdog-prime.json --write-out "%{http_code}" \
+            "$DEPLOYMENT_URL/api/cron/topology-watchdog" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Cache-Control: no-store")
+          cat /tmp/topology-watchdog-prime.json
+          echo
+          test "$HTTP_CODE" = "200"
+          jq -e --arg commit "$DEPLOY_COMMIT" \
+            '.ready==true and .primaryCurrent==true and .currentCommit==$commit and .schemaVersion=="v146-topology-watchdog-1"' \
+            /tmp/topology-watchdog-prime.json >/dev/null
 
       - name: Upload final closure receipt
         uses: actions/upload-artifact@v4

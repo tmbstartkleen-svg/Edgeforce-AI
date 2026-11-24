@@ -25,6 +25,8 @@ test('hourly automation is sharded across separate scheduled invocations',()=>{
   '15,45 6 * * *'
  ]);
  for(const minute of [3,13,23,33,43,53,54])assert.match(worker,new RegExp(`minute===${minute}`));
+ assert.match(worker,/controller\.cron==='3,13,23,33,43,53,54 \* \* \* \*'/);
+ assert.doesNotMatch(worker,/controller\.cron==='3,13,23,33,43,53 \* \* \* \*'/);
 });
 
 test('decision cron degrades cleanly when no fresh sportsbook markets exist',()=>{
@@ -93,4 +95,30 @@ test('topology watchdog gets its own Worker invocation instead of sharing SLO CP
  assert.match(hourly,/if\(minute===53\)return callScheduledRoute\('\/api\/cron\/slo-governor'/);
  assert.match(hourly,/if\(minute===54\)return callScheduledRoute\('\/api\/cron\/topology-watchdog'/);
  assert.doesNotMatch(hourly,/if\(minute===53\)\{/);
+});
+
+test('Cloudflare primary auto-dispatch is exact-main and fail-closed',()=>{
+ assert.match(deploy,/workflow_run:\n    workflows: \["Verify Edgeforce"\]\n    types: \[completed\]\n    branches: \[main\]/);
+ assert.match(deploy,/github\.event\.workflow_run\.conclusion == 'success'/);
+ assert.match(deploy,/github\.event\.workflow_run\.head_branch == 'main'/);
+ assert.match(deploy,/DEPLOY_COMMIT: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/);
+ assert.match(deploy,/Require both exact-main certification workflows/);
+});
+
+test('Cloudflare deployment primes real core automations and topology only after closure',()=>{
+ const coreStart=deploy.indexOf('Prime core automation health');
+ const doctorStart=deploy.indexOf('Strict Cloudflare platform launch doctor');
+ assert.ok(coreStart>=0&&coreStart<doctorStart);
+ const core=deploy.slice(coreStart,doctorStart);
+ assert.match(core,/for ROUTE in injuries heartbeat scan decision slo-governor/);
+ assert.match(core,/api\/cron\/\$ROUTE/);
+ assert.doesNotMatch(core,/topology-watchdog/);
+ const closure=deploy.indexOf('Attempt final production closure');
+ const topology=deploy.indexOf('Prime topology watchdog after closure');
+ assert.ok(closure>=0&&topology>closure);
+ const topologyBody=deploy.slice(topology,deploy.indexOf('Upload final closure receipt',topology));
+ assert.match(topologyBody,/api\/cron\/topology-watchdog/);
+ assert.match(topologyBody,/\.ready==true/);
+ assert.match(topologyBody,/\.primaryCurrent==true/);
+ assert.match(topologyBody,/\.currentCommit==\$commit/);
 });
