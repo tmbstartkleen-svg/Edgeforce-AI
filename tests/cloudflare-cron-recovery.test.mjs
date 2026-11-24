@@ -110,9 +110,12 @@ test('Cloudflare deployment primes real core automations and topology only after
  const doctorStart=deploy.indexOf('Strict Cloudflare platform launch doctor');
  assert.ok(coreStart>=0&&coreStart<doctorStart);
  const core=deploy.slice(coreStart,doctorStart);
- assert.match(core,/for ROUTE in injuries heartbeat scan decision slo-governor/);
+ assert.match(core,/for ROUTE in heartbeat scan decision slo-governor/);
  assert.match(core,/api\/cron\/\$ROUTE/);
+ assert.doesNotMatch(core,/for ROUTE in injuries/);
  assert.doesNotMatch(core,/topology-watchdog/);
+ assert.match(wrangler,/"\*\/15 \* \* \* \*"/);
+ assert.match(worker,/controller\.cron==='\*\/15 \* \* \* \*'/);
  const closure=deploy.indexOf('Attempt final production closure');
  const topology=deploy.indexOf('Prime topology watchdog after closure');
  assert.ok(closure>=0&&topology>closure);
