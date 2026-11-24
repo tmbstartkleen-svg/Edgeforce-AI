@@ -39,6 +39,8 @@ jobs:
         run: npm run test:monte-v2
       - name: Verify player evidence research pipeline
         run: npm run test:research-pipeline
+      - name: Verify Polymarket US read-only readiness
+        run: npm run test:polymarket-us-readiness
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
