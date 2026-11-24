@@ -14,7 +14,7 @@ const mockDb=()=>{
  const rows=new Map();
  return {prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){
   if(!sql.startsWith('SELECT'))throw Error('unexpected query');
-  const value=rows.get(args[0]);return value?{snapshot_json:value.json}:null;
+  const value=rows.get(args[0]);return value?{revision:value.revision,snapshot_json:value.json}:null;
  },async run(){
   if(sql.startsWith('INSERT')){if(rows.has(args[0]))return {meta:{changes:0}};
    rows.set(args[0],{revision:args[1],json:args[2]});return {meta:{changes:1}};}
@@ -38,5 +38,12 @@ test('SQL paper ledger rejects invalid transitions and tampered recovery',async(
  assert.equal(await storage.compareAndSwap('m1',0,{...initial(),revision:2}),false);
  await initializePaperScalpSqlSnapshot(db,initial());
  db.rows.get('m1').json=JSON.stringify({...initial(),book:{...initial().book,owned:3}});
+ await assert.rejects(()=>storage.read('m1'),/invalid_stored_snapshot/);
+});
+
+test('rejects mismatch between SQL revision and serialized ledger',async()=>{
+ const db=mockDb(),storage=createPaperScalpSqlStorage(db);
+ await initializePaperScalpSqlSnapshot(db,initial());
+ db.rows.get('m1').revision=1;
  await assert.rejects(()=>storage.read('m1'),/invalid_stored_snapshot/);
 });
