@@ -28,6 +28,8 @@ const proxy=read('src/proxy.ts');
 const vercel=JSON.parse(read('vercel.json'));
 const wrangler=read('wrangler.jsonc');
 const productionDeployWorkflow=read('.github/workflows/deploy-production.yml');
+const cloudflareDeployWorkflow=read('.github/workflows/deploy-cloudflare.yml');
+const workerSource=read('worker/index.ts');
 const supervisionSources=[
  read('src/lib/sloGovernor.ts'),
  read('src/lib/preventiveSupervisionCycle.ts'),
@@ -48,9 +50,25 @@ add('migration checker identity',migrationCheck.includes(`const expected=${expec
 add('environment validator model identity',validateEnv.includes(`const expectedModel='${expected.modelVersion}'`),expected.modelVersion);
 add('latest migration exists',exists(`db/v${expected.migrationVersion}.sql`),`db/v${expected.migrationVersion}.sql`);
 add('production workflow migration identity',
- productionDeployWorkflow.includes(`migrationVersion:${expected.migrationVersion}`)&&
- productionDeployWorkflow.includes(`EXPECTED_MIGRATION_VERSION: "${expected.migrationVersion}"`),
- `production execution and strict certification must use migration ${expected.migrationVersion}`);
+ (productionDeployWorkflow.match(new RegExp(`migrationVersion:${expected.migrationVersion}`,'g'))||[]).length>=2&&
+ productionDeployWorkflow.includes(`EXPECTED_MIGRATION_VERSION: "${expected.migrationVersion}"`)&&
+ !productionDeployWorkflow.includes('migrationVersion:114'),
+ `production execution, strict certification and promotion provenance must use migration ${expected.migrationVersion}`);
+add('Cloudflare hourly cron dispatcher alignment',
+ workerSource.includes("controller.cron==='3,13,23,33,43,53,54 * * * *'")&&
+ wrangler.includes('"3,13,23,33,43,53,54 * * * *"'),
+ 'Worker scheduled dispatcher must exactly match the Wrangler hourly shard including topology minute 54');
+add('Cloudflare exact-main auto deployment',
+ cloudflareDeployWorkflow.includes('workflows: ["Verify Edgeforce"]')&&
+ cloudflareDeployWorkflow.includes("github.event.workflow_run.conclusion == 'success'")&&
+ cloudflareDeployWorkflow.includes("github.event.workflow_run.head_branch == 'main'")&&
+ cloudflareDeployWorkflow.includes('Require both exact-main certification workflows'),
+ 'Cloudflare primary automatically deploys only after successful exact-main verification');
+add('primary-before-standby strict certification',
+ productionDeployWorkflow.includes('Require exact-main Cloudflare primary deployment')&&
+ productionDeployWorkflow.indexOf('Require exact-main Cloudflare primary deployment')<
+  productionDeployWorkflow.indexOf('Certify final production release'),
+ 'Vercel standby strict certification waits for successful exact-main Cloudflare primary deployment');
 
 const requiredFiles=[
  'src/app/api/release/certify/route.ts',
