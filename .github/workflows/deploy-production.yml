@@ -586,7 +586,7 @@ jobs:
         shell: bash
         run: |
           BODY=$(jq -cn --arg releaseVersion "119.0.0" --arg modelVersion "edgeforce-v119" --arg commitSha "$DEPLOY_COMMIT" --arg source "production-deploy" \
-            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:114,commitSha:$commitSha,source:$source,
+            '{releaseVersion:$releaseVersion,modelVersion:$modelVersion,migrationVersion:118,commitSha:$commitSha,source:$source,
               lintPassed:true,typecheckPassed:true,buildPassed:true,migrationPassed:true,auditPassed:true,
               smokePassed:true,loadPassed:true,mlCompilePassed:true,remoteSmokePassed:true,
               evidence:{githubRunId:env.GITHUB_RUN_ID,githubRunAttempt:env.GITHUB_RUN_ATTEMPT,launchId:env.LAUNCH_ID}}')
@@ -619,7 +619,7 @@ jobs:
           PRODUCTION_URL: ${{ steps.deploy.outputs.production_url }}
           EXPECTED_APP_VERSION: "119.0.0"
           EXPECTED_MODEL_VERSION: "edgeforce-v119"
-          EXPECTED_MIGRATION_VERSION: "114"
+          EXPECTED_MIGRATION_VERSION: "118"
         shell: bash
         run: |
           umask 077
