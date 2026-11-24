@@ -21,7 +21,7 @@ const mockDb=()=>{
   if(sql.startsWith('UPDATE')){const row=rows.get(args[2]);if(!row||row.revision!==args[3])return {meta:{changes:0}};
    rows.set(args[2],{revision:args[0],json:args[1]});return {meta:{changes:1}};}
   throw Error('unexpected statement');
- }};}},rows};
+ }};},rows};
 };
 test('SQL paper ledger initializes once and persists CAS revisions',async()=>{
  assert.match(PAPER_SCALP_LEDGER_SQL,/PRIMARY KEY/);
