@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { evaluateCertification, redactDiagnostic } from '../scripts/certification-evidence.mjs';
 
 const commit = '9b33e540b1916f2e8979c2ce9490aec55c2c4f3e';
-const expected = { version: '119.0.0', modelVersion: 'edgeforce-v119', migrationVersion: 114, commit };
+const expected = { version: '119.0.0', modelVersion: 'edgeforce-v119', migrationVersion: 118, commit };
 const context = { httpStatus: '200', transportExit: '0', expected };
 const report = () => ({ certified: true, blockers: [], warnings: [], release: { ...expected, build: 'V119', environment: 'production' },
   ingestion: { source: 'live', marketCount: 20, degraded: false }, reliability: { mode: 'NORMAL' },
@@ -92,7 +92,7 @@ function executeStep({ body = JSON.stringify(report()), status = '200', code = 0
         MOCK_BODY: payload, MOCK_CALLS: calls, MOCK_STATUS: status, MOCK_EXIT: String(code),
         PRODUCTION_URL: 'https://example.vercel.app', INGEST_SECRET: 'fake-test-secret', DEPLOY_COMMIT: commit,
         EXPECTED_APP_VERSION: expected.version, EXPECTED_MODEL_VERSION: expected.modelVersion,
-        EXPECTED_MIGRATION_VERSION: '114' }
+        EXPECTED_MIGRATION_VERSION: '118' }
     });
     assert.equal(run.error, undefined, run.error?.message);
     assert.equal(fs.readFileSync(calls, 'utf8'), 'one-call\n', 'POST must not be retried');
