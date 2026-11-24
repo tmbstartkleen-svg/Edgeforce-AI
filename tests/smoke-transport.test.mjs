@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createSmokeFetch,parseCurlResponse} from '../scripts/smoke-transport.mjs';
+import {createSmokeFetch,parseCurlResponse,validateProductionCertificationSmoke} from '../scripts/smoke-transport.mjs';
 
 const frame=(body,status=200)=>body+'\nEDGEFORCE_SMOKE_HTTP_STATUS:'+status;
 const transportError=status=>Object.assign(new Error('sensitive CLI diagnostics'),{status,stderr:'private-bypass-token',stdout:'private-response'});
@@ -68,6 +68,15 @@ test('invalid JSON and CLI noise remain visible to the caller contract validator
  assert.throws(()=>JSON.parse(body));
  assert.equal(body,'Vercel CLI noise\n{"ok":true}');
  assert.equal(calls,1);
+});
+
+test('production certification smoke validates report transport without pre-empting the strict live gate',()=>{
+ const common={ok:true,security:{ok:true},modelGovernance:{ok:true},modelValidation:{ok:true}};
+ assert.equal(validateProductionCertificationSmoke({status:200,body:{...common,certified:true,blockers:[]}}),true);
+ assert.equal(validateProductionCertificationSmoke({status:503,body:{...common,certified:false,blockers:['provider: live odds unavailable']}}),true);
+ assert.equal(validateProductionCertificationSmoke({status:500,body:{...common,certified:false,blockers:['internal error']}}),false);
+ assert.equal(validateProductionCertificationSmoke({status:503,body:{...common,certified:false}}),false);
+ assert.equal(validateProductionCertificationSmoke({status:503,body:{...common,security:{ok:false},certified:false,blockers:['security']}}),false);
 });
 
 test('intentional degraded response preserves both status and schema',async()=>{

@@ -18,6 +18,18 @@ export function parseCurlResponse(stdout){
  return {ok:status>=200&&status<300,status,text:async()=>body};
 }
 
+export function validateProductionCertificationSmoke(response){
+ const status=Number(response?.status);
+ const body=response?.body;
+ return (status===200||status===503)
+  &&body?.ok===true
+  &&typeof body?.certified==='boolean'
+  &&Array.isArray(body?.blockers)
+  &&body?.security?.ok===true
+  &&body?.modelGovernance?.ok===true
+  &&body?.modelValidation?.ok===true;
+}
+
 // GET-only retries handle transport loss, not HTTP/auth/schema failures. Both
 // transports return the actual HTTP status; callers retain all contract checks.
 export function createSmokeFetch({
