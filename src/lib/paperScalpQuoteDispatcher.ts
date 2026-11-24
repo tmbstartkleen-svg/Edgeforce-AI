@@ -24,6 +24,8 @@ export function dispatchPaperScalpFromQuotes(
   return blocked('disabled_or_invalid_cycle');
  const matching=books.filter(x=>x.marketId===cycle.marketId);
  if(!matching.length)return blocked('no_market_quote');
+ const identities=new Set(matching.map(x=>JSON.stringify([x.venue,x.outcomeId])));
+ if(identities.size!==1)return blocked('ambiguous_market_identity');
  const ranked=rankSingleMarketScalps(matching,settings);
  const candidate=ranked.find(x=>x.status==='indicative_spread');
  if(!candidate)return blocked('no_valid_indicative_spread');
