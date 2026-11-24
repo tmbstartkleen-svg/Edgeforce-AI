@@ -392,7 +392,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for ROUTE in injuries heartbeat scan decision slo-governor; do
+          # Injuries remains on its dedicated */15 schedule and may be provider-degraded.
+          # Prime only release-critical core jobs that can truthfully pass without an optional INJURIES provider.
+          for ROUTE in heartbeat scan decision slo-governor; do
             SAFE_ROUTE=$(printf '%s' "$ROUTE" | tr -c 'a-zA-Z0-9_-' '_')
             HTTP_CODE=000
             CURL_CODE=1
