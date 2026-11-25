@@ -717,6 +717,9 @@ assert(health.body?.evidenceWeightedRollingPerformance===true,'evidence-weighted
 assert(health.body?.evidenceWeightedRecalibrationStrength===true,'evidence-weighted recalibration strength flag missing');
 assert(health.body?.evidenceWeightedSportModelTraining===true,'evidence-weighted sport model training flag missing');
 assert(health.body?.evidenceWeightedExternalMlTraining===true,'evidence-weighted external ML training flag missing');
+assert(health.body?.d1VerifiedEdgeEvidenceJoin===true,'D1 verified edge evidence join flag missing');
+assert(health.body?.verifiedEdgeReviewOnly===true,'verified edge review-only flag missing');
+assert(health.body?.verifiedEdgeExecutionIsolation===true,'verified edge execution isolation flag missing');
 assert(health.body?.effectiveEvidenceSampleTelemetry===true,'effective evidence sample telemetry flag missing');
 assert(health.body?.forecastResearchLab===true,'forecast research lab flag missing');
 assert(health.body?.researchOnlyForecastEvaluation===true,'research-only forecast evaluation flag missing');
