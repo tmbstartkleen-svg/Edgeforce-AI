@@ -36,6 +36,7 @@ function forecastFrom(row,feature){
   eventId:row.event_id,marketKey:row.market_key,selection:row.selection_key,
   probability:Number(row.model_probability),modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true,
   sport:feature.sport,settlementKey:feature.settlementKey,currency:feature.currency,outcomes:feature.outcomes,
+  side:'BACK',outcomeSetType:feature.outcomes.length===2?'TWO_WAY':'THREE_WAY',
   ...(text(feature.lineKey)?{lineKey:feature.lineKey}:{}),
   ...(text(feature.periodKey)?{periodKey:feature.periodKey}:{}),
   ...(text(feature.playerId)?{playerId:feature.playerId}:{}),
