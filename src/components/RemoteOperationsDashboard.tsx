@@ -16,7 +16,8 @@ type ModelEdgeCandidate={eventId:string;marketKey:string;selection:string;target
 type ModelEdgeReview={mode:string;modelsExamined:number;eligibleModels:number;calibrationMatched:number;exactQuoteMatches:number;
  candidateCount:number;candidates:ModelEdgeCandidate[];rejectionReasons:Record<string,number>;productionBetRecommendationAuthorized:false};
 type OpportunityReview={ok:boolean;status?:string;error?:string;verified?:{acceptedQuotes:number;rowsExamined:number;rejections:Record<string,number>};
- opportunities?:{opportunities:{eventId:string;marketKey:string;theoreticalRoiPct:number;status:string;stakes:{bookmaker:string;selection:string;odds:number}[]}[];evaluatedGroups:number};
+ opportunities?:{opportunities:{eventId:string;marketKey:string;theoreticalRoiPct:number;status:string;stakes:{bookmaker:string;selection:string;odds:number}[]}[];evaluatedGroups:number;
+  blocked?:{eventId?:string;marketKey:string;bookmaker?:string;selection?:string;reason:string}[]};
  modelEdgeReview?:ModelEdgeReview;modelVerifiedEdges?:unknown[]};
 type Snapshot={ok:boolean;status:string;reason?:string;error?:string;generatedAt?:string;build?:string|number;
  blockers?:string[];summary?:Summary;providers?:{id:string;name:string;bookmaker:string;enabled:boolean;credentialConfigured:boolean|null}[];
@@ -94,7 +95,7 @@ export default function RemoteOperationsDashboard(){
     {view==='markets'&&<SportsEvidencePanel token={token}/>}
     {view==='markets'&&<div className="efops-panel"><div className="efops-panel-head"><h2>Stored bookmaker coverage — 20 minutes</h2><label>Sport <select value={sport} onChange={e=>setSport(e.target.value)}><option value="ALL">All sports</option>{sports.map(x=><option key={x}>{x}</option>)}</select></label></div><div className="efops-tablebox"><table><thead><tr><th>Sport</th><th>Bookmaker</th><th>Provider</th><th>Quotes</th><th>Last stored</th></tr></thead><tbody>{markets.map((x,i)=><tr key={i}><td>{x.sport}</td><td>{x.bookmaker}</td><td>{x.provider}</td><td>{x.quote_count}</td><td>{displayTime(x.most_recent_at)}</td></tr>)}</tbody></table>{!markets.length&&<p>No stored bookmaker observations match this filter.</p>}</div></div>}
     {view==='opportunities'&&<div className="efops-panel"><div className="efops-panel-head"><h2>Archived-odds opportunity review</h2><button className="efops-tab" style={{width:'auto'}} disabled={opportunityLoading} onClick={()=>void loadOpportunities()}>{opportunityLoading?'Reviewing…':'Refresh evidence'}</button></div>
-     <p>Only source-dated D1 sportsbook observations are evaluated. Arbitrage remains theoretical, while model +EV rows appear only when stored independent-model, validation, calibration and exact post-forecast quote evidence join successfully.</p>
+     <p>Only source-dated D1 sportsbook observations are evaluated. Model +EV research joins stored model and validation assertions with prior calibration records and matching post-forecast quotes for upcoming games.</p>
      {opportunityError&&<p className="efops-error" role="alert">{opportunityError}</p>}
      {opportunityData&&<><div className="efops-grid">
       <div className="efops-stat"><span>Source-validated quotes</span><strong>{opportunityData.verified?.acceptedQuotes??0}</strong><small>Last 20 minutes</small></div>
@@ -102,10 +103,18 @@ export default function RemoteOperationsDashboard(){
       <div className="efops-stat"><span>Reviewed groups</span><strong>{opportunityData.opportunities?.evaluatedGroups??0}</strong><small>Compatible markets only</small></div>
       <div className="efops-stat"><span>Model +EV review</span><strong>{opportunityData.modelEdgeReview?.candidateCount??0}</strong><small>Review only · never auto-authorized</small></div>
      </div>
-     <div className="efops-tablebox"><h3>Theoretical cross-book pricing</h3><table><thead><tr><th>Event / market</th><th>Theoretical ROI</th><th>Books and quotes</th><th>Status</th></tr></thead><tbody>{(opportunityData.opportunities?.opportunities||[]).map((o,i)=><tr key={i}><td>{o.eventId} · {o.marketKey}</td><td>{o.theoreticalRoiPct.toFixed(2)}%</td><td>{o.stakes.map(x=>`${x.bookmaker}: ${x.selection} (${x.odds>0?'+':''}${x.odds})`).join(' / ')}</td><td>{o.status.replaceAll('_',' ')}</td></tr>)}</tbody></table>{!opportunityData.opportunities?.opportunities.length&&<p>No source-verified theoretical opportunities available from archived quotes. No prices were invented.</p>}</div>
+     <div className="efops-tablebox"><h3>Theoretical cross-book pricing</h3>
+      <p>Each bookmaker and outcome uses its latest stored price. Conflicting latest prices are excluded from the comparison.</p>
+      <table><thead><tr><th>Event / market</th><th>Theoretical ROI</th><th>Books and quotes</th><th>Status</th></tr></thead><tbody>{(opportunityData.opportunities?.opportunities||[]).map((o,i)=><tr key={i}><td>{o.eventId} · {o.marketKey}</td><td>{o.theoreticalRoiPct.toFixed(2)}%</td><td>{o.stakes.map(x=>`${x.bookmaker}: ${x.selection} (${x.odds>0?'+':''}${x.odds})`).join(' / ')}</td><td>{o.status.replaceAll('_',' ')}</td></tr>)}</tbody></table>
+      {!opportunityData.opportunities?.opportunities.length&&<p>No source-verified theoretical opportunities available from archived quotes. No prices were invented.</p>}
+      {!!opportunityData.opportunities?.blocked?.length&&<details><summary>Excluded pricing evidence ({opportunityData.opportunities.blocked.length})</summary>
+       <ul>{opportunityData.opportunities.blocked.slice(0,10).map((item,i)=><li key={i}>{[item.eventId,item.marketKey,item.bookmaker,item.selection].filter(Boolean).join(' · ')}: {item.reason.replaceAll('_',' ').toLowerCase()}</li>)}</ul>
+       {opportunityData.opportunities.blocked.length>10&&<p>Showing 10 of {opportunityData.opportunities.blocked.length} excluded pricing checks.</p>}
+      </details>}
+     </div>
      <div className="efops-tablebox"><h3>Independent-model edge review</h3>
-      <p>Candidate rows require exact market identity, a pregame stored model run marked independent/out-of-sample, prior validation-lab promotion evidence, prior calibration evidence, DraftKings price evidence and at least two upstream IDs. Upstream ownership is still not independently authenticated and no candidate is an authorized wager.</p>
-      <table><thead><tr><th>Event / market / selection</th><th>Target price</th><th>Model / break-even</th><th>Edge</th><th>Expected ROI</th><th>Validation</th><th>Status</th></tr></thead>
+      <p>Candidate rows require an upcoming event, exact market identity, the latest stored forecast for that model version and contract, prior calibration with complete numeric scores, an unambiguous latest DraftKings price and at least two upstream IDs. The forecast must predate its quotes and be marked independent/out-of-sample. Validation grades and IDs are model-supplied assertions; validation records and upstream ownership are not independently verified here.</p>
+      <table><thead><tr><th>Event / market / selection</th><th>Target price</th><th>Model / break-even</th><th>Edge</th><th>Expected ROI</th><th>Validation assertion</th><th>Status</th></tr></thead>
        <tbody>{(opportunityData.modelEdgeReview?.candidates||[]).map((x,i)=><tr key={x.eventId+'|'+x.marketKey+'|'+x.selection+'|'+i}>
         <td>{x.eventId} · {x.marketKey}<br/><small>{x.selection} · model {x.modelVersion}</small></td>
         <td>{x.targetBook} {x.odds>0?'+':''}{x.odds}<br/><small>{displayTime(x.sourceObservedAt)}</small></td>

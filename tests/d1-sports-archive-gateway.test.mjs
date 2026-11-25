@@ -23,7 +23,8 @@ const db=(options={})=>{
  return {sqls,args,prepare(sql){sqls.push(sql);return {
   bind(...values){args.push(values);return this},
   async first(){
-   if(sql.includes('WHERE source_id=? AND enabled=1'))return options.source??{upstream_id:quote.upstreamId,source_type:'ODDS'};
+   if(sql.includes('WHERE source_id=? AND enabled=1'))return Object.hasOwn(options,'source')
+    ?options.source:{upstream_id:quote.upstreamId,source_type:'ODDS'};
    if(sql.includes('MAX(source_observed_at)'))return options.count??{total:0,newest:null};
    if(sql.includes('COUNT(*) AS total FROM intelligence_sources'))return options.approved??{total:0};
    return {upstream_id:quote.upstreamId};
@@ -57,12 +58,18 @@ test('invalid price, oversized batches and stale price are rejected before SQL',
 });
 test('a disabled or wrong-category source cannot archive even when write flag is on',async()=>{
  const d=db({source:null}),env={INGEST_SECRET:secret,INTELLIGENCE_DB:d,D1_SPORTS_MARKET_ARCHIVE_ENABLED:'true'};
- assert.equal((await ingest(req('POST','sports-market-ingest',[quote],secret),env)).status,403);
+ const disabled=await ingest(req('POST','sports-market-ingest',[quote],secret),env);
+ assert.equal(disabled.status,403);
+ assert.equal((await disabled.json()).reason,'SOURCE_NOT_APPROVED');
  const wrong=db({source:{upstream_id:quote.upstreamId,source_type:'CERTIFICATION_ONLY'}});
- assert.equal((await ingest(req('POST','sports-market-ingest',[quote],secret),{...env,INTELLIGENCE_DB:wrong})).status,403);
+ const category=await ingest(req('POST','sports-market-ingest',[quote],secret),{...env,INTELLIGENCE_DB:wrong});
+ assert.equal(category.status,403);
+ assert.equal((await category.json()).reason,'SOURCE_NOT_APPROVED');
  const alias=db({source:{upstream_id:'another-network',source_type:'ODDS'}});
- assert.equal((await ingest(req('POST','sports-market-ingest',[quote],secret),{...env,INTELLIGENCE_DB:alias})).status,403);
- assert.equal(d.sqls.some(s=>s.includes('INSERT')),false);
+ const upstream=await ingest(req('POST','sports-market-ingest',[quote],secret),{...env,INTELLIGENCE_DB:alias});
+ assert.equal(upstream.status,403);
+ assert.equal((await upstream.json()).reason,'UPSTREAM_MISMATCH');
+ for(const denied of [d,wrong,alias])assert.equal(denied.sqls.some(s=>s.includes('INSERT')),false);
 });
 test('approved odds quotes are archived with source timestamp and provenance',async()=>{
  const d=db(),env={INGEST_SECRET:secret,INTELLIGENCE_DB:d,D1_SPORTS_MARKET_ARCHIVE_ENABLED:'true'};

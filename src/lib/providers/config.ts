@@ -92,7 +92,7 @@ function theOddsApiProvider():ProviderConfig|null{
   priority:int(process.env.THE_ODDS_API_PRIORITY,120),
   timeoutMs:Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000)),
   enabled:process.env.THE_ODDS_API_ENABLED!=='false',
-  bookmaker:'DraftKings',
+  bookmaker:'The Odds API',
   maxAgeMin:Math.max(1,int(process.env.ODDS_PROVIDER_PRIMARY_MAX_AGE_MIN,20)),
   failureThreshold:Math.max(1,int(process.env.PROVIDER_FAILURE_THRESHOLD,3)),
   quarantineMin:Math.max(1,int(process.env.PROVIDER_QUARANTINE_MIN,5)),

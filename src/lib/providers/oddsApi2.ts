@@ -70,6 +70,13 @@ const timeoutMs=()=>{
   );
 };
 
+const maximumQuoteAgeMin=(env:Record<string,string|undefined>=process.env)=>{
+  const configured=env.ODDS_API_2_MAX_AGE_MIN;
+  const minutes=typeof configured==='string'&&configured.trim()?Number(configured):20;
+  if(!Number.isFinite(minutes)||!Number.isFinite(minutes*60000))return 20;
+  return Math.max(1,minutes);
+};
+
 const baseUrl=()=>{
   return String(
     process.env.ODDS_API_2_BASE_URL ||
@@ -281,7 +288,7 @@ function flattenSportPayload(
 
         const quoteTime=Date.parse(updatedAt);
         const quoteAgeMs=Date.now()-quoteTime;
-        const maxQuoteAgeMs=Math.max(60000,Number(process.env.ODDS_API_2_MAX_AGE_MIN||20)*60000);
+        const maxQuoteAgeMs=maximumQuoteAgeMin()*60000;
         if(!Number.isFinite(quoteTime)||quoteAgeMs< -30000||quoteAgeMs>maxQuoteAgeMs){
           continue;
         }
@@ -503,10 +510,7 @@ export function oddsApi2Provider(
     ),
     enabled:true,
     bookmaker:'Odds API 2',
-    maxAgeMin:Math.max(
-      1,
-      Number(env.ODDS_API_2_MAX_AGE_MIN||20)
-    ),
+    maxAgeMin:maximumQuoteAgeMin(env),
     failureThreshold:3,
     quarantineMin:5,
     marketRole:'REFERENCE',

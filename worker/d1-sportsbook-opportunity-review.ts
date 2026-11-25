@@ -11,8 +11,8 @@ type Archived={source_id:string;upstream_id:string;source_event_id:string;market
 type Registry={source_id:string;upstream_id:string};
 type ModelRun={id:number;event_id:string;market_key:string;selection_key:string;model_version:string;run_count:number;
  model_probability:number;confidence:number|null;feature_snapshot:string;created_at:string};
-type Calibration={id:number;model_version:string;sport:string|null;market_key:string;sample_size:number;
- brier_score:number;log_loss:number;calibration_error:number;period_end:string;created_at:string};
+type Calibration={id:number;model_version:string|null;sport:string|null;market_key:string|null;sample_size:number|null;
+ brier_score:number|null;log_loss:number|null;calibration_error:number|null;period_end:string|null;created_at:string};
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers});
 const nonempty=(x:unknown)=>typeof x==='string'&&x.trim().length>0;
@@ -98,6 +98,7 @@ export async function d1SportsbookOpportunityReview(request:Request,env:Env):Pro
    warnings:['Historical D1 quote visibility is not proof a bet is available or executable.',
     'Missing or inconsistent outcome and settlement data prevents arbitrage comparison.',
     'Model +EV review joins only stored independent-model assertions, prior calibration rows, exact post-forecast quotes and canonical market identity.',
+    'Validation grades and IDs are model-supplied assertions; this D1 review does not independently verify validation-lab records.',
     'A review candidate is not an authorized bet: registered upstream IDs are not independently authenticated ownership, execution is NONE, and modelVerifiedEdges remains empty.']});
  }catch{return json({ok:false,error:'D1_OPPORTUNITY_READ_FAILED',externalRequests:0},503)}
 }

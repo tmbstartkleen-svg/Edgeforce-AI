@@ -39,5 +39,7 @@ test('V196 operations UI separates model review from theoretical pricing and nev
  assert.match(ui,/Review only · never auto-authorized/);
  assert.match(ui,/No model probability is inferred from sportsbook prices/);
  assert.match(ui,/execution NONE/);
+ assert.match(ui,/Validation assertion/);
+ assert.match(ui,/model-supplied assertions/);
  assert.doesNotMatch(ui,/orders\.create\(|placeOrder\(|submitOrder\(/);
 });

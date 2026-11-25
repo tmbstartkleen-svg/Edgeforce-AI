@@ -39,6 +39,14 @@ jobs:
         run: npm run test:monte-v2
       - name: Verify player evidence research pipeline
         run: npm run test:research-pipeline
+      - name: Verify sportsbook coverage, source times and bookmaker provenance
+        run: |
+          npm run test:coverage
+          npm run test:sports-archive
+          npm run test:odds-timestamps
+          npm run test:odds-freshness
+          npm run test:odds-bookmaker-provenance
+          npm run test:normalize-source-time
       - name: Verify Polymarket US read-only readiness
         run: npm run test:polymarket-us-readiness
       - name: Verify V196 D1 verified edge evidence join
