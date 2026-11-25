@@ -42,9 +42,16 @@ const age=(generatedAt?:string)=>{
  return mins<1?'under 1m':mins+'m';
 };
 
+async function fetchResearchSnapshot():Promise<Payload>{
+ const response=await fetch('/api/live-board?view=week&limit=50&risk=Moderate',{cache:'no-store'});
+ const payload=await response.json() as Payload & {error?:string;message?:string};
+ if(!response.ok)throw new Error(payload.message||payload.error||'Research snapshot unavailable');
+ return payload;
+}
+
 export default function DailyWeeklyResearchCockpit(){
  const [data,setData]=useState<Payload|null>(null);
- const [loading,setLoading]=useState(false);
+ const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [scope,setScope]=useState<ResearchScope>('today');
  const [sport,setSport]=useState('ALL');
@@ -53,17 +60,21 @@ export default function DailyWeeklyResearchCockpit(){
  const refresh=useCallback(async()=>{
   setLoading(true);setError('');
   try{
-   const response=await fetch('/api/live-board?view=week&limit=50&risk=Moderate',{cache:'no-store'});
-   const payload=await response.json() as Payload & {error?:string;message?:string};
-   if(!response.ok)throw new Error(payload.message||payload.error||'Research snapshot unavailable');
-   setData(payload);
+   setData(await fetchResearchSnapshot());
   }catch(e){
    setData(null);
    setError(e instanceof Error?e.message:'Research snapshot unavailable');
   }finally{setLoading(false)}
  },[]);
 
- useEffect(()=>{void refresh()},[refresh]);
+ useEffect(()=>{
+  let active=true;
+  fetchResearchSnapshot()
+   .then(payload=>{if(active){setData(payload);setError('')}})
+   .catch(e=>{if(active){setData(null);setError(e instanceof Error?e.message:'Research snapshot unavailable')}})
+   .finally(()=>{if(active)setLoading(false)});
+  return()=>{active=false};
+ },[]);
 
  const report=useMemo(()=>buildDailyWeeklyResearch(
   data?.rows||[],
