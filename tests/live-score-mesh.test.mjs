@@ -300,27 +300,61 @@ test('slow optional backups cannot discard completed scoreboards and cached read
  assert.equal(calls,3,'the cache reader does not initiate refreshes');
 });
 
-test('bounded primary queue gives deferred leagues the next opportunity without increasing concurrency',async t=>{
- const savedFetch=globalThis.fetch,savedConcurrency=process.env.LIVE_SCORE_FETCH_CONCURRENCY;
- t.after(()=>{globalThis.fetch=savedFetch;if(savedConcurrency===undefined)delete process.env.LIVE_SCORE_FETCH_CONCURRENCY;else process.env.LIVE_SCORE_FETCH_CONCURRENCY=savedConcurrency});
+test('bounded primary queue gives deferred leagues the next opportunity without increasing concurrency',{timeout:5000},async t=>{
+ const savedFetch=globalThis.fetch,SavedDate=Date,savedConcurrency=process.env.LIVE_SCORE_FETCH_CONCURRENCY;
+ let clock=SavedDate.now();
+ t.after(()=>{globalThis.fetch=savedFetch;globalThis.Date=SavedDate;if(savedConcurrency===undefined)delete process.env.LIVE_SCORE_FETCH_CONCURRENCY;else process.env.LIVE_SCORE_FETCH_CONCURRENCY=savedConcurrency});
+ globalThis.Date=class extends SavedDate{
+  constructor(...args){super(...(args.length?args:[clock]))}
+  static now(){return clock}
+ };
  process.env.LIVE_SCORE_FETCH_CONCURRENCY='2';
  const api=acquisitionRuntime(['nfl','nba','mlb','nhl','epl','wnba']);
  const calls=[];let active=0,peak=0;
+ const createBatch=()=>({requests:[],waiters:[]});
+ let batch=createBatch();
+ const waitForStarts=count=>batch.requests.length>=count?Promise.resolve():new Promise(resolve=>batch.waiters.push({count,resolve}));
  globalThis.fetch=(url,options)=>{
   url=String(url);calls.push(url);active++;peak=Math.max(peak,active);
   const native=nativeResponse(url);
-  const pending=native?Promise.resolve(native):new Promise((_,reject)=>options.signal.addEventListener('abort',()=>reject(new Error('mock aborted')),{once:true}));
+  const pending=native?Promise.resolve(native):new Promise((_,reject)=>{
+   batch.requests.push({url,signal:options.signal,fail:()=>reject(new Error('controlled transport failure'))});
+   options.signal.addEventListener('abort',()=>reject(new Error('mock aborted')),{once:true});
+   for(const waiter of batch.waiters)if(batch.requests.length>=waiter.count)waiter.resolve();
+  });
   return pending.finally(()=>active--);
  };
- const first=await api.fetchLiveScoreMesh({deadlineMs:60});
+ const firstStarted=clock,firstPromise=api.fetchLiveScoreMesh({deadlineMs:1000});
+ await waitForStarts(2);
+ assert.equal(active,2);
+ // A failed request just before the deadline can legitimately free a lane.
+ // Total attempts therefore do not measure simultaneous concurrency.
+ clock=firstStarted+999;
+ batch.requests[0].fail();
+ await waitForStarts(3);
+ assert.equal(active,2);
+ clock=firstStarted+1000;
+ for(const request of batch.requests)request.fail();
+ const first=await firstPromise;
  const firstLeagues=calls.filter(url=>url.includes('/scoreboard'));
- assert.equal(firstLeagues.length,2);
+ assert.equal(firstLeagues.length,3,'one replacement starts before the controlled deadline, none after');
+ assert.ok(batch.requests.every(request=>request.signal.aborted),'all started transports are cleaned up');
+ assert.equal(first.collection.deadlineReached,true);
  assert.ok(first.collection.sources.some(source=>source.status==='DEFERRED'));
+ assert.equal(active,0);
  const split=calls.length;
- await api.fetchLiveScoreMesh({deadlineMs:60});
+ batch=createBatch();
+ const secondStarted=clock,secondPromise=api.fetchLiveScoreMesh({deadlineMs:1000});
+ await waitForStarts(2);
+ assert.equal(active,2);
+ clock=secondStarted+1000;
+ for(const request of batch.requests)request.fail();
+ const second=await secondPromise;
  const secondLeagues=calls.slice(split).filter(url=>url.includes('/scoreboard'));
  assert.equal(secondLeagues.length,2);
  assert.ok(secondLeagues.every(url=>!firstLeagues.includes(url)),'unfinished tail leagues are served before prior failures retry');
+ assert.ok(batch.requests.every(request=>request.signal.aborted));
+ assert.equal(second.collection.deadlineReached,true);
  assert.ok(peak<=2);
  assert.equal(active,0);
 });
