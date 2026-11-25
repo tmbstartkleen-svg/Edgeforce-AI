@@ -29,6 +29,10 @@ test('Worker verifies approved source identity, archived-original price and sour
  assert.match(code,/raw\.settlementKey/);assert.match(code,/UNVERIFIED_SETTLEMENT_OR_OUTCOMES/);
  assert.match(code,/source_observed_at>=\?/);
  assert.match(code,/modelVerifiedEdges:\[\]/);
+ assert.match(code,/modelEdgeReview/);
+ assert.match(code,/reviewD1ModelEdges/);
+ assert.match(code,/FROM model_runs/);
+ assert.match(code,/FROM calibration_metrics/);
  assert.match(code,/oddsApiCreditsSpent:0/);
  assert.doesNotMatch(code,/fetch\(/);
 });
@@ -40,5 +44,6 @@ test('remote dashboard displays actual D1 review as a separate authenticated tab
  const ui=read('src/components/RemoteOperationsDashboard.tsx');
  assert.match(ui,/Opportunity Review/);assert.match(ui,/api\/operations\/sportsbook-opportunities/);
  assert.match(ui,/Source-validated quotes/);assert.match(ui,/Theoretical opportunities/);
- assert.match(ui,/Independent models not certified/);
+ assert.match(ui,/Model \+EV review/);assert.match(ui,/Independent-model edge review/);
+ assert.match(ui,/Review only · never auto-authorized/);
 });
