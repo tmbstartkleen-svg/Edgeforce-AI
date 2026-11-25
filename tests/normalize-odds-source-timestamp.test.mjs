@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeOddsPayload} from '../src/lib/providers/normalizeOdds.ts';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+
+const compile=name=>ts.transpileModule(readFileSync(new URL('../src/lib/'+name+'.ts',import.meta.url),'utf8'),{
+ compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}
+}).outputText;
+const uri=code=>'data:text/javascript;base64,'+Buffer.from(code).toString('base64');
+const math=uri(compile('math'));
+const source=compile('providers/normalizeOdds').replaceAll("from '../math'","from "+JSON.stringify(math));
+const {normalizeOddsPayload}=await import(uri(source));
+
 test('flat odds without source observation timestamp are not reported as fresh',()=>{
  const r=normalizeOddsPayload([{id:'e1',sport:'NBA',eventId:'evt1',home:'A',away:'B',selection:'A',market:'h2h',startTime:'2026-10-25T00:00:00Z',odds:-110}]);
  assert.equal(r.markets.length,1);assert.equal(r.markets[0].sourceAgeMin,Infinity);assert.equal(r.markets[0].sourceTimestamp,undefined);assert.equal(r.markets[0].sourceEventId,'evt1');

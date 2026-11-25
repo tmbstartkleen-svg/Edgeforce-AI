@@ -22,6 +22,7 @@ export type ResearchRow={
  confidenceLabel?:string;
  freshness?:string;
  sourceAgeMin?:number;
+ sourceTimestamp?:string;
  downgradeReasons?:string[];
  contextQuality?:{recommendationReady?:boolean};
 };
@@ -105,10 +106,14 @@ export function isStrictResearchRow(row:ResearchRow,qualification?:ResearchQuali
 }
 
 export function researchSourceAge(row:ResearchRow,snapshotAt:string|undefined,now:Date):number|undefined{
- const snapshot=startTimestamp(snapshotAt),current=now.getTime();
+ const snapshot=startTimestamp(snapshotAt),source=startTimestamp(row.sourceTimestamp),current=now.getTime();
  if(!Number.isFinite(snapshot)||!Number.isFinite(current)||snapshot>current+30000||
+  !Number.isFinite(source)||source>current||
   typeof row.sourceAgeMin!=='number'||!Number.isFinite(row.sourceAgeMin)||row.sourceAgeMin<0)return undefined;
- return row.sourceAgeMin+Math.max(0,current-snapshot)/60000;
+ // Source ages can be measured before a cached/delayed response gets generatedAt.
+ // A missing provider timestamp cannot establish when that reported age was measured.
+ // Keep the older age if the reported value is more conservative than the timestamp.
+ return Math.max((current-source)/60000,row.sourceAgeMin+Math.max(0,current-snapshot)/60000);
 }
 
 export function contextForResearchRow(row:ResearchRow,changes:ResearchContextChange[]):ResearchContextChange[]{
@@ -160,7 +165,7 @@ export function buildDailyWeeklyResearch(
   return {
    row,
    session:eventSession(row),
-   // Missing snapshot time leaves source age unverified rather than resetting it to zero.
+   // Missing snapshot/provider time leaves source age unverified rather than resetting it to zero.
    strict:sourceAgeMin!==undefined&&isStrictResearchRow(row,qualification,sourceAgeMin),
    sourceAgeMin,
    freshness:sourceAgeMin===undefined?'UNVERIFIED':row.freshness==='STALE'||sourceAgeMin>20?'STALE':

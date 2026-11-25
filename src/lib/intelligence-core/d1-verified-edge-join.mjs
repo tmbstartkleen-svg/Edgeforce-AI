@@ -1,4 +1,5 @@
 import {screenValueEdges} from './market-opportunity-engine.mjs';
+import {canonicalMarketIdentity} from './market-identity-and-movement.mjs';
 
 const text=value=>typeof value==='string'&&value.trim().length>0;
 const time=value=>typeof value==='string'?Date.parse(value):NaN;
@@ -12,6 +13,80 @@ function snapshot(row){
   const raw=typeof row?.feature_snapshot==='string'?JSON.parse(row.feature_snapshot):row?.feature_snapshot;
   return raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:null;
  }catch{return null}
+}
+
+function modelFamily(row){
+ return row&&[row.event_id,row.market_key,row.selection_key,row.model_version].every(text)
+  ?JSON.stringify([row.event_id,row.market_key,row.selection_key,row.model_version]):null;
+}
+
+const validModelAxes=feature=>['lineKey','periodKey','playerId','statKey']
+ .every(field=>!(field in feature)||text(feature[field]));
+
+function modelContract(row,feature){
+ if(!modelFamily(row)||!feature||!validModelAxes(feature)||![feature.sport,feature.settlementKey,feature.currency].every(text)||
+  !Array.isArray(feature.outcomes)||![2,3].includes(feature.outcomes.length)||
+  !feature.outcomes.every(text)||new Set(feature.outcomes).size!==feature.outcomes.length||
+  !feature.outcomes.includes(row.selection_key))return null;
+ const identity=canonicalMarketIdentity({eventId:row.event_id,marketKey:row.market_key,selection:row.selection_key,
+  settlementKey:feature.settlementKey,lineKey:feature.lineKey,periodKey:feature.periodKey,
+  playerId:feature.playerId,statKey:feature.statKey});
+ return identity.ok?JSON.stringify([row.model_version,identity.identity,row.selection_key,
+  feature.sport,feature.currency,[...feature.outcomes].sort()]):null;
+}
+
+function couldReviseContract(partial,known){
+ if(!partial)return true;
+ const defaults={lineKey:'STRAIGHT',periodKey:'FULL',playerId:'',statKey:''};
+ for(const field of ['sport','settlementKey','currency','lineKey','periodKey','playerId','statKey']){
+  const expected=text(known[field])?known[field]:defaults[field];
+  if(text(partial[field])&&partial[field]!==expected)return false;
+ }
+ if(Array.isArray(partial.outcomes)&&[2,3].includes(partial.outcomes.length)&&partial.outcomes.every(text)&&
+  new Set(partial.outcomes).size===partial.outcomes.length&&
+  JSON.stringify([...partial.outcomes].sort())!==JSON.stringify([...known.outcomes].sort()))return false;
+ return true;
+}
+
+/** Pick current evidence before eligibility checks; rejected corrections never revive older favorable forecasts. */
+function currentModelRuns(modelRuns,rejectionReasons){
+ const groups=new Map(),unidentified=new Map(),selected=[];
+ for(const row of modelRuns.slice(0,1000)){
+  const feature=snapshot(row),family=modelFamily(row),contract=modelContract(row,feature);
+  const entry={row,feature,createdAt:time(row?.created_at),id:recordId(row?.id),family};
+  if(!contract){
+   selected.push(row); // Preserve the ordinary validation diagnostics for this invalid record.
+   if(family){if(!unidentified.has(family))unidentified.set(family,[]);unidentified.get(family).push(entry);}
+   continue;
+  }
+  if(!groups.has(contract))groups.set(contract,[]);
+  groups.get(contract).push(entry);
+ }
+ for(const group of groups.values()){
+  if(group.length>1&&group.some(entry=>!Number.isFinite(entry.createdAt))){
+   count(rejectionReasons,'AMBIGUOUS_MODEL_RUN_RECENCY');continue;
+  }
+  const latestTime=Math.max(...group.map(entry=>entry.createdAt));
+  let latest=group.length===1?group:group.filter(entry=>entry.createdAt===latestTime);
+  if(latest.length>1&&latest.every(entry=>entry.id>0)){
+   const latestId=Math.max(...latest.map(entry=>entry.id));
+   latest=latest.filter(entry=>entry.id===latestId);
+  }
+  // Equal timestamps without an ordering ID, or conflicting copies of one ID,
+  // cannot be resolved by source-array order. Identical repeats count only once.
+  if(latest.length>1&&new Set(latest.map(entry=>JSON.stringify(entry.row))).size>1){
+   count(rejectionReasons,'CONFLICTING_LATEST_MODEL_RUNS');continue;
+  }
+  const winner=latest[0];
+  const unknownRevision=(unidentified.get(winner.family)||[]).some(entry=>
+   couldReviseContract(entry.feature,winner.feature)&&
+   (!Number.isFinite(entry.createdAt)||!Number.isFinite(winner.createdAt)||entry.createdAt>winner.createdAt||
+   (entry.createdAt===winner.createdAt&&!(entry.id>0&&winner.id>0&&entry.id<winner.id))));
+  if(unknownRevision){count(rejectionReasons,'MODEL_CONTRACT_REVISION_UNVERIFIED');continue;}
+  for(let i=1;i<group.length;i++)count(rejectionReasons,'SUPERSEDED_MODEL_RUN');
+  selected.push(winner.row);
+ }
+ return selected;
 }
 
 function validatedCalibration(row,feature,calibrations,modelCreatedAt){
@@ -63,7 +138,7 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
  const rejectionReasons={},candidates=[];
  let calibrationMatched=0,eligibleModels=0,exactQuoteMatches=0;
 
- for(const row of modelRuns.slice(0,1000)){
+ for(const row of currentModelRuns(modelRuns,rejectionReasons)){
   const reasons=[];
   if(!row||!text(row.event_id)||!text(row.market_key)||!text(row.selection_key)||!text(row.model_version))
    reasons.push('INVALID_MODEL_IDENTITY');
@@ -82,7 +157,7 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
    if(!['QUALIFIED','VERIFIED'].includes(feature.validationEvidenceGrade)||feature.promotionEligible!==true)
     reasons.push('VALIDATION_LAB_PROMOTION_NOT_EVIDENCED');
    if(!text(feature.validationEvidenceId))reasons.push('VALIDATION_EVIDENCE_ID_MISSING');
-   if(!text(feature.sport)||!text(feature.settlementKey)||!text(feature.currency)||
+   if(!text(feature.sport)||!text(feature.settlementKey)||!text(feature.currency)||!validModelAxes(feature)||
     !Array.isArray(feature.outcomes)||![2,3].includes(feature.outcomes.length)||!feature.outcomes.every(text))
     reasons.push('MODEL_MARKET_CONTRACT_INCOMPLETE');
   }

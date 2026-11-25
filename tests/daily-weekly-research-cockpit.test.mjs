@@ -13,8 +13,8 @@ const now=new Date('2026-11-24T12:00:00Z');
 const qualification={forced:false,allowedGrades:['ELITE','STRONG'],minimumSimProbability:.52,minimumDynamicConfidence:.50};
 const options={now,snapshotAt:now.toISOString(),qualification};
 const rows=[
- {id:'m1',sport:'NBA',event:'A @ B',selection:'A',market:'spread',startTime:'2026-11-24T15:00:00Z',bucket:'TODAY',grade:'ELITE',simProbability:.60,dynamicConfidence:.65,odds:-110,freshness:'FRESH',sourceAgeMin:2},
- {id:'m2',sport:'NFL',event:'C @ D',selection:'D',market:'moneyline',startTime:'2026-11-26T23:00:00Z',bucket:'WEEK',grade:'WATCH',simProbability:.51,dynamicConfidence:.60,odds:110,freshness:'FRESH',sourceAgeMin:2}
+ {id:'m1',sport:'NBA',event:'A @ B',selection:'A',market:'spread',startTime:'2026-11-24T15:00:00Z',bucket:'TODAY',grade:'ELITE',simProbability:.60,dynamicConfidence:.65,odds:-110,freshness:'FRESH',sourceAgeMin:2,sourceTimestamp:'2026-11-24T11:58:00Z'},
+ {id:'m2',sport:'NFL',event:'C @ D',selection:'D',market:'moneyline',startTime:'2026-11-26T23:00:00Z',bucket:'WEEK',grade:'WATCH',simProbability:.51,dynamicConfidence:.60,odds:110,freshness:'FRESH',sourceAgeMin:2,sourceTimestamp:'2026-11-24T11:58:00Z'}
 ];
 const changes=[{marketId:'m1',event:'A @ B',selection:'A',sport:'NBA',severity:'ACTION',type:'injury',reason:'starter status changed',detectedAt:'2026-11-24T11:00:00Z'}];
 
@@ -101,6 +101,47 @@ test('source age advances from snapshot time and unknown snapshot timestamps nev
   const report=buildDailyWeeklyResearch([rows[0]],[],{...options,snapshotAt:invalid});
   assert.equal(report.visible,1);
   assert.equal(report.strict,0);
+  assert.equal(report.rows[0].freshness,'UNVERIFIED');
+ }
+});
+
+test('cached and delayed responses cannot reset the provider quote age',()=>{
+ const delayed={...rows[0],freshness:'AGING',sourceAgeMin:19.9,sourceTimestamp:'2026-11-24T11:39:54Z'};
+ const delayedReport=buildDailyWeeklyResearch([delayed],[],options);
+ assert.equal(delayedReport.rows[0].sourceAgeMin,20.1);
+ assert.equal(delayedReport.rows[0].freshness,'STALE');
+ assert.equal(delayedReport.strict,0);
+
+ const cached={...rows[0],freshness:'AGING',sourceAgeMin:17,sourceTimestamp:'2026-11-24T11:39:00Z'};
+ const snapshotAt='2026-11-24T11:58:00Z';
+ const cachedReport=buildDailyWeeklyResearch([cached],[],{...options,snapshotAt});
+ assert.equal(cachedReport.rows[0].sourceAgeMin,21);
+ assert.equal(cachedReport.rows[0].freshness,'STALE');
+ assert.equal(cachedReport.strict,0);
+ assert.equal(researchSourceAge(cached,snapshotAt,new Date(now.getTime()+2*60000)),23);
+});
+
+test('source timestamp cannot lower an older reported age',()=>{
+ const row={...rows[0],freshness:'AGING',sourceAgeMin:19};
+ const snapshotAt='2026-11-24T11:58:00Z';
+ const report=buildDailyWeeklyResearch([row],[],{...options,snapshotAt});
+ assert.equal(report.rows[0].sourceAgeMin,21);
+ assert.equal(report.rows[0].freshness,'STALE');
+ assert.equal(report.strict,0);
+
+ const boundary={...rows[0],freshness:'AGING',sourceAgeMin:19.9,sourceTimestamp:'2026-11-24T11:40:00Z'};
+ assert.equal(buildDailyWeeklyResearch([boundary],[],options).strict,1);
+});
+
+test('missing, invalid and future provider timestamps keep rows available only for review',()=>{
+ for(const sourceTimestamp of [undefined,null,'','invalid','2026-11-24T11:58:00',
+  new Date(now.getTime()+1).toISOString(),new Date(now.getTime()+60000).toISOString()]){
+  const row={...rows[0],sourceTimestamp};
+  assert.equal(researchSourceAge(row,options.snapshotAt,now),undefined,String(sourceTimestamp));
+  const report=buildDailyWeeklyResearch([row],[],options);
+  assert.equal(report.visible,1);
+  assert.equal(report.strict,0);
+  assert.equal(report.rows[0].sourceAgeMin,undefined);
   assert.equal(report.rows[0].freshness,'UNVERIFIED');
  }
 });

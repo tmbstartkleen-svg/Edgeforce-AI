@@ -128,7 +128,7 @@ export default function DailyWeeklyResearchCockpit(){
 
   {error&&<div className={styles.notice+' '+styles.error} role="alert">{error}. Research rows are unavailable.</div>}
   {fallback&&data?.topBoardQualification?.fallbackReason&&<div className={styles.notice}>{data.topBoardQualification.fallbackReason} These rows remain research-only and are labeled FALLBACK below.</div>}
-  {qualifiedMetadata&&data?.topBoardQualification&&<div className={styles.notice}>Board filters: grades {data.topBoardQualification.allowedGrades!.join(' / ')} · minimum simulation {pct(data.topBoardQualification.minimumSimProbability)} · minimum dynamic confidence {pct(data.topBoardQualification.minimumDynamicConfidence)}. FILTERS MET also requires reported source age of at most 20 minutes and ready context when supplied. It does not certify an independent model edge.</div>}
+  {qualifiedMetadata&&data?.topBoardQualification&&<div className={styles.notice}>Board filters: grades {data.topBoardQualification.allowedGrades!.join(' / ')} · minimum simulation {pct(data.topBoardQualification.minimumSimProbability)} · minimum dynamic confidence {pct(data.topBoardQualification.minimumDynamicConfidence)}. FILTERS MET also requires a valid provider timestamp, source age of at most 20 minutes and ready context when supplied. It does not certify an independent model edge.</div>}
   {data&&!fallback&&!qualifiedMetadata&&<div className={styles.notice}>Qualification metadata is incomplete. Returned rows remain available for review.</div>}
   {report.unknownStartTimes>0&&<div className={styles.notice}>{report.unknownStartTimes} returned row{report.unknownStartTimes===1?' has':'s have'} an unverified start time and cannot be assigned to a date window.</div>}
 

@@ -188,3 +188,162 @@ test('conflicting latest target prices are rejected by the complete D1 evidence 
   assert.equal(r.rejectionReasons.CONFLICTING_LATEST_TARGET_QUOTES,1);
  }
 });
+
+test('a newer unfavorable model correction supersedes an older positive edge in either input order',()=>{
+ const correction={...model,id:8,model_probability:.30,created_at:new Date(now-45000).toISOString()};
+ for(const models of [[model,correction],[correction,model]]){
+  const r=review(models);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,1);
+  assert.equal(r.modelsExamined,2);
+  assert.equal(r.eligibleModels,1);
+ }
+});
+
+test('invalid or unqualified latest model evidence cannot revive a superseded favorable forecast',()=>{
+ for(const invalid of [
+  {model_probability:null},{model_probability:'.52'},{run_count:0},
+  {feature_snapshot:JSON.stringify({...feature,promotionEligible:false})},
+  {feature_snapshot:JSON.stringify({...feature,eventStartTime:'not-a-date'})},
+  {created_at:new Date(now+60000).toISOString()}
+ ]){
+  const correction={...model,id:8,created_at:new Date(now-45000).toISOString(),...invalid};
+  for(const models of [[model,correction],[correction,model]]){
+   const r=review(models);
+   assert.equal(r.candidateCount,0,JSON.stringify(invalid));
+   assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,1);
+  }
+ }
+});
+
+test('the current model must have its own post-forecast quote evidence',()=>{
+ const correction={...model,id:8,created_at:new Date(now-15000).toISOString()};
+ for(const models of [[model,correction],[correction,model]]){
+  const r=review(models);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,1);
+  assert.equal(r.rejectionReasons.NO_POST_FORECAST_EXACT_QUOTES,1);
+ }
+});
+
+test('timestamp-tied model revisions follow the latest trustworthy stored ID',()=>{
+ const correction={...model,id:8,model_probability:.30};
+ for(const models of [[model,correction],[correction,model]]){
+  const r=review(models);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,1);
+ }
+ const favorable={...correction,id:9,model_probability:.55};
+ const r=review([favorable,model,correction]);
+ assert.equal(r.candidateCount,1);
+ assert.equal(r.candidates[0].modelRunId,9);
+ assert.equal(r.candidates[0].modelProbability,.55);
+ assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,2);
+});
+
+test('ambiguous model timestamps and conflicting copies fail closed while identical repeats count once',()=>{
+ for(const id of [model.id,null,'8',1.5]){
+  const correction={...model,id,model_probability:.30};
+  for(const models of [[model,correction],[correction,model]]){
+   const r=review(models);
+   assert.equal(r.candidateCount,0);
+   assert.equal(r.rejectionReasons.CONFLICTING_LATEST_MODEL_RUNS,1);
+  }
+ }
+ const invalidTime={...model,id:8,created_at:'not-a-date'};
+ for(const models of [[model,invalidTime],[invalidTime,model]]){
+  const r=review(models);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.AMBIGUOUS_MODEL_RUN_RECENCY,1);
+ }
+ assert.equal(review([model,{...model}]).candidateCount,1);
+});
+
+test('model supersession keeps versions, sports, currencies, settlements, selections and outcomes separate',()=>{
+ for(const changes of [
+  {model_version:'model-v2'},{event_id:'nba:event-2'},{selection_key:'Away'},
+  {feature_snapshot:JSON.stringify({...feature,sport:'NFL'})},
+  {feature_snapshot:JSON.stringify({...feature,currency:'CAD'})},
+  {feature_snapshot:JSON.stringify({...feature,settlementKey:'NBA_REGULATION_ONLY'})},
+  {feature_snapshot:JSON.stringify({...feature,outcomes:['Home','Draw','Away']})}
+ ]){
+  const other={...model,id:8,model_probability:.30,created_at:new Date(now-45000).toISOString(),...changes};
+  for(const models of [[model,other],[other,model]]){
+   const r=review(models);
+   assert.equal(r.candidateCount,1,JSON.stringify(changes));
+   assert.equal(r.candidates[0].modelRunId,model.id);
+   assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,undefined);
+  }
+ }
+});
+
+test('different player prop lines, periods, players and statistics cannot supersede one another',()=>{
+ const propFeature={...feature,settlementKey:'NBA_PLAYER_POINTS_FULL_GAME',outcomes:['Over','Under'],
+  lineKey:'24.5',periodKey:'FULL',playerId:'p1',statKey:'points'};
+ const propModel={...model,market_key:'player_points',selection_key:'Over',feature_snapshot:JSON.stringify(propFeature)};
+ const quotes=['DraftKings','FanDuel'].map((book,i)=>quote(book,'owner'+i,120,{
+  marketKey:'player_points',selection:'Over',settlementKey:propFeature.settlementKey,
+  outcomes:propFeature.outcomes,lineKey:propFeature.lineKey,periodKey:propFeature.periodKey,
+  playerId:propFeature.playerId,statKey:propFeature.statKey
+ }));
+ for(const change of [{lineKey:'25.5'},{periodKey:'FIRST_HALF'},{playerId:'p2'},{statKey:'assists'}]){
+  const other={...propModel,id:8,model_probability:.30,created_at:new Date(now-45000).toISOString(),
+   feature_snapshot:JSON.stringify({...propFeature,...change})};
+  for(const models of [[propModel,other],[other,propModel]]){
+   const r=review(models,[{...calibration,market_key:'player_points'}],quotes);
+   assert.equal(r.candidateCount,1,JSON.stringify(change));
+   assert.equal(r.candidates[0].modelRunId,propModel.id);
+   assert.equal(r.rejectionReasons.SUPERSEDED_MODEL_RUN,undefined);
+  }
+ }
+});
+
+test('a newer unidentified contract blocks the affected model family until a later identified revision exists',()=>{
+ const malformed={...model,id:8,created_at:new Date(now-45000).toISOString(),feature_snapshot:'not-json'};
+ for(const models of [[model,malformed],[malformed,model]]){
+  const r=review(models);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.MODEL_CONTRACT_REVISION_UNVERIFIED,1);
+  assert.equal(r.rejectionReasons.INVALID_FEATURE_SNAPSHOT,1);
+ }
+ const recovered={...model,id:9,created_at:new Date(now-40000).toISOString()};
+ const r=review([model,malformed,recovered]);
+ assert.equal(r.candidateCount,1);
+ assert.equal(r.candidates[0].modelRunId,recovered.id);
+});
+
+test('a malformed revision with explicit different contract dimensions cannot suppress unrelated evidence',()=>{
+ for(const changed of [{sport:'NFL'},{currency:'CAD'},{settlementKey:'NBA_REGULATION_ONLY'},
+  {outcomes:['Home','Draw','Away']}]){
+  const partial={...feature,playerId:'',...changed};
+  // Keep the changed dimension intact while invalidating another required identity dimension.
+  if(changed.sport)delete partial.currency;else delete partial.sport;
+  const other={...model,id:8,created_at:new Date(now-45000).toISOString(),feature_snapshot:JSON.stringify(partial)};
+  const r=review([other,model]);
+  assert.equal(r.candidateCount,1,JSON.stringify(changed));
+  assert.equal(r.candidates[0].modelRunId,model.id);
+  assert.equal(r.rejectionReasons.MODEL_CONTRACT_REVISION_UNVERIFIED,undefined);
+ }
+});
+
+test('malformed supplied model axes cannot split revision identity then disappear during screening',()=>{
+ for(const [axis,value] of [['periodKey',42],['lineKey',{}],['playerId',[]],['statKey','  ']]){
+  for(const model_probability of [.30,.55]){
+   const correction={...model,id:8,model_probability,created_at:new Date(now-45000).toISOString(),
+    feature_snapshot:JSON.stringify({...feature,[axis]:value})};
+   for(const models of [[model,correction],[correction,model]]){
+    const r=review(models);
+    assert.equal(r.candidateCount,0,`${axis} at probability ${model_probability}`);
+    assert.equal(r.rejectionReasons.MODEL_CONTRACT_REVISION_UNVERIFIED,1);
+    assert.equal(r.rejectionReasons.MODEL_MARKET_CONTRACT_INCOMPLETE,1);
+   }
+   assert.equal(review([correction]).candidateCount,0,`${axis} cannot qualify alone`);
+  }
+ }
+ // Omitted axes and their valid straight-market defaults still identify one contract.
+ const correction={...model,id:8,model_probability:.30,created_at:new Date(now-45000).toISOString(),
+  feature_snapshot:JSON.stringify({...feature,lineKey:'STRAIGHT',periodKey:'FULL'})};
+ assert.equal(review([model]).candidateCount,1);
+ assert.equal(review([model,correction]).candidateCount,0);
+ assert.equal(review([model,correction]).rejectionReasons.SUPERSEDED_MODEL_RUN,1);
+});

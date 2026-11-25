@@ -37,21 +37,47 @@ export function scanArbitrage(quotes,{now=Date.now(),maxAgeMs=1200000,maxMarkets
   const checked=validatedQuote(raw,{now,maxAgeMs});
   if(!checked.ok){rejected.push(checked.reason);continue;}
   const q=checked.quote;
-  // Different settlement rules, venue products, line points or currencies MUST NOT be combined.
-  const key=JSON.stringify([q.marketIdentity,q.currency,q.venueType,q.outcomeSetType,[...q.outcomes].sort()]);
+  // Different sports, settlement rules, venue products, sides, lines or currencies MUST NOT be combined.
+  const key=JSON.stringify([q.marketIdentity,q.sport??null,q.currency,q.venueType,q.side,q.outcomeSetType,[...q.outcomes].sort()]);
   if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);
  }
  const opportunities=[],blocked=[];
- for(const [key,group] of [...groups].slice(0,maxMarkets)){
-  const required=group[0].outcomes;
+ const bookIdentity=q=>q.bookmaker.trim().toLowerCase();
+ const provenanceOrder=(a,b)=>JSON.stringify([bookIdentity(a),a.bookmaker,a.providerId,a.upstreamId])
+  .localeCompare(JSON.stringify([bookIdentity(b),b.bookmaker,b.providerId,b.upstreamId]));
+ for(const [,group] of [...groups].sort(([a],[b])=>a.localeCompare(b)).slice(0,maxMarkets)){
+  const required=[...group[0].outcomes].sort();
+  const latestByBookSelection=new Map();
+  for(const q of group){
+   const key=JSON.stringify([bookIdentity(q),q.selection]);
+   const previous=latestByBookSelection.get(key);
+   if(!previous||q.observedAt>previous[0].observedAt)latestByBookSelection.set(key,[q]);
+   else if(q.observedAt===previous[0].observedAt)previous.push(q);
+  }
+  const current=[];
+  for(const [,latest] of [...latestByBookSelection].sort(([a],[b])=>a.localeCompare(b))){
+   const representative=[...latest].sort(provenanceOrder)[0];
+   // An old favorable price cannot replace a newer observation. If equally
+   // current observations disagree, exclude this book/selection, not the other
+   // unambiguous books in the same contract. Identical duplicates remain valid.
+   if(latest.some(q=>q.odds!==representative.odds)){
+    blocked.push({eventId:representative.eventId,marketKey:representative.marketKey,
+     marketIdentity:representative.marketIdentity,sport:representative.sport??null,
+     currency:representative.currency,venueType:representative.venueType,side:representative.side,
+     bookmaker:bookIdentity(representative),selection:representative.selection,
+     observedAt:representative.observedAt,reason:'CONFLICTING_LATEST_BOOKMAKER_QUOTES'});
+    continue;
+   }
+   current.push(representative);
+  }
   const top=[];
   for(const selection of required){
-   const best=group.filter(q=>q.selection===selection)
-    .sort((a,b)=>b.decimalOdds-a.decimalOdds||b.observedAt-a.observedAt)[0];
+   const best=current.filter(q=>q.selection===selection)
+    .sort((a,b)=>b.decimalOdds-a.decimalOdds||b.observedAt-a.observedAt||provenanceOrder(a,b))[0];
    if(best)top.push(best);
   }
   if(top.length!==required.length){blocked.push({marketKey:group[0].marketKey,reason:'INCOMPLETE_OUTCOME_COVERAGE'});continue;}
-  if(new Set(top.map(q=>q.bookmaker)).size<2){blocked.push({marketKey:group[0].marketKey,reason:'ONE_VENUE_NOT_ARBITRAGE'});continue;}
+  if(new Set(top.map(bookIdentity)).size<2){blocked.push({marketKey:group[0].marketKey,reason:'ONE_VENUE_NOT_ARBITRAGE'});continue;}
   const inverseSum=top.reduce((sum,q)=>sum+1/q.decimalOdds,0);
   if(inverseSum>=1)continue;
   const stakes=top.map(q=>({selection:q.selection,bookmaker:q.bookmaker,upstreamId:q.upstreamId,

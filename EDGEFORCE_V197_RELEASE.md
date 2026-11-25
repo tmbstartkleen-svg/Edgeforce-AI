@@ -6,7 +6,7 @@ V197 corrects cases where the research interfaces could display stronger or more
 
 - Today and Next 7 days use explicit America/New_York calendar boundaries and exclude events that have already started. Provider bucket labels cannot override the event timestamp.
 - AM/PM uses the same time zone. An invalid event time is not classified as PM.
-- Meeting board filters requires explicit qualification metadata, finite simulation and confidence values, valid American odds and current source age. Context must be ready when supplied. A grade label alone is insufficient.
+- Meeting board filters requires explicit qualification metadata, finite simulation and confidence values, valid American odds and a valid provider timestamp. Source age is the more conservative of the absolute provider age and the reported age advanced from the response snapshot; cached responses cannot reset it. Missing, invalid or future provider timestamps stay unverified. Context must be ready when supplied. A grade label alone is insufficient.
 - Fractional expected return is converted to a percentage consistently, including values greater than 100%.
 - Loading, failed and missing snapshots remain unavailable. Superseded requests cannot restore stale data after a later request or component cleanup.
 - The cockpit describes its returned snapshot limit; it does not imply complete league or market coverage. Refresh remains manual after the initial load.
@@ -16,12 +16,21 @@ V197 corrects cases where the research interfaces could display stronger or more
 - D1 calibration metrics must be finite numbers. Nulls, blanks, booleans, arrays and numeric strings cannot turn into perfect scores of zero.
 - Calibration must match the model version, market and explicit sport. Its measurement period must end by the calibration record's creation, which must precede the forecast.
 - Both model and quote schedules must still be upcoming. Pregame observations expire for this review when the event begins, even inside the quote freshness window.
+- A newer forecast for the same model version and exact market contract supersedes older forecasts before evidence checks. An unfavorable correction or a newer run without sufficient evidence cannot leave an older favorable candidate on the current review board. Different model versions and exact prop identities remain separate.
+- Revision ties use stored timestamps and valid D1 IDs. Ambiguous chronology, conflicting copies and malformed newer identity fields withhold affected candidates instead of depending on row order; identical repeated records count once.
 - Conflicting latest target-book prices at the same timestamp produce `CONFLICTING_LATEST_TARGET_QUOTES`. Price-derived metrics remain unavailable until an unambiguous latest quote exists. Identical duplicate prices remain valid.
+- The arbitrage scanner also uses only the latest observations for each exact bookmaker, outcome and contract. Replaced prices cannot combine with current opposing prices to create phantom returns. Conflicting latest prices exclude that bookmaker/outcome and remain visible in the blocked evidence; other unambiguous venues can still be reviewed.
 - Validation IDs and grades are labeled as model-supplied assertions. The response explicitly reports `validationEvidenceIndependentlyVerified: false`; this release does not join independently authenticated validation records.
 
 ## Verification and release
 
-The existing mandatory typecheck, research-pipeline and D1 review suites cover the changes. Regression cases include missing calibration scores, score thresholds, calibration chronology and sport mismatch, event-start boundaries, order-independent quote conflicts, duplicate observations, exact prop identity, calendar boundaries, qualification metadata and request invalidation.
+The existing mandatory typecheck, research-pipeline and D1 review suites cover the changes. Regression cases include missing calibration scores, score thresholds, calibration chronology and sport mismatch, forecast supersession, event-start boundaries, order-independent quote conflicts, replaced-price arbitrage, duplicate observations, exact prop identity, calendar boundaries, delayed and cached source ages, qualification metadata and request invalidation.
+
+The Odds API provider metadata now identifies the aggregator by its own name; it cannot label an otherwise unidentified quote as DraftKings. Explicit bookmaker identity still comes from the returned quote. Odds API 2 rejects invalid freshness-duration configuration by retaining the 20-minute default instead of allowing `NaN` or infinity to disable stale-quote rejection; valid overrides retain the one-minute minimum.
+
+Coverage, archive authorization, source timestamp, freshness and bookmaker-provenance checks now also run as a named mandatory CI step. The release repairs the coverage/normalization test dependency loaders and the disabled-source archive fixture. Source-time and freshness tests exercise the actual parser with an isolated clock and no provider requests, rather than depending on source formatting.
+
+Local verification completed all 47 commands in the `verify` script, with a temporary local production server for smoke and load checks. The typecheck regression suite passed 607 tests; the D1 edge review passed 36, research cockpit 13, coverage 27, archive 8, and Odds API 2 timestamp/freshness suites 12. The production build, migration check, release audit, smoke and 60-request load check passed. Lint reported no errors and 20 existing warnings. These are code and fixture results, not live betting-performance evidence.
 
 The deployment authority documentation now matches the existing automatic main-branch workflow and its exact-commit verification gates. Production deployment, credentials, schemas, collection schedules and provider budgets are unchanged. V197 is a feature milestone; the runtime version remains 119.0.0 / edgeforce-v119.
 
