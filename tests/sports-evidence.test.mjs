@@ -7,6 +7,7 @@ import * as crypto from 'node:crypto';
 import * as core from '../src/lib/intelligence-core/sports-evidence.mjs';
 import * as engine from '../src/lib/intelligence-core/market-opportunity-engine.mjs';
 import * as identity from '../src/lib/intelligence-core/market-identity-and-movement.mjs';
+import * as edgeJoin from '../src/lib/intelligence-core/d1-verified-edge-join.mjs';
 const now=Date.parse('2026-10-25T12:00:00Z');
 const input={source_id:'network',upstream_id:'origin',event_id:'event-1',payload_hash:'b'.repeat(64),observed_at:new Date(now-1000).toISOString()};
 const quote={source_event_id:'event-1',market_key:'moneyline',selection_key:'home',payload_sha256:'a'.repeat(64)};
@@ -41,7 +42,7 @@ function load(path,dependencies={}){
  vm.runInNewContext(code,{exports,require:name=>{if(!(name in dependencies))throw Error(name);return dependencies[name]},Response,Request,Date,Map,Set,URL});return exports;
 }
 const registry=load('src/lib/sportRegistry.ts');
-const normalizer=load('worker/d1-sportsbook-opportunity-review.ts',{'../src/lib/intelligence-core/market-opportunity-engine.mjs':engine,'../src/lib/intelligence-core/market-identity-and-movement.mjs':identity});
+const normalizer=load('worker/d1-sportsbook-opportunity-review.ts',{'../src/lib/intelligence-core/market-opportunity-engine.mjs':engine,'../src/lib/intelligence-core/market-identity-and-movement.mjs':identity,'../src/lib/intelligence-core/d1-verified-edge-join.mjs':edgeJoin});
 const {d1SportsEvidence}=load('worker/d1-sports-evidence.ts',{'node:crypto':crypto,'../src/lib/sportRegistry':registry,'./d1-sportsbook-opportunity-review':normalizer,'../src/lib/intelligence-core/sports-evidence.mjs':core});
 const token='test-operator-token-32-characters';
 test('authentication precedes all reads from both stores',async()=>{
