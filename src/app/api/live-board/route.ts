@@ -53,15 +53,19 @@ async function withTimeout<T>(promise:Promise<T>,timeoutMs:number,label:string):
   }
 }
 
-async function cachedOdds(force=false){
+async function cachedOdds(force:boolean,onIngestion:(result:Awaited<ReturnType<typeof ingestOdds>>)=>void){
   const now=Date.now();
-  if(!force&&oddsCache&&now-oddsCache.at<SOURCE_TTL_MS)return oddsCache.value;
+  if(!force&&oddsCache&&now-oddsCache.at<SOURCE_TTL_MS){
+    onIngestion(oddsCache.value.ingestion);
+    return oddsCache.value;
+  }
 
   const ingestion=await withTimeout(
     ingestOdds({forceLive:force}),
     Math.max(5000,Number(process.env.LIVE_BOARD_INGEST_TIMEOUT_MS||14000)),
     'odds ingestion'
   );
+  onIngestion(ingestion);
 
   let context:Awaited<ReturnType<typeof enrichMarketsWithContext>>;
   try{
@@ -124,10 +128,11 @@ export async function GET(req:Request){
     return Response.json({ok:false,error:'unauthorized forced refresh'},{status:401});
   }
 
+  let acquired:Awaited<ReturnType<typeof ingestOdds>>|undefined;
   let coreFailure:LiveBoardCoreStatus={ok:false,code:'CORE_FAILED',error:'The model-data pipeline failed. Independent source observations remain available when current.'};
   const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores,fanduelPulse]=await Promise.all([
     withTimeout(
-      cachedOdds(forceRefresh),
+      cachedOdds(forceRefresh,result=>{acquired=result}),
       Math.max(12000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||24000)),
       'live-board odds/context pipeline'
     ).catch(error=>{
@@ -152,8 +157,8 @@ export async function GET(req:Request){
     await withTimeout(recordPerformance('/api/live-board',Date.now()-started,503,coreStatus.code),1000,'performance logging').catch(()=>undefined);
     return Response.json(unavailableLiveBoard({view,limit,risk,coreStatus,
       liveScores,fanduelPulse,predictions,ledgerHistory,
-      referenceOdds:cached?buildObservedOddsSnapshot(cached.ingestion.referenceMarkets||[]):undefined,
-      providerAttempts:cached?.ingestion.attempts}),{
+      referenceOdds:acquired?buildObservedOddsSnapshot(acquired.referenceMarkets||[]):undefined,
+      providerAttempts:acquired?.attempts,priceReview:acquired?.priceReview}),{
       status:503,
       headers:{'Cache-Control':'no-store, max-age=0'}
     });
@@ -263,6 +268,7 @@ export async function GET(req:Request){
     providerDegraded:ingestion.degraded,
     providerQuality:ingestion.quality||null,
     providerAttempts:ingestion.attempts,
+    priceReview:ingestion.priceReview,
     targetBook:ingestion.targetBook,
     providerPanel:ingestion.providerPanel,
     consensusCoverage,

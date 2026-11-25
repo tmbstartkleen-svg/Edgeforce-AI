@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
-import {setTimeout as delay} from 'node:timers/promises';
 import {loadProvider} from './helpers/load-provider.mjs';
 
 const registrySource=readFileSync(new URL('../src/lib/sportRegistry.ts',import.meta.url),'utf8');
@@ -259,20 +258,22 @@ test('score acquisition coalesces callers and retains completed observations thr
   if(url.includes('/football/nfl/scoreboard'))return new Promise((_,reject)=>{rejectLate=reject});
   throw new Error('Unexpected request '+url);
  };
+ t.mock.timers.enable({apis:['Date','setTimeout'],now:Date.now()});
  const started=Date.now(),first=api.fetchLiveScoreMesh({deadlineMs:80});
  const concurrent=api.fetchLiveScoreMesh({deadlineMs:80});
  assert.equal(first,concurrent,'one acquisition promise is shared by concurrent callers');
- await delay(10);
+ await new Promise(resolve=>setImmediate(resolve));
  const progress=api.readCachedLiveScoreMesh();
  assert.equal(progress.observedOdds.referenceCount,6,'successful league is readable before another league finishes');
  const originalTime=progress.observedOdds.referenceQuotes[0].quoteObservedAt;
+ t.mock.timers.tick(80);
  const result=await first;
- assert.ok(Date.now()-started<600,'deadline bounds even a transport that ignores abort');
+ assert.equal(Date.now()-started,80,'deadline bounds even a transport that ignores abort');
  assert.equal(calls.length,4);
  assert.equal(result.observedOdds.referenceCount,6);
  assert.equal(result.collection.deadlineReached,true);
  assert.equal(result.collection.sources.find(source=>source.label==='NFL').status,'FAILED');
- rejectLate(new Error('late transport failure'));await delay(0);
+ rejectLate(new Error('late transport failure'));await new Promise(resolve=>setImmediate(resolve));
  const retained=api.readCachedLiveScoreMesh();
  assert.equal(retained.observedOdds.referenceCount,6);
  assert.equal(retained.observedOdds.referenceQuotes[0].quoteObservedAt,originalTime);
@@ -280,22 +281,27 @@ test('score acquisition coalesces callers and retains completed observations thr
 });
 
 test('slow optional backups cannot discard completed scoreboards and cached reads expire reference observations',async t=>{
- const savedFetch=globalThis.fetch,SavedDate=Date;t.after(()=>{globalThis.fetch=savedFetch;globalThis.Date=SavedDate});
+ const savedFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=savedFetch});
+ t.mock.timers.enable({apis:['Date','setTimeout'],now:Date.now()});
  let calls=0;
+ const backupStarted=Promise.withResolvers();
  const api=acquisitionRuntime(['nba'],{
-  './providers/communityScoreBackups':{fetchCommunityScoreBackups:()=>new Promise(()=>{})}
+  './providers/communityScoreBackups':{fetchCommunityScoreBackups:()=>{
+   backupStarted.resolve();
+   return new Promise(()=>{});
+  }}
  });
  globalThis.fetch=async url=>{calls++;return nativeResponse(String(url))||response(futureScoreboard())};
- const result=await api.fetchLiveScoreMesh({deadlineMs:60});
+ const pending=api.fetchLiveScoreMesh({deadlineMs:60});
+ await backupStarted.promise;
+ t.mock.timers.tick(60);
+ const result=await pending;
  assert.equal(result.observedOdds.referenceCount,6);
  assert.equal(calls,3,'only existing primary requests are made');
  assert.ok(result.warnings.some(warning=>warning.includes('Community score backup')));
  const originalTime=result.observedOdds.referenceQuotes[0].quoteObservedAt;
- const future=SavedDate.parse(originalTime)+300001;
- globalThis.Date=class extends SavedDate{
-  constructor(...args){super(...(args.length?args:[future]))}
-  static now(){return future}
- };
+ const future=Date.parse(originalTime)+300001;
+ t.mock.timers.tick(future-Date.now());
  assert.equal(api.readCachedLiveScoreMesh().observedOdds.referenceCount,0);
  assert.equal(calls,3,'the cache reader does not initiate refreshes');
 });

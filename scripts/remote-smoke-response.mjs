@@ -66,3 +66,37 @@ export function validateLiveBoardContinuity(json,status){
   generatedAt:json.generatedAt,observedOdds:validateObservedOddsSnapshot(json.observedOdds),
   collection:json.liveScores?.collection??null};
 }
+
+export function validateSportsbookPriceReview(review){
+ const counts=['approvedFeeds','respondedFeeds','rowsExamined','eligibleBookMarkets','corroboratedMarkets','omittedMarkets'];
+ if(review?.schema!=='edgeforce-sportsbook-price-review-v1'||review.recommendationsAuthorized!==false||
+  !counts.every(key=>Number.isSafeInteger(review[key])&&review[key]>=0)||
+  !['NO_APPROVED_FEEDS','APPROVED_FEEDS_UNAVAILABLE','NO_ELIGIBLE_MARKETS','NO_INDEPENDENT_MATCH','CORROBORATED'].includes(review.status)||
+  review.respondedFeeds>review.approvedFeeds||!Array.isArray(review.markets)||review.markets.length>100||
+  review.markets.length+review.omittedMarkets!==review.corroboratedMarkets||
+  (review.status==='CORROBORATED')!==(review.corroboratedMarkets>0)){
+  throw new Error('independent sportsbook price review contract mismatch');
+ }
+ const allowedMarketKeys=new Set(['id','sport','league','home','away','startTime','market','settlementKey','line','currency','expiresAt','sources']);
+ const allowedSourceKeys=new Set(['bookmaker','providerId','sourceEventId','sourceUpdatedAt','expiresAt','quotes']);
+ for(const row of review.markets){
+  if(!row||Object.keys(row).some(key=>!allowedMarketKeys.has(key))||
+   !Array.isArray(row.sources)||row.sources.length<2||
+   new Set(row.sources.map(source=>source.providerId)).size<2||
+   new Set(row.sources.map(source=>source.bookmaker)).size<2||
+   !Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)>Date.parse(row.startTime)){
+   throw new Error('price review market escaped its evidence boundary');
+  }
+  for(const source of row.sources){
+   if(Object.keys(source).some(key=>!allowedSourceKeys.has(key))||!source.providerId||!source.bookmaker||!source.sourceEventId||
+    !Number.isFinite(Date.parse(source.sourceUpdatedAt))||!Number.isFinite(Date.parse(source.expiresAt))||
+    !Array.isArray(source.quotes)||![2,3].includes(source.quotes.length)||source.quotes.some(quote=>
+     !quote?.selection||!Number.isSafeInteger(quote.americanOdds)||Math.abs(quote.americanOdds)<100||
+     Object.keys(quote).some(key=>!['selection','americanOdds'].includes(key)))){
+    throw new Error('price review quote escaped its evidence boundary');
+   }
+  }
+ }
+ return {status:review.status,approvedFeeds:review.approvedFeeds,respondedFeeds:review.respondedFeeds,
+  corroboratedMarkets:review.corroboratedMarkets,recommendationsAuthorized:false};
+}

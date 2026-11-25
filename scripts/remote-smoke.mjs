@@ -1,5 +1,5 @@
 import {setTimeout as delay} from 'node:timers/promises';
-import {parseSmokeJson,shouldRetryDegradedHttp,validateObservedOddsSnapshot,validateLiveBoardContinuity} from './remote-smoke-response.mjs';
+import {parseSmokeJson,shouldRetryDegradedHttp,validateObservedOddsSnapshot,validateLiveBoardContinuity,validateSportsbookPriceReview} from './remote-smoke-response.mjs';
 import {createSmokeFetch} from './smoke-transport.mjs';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'119.0.0';
@@ -177,6 +177,8 @@ for(const path of paths){
  if(path===liveBoardPath){
   const json=parseSmokeJson(path,res.status,body);
   liveBoardEvidence=validateLiveBoardContinuity(json,res.status);
+  if(!Object.hasOwn(json,'priceReview')||(res.status===200&&json.priceReview===null))throw new Error('live board did not expose independent price review');
+  liveBoardEvidence.priceReview=json.priceReview===null?null:validateSportsbookPriceReview(json.priceReview);
   if(!json.coreStatus.ok)result.degraded={code:json.coreStatus.code,schemaVersion:json.schema};
  }
 }

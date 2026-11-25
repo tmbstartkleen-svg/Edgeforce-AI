@@ -25,7 +25,7 @@ export type ProviderConfig={
 export type ProviderFailureKind=
  'CONFIGURATION'|'DEADLINE'|'TIMEOUT'|'NETWORK'|'HTTP'|'AUTH'|'RATE_LIMITED'|'QUOTA_EXHAUSTED'|
  'REDIRECT_BLOCKED'|'INVALID_JSON'|'INVALID_PAYLOAD'|'BODY_READ_FAILED'|'BODY_TOO_LARGE'|
- 'QUOTA_UNVERIFIED'|'CREDIT_RESERVE'|'NO_MARKETS'|'CACHE_STALE';
+ 'QUOTA_UNVERIFIED'|'CREDIT_RESERVE'|'CREDIT_PAUSED'|'NO_MARKETS'|'CACHE_STALE';
 
 /** Redacted observation evidence. httpStatus exists only when an HTTP response was received. */
 export type ProviderRequestDiagnostic={

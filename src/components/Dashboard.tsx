@@ -8,6 +8,7 @@ import {evaluatePulseEvidence} from '@/lib/pulseEvidence';
 import type {ObservedOddsSnapshot} from '@/lib/observedOdds';
 import type {FanDuelOddsPulse} from '@/lib/providers/fanLineWire';
 import type {LiveBoardCoreStatus} from '@/lib/liveBoardContinuity';
+import type {PriceReview} from '@/lib/providers/priceReview';
 import ObservedOddsPanel,{acceptsLiveBoardResponse,currentBoardRows,hasCurrentBoardSnapshot,type ObservedProviderAttempt,type ObservedSourceCollection} from './ObservedOddsPanel';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
@@ -143,6 +144,7 @@ type LiveScoreGame={
 };
 
 type LiveBoardResponse={
+  priceReview?:PriceReview|null;
   schema?:'edgeforce-live-board-v199';
   coreStatus?:LiveBoardCoreStatus;
   generatedAt:string;
@@ -1060,7 +1062,7 @@ export default function Dashboard(){
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
 
     <ObservedOddsPanel observedOdds={boardSnapshot.observedOdds} pulse={boardSnapshot.fanduelPulse}
-      providerAttempts={boardSnapshot.providerAttempts} now={evidenceNow}
+      providerAttempts={boardSnapshot.providerAttempts} priceReview={boardSnapshot.priceReview} now={evidenceNow}
       coreStatus={boardSnapshot.coreStatus} collection={boardSnapshot.liveScores?.collection}
       stale={!observationResponseCurrent&&!boardLoading} loading={boardLoading}/>
 

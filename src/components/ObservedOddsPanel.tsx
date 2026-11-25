@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {evaluatePulseEvidence,isPulseAmericanPrice} from '@/lib/pulseEvidence';
 import {OBSERVED_ODDS_MAX_AGE_MS,type ObservedOddsSnapshot} from '@/lib/observedOdds';
 import {researchSourceAge,type ResearchRow} from '@/lib/dailyWeeklyResearch';
+import type {PriceReview} from '@/lib/providers/priceReview';
 import type {LiveBoardCoreStatus} from '@/lib/liveBoardContinuity';
 import type {ProviderDiagnostics,ProviderFailureKind,ProviderRequestDiagnostic} from '@/lib/providers/types';
 
@@ -11,7 +12,7 @@ export type ObservedProviderAttempt={providerId:string;ok:boolean;skipped?:boole
 export type ObservedSourceCollection={partial:boolean;deadlineReached:boolean;deadlineMs:number;concurrency:number;
  sources:Array<{id:string;label:string;status:'FETCHED'|'CACHED'|'FAILED'|'DEFERRED';gameCount:number;referenceCount:number;observedAt?:string;error?:string}>};
 type Props={observedOdds?:ObservedOddsSnapshot;pulse?:unknown;providerAttempts?:ObservedProviderAttempt[];
- coreStatus?:LiveBoardCoreStatus;collection?:ObservedSourceCollection;now:number;stale:boolean;loading:boolean};
+ priceReview?:PriceReview|null;coreStatus?:LiveBoardCoreStatus;collection?:ObservedSourceCollection;now:number;stale:boolean;loading:boolean};
 const timestamp=(value:unknown)=>typeof value==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)?Date.parse(value):NaN;
 const easternTime=new Intl.DateTimeFormat('en-US',{
  timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'
@@ -30,7 +31,7 @@ const failureLabels:Record<ProviderFailureKind,string>={
  NETWORK:'Network request failed',HTTP:'Provider HTTP error',AUTH:'Provider authorization failed',RATE_LIMITED:'Provider rate limit reached',
  QUOTA_EXHAUSTED:'Provider quota exhausted',REDIRECT_BLOCKED:'Provider redirect blocked',INVALID_JSON:'Provider response could not be decoded',
  INVALID_PAYLOAD:'Provider response failed validation',BODY_READ_FAILED:'Provider response body could not be read',BODY_TOO_LARGE:'Provider response exceeded the size limit',
- QUOTA_UNVERIFIED:'Remaining provider credits are unverified',CREDIT_RESERVE:'Configured credit reserve protected',NO_MARKETS:'No odds markets returned',CACHE_STALE:'Cached provider result expired'
+ QUOTA_UNVERIFIED:'Remaining provider credits are unverified',CREDIT_RESERVE:'Configured credit reserve protected',CREDIT_PAUSED:'Paid odds requests are paused',NO_MARKETS:'No odds markets returned',CACHE_STALE:'Cached provider result expired'
 };
 
 export function providerDiagnosticSummary(diagnostics:ProviderDiagnostics|undefined,now:number):string[]{
@@ -126,7 +127,49 @@ export function referenceOddsView(observedOdds:ObservedOddsSnapshot|undefined,no
   matchingSuppliedCount:matchingSupplied.length,matchingCount:matching.length,quotes:matching.slice(0,limit)};
 }
 
-export default function ObservedOddsPanel({observedOdds,pulse,providerAttempts=[],coreStatus,collection,now,stale,loading}:Props){
+const priceReviewStatus:Record<PriceReview['status'], string>={
+ NO_APPROVED_FEEDS:'No approved sportsbook feeds are configured.',
+ APPROVED_FEEDS_UNAVAILABLE:'The approved sportsbook feeds did not respond successfully.',
+ NO_ELIGIBLE_MARKETS:'The responding feeds supplied no complete, current book markets.',
+ NO_INDEPENDENT_MATCH:'No complete market matched across independently sourced sportsbooks.',
+ CORROBORATED:'Matching sportsbook prices are available for review.'
+};
+
+function SportsbookPriceReview({review,now}:{review:PriceReview|null;now:number}){
+ if(!review)return <p className="historyNote">Independent sportsbook price review is temporarily unavailable.</p>;
+ const markets=review.markets.filter(market=>timestamp(market.expiresAt)>now);
+ const expired=review.markets.length-markets.length;
+ return <details className="historyBox" open>
+  <summary>Independent sportsbook price review · {markets.length} current markets shown</summary>
+  <p className="historyNote" role="status">{review.status==='CORROBORATED'&&!markets.length
+   ?'The returned matched prices have expired.' : priceReviewStatus[review.status]}</p>
+  <p className="historyNote">{review.respondedFeeds} of {review.approvedFeeds} approved feeds responded.
+   {' '}{review.eligibleBookMarkets} complete book markets and {review.corroboratedMarkets} matching markets at collection.
+   {review.omittedMarkets>0&&` ${review.omittedMarkets} omitted by the display limit.`}
+   {expired>0&&` ${expired} returned markets have expired.`}
+   {review.inputTruncated&&' A feed exceeded the input limit and was withheld.'}</p>
+  {markets.length>0&&<>
+   <p className="historyNote">Matched prices are for pregame review. Model probability, expected value and stakes require separate evidence.</p>
+   <div className="tableWrap"><table aria-label="Independently corroborated sportsbook prices">
+    <thead><tr><th scope="col">Event · Eastern</th><th scope="col">Market</th><th scope="col">Book / price</th><th scope="col">Book update · Eastern</th></tr></thead>
+    <tbody>{markets.flatMap(market=>market.sources.map(source=><tr key={JSON.stringify([market.id,source.providerId,source.bookmaker])}>
+     <td>{market.away} at {market.home}<small>{market.league} · {time(market.startTime)}</small></td>
+     <td>{market.market}{market.line!==null&&` ${market.line}`}<small>{market.settlementKey}</small></td>
+     <td>{source.bookmaker}{source.quotes.map(quote=><small key={quote.selection}>{quote.selection} · {odds(quote.americanOdds)}</small>)}</td>
+     <td>{time(source.sourceUpdatedAt)}<small>{source.providerId} · {source.sourceEventId}</small></td>
+    </tr>))}</tbody>
+   </table></div>
+  </>}
+  {Object.keys(review.rejections).length>0&&<details className="historyBox">
+   <summary>Why prices were withheld</summary>
+   {Object.entries(review.rejections).map(([reason,total])=><div className="historyRow" key={reason}>
+    <span>{reason.toLowerCase().replaceAll('_',' ')}</span><b>{total}</b>
+   </div>)}
+  </details>}
+ </details>;
+}
+
+export default function ObservedOddsPanel({observedOdds,pulse,providerAttempts=[],priceReview,coreStatus,collection,now,stale,loading}:Props){
  const [sport,setSport]=useState(''),[market,setMarket]=useState(''),[visibleCount,setVisibleCount]=useState(25);
  const {current,sports,markets,sportCoverage,suppliedCount,expiredCount,startedCount,unverifiedCount,matchingSuppliedCount,matchingCount,quotes}=referenceOddsView(observedOdds,now,{sport,market,limit:visibleCount});
  const pulseEvidence=evaluatePulseEvidence(pulse,now);
@@ -151,6 +194,7 @@ export default function ObservedOddsPanel({observedOdds,pulse,providerAttempts=[
    {coreStatus.code==='NO_ELIGIBLE_MARKETS'?'No eligible model markets were returned.':'The model board is unavailable.'} Current observations remain available for reference; model action controls are unavailable.
    {coreStatus.error&&<small> {coreStatus.error}</small>}
   </p>}
+  {priceReview!==undefined&&<SportsbookPriceReview review={priceReview} now={now}/>}
   <p className="historyNote">Reference prices are observations from the named source. An observation time records when the feed was read; it does not establish when the bookmaker last changed the price. All times below use Eastern Time.</p>
   {!loading&&<div className="historyNote">
    <div>{current.length} current of {suppliedCount} returned quotes. {expiredCount} expired; {startedCount} removed after the event start; {unverifiedCount} unverified.</div>

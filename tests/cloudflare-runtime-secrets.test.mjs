@@ -81,3 +81,10 @@ test('workflow deploys code and secrets once, cleans private files, and retains 
  assert.match(workflow,/Waiting for rotated Cloudflare ingest secret propagation/);
  assert.ok(workflow.indexOf('id: deploy')<workflow.indexOf('Remove private Cloudflare'));
 });
+
+test('generic sportsbook connection secrets require an explicit price review approval configuration',()=>{
+ const source={ODDS_PROVIDER_PRIMARY_URL:'https://sports-source.example/quotes',ODDS_PROVIDER_PRIMARY_KEY:'fixture'};
+ assert.throws(()=>runtimeSecrets({...env,...source}),/require source approvals/);
+ const approvals={ODDS_PRICE_REVIEW_APPROVALS:'{"odds-provider-primary":{"origin":"https://sports-source.example","operator":"source","books":["draftkings"]}}'};
+ assert.deepEqual(runtimeSecrets({...env,...source,...approvals}),{...env,...source,...approvals});
+});

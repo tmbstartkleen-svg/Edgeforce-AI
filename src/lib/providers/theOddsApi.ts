@@ -19,7 +19,7 @@ export type TheOddsApiResult={
 
 type Settings={
  baseUrl:string;apiKey:string;timeoutMs:number;batchBudgetMs:number;cacheMs:number;failureCacheMs:number;
- reserve:number;maxSports:number;markets:string;expansionMarkets:string;bookmakers:string;regions:string;maxAgeMin:number;
+ reserve:number;preflightOnly:boolean;maxSports:number;markets:string;expansionMarkets:string;bookmakers:string;regions:string;maxAgeMin:number;
 };
 type Cached={at:number;ttlMs:number;value:TheOddsApiResult};
 const caches=new Map<string,Cached>();
@@ -47,6 +47,7 @@ function settings(config:ProviderConfig):Settings{
   cacheMs:Math.max(60000,Math.min(31*86400000,int(process.env.THE_ODDS_API_CACHE_MS,600000))),
   failureCacheMs:Math.max(5000,Math.min(3600000,int(process.env.THE_ODDS_API_FAILURE_CACHE_MS,60000))),
   reserve:int(process.env.THE_ODDS_API_CREDIT_RESERVE,25),
+  preflightOnly:process.env.THE_ODDS_API_PREFLIGHT_ONLY==='true'||process.env.DEPLOYMENT_ENV==='production'||process.env.VERCEL_ENV==='production',
   maxSports:Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)),
   markets:csv(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals'),
   expansionMarkets:csv(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h'),
@@ -244,6 +245,7 @@ async function loadBoard(options:Settings,deadline:number):Promise<TheOddsApiRes
   if(deadline-Date.now()<MIN_REQUEST_BUDGET_MS)return {error:'The Odds API batch deadline reached; no further paid request started',status:504,kind:'DEADLINE'};
   if(quota.remaining===undefined)return {error:'THE_ODDS_API_QUOTA_UNVERIFIED: no paid request permitted without a valid remaining-credit header',status:503,kind:'QUOTA_UNVERIFIED'};
   if(quota.remaining-cost<options.reserve)return {error:`THE_ODDS_API_CREDIT_RESERVE: ${quota.remaining} remaining cannot cover estimated cost ${cost} and preserve ${options.reserve} reserved credits`,status:503,kind:'CREDIT_RESERVE'};
+  if(options.preflightOnly)return {error:'THE_ODDS_API_CREDIT_PAUSED: production release is in preflight-only mode',status:503,kind:'CREDIT_PAUSED'};
   return null;
  };
  const blockedRequest=(stage:ProviderRequestDiagnostic['stage'],endpointCode:ProviderRequestDiagnostic['endpoint'],block:BudgetBlock)=>{

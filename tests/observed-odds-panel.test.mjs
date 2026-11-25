@@ -243,3 +243,22 @@ test('failed or expired board snapshots cannot retain actionable rows',()=>{
  assert.deepEqual(currentBoardRows([{...row,sourceTimestamp:undefined}],generatedAt,now),[]);
  assert.equal(hasCurrentBoardSnapshot(iso(now+1),now),false);
 });
+
+test('sportsbook price review displays corroborated source times and expires them locally without model actions',()=>{
+ const review={status:'CORROBORATED',approvedFeeds:2,respondedFeeds:2,eligibleBookMarkets:2,corroboratedMarkets:1,
+  omittedMarkets:0,rejections:{},markets:[{id:'matched',home:'Team A',away:'Team B',league:'NBA',startTime:iso(now+7200000),
+   market:'moneyline',line:null,settlementKey:'includes-overtime',expiresAt:iso(now+10000),sources:[
+    {bookmaker:'DraftKings',providerId:'odds-provider-primary',sourceEventId:'123',sourceUpdatedAt:iso(now-5000),
+     quotes:[{selection:'Team A',americanOdds:321}]},
+    {bookmaker:'FanDuel',providerId:'odds-provider-secondary',sourceEventId:'456',sourceUpdatedAt:iso(now-4000),
+     quotes:[{selection:'Team A',americanOdds:323}]}
+   ]}]};
+ const html=render({priceReview:review});
+ assert.match(html,/1 current markets shown/);
+ assert.match(html,/\+321/);assert.match(html,/\+323/);
+ assert.match(html,/odds-provider-secondary · 456/);
+ assert.doesNotMatch(html,/<button|recommendedStake|expectedValue/);
+ const expired=render({priceReview:review,now:now+10000});
+ assert.match(expired,/matched prices have expired/);
+ assert.doesNotMatch(expired,/\+321|\+323/);
+});

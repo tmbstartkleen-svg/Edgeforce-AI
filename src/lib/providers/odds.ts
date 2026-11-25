@@ -2,6 +2,7 @@ import {configuredProviders} from './config';
 import {fetchProviderJson} from './http';
 import {inspectProviderPayload,type PayloadQuality} from './payloadQuality';
 import {eligibleOddsPayload,normalizeOddsPayload} from './normalizeOdds';
+import {buildPriceReview,normalizePriceReviewSource,priceReviewApproval,type PriceReview,type PriceReviewSource} from './priceReview';
 import {buildObservedOddsSnapshot} from '../observedOdds';
 import {loadProviderHealthStates,recordProviderResult} from './healthStore';
 import {providerHealth} from '../providerRegistry';
@@ -26,6 +27,7 @@ export type OddsAttempt={
  skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;
  rowCount?:number;payloadAgeMin?:number;acceptedMarkets?:number;
  observedReferenceMarkets?:number;
+ reviewBookMarkets?:number;
  diagnostics?:ProviderDiagnostics;
 };
 
@@ -42,6 +44,7 @@ export type OddsIngestionResult={
  quality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number};
  degraded:boolean;
  targetBook:string;
+ priceReview:PriceReview;
  providerPanel:Array<{
   providerId:string;providerName:string;bookmaker:string;marketRole:string;
   configuredWeight:number;effectiveWeight:number;acceptedMarkets:number;
@@ -90,6 +93,7 @@ type PanelResult={
  effectiveWeight:number;
  freshnessFactor:number;
  transportScore:number;
+ review?:PriceReviewSource;
 };
 
 async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean):Promise<PanelResult>{
@@ -116,7 +120,6 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
    capability:config.capability,
    latencyMs:providerDeadlineMs,
    receivedAt:new Date().toISOString(),
-   status:504,
    error:error instanceof Error?error.message:'provider timeout'
   };
  }
@@ -125,10 +128,19 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  let referenceMarkets:Market[]=[];
  let rawCount=0;
  let warnings:string[]=[];
+ const approval=priceReviewApproval(config);
+ let review:PriceReviewSource|undefined;
  let accepted=raw.ok;
  let error=raw.error;
 
- if(raw.ok){
+ if(raw.ok&&approval){
+  review=normalizePriceReviewSource(raw.data,config.id,approval);
+  rawCount=review.rowsExamined;
+  accepted=false;
+  error=review.eligibleMarkets.length
+   ?'Complete book markets available for independent price review'
+   :'Approved feed did not provide complete current book markets';
+ }else if(raw.ok){
   quality=inspectProviderPayload(eligibleOddsPayload(raw.data),'ODDS',config.maxAgeMin);
   const normalized=normalizeOddsPayload(raw.data);
   referenceMarkets=normalized.markets.filter(m=>m.evidenceClass==='OBSERVED_REFERENCE')
@@ -145,12 +157,13 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
   if(referenceMarkets.length)warnings.push(`${referenceMarkets.length} observed reference quotes are excluded from consensus, simulation and certified odds`);
  }
 
+ const reviewResponded=Boolean(review&&!review.truncated&&!review.rejections.INVALID_FEED_CONTRACT);
  const referenceOnly=markets.length===0&&buildObservedOddsSnapshot(referenceMarkets).referenceCount>0;
  const transportQuality=referenceOnly&&quality?{...quality,ok:true,grade:'CAUTION' as const,
   qualityScore:.6,freshnessScore:.35,newestTimestamp:undefined,payloadAgeMin:undefined,
   reasons:['Reference observations available; bookmaker source update time is unverified']}:quality;
  await withDeadline(
-  recordProviderResult(config,{...raw,ok:accepted||referenceOnly,error} as typeof raw,transportQuality),
+  recordProviderResult(config,{...raw,ok:accepted||referenceOnly||reviewResponded,error} as typeof raw,transportQuality),
   1000,
   `${config.id} provider health write`
  ).catch(()=>undefined);
@@ -185,12 +198,12 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
   config,markets,referenceMarkets,rawCount,warnings,effectiveWeight:accepted?effectiveWeight:0,
   freshnessFactor:accepted?freshnessFactor:0,
   transportScore:accepted?transportScore:0,
-  quality,
+  quality,review,
   attempt:{
    providerId:config.id,ok:accepted,latencyMs:raw.latencyMs,error,status:raw.status,
    circuitState:circuitState||'CLOSED',qualityGrade:quality?.grade,qualityScore:quality?.qualityScore,
    rowCount:quality?.rowCount,payloadAgeMin:quality?.payloadAgeMin,acceptedMarkets:markets.length,
-   observedReferenceMarkets:referenceMarkets.length,diagnostics:raw.diagnostics
+   observedReferenceMarkets:referenceMarkets.length,reviewBookMarkets:review?.eligibleMarkets.length,diagnostics:raw.diagnostics
   }
  };
 }
@@ -231,7 +244,7 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
  if(!configured.length){
   return {
    mode:'unconfigured',markets:[],panelMarkets:[],referenceMarkets:[],rawCount:0,warnings:[],attempts:[],degraded:true,
-   targetBook,providerPanel:[],error:'No ODDS providers configured'
+   targetBook,priceReview:buildPriceReview(0,[]),providerPanel:[],error:'No ODDS providers configured'
   };
  }
 
@@ -261,10 +274,12 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
  const referenceMarkets=panel.flatMap(x=>x.referenceMarkets);
  const attempts=panel.map(x=>x.attempt);
  const accepted=panel.filter(x=>x.attempt.ok);
+ const priceReview=buildPriceReview(configured.filter(config=>priceReviewApproval(config)).length,
+  panel.flatMap(x=>x.review?[x.review]:[]));
  if(!panelMarkets.length){
   return {
    mode:'failed',markets:[],panelMarkets:[],referenceMarkets,rawCount:panel.reduce((s,x)=>s+x.rawCount,0),
-   warnings:panel.flatMap(x=>x.warnings),attempts,degraded:true,targetBook,
+   warnings:panel.flatMap(x=>x.warnings),attempts,degraded:true,targetBook,priceReview,
    providerPanel:panel.map(x=>({
     providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
     marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
@@ -295,7 +310,7 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
   rawCount:panel.reduce((s,x)=>s+x.rawCount,0),
   warnings,attempts,quality,
   degraded:attempts.some(x=>!x.ok)||accepted.length<2||targetCoverage<.8,
-  targetBook,
+  targetBook,priceReview,
   providerPanel:panel.map(x=>({
    providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
    marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
@@ -308,7 +323,11 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
 
 let oddsPanelCache:{at:number;value:OddsIngestionResult}|null=null;
 let oddsPanelInFlight:Promise<OddsIngestionResult>|null=null;
-const oddsPanelCacheMs=()=>Math.max(1000,Number(process.env.ODDS_PANEL_CACHE_MS||5000));
+const oddsPanelCacheMs=()=>{
+ const configured=Number(process.env.ODDS_PANEL_CACHE_MS||5000);
+ const minimum=process.env.ODDS_PRICE_REVIEW_APPROVALS===undefined?1000:15000;
+ return Math.max(minimum,Number.isFinite(configured)?configured:5000);
+};
 
 export async function fetchNormalizedOdds():Promise<OddsIngestionResult>{
  const now=Date.now();
