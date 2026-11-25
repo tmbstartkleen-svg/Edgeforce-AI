@@ -34,7 +34,7 @@ function runtime(fetcher,overrides={}){
   if(name==='node:crypto')return crypto;
   if(name==='./oddsRefreshPolicy')return policyExports;
   throw new Error('Unexpected dependency '+name);
- },process:{env},URL,Date:Clock,AbortController,setTimeout,clearTimeout,
+ },process:{env},URL,Date:Clock,AbortController,TextDecoder,setTimeout,clearTimeout,
  fetch:async(url,init)=>{const call={url:new URL(url),init};calls.push(call);return fetcher(call,calls.length,clock);}});
  return {fetch:exports.fetchTheOddsApiBoard,env,calls,clock};
 }
@@ -56,6 +56,13 @@ test('free quota preflight protects the reserve before any paid bootstrap and ca
  assert.equal(result.ok,false);assert.match(result.error,/CREDIT_RESERVE/);
  assert.equal(result.quota.remaining,2);assert.equal(result.quota.used,498);
  assert.equal(result.attempts.length,0);assert.equal(r.calls.length,1);
+ assert.equal(result.diagnostics.failureKind,'CREDIT_RESERVE');
+ assert.equal(result.diagnostics.requests.length,2);
+ assert.equal(result.diagnostics.requests[0].stage,'PREFLIGHT');
+ assert.equal(result.diagnostics.requests[0].httpStatus,200);
+ assert.equal(result.diagnostics.requests[1].stage,'BOOTSTRAP');
+ assert.equal(result.diagnostics.requests[1].attempted,false);
+ assert.equal(result.diagnostics.requests[1].httpStatus,undefined);
  assert.equal(r.calls[0].url.pathname,'/v4/sports/');
  assert.equal(r.calls[0].url.searchParams.has('apiKey'),false);
  assert.equal(r.calls[0].init.headers['x-api-key'],config.apiKey);
@@ -112,6 +119,9 @@ test('every expansion uses new response quota and stops before its full cost wou
  assert.equal(result.attempts[1].estimatedCost,3);
  assert.equal(result.quota.remaining,27);
  assert.ok(result.warnings.some(x=>x.includes('CREDIT_RESERVE')));
+ assert.equal(result.diagnostics.requests.at(-1).stage,'EXPANSION');
+ assert.equal(result.diagnostics.requests.at(-1).attempted,false);
+ assert.equal(result.diagnostics.failureKind,'CREDIT_RESERVE');
 });
 
 test('missing quota after a paid success prevents expansion while preserving the returned data',async()=>{
@@ -119,6 +129,8 @@ test('missing quota after a paid success prevents expansion while preserving the
  const result=await r.fetch(config);
  assert.equal(result.ok,true);assert.equal(r.calls.length,2);assert.equal(result.quota.remaining,undefined);
  assert.equal(result.data.length,1);assert.ok(result.warnings.some(x=>x.includes('unverified')));
+ assert.equal(result.diagnostics.quotaEvidence,'UNAVAILABLE');
+ assert.equal(result.diagnostics.failureKind,'QUOTA_UNVERIFIED');
 });
 
 test('identical concurrent calls coalesce and key or request configuration changes cannot share cached data',async()=>{
@@ -159,12 +171,21 @@ test('cached responses become explicitly stale without changing source timestamp
  assert.equal(cached.ok,false);assert.equal(cached.status,503);assert.match(cached.error,/CACHE_STALE/);
  assert.equal(cached.cacheAgeMs,21*60000);assert.equal(cached.data[0].bookmakers[0].last_update,stamp);
  assert.equal(r.calls.length,2);assert.ok(cached.retryAfterMs>0);
+ assert.equal(first.diagnostics.cacheHit,false);assert.equal(first.diagnostics.quotaEvidence,'CURRENT_RESPONSE');
+ assert.equal(cached.diagnostics.cacheHit,true);assert.equal(cached.diagnostics.quotaEvidence,'CACHED_RESPONSE');
+ assert.equal(cached.diagnostics.failureKind,'CACHE_STALE');
+ assert.equal(cached.diagnostics.quotaObservedAt,first.diagnostics.quotaObservedAt);
+ assert.equal(cached.diagnostics.requests[0].observedAt,first.diagnostics.requests[0].observedAt);
 });
 
 test('batch deadline prevents late bootstrap or expansion and 429 never triggers an immediate retry',async()=>{
  const preflight=runtime((call,index,clock)=>{clock.now+=6500;return response(catalog,100);});
  const blocked=await preflight.fetch(config);
  assert.equal(blocked.ok,false);assert.equal(preflight.calls.length,1);assert.match(blocked.error,/deadline/);
+ assert.equal(blocked.diagnostics.requests.at(-1).failureKind,'DEADLINE');
+ assert.equal(blocked.diagnostics.requests.at(-1).attempted,false);
+ assert.equal(blocked.diagnostics.requests.at(-1).responseReceived,false);
+ assert.equal(blocked.diagnostics.requests.at(-1).httpStatus,undefined);
  const expansion=runtime((call,index,clock)=>{
   if(index===2)clock.now+=6000;
   return response(index===1?catalog:[event()],index===1?100:97);
@@ -185,4 +206,155 @@ test('failed authentication, malformed catalogs, and malformed odds arrays do no
  assert.equal((await badCatalog.fetch(config)).status,502);assert.equal(badCatalog.calls.length,1);
  const badOdds=runtime((call,index)=>response(index===1?catalog:{unexpected:true},100));
  assert.equal((await badOdds.fetch(config)).status,502);assert.equal(badOdds.calls.length,2);
+});
+
+test('network failures have redacted transport evidence and do not invent an HTTP response or quota balance',async()=>{
+ const sensitive='https://upstream.invalid/?apiKey='+config.apiKey;
+ const r=runtime(()=>{throw Object.assign(new TypeError('request failed '+sensitive),{cause:{code:'ENOTFOUND',message:sensitive}});});
+ const result=await r.fetch(config),d=result.diagnostics,request=d.requests[0];
+ assert.equal(result.ok,false);assert.equal(r.calls.length,1);assert.equal(result.attempts.length,0);
+ assert.equal(d.failureKind,'NETWORK');assert.equal(d.quotaEvidence,'UNAVAILABLE');
+ assert.equal(d.quotaObservedAt,undefined);assert.equal(result.quota.remaining,undefined);
+ assert.equal(request.stage,'PREFLIGHT');assert.equal(request.endpoint,'SPORTS_CATALOG');
+ assert.equal(request.attempted,true);assert.equal(request.responseReceived,false);
+ assert.equal(request.httpStatus,undefined);assert.equal(request.observedAt,undefined);
+ assert.equal(request.failurePhase,'REQUEST');assert.equal(request.transportCode,'ENOTFOUND');
+ assert.equal(request.transportErrorName,'TypeError');assert.equal(request.responseBytes,0);
+ assert.ok(!JSON.stringify(result).includes(config.apiKey));assert.ok(!JSON.stringify(result).includes('upstream.invalid'));
+ r.clock.now+=2000;
+ const cached=await r.fetch(config);
+ assert.equal(r.calls.length,1);assert.equal(cached.diagnostics.cacheHit,true);
+ assert.equal(cached.diagnostics.cacheAgeMs,2000);assert.equal(cached.diagnostics.quotaEvidence,'UNAVAILABLE');
+});
+
+test('an opaque status-zero response is not recorded as an actual HTTP response',async()=>{
+ const r=runtime(()=>Response.error());
+ const result=await r.fetch(config),request=result.diagnostics.requests[0];
+ assert.equal(result.diagnostics.failureKind,'NETWORK');assert.equal(result.diagnostics.quotaEvidence,'UNAVAILABLE');
+ assert.equal(request.responseReceived,false);assert.equal(request.httpStatus,undefined);assert.equal(request.observedAt,undefined);
+ assert.equal(result.quota.remaining,undefined);assert.equal(r.calls.length,1);
+});
+
+test('HTTP auth, rate limit, quota exhaustion and server errors retain distinct current response evidence',async()=>{
+ for(const [status,code,kind,remaining] of [
+  [401,'INVALID_KEY','AUTH',undefined],[403,'DEACTIVATED_KEY','AUTH',undefined],
+  [401,'OUT_OF_USAGE_CREDITS','QUOTA_EXHAUSTED',0],[429,'EXCEEDED_FREQ_LIMIT','RATE_LIMITED',10],
+  [503,undefined,'HTTP',50],[422,'INVALID_MARKET','HTTP',50]
+ ]){
+  const r=runtime(()=>response({error_code:code,message:'Private diagnostic '+config.apiKey},remaining,status));
+  const result=await r.fetch(config),request=result.diagnostics.requests[0];
+  assert.equal(result.status,status);assert.equal(result.diagnostics.failureKind,kind,String(status)+' '+code);
+  assert.equal(request.httpStatus,status);assert.equal(request.responseReceived,true);
+  assert.equal(request.providerErrorCode,code);assert.equal(request.quota.remaining,remaining);
+  assert.equal(result.diagnostics.quotaEvidence,remaining===undefined?'UNAVAILABLE':'CURRENT_RESPONSE');
+  assert.equal(request.observedAt,new Date(initial).toISOString());assert.ok(request.responseBytes>0);
+  assert.equal(r.calls.length,1);assert.equal(result.attempts.length,0);
+  assert.ok(!JSON.stringify(result).includes(config.apiKey));
+ }
+ const unknown=runtime(()=>response({error_code:'Unknown '+config.apiKey,message:'https://private.invalid'},undefined,500));
+ const result=await unknown.fetch(config);
+ assert.equal(result.diagnostics.requests[0].providerErrorCode,undefined);
+ assert.ok(!JSON.stringify(result).includes(config.apiKey));assert.ok(!JSON.stringify(result).includes('private.invalid'));
+});
+
+test('invalid JSON retains actual HTTP status and quota headers without starting paid odds work',async()=>{
+ for(const [status,kind] of [[200,'INVALID_JSON'],[503,'HTTP']]){
+  const r=runtime(()=>new Response('not JSON '+config.apiKey,{status,headers:{
+   'x-requests-remaining':'98','x-requests-used':'402','x-requests-last':'0'
+  }}));
+  const result=await r.fetch(config),request=result.diagnostics.requests[0];
+  assert.equal(result.status,status===200?502:503);assert.equal(result.diagnostics.failureKind,kind);
+  assert.equal(request.httpStatus,status);assert.equal(request.responseReceived,true);
+  assert.equal(request.bodyFailureKind,'INVALID_JSON');assert.equal(request.failurePhase,'RESPONSE_BODY');
+  assert.equal(result.quota.remaining,98);assert.equal(result.quota.used,402);assert.equal(result.quota.last,0);
+  assert.equal(result.diagnostics.quotaEvidence,'CURRENT_RESPONSE');assert.equal(r.calls.length,1);
+  assert.ok(!JSON.stringify(result).includes(config.apiKey));
+ }
+});
+
+test('body read failures preserve headers and distinguish body transport from missing HTTP responses',async()=>{
+ const privateError=Object.assign(new TypeError('socket failed at https://private.invalid/'+config.apiKey),{code:'UND_ERR_SOCKET'});
+ const r=runtime(()=>new Response(new ReadableStream({start(controller){controller.error(privateError);}}),{
+  status:200,headers:{'x-requests-remaining':'74'}
+ }));
+ const result=await r.fetch(config),request=result.diagnostics.requests[0];
+ assert.equal(result.diagnostics.failureKind,'BODY_READ_FAILED');assert.equal(request.bodyFailureKind,'BODY_READ_FAILED');
+ assert.equal(request.failurePhase,'RESPONSE_BODY');assert.equal(request.httpStatus,200);
+ assert.equal(request.responseReceived,true);assert.equal(request.transportCode,'UND_ERR_SOCKET');
+ assert.equal(request.transportErrorName,'TypeError');assert.equal(result.quota.remaining,74);
+ assert.equal(r.calls.length,1);assert.ok(!JSON.stringify(result).includes(config.apiKey));
+ assert.ok(!JSON.stringify(result).includes('private.invalid'));
+});
+
+test('request and body timeouts are bounded without retries and retain their distinct observed response phases',async()=>{
+ for(const phase of ['REQUEST','RESPONSE_BODY']){
+  const r=runtime(()=>phase==='REQUEST'?new Promise(()=>{}):new Response(new ReadableStream({start(){}}),{
+   status:200,headers:{'x-requests-remaining':'55'}
+  }),{THE_ODDS_API_TIMEOUT_MS:'1000',THE_ODDS_API_BATCH_BUDGET_MS:'1000'});
+  const result=await r.fetch(config),request=result.diagnostics.requests[0];
+  assert.equal(result.status,504);assert.equal(result.diagnostics.failureKind,'TIMEOUT');
+  assert.equal(request.failurePhase,phase);assert.equal(request.responseReceived,phase==='RESPONSE_BODY');
+  assert.equal(request.httpStatus,phase==='RESPONSE_BODY'?200:undefined);
+  assert.equal(result.quota.remaining,phase==='RESPONSE_BODY'?55:undefined);
+  assert.equal(r.calls.length,1);assert.equal(r.calls[0].init.signal.aborted,true);
+ }
+ const r=runtime(()=>{throw Object.assign(new TypeError('fetch failed '+config.apiKey),{cause:{code:'UND_ERR_CONNECT_TIMEOUT'}});});
+ const result=await r.fetch(config);
+ assert.equal(result.diagnostics.failureKind,'TIMEOUT');
+ assert.equal(result.diagnostics.requests[0].transportCode,'UND_ERR_CONNECT_TIMEOUT');
+ assert.ok(!JSON.stringify(result).includes(config.apiKey));
+});
+
+test('redirects are reported without following or exposing the destination or authentication header',async()=>{
+ const r=runtime(()=>new Response(null,{status:302,headers:{location:'https://private.invalid/?apiKey='+config.apiKey}}));
+ const result=await r.fetch(config),request=result.diagnostics.requests[0];
+ assert.equal(result.status,302);assert.equal(request.httpStatus,302);
+ assert.equal(result.diagnostics.failureKind,'REDIRECT_BLOCKED');assert.equal(request.responseReceived,true);
+ assert.equal(r.calls.length,1);assert.equal(r.calls[0].init.redirect,'manual');
+ assert.ok(!JSON.stringify(result).includes(config.apiKey));assert.ok(!JSON.stringify(result).includes('private.invalid'));
+});
+
+test('oversized response bodies are canceled within a fixed byte budget and preserve known HTTP evidence',async()=>{
+ for(const [status,limit,kind] of [[200,4*1024*1024,'BODY_TOO_LARGE'],[503,16*1024,'HTTP']]){
+  let canceled=0;
+  const bytes=new TextEncoder().encode(' '.repeat(limit)+config.apiKey);
+  const r=runtime(()=>new Response(new ReadableStream({
+   start(controller){controller.enqueue(bytes);},cancel(){canceled++;}
+  }),{status,headers:{'x-requests-remaining':'88'}}));
+  const result=await r.fetch(config),request=result.diagnostics.requests[0];
+  assert.equal(result.diagnostics.failureKind,kind);assert.equal(request.bodyFailureKind,'BODY_TOO_LARGE');
+  assert.equal(request.httpStatus,status);assert.equal(result.quota.remaining,88);
+  assert.equal(request.responseBytes,bytes.length);assert.equal(canceled,1);assert.equal(r.calls.length,1);
+  assert.ok(!JSON.stringify(result).includes(config.apiKey));
+ }
+});
+
+test('a paid request transport failure invalidates the earlier preflight budget without extra paid calls',async()=>{
+ const r=runtime((call,index)=>{
+  if(index===1)return response(catalog,100);
+  throw Object.assign(new TypeError('fetch failed '+config.apiKey),{cause:{code:'ECONNRESET'}});
+ },{THE_ODDS_API_EXPANSION_SPORTS:'8'});
+ const result=await r.fetch(config),requests=result.diagnostics.requests;
+ assert.equal(result.ok,false);assert.equal(r.calls.length,2);assert.equal(result.attempts.length,1);
+ assert.equal(result.diagnostics.failureKind,'NETWORK');assert.equal(result.diagnostics.quotaEvidence,'UNAVAILABLE');
+ assert.equal(result.quota.remaining,undefined);assert.equal(result.diagnostics.quotaObservedAt,undefined);
+ assert.equal(requests[0].quota.remaining,100);assert.equal(requests[0].httpStatus,200);
+ assert.equal(requests[1].stage,'BOOTSTRAP');assert.equal(requests[1].httpStatus,undefined);
+ assert.equal(requests[1].responseReceived,false);assert.equal(requests[1].transportCode,'ECONNRESET');
+ assert.ok(!JSON.stringify(result).includes(config.apiKey));
+});
+
+test('invalid local configuration produces a diagnostic without dispatching or exposing configured values',async()=>{
+ for(const [overrides,nextConfig] of [
+  [{THE_ODDS_API_BASE_URL:'not-a-url-'+config.apiKey},config],
+  [{THE_ODDS_API_BASE_URL:'ftp://private.invalid'},config],
+  [{THE_ODDS_API_BASE_URL:'https://'+config.apiKey+'@private.invalid'},config],
+  [{},{...config,apiKey:''}]
+ ]){
+  const r=runtime(()=>{throw new Error('Network should not run');},overrides);
+  const result=await r.fetch(nextConfig);
+  assert.equal(result.diagnostics.failureKind,'CONFIGURATION');assert.equal(result.diagnostics.requests.length,0);
+  assert.equal(result.diagnostics.quotaEvidence,'UNAVAILABLE');assert.equal(r.calls.length,0);
+  assert.ok(!JSON.stringify(result).includes(config.apiKey));assert.ok(!JSON.stringify(result).includes('private.invalid'));
+ }
 });

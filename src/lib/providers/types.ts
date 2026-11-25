@@ -22,6 +22,27 @@ export type ProviderConfig={
  consensusWeight:number;
 };
 
+export type ProviderFailureKind=
+ 'CONFIGURATION'|'DEADLINE'|'TIMEOUT'|'NETWORK'|'HTTP'|'AUTH'|'RATE_LIMITED'|'QUOTA_EXHAUSTED'|
+ 'REDIRECT_BLOCKED'|'INVALID_JSON'|'INVALID_PAYLOAD'|'BODY_READ_FAILED'|'BODY_TOO_LARGE'|
+ 'QUOTA_UNVERIFIED'|'CREDIT_RESERVE'|'NO_MARKETS'|'CACHE_STALE';
+
+/** Redacted observation evidence. httpStatus exists only when an HTTP response was received. */
+export type ProviderRequestDiagnostic={
+ stage:'PREFLIGHT'|'BOOTSTRAP'|'FALLBACK'|'EXPANSION';
+ endpoint:'SPORTS_CATALOG'|'UPCOMING_ODDS'|'SPORT_ODDS';
+ attempted:boolean;responseReceived:boolean;startedAt:string;observedAt?:string;elapsedMs:number;
+ httpStatus?:number;responseBytes:number;quota:{remaining?:number;used?:number;last?:number};
+ failureKind?:ProviderFailureKind;failurePhase?:'REQUEST'|'RESPONSE_BODY'|'VALIDATION'|'BUDGET';
+ bodyFailureKind?:ProviderFailureKind;providerErrorCode?:string;transportCode?:string;transportErrorName?:string;
+};
+
+export type ProviderDiagnostics={
+ schemaVersion:1;requests:ProviderRequestDiagnostic[];failureKind?:ProviderFailureKind;
+ cacheHit:boolean;cacheAgeMs:number;
+ quotaEvidence:'CURRENT_RESPONSE'|'CACHED_RESPONSE'|'UNAVAILABLE';quotaObservedAt?:string;
+};
+
 export type ProviderFetchResult<T>={
  ok:boolean;
  providerId:string;
@@ -33,6 +54,7 @@ export type ProviderFetchResult<T>={
  data?:T;
  error?:string;
  retryAfterMs?:number;
+ diagnostics?:ProviderDiagnostics;
 };
 
 export type NormalizedOddsResult={

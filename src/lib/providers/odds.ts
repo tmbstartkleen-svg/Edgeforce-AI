@@ -7,7 +7,7 @@ import {loadProviderHealthStates,recordProviderResult} from './healthStore';
 import {providerHealth} from '../providerRegistry';
 import {buildConsensusMarkets} from '../marketConsensus';
 import type {Market,MarketRole} from '../types';
-import type {ProviderConfig,ProviderFetchResult} from './types';
+import type {ProviderConfig,ProviderFetchResult,ProviderDiagnostics} from './types';
 
 async function withDeadline<T>(promise:Promise<T>,ms:number,label:string):Promise<T>{
  let timer:ReturnType<typeof setTimeout>|undefined;
@@ -26,6 +26,7 @@ export type OddsAttempt={
  skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;
  rowCount?:number;payloadAgeMin?:number;acceptedMarkets?:number;
  observedReferenceMarkets?:number;
+ diagnostics?:ProviderDiagnostics;
 };
 
 export type OddsIngestionResult={
@@ -189,7 +190,7 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
    providerId:config.id,ok:accepted,latencyMs:raw.latencyMs,error,status:raw.status,
    circuitState:circuitState||'CLOSED',qualityGrade:quality?.grade,qualityScore:quality?.qualityScore,
    rowCount:quality?.rowCount,payloadAgeMin:quality?.payloadAgeMin,acceptedMarkets:markets.length,
-   observedReferenceMarkets:referenceMarkets.length
+   observedReferenceMarkets:referenceMarkets.length,diagnostics:raw.diagnostics
   }
  };
 }

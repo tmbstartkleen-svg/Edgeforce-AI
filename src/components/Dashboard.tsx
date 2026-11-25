@@ -7,7 +7,8 @@ import {boardValueMetrics} from '@/lib/boardValueMetrics';
 import {evaluatePulseEvidence} from '@/lib/pulseEvidence';
 import type {ObservedOddsSnapshot} from '@/lib/observedOdds';
 import type {FanDuelOddsPulse} from '@/lib/providers/fanLineWire';
-import ObservedOddsPanel,{currentBoardRows,hasCurrentBoardSnapshot} from './ObservedOddsPanel';
+import type {LiveBoardCoreStatus} from '@/lib/liveBoardContinuity';
+import ObservedOddsPanel,{acceptsLiveBoardResponse,currentBoardRows,hasCurrentBoardSnapshot,type ObservedProviderAttempt,type ObservedSourceCollection} from './ObservedOddsPanel';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
@@ -142,6 +143,8 @@ type LiveScoreGame={
 };
 
 type LiveBoardResponse={
+  schema?:'edgeforce-live-board-v199';
+  coreStatus?:LiveBoardCoreStatus;
   generatedAt:string;
   uiRefreshMs:number;
   sourceRefreshMs:number;
@@ -153,7 +156,7 @@ type LiveBoardResponse={
   providerName?:string;
   providerDegraded?:boolean;
   providerQuality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}|null;
-  providerAttempts?:Array<{providerId:string;ok:boolean;skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;error?:string;observedReferenceMarkets?:number}>;
+  providerAttempts?:Array<ObservedProviderAttempt&{qualityGrade?:string;qualityScore?:number}>;
   targetBook?:string;
   providerPanel?:Array<{
     providerId:string;providerName:string;bookmaker:string;marketRole:string;
@@ -237,6 +240,7 @@ type LiveBoardResponse={
     refreshMs:number;
     uiRefreshMs?:number;
     sourceMode:string;
+    collection?:ObservedSourceCollection;
     liveGames:number;
     freshness?:{
       state:'IDLE'|'FAST'|'HEALTHY'|'DEGRADED'|'STALE';
@@ -658,14 +662,15 @@ export default function Dashboard(){
   const [portfolioSnapshot,setPortfolio]=useState<PortfolioApiResponse|null>(null);
   const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
   const busy=useRef(false);
-  const snapshotCurrent=hasCurrentBoardSnapshot(boardSnapshot.generatedAt,evidenceNow,boardFailed);
+  const observationResponseCurrent=hasCurrentBoardSnapshot(boardSnapshot.generatedAt,evidenceNow,boardFailed);
+  const snapshotCurrent=hasCurrentBoardSnapshot(boardSnapshot.generatedAt,evidenceNow,boardFailed,boardSnapshot.coreStatus);
   const board=useMemo(()=>{
     const rows=currentBoardRows(boardSnapshot.rows,boardSnapshot.generatedAt,evidenceNow,!snapshotCurrent);
     return {...boardSnapshot,rows,sports:[...new Set(rows.map(row=>row.sport))],
-      ...(!snapshotCurrent&&boardSnapshot.source!=='loading'?{source:'stale',providerDegraded:true}:{}),
+      ...(!snapshotCurrent&&boardSnapshot.source!=='loading'?{source:observationResponseCurrent?'unavailable':'stale',providerDegraded:true}:{}),
       ...(!snapshotCurrent?{anomalies:[],resimulationTriggered:false,resimulatedMarketIds:[]}:{}),
     };
-  },[boardSnapshot,snapshotCurrent,evidenceNow]);
+  },[boardSnapshot,snapshotCurrent,observationResponseCurrent,evidenceNow]);
   const parlayBoard=snapshotCurrent&&hasCurrentBoardSnapshot(parlaySnapshot?.generatedAt,evidenceNow)?parlaySnapshot:null;
   const edgeScanner=snapshotCurrent&&hasCurrentBoardSnapshot(edgeScannerSnapshot?.generatedAt,evidenceNow)?edgeScannerSnapshot:null;
   const portfolio=snapshotCurrent&&portfolioSnapshot?.result.positions.every(position=>board.rows.some(row=>row.id===position.id))?portfolioSnapshot:null;
@@ -687,12 +692,15 @@ export default function Dashboard(){
         busy.current=true;
         try{
           const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
-          if(!res.ok)throw new Error('Board request failed');
           const json=await res.json() as LiveBoardResponse;
-          if(!json||!Array.isArray(json.rows)||!Array.isArray(json.sports))throw new Error('Board response is invalid');
+          if(!acceptsLiveBoardResponse(json,res.status))throw new Error(res.ok?'Board response is invalid':'Board request failed');
           const requested=json.liveScores?.freshness?.recommendedUiRefreshMs??json.liveScores?.uiRefreshMs??json.uiRefreshMs??1000;
           nextDelay=Math.max(500,Math.min(5000,Number(requested)||1000));
-          if(mounted){setBoard(json);setEvidenceNow(Date.now());setBoardFailed(false);setLastError('')}
+          if(json.coreStatus&&!json.coreStatus.ok)nextDelay=Math.max(nextDelay,1500);
+          if(mounted){
+            setBoard(json);setEvidenceNow(Date.now());setBoardFailed(false);setLastError('');
+            if(json.coreStatus&&!json.coreStatus.ok)setSelectedMarket(null);
+          }
         }catch(error){
           nextDelay=Math.max(nextDelay,1500);
           if(mounted){setBoardFailed(true);setSelectedMarket(null);setLastError(error instanceof Error?error.message:'Unable to refresh board')}
@@ -843,7 +851,7 @@ export default function Dashboard(){
   useEffect(()=>{
     let cancelled=false;
     const load=async()=>{
-      const rows=currentBoardRows(boardSnapshot.rows,boardSnapshot.generatedAt,Date.now(),boardFailed);
+      const rows=currentBoardRows(boardSnapshot.rows,boardSnapshot.generatedAt,Date.now(),boardFailed,boardSnapshot.coreStatus);
       if(!rows.length){setPortfolio(null);return;}
       try{
         const res=await fetch('/api/portfolio/optimize',{
@@ -858,7 +866,7 @@ export default function Dashboard(){
     };
     void load();
     return ()=>{cancelled=true};
-  },[boardSnapshot.rows,boardSnapshot.generatedAt,boardFailed,bankroll,drawdownPct,risk]);
+  },[boardSnapshot.rows,boardSnapshot.generatedAt,boardSnapshot.coreStatus,boardFailed,bankroll,drawdownPct,risk]);
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
   const marketCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.market]=(acc[row.market]||0)+1;return acc},{}),[board.rows]);
@@ -960,7 +968,7 @@ export default function Dashboard(){
     .sort((a,b)=>b.opportunity.grossArbitrageMargin-a.opportunity.grossArbitrageMargin||b.opportunity.disagreement-a.opportunity.disagreement),[filtered]);
   const grossArbCandidates=crossVenueSignals.filter(x=>x.opportunity.grossArbitrage);
   const operatorRiskCount=(board.providerDegraded?1:0)+(automationHealth?.staleCount??0)+(automationHealth?.failedCount??0);
-  const boardLoading=board.source==='loading'&&!board.generatedAt;
+  const boardLoading=board.source==='loading'&&!board.generatedAt&&!boardFailed;
   const launchReview={
     liveData:board.source==='live',
     releaseCertified:Boolean(releaseCertification?.latest?.certified),
@@ -1037,7 +1045,7 @@ export default function Dashboard(){
         <b>Production surface locked for launch review</b>
       </div>
       <div className="launchFreezeChecks" role="list">
-        <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Model board data</b><small>{boardLoading?'loading':launchReview.liveData?'connected':snapshotCurrent?'unavailable':'snapshot unavailable'}</small></span>
+        <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Model board data</b><small>{boardLoading?'loading':!observationResponseCurrent?'snapshot unavailable':board.coreStatus?.code==='NO_ELIGIBLE_MARKETS'?'no eligible markets':launchReview.liveData?'connected':'unavailable'}</small></span>
         <span role="listitem" className={launchReview.releaseCertified?'pass':'warn'}><i aria-hidden="true"/><b>Release</b><small>{launchReview.releaseCertified?'certified':'awaiting'}</small></span>
         <span role="listitem" className={launchReview.operatorHealthy?'pass':'warn'}><i aria-hidden="true"/><b>Ops</b><small>{launchReview.operatorHealthy?'clear':operatorRiskCount+' flag'+(operatorRiskCount===1?'':'s')}</small></span>
         <span role="listitem" className={launchReview.reviewClear?'pass':'warn'}><i aria-hidden="true"/><b>Review</b><small>{launchReview.reviewClear?'clear':reviewQueueSummary.total+' queued'}</small></span>
@@ -1053,7 +1061,8 @@ export default function Dashboard(){
 
     <ObservedOddsPanel observedOdds={boardSnapshot.observedOdds} pulse={boardSnapshot.fanduelPulse}
       providerAttempts={boardSnapshot.providerAttempts} now={evidenceNow}
-      stale={!snapshotCurrent&&!boardLoading} loading={boardLoading}/>
+      coreStatus={boardSnapshot.coreStatus} collection={boardSnapshot.liveScores?.collection}
+      stale={!observationResponseCurrent&&!boardLoading} loading={boardLoading}/>
 
     {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
       <div className="consoleHead">

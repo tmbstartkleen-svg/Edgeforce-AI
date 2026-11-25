@@ -1,5 +1,6 @@
 import type {ProviderConfig,ProviderFetchResult} from './types';
 import {ESPN_SCOREBOARD_FEEDS} from '../sportRegistry';
+import {OBSERVED_ODDS_MAX_AGE_MS} from '../observedOdds';
 
 type FlatRow={
  id:string; eventId:string; sport:string; league:string; event:string;
@@ -12,6 +13,9 @@ type FlatRow={
 type Cached={at:number;rows:FlatRow[];latencyMs:number;warnings:string[]};
 let cache:Cached|null=null;
 let inFlight:Promise<Cached>|null=null;
+const observationsByBoard=new Map<string,{at:number;rows:FlatRow[]}>();
+const feedAttempts=new Map<string,number>();
+let attemptSequence=0;
 
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
 const arr=(v:unknown)=>Array.isArray(v)?v:[];
@@ -21,13 +25,21 @@ const num=(v:unknown)=>{
  const n=Number(v);return Number.isFinite(n)?n:null;
 };
 const time=(v:unknown)=>typeof v==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/i.test(v)?Date.parse(v):NaN;
-const cacheMs=()=>Math.max(60000,Number(process.env.ESPN_CORE_ODDS_CACHE_MS||120000));
-const timeoutMs=()=>Math.max(2000,Number(process.env.ESPN_CORE_ODDS_TIMEOUT_MS||6000));
-const maxLeagues=()=>Math.max(1,Math.min(12,Number(process.env.ESPN_CORE_ODDS_LEAGUES_PER_BATCH||(process.env.DEPLOYMENT_PLATFORM==='cloudflare'?2:5))));
+const bounded=(value:string|number|undefined,fallback:number,min:number,max:number)=>{
+ const n=value===''||value===undefined?fallback:Number(value);
+ return Math.floor(Math.max(min,Math.min(max,Number.isFinite(n)?n:fallback)));
+};
+const cacheMs=()=>bounded(process.env.ESPN_CORE_ODDS_CACHE_MS,120000,60000,Number.MAX_SAFE_INTEGER);
+const timeoutMs=()=>bounded(process.env.ESPN_CORE_ODDS_TIMEOUT_MS,6000,2000,Number.MAX_SAFE_INTEGER);
+const maxLeagues=()=>bounded(process.env.ESPN_CORE_ODDS_LEAGUES_PER_BATCH,process.env.DEPLOYMENT_PLATFORM==='cloudflare'?2:5,1,12);
 // A single Worker invocation has a shared subrequest budget. Reserve capacity for
 // database work, health reporting, and other provider calls in the same cron.
-const maxRequests=()=>Math.max(1,Math.min(30,Number(process.env.ESPN_CORE_ODDS_MAX_REQUESTS||(process.env.DEPLOYMENT_PLATFORM==='cloudflare'?8:24))));
-const maxEvents=()=>Math.max(1,Math.min(40,Number(process.env.ESPN_CORE_ODDS_EVENTS_PER_LEAGUE||12)));
+const maxRequests=()=>bounded(process.env.ESPN_CORE_ODDS_MAX_REQUESTS,process.env.DEPLOYMENT_PLATFORM==='cloudflare'?8:24,1,30);
+const maxEvents=()=>bounded(process.env.ESPN_CORE_ODDS_EVENTS_PER_LEAGUE,12,1,40);
+const batchTimeoutMs=(config:ProviderConfig)=>Math.min(
+ bounded(process.env.ESPN_CORE_ODDS_BATCH_TIMEOUT_MS,5000,50,5500),
+ Math.max(50,(Number.isFinite(config.timeoutMs)?config.timeoutMs:6000)-250)
+);
 const bookAllow=()=>new Set((process.env.ESPN_CORE_ODDS_BOOKS||'DraftKings,FanDuel,BetMGM,Caesars,ESPN BET').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));
 
 const GAP_PRIORITY_IDS=[
@@ -90,14 +102,20 @@ function rotatingFeeds(){
  ];
 }
 
-async function json(url:string){
+async function json(url:string,deadline:number){
+ const remaining=Math.min(timeoutMs(),deadline-Date.now());
+ if(remaining<=0)throw new Error('ESPN batch deadline reached');
  const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),timeoutMs());
+ let timer:ReturnType<typeof setTimeout>|undefined;
  try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/128 ESPN-Odds-Mesh'}});
-  if(!res.ok)throw new Error(`HTTP ${res.status}`);
-  return await res.json();
- }finally{clearTimeout(timer)}
+  return await Promise.race([(async()=>{
+   const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/128 ESPN-Odds-Mesh'}});
+   if(!res.ok)throw new Error(`HTTP ${res.status}`);
+   return await res.json();
+  })(),new Promise<never>((_,reject)=>{
+   timer=setTimeout(()=>{controller.abort();reject(new Error('ESPN batch deadline reached'))},remaining);
+  })]);
+ }finally{if(timer)clearTimeout(timer);controller.abort()}
 }
 
 function eventMeta(raw:unknown){
@@ -224,56 +242,91 @@ function dateKey(offsetDays=0){
  return new Date(Date.now()+offsetDays*86400000).toISOString().slice(0,10).replace(/-/g,'');
 }
 
-async function load(){
- const started=Date.now(),rows:FlatRow[]=[],warnings:string[]=[];
- const fallbacks:Array<{meta:ReturnType<typeof eventMeta>;feed:(typeof ESPN_SCOREBOARD_FEEDS)[number]}>=[];
+function currentRows(now=Date.now()){
+ const rows:FlatRow[]=[];
+ for(const [key,board] of observationsByBoard){
+  if(board.at>now||now-board.at>OBSERVED_ODDS_MAX_AGE_MS){observationsByBoard.delete(key);continue;}
+  rows.push(...board.rows.filter(row=>{
+   const observed=time(row.quoteObservedAt);
+   return Number.isFinite(observed)&&observed<=now&&now-observed<=OBSERVED_ODDS_MAX_AGE_MS&&time(row.startTime)>now;
+  }));
+ }
+ return rows;
+}
+
+async function load(config:ProviderConfig){
+ const started=Date.now(),deadline=started+batchTimeoutMs(config),warnings:string[]=[];
+ type Feed=(typeof ESPN_SCOREBOARD_FEEDS)[number];
+ const fallbacks:Array<{meta:ReturnType<typeof eventMeta>;feed:Feed;boardKey:string;boardAt:number}>=[];
+ const tomorrow:Feed[]=[];
  let remaining=maxRequests();
  const budgetedJson=async(url:string)=>{
   if(remaining<=0)throw new Error('ESPN request budget exhausted');
+  if(Date.now()>=deadline)throw new Error('ESPN batch deadline reached');
   remaining--;
-  return json(url);
+  return json(url,deadline);
  };
- for(const feed of rotatingFeeds()){
+ const phase=async<T,>(items:T[],run:(item:T)=>Promise<void>)=>{
+  let next=0;
+  await Promise.all(Array.from({length:Math.min(6,items.length)},async()=>{
+   while(next<items.length&&remaining>0&&Date.now()<deadline)await run(items[next++]);
+  }));
+ };
+ const scoreboard=async(feed:Feed,offset:number)=>{
+  feedAttempts.set(feed.id,++attemptSequence);
   try{
-   if(remaining<=0)break;
-   let events:unknown[]=[];
-   for(const offset of [0,1]){
-    const board=await budgetedJson(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${dateKey(offset)}`);
-    events=arr(obj(board).events).filter(raw=>{
-     const meta=eventMeta(raw);return meta.state==='pre'&&time(meta.startTime)>Date.now();
-    }).slice(0,maxEvents());
-    if(events.length)break;
+   const date=dateKey(offset),boardKey=feed.id+':'+date;
+   const board=await budgetedJson(`https://site.api.espn.com/apis/site/v2/sports/${feed.sportSlug}/${feed.leagueSlug}/scoreboard?dates=${date}`);
+   const observedAt=new Date().toISOString(),boardAt=Date.now();
+   const eventRows=arr(obj(board).events);
+   const revisedEvents=new Set(eventRows.map(raw=>eventMeta(raw).eventId).filter(Boolean));
+   // Adjacent scoreboard date windows may overlap. A new event observation
+   // supersedes its previous window even if its line or status has changed.
+   for(const [key,previous] of observationsByBoard){
+    if(key!==boardKey&&key.startsWith(feed.id+':'))previous.rows=previous.rows.filter(row=>!revisedEvents.has(row.eventId));
    }
+   const events=eventRows.filter(raw=>{
+    const meta=eventMeta(raw);return meta.state==='pre'&&time(meta.startTime)>boardAt;
+   }).slice(0,maxEvents());
+   const rows:FlatRow[]=[];
    for(const raw of events){
     const meta=eventMeta(raw);
     if(!meta.eventId||!meta.competitionId||!meta.startTime||!meta.home||!meta.away)continue;
-    if(meta.state!=='pre'||!(time(meta.startTime)>Date.now()))continue;
-    const observedAt=new Date().toISOString();
     const embeddedRows=normalizeEspnOddsItems({items:meta.embeddedOdds},meta,feed.label,observedAt);
-    if(embeddedRows.length){
-     rows.push(...embeddedRows);
-     continue;
-    }
-    fallbacks.push({meta,feed});
+    if(embeddedRows.length)rows.push(...embeddedRows);
+    else fallbacks.push({meta,feed,boardKey,boardAt});
    }
+   // Publish each complete board independently. Failed/unfinished leagues
+   // cannot erase a successful board or renew its original observation time.
+   observationsByBoard.set(boardKey,{at:boardAt,rows});
+   if(offset===0&&!events.length)tomorrow.push(feed);
   }catch(error){
    warnings.push(`${feed.label}: ${error instanceof Error?error.message:'scoreboard request failed'}`);
   }
- }
- // Discover embedded prices across every selected scoreboard before spending
- // the remaining shared budget on Core. A blocked Core route cannot starve
- // another selected league's scoreboard or increase the configured budget.
- for(const {meta,feed} of fallbacks){
-  if(remaining<=0)break;
+ };
+ const selected=rotatingFeeds().sort((a,b)=>(feedAttempts.get(a.id)||0)-(feedAttempts.get(b.id)||0));
+ // Every selected league gets its first-board opportunity before second-day
+ // requests or Core fallback can consume the unchanged shared request budget.
+ await phase(selected,feed=>scoreboard(feed,0));
+ await phase(tomorrow,feed=>scoreboard(feed,1));
+ const fallbackDepth=new Map<string,number>();
+ const fairFallbacks=fallbacks.map(value=>{
+  const depth=fallbackDepth.get(value.feed.id)||0;fallbackDepth.set(value.feed.id,depth+1);
+  return {value,depth};
+ }).sort((a,b)=>a.depth-b.depth).map(row=>row.value);
+ await phase(fairFallbacks,async({meta,feed,boardKey,boardAt})=>{
   try{
    const odds=await budgetedJson(`https://sports.core.api.espn.com/v2/sports/${feed.sportSlug}/leagues/${feed.leagueSlug}/events/${meta.eventId}/competitions/${meta.competitionId}/odds?limit=20`);
-   rows.push(...normalizeEspnOddsItems(odds,meta,feed.label,new Date().toISOString()));
+   const rows=normalizeEspnOddsItems(odds,meta,feed.label,new Date().toISOString());
+   const board=observationsByBoard.get(boardKey);
+   if(board?.at===boardAt)board.rows.push(...rows);
   }catch(error){
    warnings.push(`${feed.label} ${meta.eventId}: ${error instanceof Error?error.message:'odds request failed'}`);
   }
- }
+ });
+ if(Date.now()>=deadline)warnings.push('ESPN batch deadline reached; completed and still-current cached reference observations retained');
  warnings.push('ESPN prices are observed reference data; page retrieval time does not verify bookmaker quote freshness or execution availability.');
- return {at:Date.now(),rows,latencyMs:Date.now()-started,warnings:[...new Set(warnings)].slice(0,20)};
+ return {at:Date.now(),rows:currentRows(),latencyMs:Date.now()-started,warnings:[...new Set(warnings)].slice(0,20)};
 }
 
 export function espnCoreOddsProvider(env:Record<string,string|undefined>=process.env):ProviderConfig|null{
@@ -287,13 +340,17 @@ export function espnCoreOddsProvider(env:Record<string,string|undefined>=process
 
 export async function fetchEspnCoreOdds(config:ProviderConfig):Promise<ProviderFetchResult<unknown>>{
  const base={providerId:config.id,providerName:config.name,capability:config.capability,receivedAt:new Date().toISOString()};
- if(cache&&Date.now()-cache.at<cacheMs())return {...base,ok:cache.rows.length>0,latencyMs:0,status:200,data:cache.rows,error:cache.rows.length?undefined:'ESPN Core odds cache contains no complete supported markets'};
- if(!inFlight)inFlight=load().finally(()=>{inFlight=null});
+ if(cache&&Date.now()>=cache.at&&Date.now()-cache.at<cacheMs()){
+  const rows=currentRows();
+  return {...base,ok:rows.length>0,latencyMs:0,status:200,data:rows,error:rows.length?undefined:'ESPN Core odds cache contains no complete supported markets'};
+ }
+ if(!inFlight)inFlight=load(config).finally(()=>{inFlight=null});
  try{
   const result=await inFlight;cache=result;
   return {...base,ok:result.rows.length>0,latencyMs:result.latencyMs,status:200,data:result.rows,error:result.rows.length?undefined:`ESPN Core odds produced no complete supported markets${result.warnings.length?' | '+result.warnings.join('; '):''}`};
  }catch(error){
-  if(cache&&Date.now()-cache.at<cacheMs()*3)return {...base,ok:cache.rows.length>0,latencyMs:Date.now()-cache.at,status:200,data:cache.rows,error:'ESPN Core odds refresh failed; using bounded cached real rows'};
+  const rows=currentRows();
+  if(rows.length)return {...base,ok:true,latencyMs:cache?Date.now()-cache.at:0,status:200,data:rows,error:'ESPN Core odds refresh failed; using bounded cached real rows'};
   return {...base,ok:false,latencyMs:0,error:error instanceof Error?error.message:'ESPN Core odds request failed'};
  }
 }

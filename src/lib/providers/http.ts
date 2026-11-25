@@ -50,8 +50,9 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
    receivedAt:new Date().toISOString(),
    status:result.status??(result.ok?200:(result.attempts.find(x=>!x.ok)?.status||502)),
    data:result.data as T,
+   diagnostics:result.diagnostics,
    error:[result.error,warning,quota?`quota ${quota}`:null].filter(Boolean).join(' | ')||undefined,
-   retryAfterMs:/quota has been reached|OUT_OF_USAGE_CREDITS/i.test(result.error||'')?untilNextMonthMs():
+   retryAfterMs:result.diagnostics?.failureKind==='QUOTA_EXHAUSTED'||/quota has been reached|OUT_OF_USAGE_CREDITS/i.test(result.error||'')?untilNextMonthMs():
     result.retryAfterMs??(result.attempts.some(x=>x.status===429)?300000:undefined)
   };
  }
