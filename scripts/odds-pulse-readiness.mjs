@@ -3,11 +3,14 @@ import {pathToFileURL} from 'node:url';
 
 export function evaluatePulse(body, httpStatus, now=Date.now()) {
  const rows=Array.isArray(body?.rows)?body.rows:[];
+ const timestamp=value=>typeof value==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)?Date.parse(value):NaN;
  const valid=rows.filter(r=>typeof r?.sport==='string'&&typeof r?.fixture==='string'&&
-  Array.isArray(r?.prices)&&r.prices.some(p=>Number.isFinite(p?.american)&&p.american!==0));
- const generatedMs=Date.parse(body?.generatedAt||'');
+  r.status==='OPEN'&&Number.isFinite(timestamp(r.updatedAt))&&timestamp(r.updatedAt)<=now&&now-timestamp(r.updatedAt)<=120000&&
+  Array.isArray(r?.prices)&&r.prices.some(p=>typeof p?.selectionId==='string'&&p.selectionId.trim()&&
+   typeof p.american==='number'&&Number.isFinite(p.american)&&Math.abs(p.american)>=100));
+ const generatedMs=timestamp(body?.generatedAt);
  const ageMs=Number.isFinite(generatedMs)?now-generatedMs:null;
- const fresh=body?.fresh===true&&ageMs!==null&&ageMs>=-30000&&ageMs<=120000;
+ const fresh=body?.fresh===true&&ageMs!==null&&ageMs>=0&&ageMs<=120000;
  const reasons=[];
  if(httpStatus!==200||body?.ok!==true)reasons.push('SOURCE_UNAVAILABLE');
  if(!fresh)reasons.push('SNAPSHOT_STALE_OR_UNTIMESTAMPED');

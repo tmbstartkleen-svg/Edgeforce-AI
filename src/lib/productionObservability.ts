@@ -3,6 +3,7 @@ import {getAutomationHealth} from './automationHealth';
 import {getOpsStatus} from './opsStatus';
 import {loadIntelligenceReliabilityState} from './intelligenceReliability';
 import {fetchFanDuelOddsPulse} from './providers/fanLineWire';
+import {evaluatePulseEvidence} from './pulseEvidence';
 
 export type OpsHealthState='HEALTHY'|'DEGRADED'|'CRITICAL'|'UNKNOWN';
 export type OpsCheck={
@@ -67,9 +68,10 @@ export async function buildProductionObservability(){
   }
  }
 
- const pulseAgeMin=pulse?.ageMs==null?null:Number(pulse.ageMs)/60000;
- const pulsePriceCount=pulse?.rows?.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0)||0;
- const pulseUsable=Boolean(pulse?.ok&&pulse.fresh&&pulsePriceCount>0);
+ const pulseEvidence=evaluatePulseEvidence(pulse);
+ const pulseAgeMin=pulseEvidence.ageMs===null?null:pulseEvidence.ageMs/60000;
+ const pulsePriceCount=pulseEvidence.priceCount;
+ const pulseUsable=pulseEvidence.usable;
  const freshness=(id:string,label:string,value:number|null,healthy:number,critical:number,allowPulseContinuity=false)=>{
   let state:OpsHealthState=value===null?'UNKNOWN':value<=healthy?'HEALTHY':value<=critical?'DEGRADED':'CRITICAL';
   let reason=value===null?'No durable timestamp is available yet.':`${label} is ${Math.round(value)} minute(s) old.`;

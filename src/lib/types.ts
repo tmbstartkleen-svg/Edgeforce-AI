@@ -70,6 +70,8 @@ export type Market={
  sourceDelaySeconds?:number;
  sourceTimestamp?:string;
  sourceEventId?:string;
+ evidenceClass?:'OBSERVED_REFERENCE';
+ quoteObservedAt?:string;
  liveEligible?:boolean;
  period:'AM'|'PM';
  sportFeatures?:Record<string,number>;

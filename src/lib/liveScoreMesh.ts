@@ -1,6 +1,9 @@
 import {ESPN_SCOREBOARD_FEEDS,sportCoverageSummary} from './sportRegistry';
 import {fetchSportScoreBackup} from './providers/sportScore';
 import {fetchCommunityScoreBackups} from './providers/communityScoreBackups';
+import {normalizeEspnEmbeddedOdds} from './providers/espnCoreOdds';
+import {normalizeOddsPayload} from './providers/normalizeOdds';
+import {buildObservedOddsSnapshot,mergeObservedOddsSnapshots,type ObservedOddsSnapshot} from './observedOdds';
 export type LiveScoreConsensus={
  confidence:'HIGH'|'MEDIUM'|'LOW'|'SINGLE_SOURCE';
  sourceCount:number;
@@ -35,6 +38,7 @@ export type LiveGameState={
 type Cached={at:number;games:LiveGameState[]};
 const cache=new Map<string,Cached>();
 const inFlight=new Map<string,Promise<LiveGameState[]>>();
+const observedOddsByLeague=new Map<string,ObservedOddsSnapshot>();
 const nativeLiveTtlMs=()=>Math.max(1000,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||1000));
 const nativeIdleTtlMs=()=>Math.max(nativeLiveTtlMs(),Number(process.env.LIVE_SCORE_NATIVE_IDLE_CACHE_MS||15000));
 const espnCdnLiveTtlMs=()=>Math.max(750,Number(process.env.LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS||750));
@@ -412,6 +416,14 @@ async function espn(sport:string,league:string,label:string){
  const board=await cached(key,espnLiveTtlMs(),espnIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10).replaceAll('-','');
   const payload=await json(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${date}`);
+  // Reuse the exact scoreboard response. No odds request, source-time inference,
+  // model calculation or persistence occurs on this display-only path.
+  const observedAt=new Date().toISOString();
+  const referenceRows=arr(obj(payload).events).slice(0,200)
+   .flatMap(event=>normalizeEspnEmbeddedOdds(event,label,observedAt));
+  const referenceMarkets=normalizeOddsPayload(referenceRows).markets
+   .map(m=>({...m,sourceProviderId:'espn-core-odds'}));
+  observedOddsByLeague.set(key,buildObservedOddsSnapshot(referenceMarkets));
   return parseEspnLiveGames(payload,label);
  });
  return Promise.all(board.map(game=>espnCdn(game,label,league).catch(()=>game)));
@@ -475,6 +487,7 @@ export async function fetchLiveScoreMesh(){
    ...community.sourceState.map(x=>({id:x.id,auth:x.id==='thesportsdb'?'shared-free-key':'optional-key',priority:'community-backup',enabled:x.ok,count:x.count}))
   ],
   liveGames:games.filter(x=>x.status==='LIVE').length,
+  observedOdds:mergeObservedOddsSnapshots([...observedOddsByLeague.values()]),
   games,
   warnings:[...new Set([...consensusWarnings,...warnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
  };

@@ -19,6 +19,7 @@ import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
 import {fetchLiveScoreMesh} from '@/lib/liveScoreMesh';
 import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
+import {buildObservedOddsSnapshot,mergeObservedOddsSnapshots} from '@/lib/observedOdds';
 import {soccerBoardEvidence} from '@/lib/intelligence-core/soccer-board-evidence.mjs';
 import {resolveSoccerBoardMarkets} from '@/lib/intelligence-core/soccer-board-identity-adapter.mjs';
 
@@ -265,6 +266,7 @@ export async function GET(req:Request){
     warnings:ingestion.warnings,
     liveScores,
     fanduelPulse,
+    observedOdds:mergeObservedOddsSnapshots([buildObservedOddsSnapshot(ingestion.referenceMarkets||[]),liveScores.observedOdds]),
     topBoardQualification:{
       requested:limit,
       candidates:boardCandidates.length,

@@ -3,6 +3,8 @@ import {configuredProviders} from '@/lib/providers/config';
 import {auditMarketBatch} from '@/lib/dataQuality';
 import {RELEASE} from '@/lib/releaseManifest';
 import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
+import {evaluatePulseEvidence} from '@/lib/pulseEvidence';
+import {buildObservedOddsSnapshot} from '@/lib/observedOdds';
 
 export const dynamic='force-dynamic';
 
@@ -20,9 +22,11 @@ export async function GET(req:Request){
   const oddsProviders=configuredProviders('ODDS');
   const audit=auditMarketBatch(ingestion.markets);
   const sports=[...new Set(ingestion.markets.map(x=>x.sport))].sort();
-  const pulseRows=pulse?.rows?.filter(x=>x.status==='OPEN'||x.inplay||x.prices.length>0)||[];
-  const pulsePriceCount=pulseRows.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0);
-  const pulseUsable=Boolean(pulse?.ok&&pulse.fresh&&pulseRows.length>0&&pulsePriceCount>0);
+  const pulseEvidence=evaluatePulseEvidence(pulse);
+  const pulseRows=pulseEvidence.rows;
+  const pulsePriceCount=pulseEvidence.priceCount;
+  const pulseUsable=pulseEvidence.usable;
+  const observedOdds=buildObservedOddsSnapshot(ingestion.referenceMarkets||[]);
   const usable=ingestion.source==='live'||ingestion.source==='stored'||pulseUsable;
   const effectiveSource=ingestion.source==='unavailable'&&pulseUsable?'pulse':ingestion.source;
   return Response.json({
@@ -47,6 +51,7 @@ export async function GET(req:Request){
      providerName:x.providerName,
      bookmaker:x.bookmaker,
      acceptedMarkets:x.acceptedMarkets,
+     observedReferenceMarkets:x.observedReferenceMarkets||0,
      sports:x.sports||[],
      sportCounts:x.sportCounts||{},
      playerPropRows:x.playerPropRows||0,
@@ -61,10 +66,14 @@ export async function GET(req:Request){
    }),
    credentialConfigured:Boolean(process.env.THE_ODDS_API_KEY)||oddsProviders.some(x=>Boolean(x.apiKey)),
    marketCount:ingestion.markets.length,
+   observedReferenceCount:observedOdds.referenceCount,
+   normalizedMarketsAvailable:ingestion.markets.length>0,
+   observationOnly:ingestion.markets.length===0&&(observedOdds.referenceCount>0||pulseUsable),
+   observedOdds,
    pulseMarketRows:pulseRows.length,
    pulsePriceCount,
-   pulseFresh:Boolean(pulse?.fresh),
-   pulseAgeMs:pulse?.ageMs??null,
+   pulseFresh:pulseEvidence.fresh,
+   pulseAgeMs:pulseEvidence.ageMs,
    persistedReuseAgeMin:ingestion.reuseAgeMin??null,
    sports,
    quality:audit,

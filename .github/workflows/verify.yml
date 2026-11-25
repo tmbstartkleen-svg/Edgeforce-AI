@@ -47,6 +47,8 @@ jobs:
           npm run test:odds-freshness
           npm run test:odds-bookmaker-provenance
           npm run test:normalize-source-time
+      - name: Verify observed odds isolation and provider quota protection
+        run: npm run test:odds-recovery
       - name: Verify Polymarket US read-only readiness
         run: npm run test:polymarket-us-readiness
       - name: Verify V196 D1 verified edge evidence join

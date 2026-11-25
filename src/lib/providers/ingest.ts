@@ -71,6 +71,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
    providerName:'Stored Live Snapshot',
    markets:reusableStored,
    panelMarkets:[] as Market[],
+   referenceMarkets:[] as Market[],
    rawCount:reusableStored.length,
    warnings:[`Reused ${reusableStored.length} persisted real market snapshots while the adaptive ${Math.round(liveRefreshMs/1000)}s provider refresh window is still fresh`],
    attempts:[],

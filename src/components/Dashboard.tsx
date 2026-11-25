@@ -4,6 +4,10 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {buildMixedSportProbabilitySet,buildProbabilitySet,type Parlay} from '@/lib/parlays';
 import {fmtOdds,fmtPct} from '@/lib/math';
 import {boardValueMetrics} from '@/lib/boardValueMetrics';
+import {evaluatePulseEvidence} from '@/lib/pulseEvidence';
+import type {ObservedOddsSnapshot} from '@/lib/observedOdds';
+import type {FanDuelOddsPulse} from '@/lib/providers/fanLineWire';
+import ObservedOddsPanel,{currentBoardRows,hasCurrentBoardSnapshot} from './ObservedOddsPanel';
 import type {Scanned} from '@/lib/scanner';
 import type {RiskProfile} from '@/lib/types';
 import type {LearnedSgpMap} from '@/lib/learnedSgpCorrelation';
@@ -149,7 +153,7 @@ type LiveBoardResponse={
   providerName?:string;
   providerDegraded?:boolean;
   providerQuality?:{grade:string;qualityScore:number;rowCount:number;payloadAgeMin?:number}|null;
-  providerAttempts?:Array<{providerId:string;ok:boolean;skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;error?:string}>;
+  providerAttempts?:Array<{providerId:string;ok:boolean;skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;error?:string;observedReferenceMarkets?:number}>;
   targetBook?:string;
   providerPanel?:Array<{
     providerId:string;providerName:string;bookmaker:string;marketRole:string;
@@ -162,6 +166,7 @@ type LiveBoardResponse={
     outlierRows:number;classifiedRows:number;sharpOverPublic:number;publicOverSharp:number;aligned:number;
   };
   edgeScanner?:{
+    generatedAt?:string;
     quoteCount:number;
     groupCount:number;
     arbitrageCount:number;
@@ -259,17 +264,8 @@ type LiveBoardResponse={
     games:LiveScoreGame[];
     warnings:string[];
   };
-  fanduelPulse?:{
-    ok:boolean;
-    generatedAt:string|null;
-    sequence:number|null;
-    liveTotal:number;
-    prematchTotal:number;
-    latencyMs:number;
-    fresh:boolean;
-    ageMs:number|null;
-    warning?:string;
-  };
+  fanduelPulse?:FanDuelOddsPulse;
+  observedOdds?:ObservedOddsSnapshot;
   learnedSgpCorrelations?:LearnedSgpMap;
   learnedSgpProfileCount?:number;
   predictions:{
@@ -632,7 +628,9 @@ export default function Dashboard(){
   const [view,setView]=useState<'today'|'week'>('today');
   const [limit,setLimit]=useState<30|50>(30);
   const [risk,setRisk]=useState<RiskProfile>('Moderate');
-  const [board,setBoard]=useState<LiveBoardResponse>(emptyBoard);
+  const [boardSnapshot,setBoard]=useState<LiveBoardResponse>(emptyBoard);
+  const [boardFailed,setBoardFailed]=useState(false);
+  const [evidenceNow,setEvidenceNow]=useState(()=>Date.now());
   const [dbStats,setDbStats]=useState<DbStats>({configured:false,ok:false});
   const [calibration,setCalibration]=useState<CalibrationResponse>({source:'none',weights:[],models:[]});
   const [validationLab,setValidationLab]=useState<ValidationLabResponse|null>(null);
@@ -641,7 +639,7 @@ export default function Dashboard(){
   const [releaseCertification,setReleaseCertification]=useState<ReleaseCertificationResponse|null>(null);
   const [automationHealth,setAutomationHealth]=useState<AutomationHealthResponse|null>(null);
   const [dataQuality,setDataQuality]=useState<DataQualityResponse|null>(null);
-  const [edgeScanner,setEdgeScanner]=useState<NonNullable<LiveBoardResponse['edgeScanner']>|null>(null);
+  const [edgeScannerSnapshot,setEdgeScanner]=useState<NonNullable<LiveBoardResponse['edgeScanner']>|null>(null);
   const [sport,setSport]=useState('ALL');
   const [period,setPeriod]=useState<'ALL'|'AM'|'PM'>('ALL');
   const [market,setMarket]=useState('ALL');
@@ -653,13 +651,31 @@ export default function Dashboard(){
   const [minOdds,setMinOdds]=useState(-1000);
   const [maxOdds,setMaxOdds]=useState(1000);
   const [parlaySize,setParlaySize]=useState(2);
-  const [parlayBoard,setParlayBoard]=useState<ParlayBoardResponse|null>(null);
+  const [parlaySnapshot,setParlayBoard]=useState<ParlayBoardResponse|null>(null);
   const [lastError,setLastError]=useState('');
   const [bankroll,setBankroll]=useState(1000);
   const [drawdownPct,setDrawdownPct]=useState(0);
-  const [portfolio,setPortfolio]=useState<PortfolioApiResponse|null>(null);
+  const [portfolioSnapshot,setPortfolio]=useState<PortfolioApiResponse|null>(null);
   const [selectedMarket,setSelectedMarket]=useState<{id:string;market:string;selection:string}|null>(null);
   const busy=useRef(false);
+  const snapshotCurrent=hasCurrentBoardSnapshot(boardSnapshot.generatedAt,evidenceNow,boardFailed);
+  const board=useMemo(()=>{
+    const rows=currentBoardRows(boardSnapshot.rows,boardSnapshot.generatedAt,evidenceNow,!snapshotCurrent);
+    return {...boardSnapshot,rows,sports:[...new Set(rows.map(row=>row.sport))],
+      ...(!snapshotCurrent&&boardSnapshot.source!=='loading'?{source:'stale',providerDegraded:true}:{}),
+      ...(!snapshotCurrent?{anomalies:[],resimulationTriggered:false,resimulatedMarketIds:[]}:{}),
+    };
+  },[boardSnapshot,snapshotCurrent,evidenceNow]);
+  const parlayBoard=snapshotCurrent&&hasCurrentBoardSnapshot(parlaySnapshot?.generatedAt,evidenceNow)?parlaySnapshot:null;
+  const edgeScanner=snapshotCurrent&&hasCurrentBoardSnapshot(edgeScannerSnapshot?.generatedAt,evidenceNow)?edgeScannerSnapshot:null;
+  const portfolio=snapshotCurrent&&portfolioSnapshot?.result.positions.every(position=>board.rows.some(row=>row.id===position.id))?portfolioSnapshot:null;
+  const pulseEvidence=evaluatePulseEvidence(boardSnapshot.fanduelPulse,evidenceNow);
+
+  useEffect(()=>{
+    // Display freshness advances locally; no provider or application request is made here.
+    const timer=window.setInterval(()=>setEvidenceNow(Date.now()),15000);
+    return()=>window.clearInterval(timer);
+  },[]);
 
   useEffect(()=>{
     let mounted=true;
@@ -673,12 +689,13 @@ export default function Dashboard(){
           const res=await fetch('/api/live-board?view='+view+'&limit='+limit+'&risk='+risk,{cache:'no-store'});
           if(!res.ok)throw new Error('Board request failed');
           const json=await res.json() as LiveBoardResponse;
+          if(!json||!Array.isArray(json.rows)||!Array.isArray(json.sports))throw new Error('Board response is invalid');
           const requested=json.liveScores?.freshness?.recommendedUiRefreshMs??json.liveScores?.uiRefreshMs??json.uiRefreshMs??1000;
           nextDelay=Math.max(500,Math.min(5000,Number(requested)||1000));
-          if(mounted){setBoard(json);setLastError('')}
+          if(mounted){setBoard(json);setEvidenceNow(Date.now());setBoardFailed(false);setLastError('')}
         }catch(error){
           nextDelay=Math.max(nextDelay,1500);
-          if(mounted)setLastError(error instanceof Error?error.message:'Unable to refresh board');
+          if(mounted){setBoardFailed(true);setSelectedMarket(null);setLastError(error instanceof Error?error.message:'Unable to refresh board')}
         }finally{
           busy.current=false;
         }
@@ -694,10 +711,10 @@ export default function Dashboard(){
     const load=async()=>{
       try{
         const res=await fetch('/api/parlays?size=2&view='+view,{cache:'no-store'});
-        if(!res.ok)return;
+        if(!res.ok)throw new Error('Parlay request failed');
         const json=await res.json() as ParlayBoardResponse;
-        if(mounted)setParlayBoard(json);
-      }catch{}
+        if(mounted)setParlayBoard(json.ok?json:null);
+      }catch{if(mounted)setParlayBoard(null)}
     };
     void load();
     const timer=window.setInterval(()=>void load(),60000);
@@ -804,10 +821,10 @@ export default function Dashboard(){
     const load=async()=>{
       try{
         const res=await fetch('/api/edge-scanner',{cache:'no-store'});
-        if(!res.ok)return;
+        if(!res.ok)throw new Error('Edge scanner request failed');
         const json=await res.json() as EdgeScannerApiResponse;
-        if(mounted&&json.ok&&json.result)setEdgeScanner(json.result);
-      }catch{}
+        if(mounted)setEdgeScanner(json.ok&&json.result?json.result:null);
+      }catch{if(mounted)setEdgeScanner(null)}
     };
     void load();
     const timer=window.setInterval(()=>void load(),15000);
@@ -826,12 +843,13 @@ export default function Dashboard(){
   useEffect(()=>{
     let cancelled=false;
     const load=async()=>{
-      if(!board.rows.length){setPortfolio(null);return;}
+      const rows=currentBoardRows(boardSnapshot.rows,boardSnapshot.generatedAt,Date.now(),boardFailed);
+      if(!rows.length){setPortfolio(null);return;}
       try{
         const res=await fetch('/api/portfolio/optimize',{
           method:'POST',
           headers:{'content-type':'application/json'},
-          body:JSON.stringify({bankroll,drawdownPct,risk,rows:board.rows})
+          body:JSON.stringify({bankroll,drawdownPct,risk,rows})
         });
         if(!res.ok)return;
         const json=await res.json() as PortfolioApiResponse;
@@ -840,7 +858,7 @@ export default function Dashboard(){
     };
     void load();
     return ()=>{cancelled=true};
-  },[board.rows,bankroll,drawdownPct,risk]);
+  },[boardSnapshot.rows,boardSnapshot.generatedAt,boardFailed,bankroll,drawdownPct,risk]);
 
   const marketOptions=useMemo(()=>[...new Set(board.rows.map(x=>x.market))].sort(),[board.rows]);
   const marketCounts=useMemo(()=>board.rows.reduce<Record<string,number>>((acc,row)=>{acc[row.market]=(acc[row.market]||0)+1;return acc},{}),[board.rows]);
@@ -991,7 +1009,7 @@ export default function Dashboard(){
         </div>
         <div>
           <small>FANDUEL PULSE</small>
-          <b>{board.fanduelPulse?.ok?(board.fanduelPulse.fresh?'LIVE':'AGING'):'FALLBACK'}</b>
+          <b>{pulseEvidence.usable?`${pulseEvidence.priceCount} OPEN PRICES`:pulseEvidence.fresh?'NO USABLE PRICES':'UNAVAILABLE'}</b>
         </div>
         <div>
           <small>FASTEST FEED</small>
@@ -1003,6 +1021,7 @@ export default function Dashboard(){
     <nav className="v21QuickNav" aria-label="Dashboard sections">
       <a href="#triage">Triage</a>
       <a href="#live">Live Scores</a>
+      <a href="#observed-odds">Observed Odds</a>
       <a href="#edge">Today&apos;s Edge</a>
       <a href="#board">Probability Board</a>
       <a href="#parlays">Parlays</a>
@@ -1018,7 +1037,7 @@ export default function Dashboard(){
         <b>Production surface locked for launch review</b>
       </div>
       <div className="launchFreezeChecks" role="list">
-        <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Live data</b><small>{launchReview.liveData?'connected':'warming'}</small></span>
+        <span role="listitem" className={launchReview.liveData?'pass':'warn'}><i aria-hidden="true"/><b>Model board data</b><small>{boardLoading?'loading':launchReview.liveData?'connected':snapshotCurrent?'unavailable':'snapshot unavailable'}</small></span>
         <span role="listitem" className={launchReview.releaseCertified?'pass':'warn'}><i aria-hidden="true"/><b>Release</b><small>{launchReview.releaseCertified?'certified':'awaiting'}</small></span>
         <span role="listitem" className={launchReview.operatorHealthy?'pass':'warn'}><i aria-hidden="true"/><b>Ops</b><small>{launchReview.operatorHealthy?'clear':operatorRiskCount+' flag'+(operatorRiskCount===1?'':'s')}</small></span>
         <span role="listitem" className={launchReview.reviewClear?'pass':'warn'}><i aria-hidden="true"/><b>Review</b><small>{launchReview.reviewClear?'clear':reviewQueueSummary.total+' queued'}</small></span>
@@ -1031,6 +1050,10 @@ export default function Dashboard(){
     {board.providerDegraded&&<div className="v21Alert">Provider degraded mode is active. {board.providerQuality?.grade?`Current payload grade: ${board.providerQuality.grade}. `:''}{board.warnings?.[0]||'Edgeforce is using a fallback source or caution-grade provider data.'}</div>}
     {board.consensusCoverage&&board.consensusCoverage.configuredFeeds>1&&board.consensusCoverage.multiBookRows===0&&<div className="v21Alert">Consensus depth is limited: multiple feeds are configured, but no displayed row currently has two distinct book prices after reconciliation.</div>}
     {board.resimulationTriggered&&<div className="v21Alert">Automatic repricing triggered for {board.resimulatedMarketIds?.length||0} market{(board.resimulatedMarketIds?.length||0)===1?'':'s'}. {(board.contextChanges||[]).slice(0,2).map(x=>x.type.replaceAll('_',' ')).join(' • ')}{board.contextRevision?` • revision ${board.contextRevision}`:''}</div>}
+
+    <ObservedOddsPanel observedOdds={boardSnapshot.observedOdds} pulse={boardSnapshot.fanduelPulse}
+      providerAttempts={boardSnapshot.providerAttempts} now={evidenceNow}
+      stale={!snapshotCurrent&&!boardLoading} loading={boardLoading}/>
 
     {board.liveScores&&<section className="consoleCard liveScoreSurface liveGameCenter" id="live">
       <div className="consoleHead">
@@ -1090,8 +1113,8 @@ export default function Dashboard(){
           <div><small>PM</small><b>{pmCount}</b></div>
           <div><small>Sports</small><b>{board.sports.length}</b></div>
           <div><small>History</small><b>{board.history.sampleSize}</b></div>
-          <div><small>Feed</small><b>{board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'READY'}</b></div>
-          <div><small>Feeds</small><b>{board.consensusCoverage?.acceptedFeeds??1}</b></div>
+          <div><small>Feed</small><b>{boardLoading?'—':!snapshotCurrent?'UNAVAILABLE':board.providerDegraded?'DEGRADED':board.providerQuality?.grade||'UNVERIFIED'}</b></div>
+          <div><small>Feeds</small><b>{snapshotCurrent?board.consensusCoverage?.acceptedFeeds??0:'—'}</b></div>
           <div><small>Multi-book</small><b>{board.consensusCoverage?.multiBookRows??0}</b></div>
           <div><small>Price shops</small><b>{board.consensusCoverage?.priceShopOpportunities??0}</b></div>
           <div><small>Arbs</small><b>{edgeScanner?.arbitrageCount??0}</b></div>
@@ -1990,6 +2013,6 @@ export default function Dashboard(){
       <div><small>GOVERNANCE RUNS</small><b>{dbStats.counts?.model_governance_runs||0}</b></div>
       <div><small>GOVERNANCE SNAPSHOTS</small><b>{dbStats.counts?.model_governance_snapshots||0}</b></div>
     </section>
-    {selectedMarket&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
+    {selectedMarket&&snapshotCurrent&&board.rows.some(row=>row.id===selectedMarket.id)&&<MarketDrilldown marketId={selectedMarket.id} marketKey={selectedMarket.market} selection={selectedMarket.selection} onClose={()=>setSelectedMarket(null)}/>}
   </main>;
 }
