@@ -88,3 +88,13 @@ test('generic sportsbook connection secrets require an explicit price review app
  const approvals={ODDS_PRICE_REVIEW_APPROVALS:'{"odds-provider-primary":{"origin":"https://sports-source.example","operator":"source","books":["draftkings"]}}'};
  assert.deepEqual(runtimeSecrets({...env,...source,...approvals}),{...env,...source,...approvals});
 });
+
+test('warehouse audit retries transient credential convergence and retains the final authorization gate',()=>{
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-cloudflare.yml',import.meta.url),'utf8');
+ const audit=workflow.split('name: Audit deployed Intelligence Core warehouse and provider evidence')[1]
+  .split('name: Certify recommendation data without blocking platform launch')[0];
+ assert.match(audit,/for ATTEMPT in \{1\.\.10\}/);
+ assert.match(audit,/\[ "\$STATUS" != 401 \] \|\| \[ "\$ATTEMPT" -eq 10 \]/);
+ assert.match(audit,/\[ "\$STATUS" != 200 \] && \[ "\$STATUS" != 503 \]/);
+ assert.match(audit,/Authorization: Bearer \$CRON_SECRET/);
+});

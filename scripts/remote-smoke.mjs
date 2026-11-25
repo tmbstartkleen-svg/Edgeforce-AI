@@ -178,7 +178,7 @@ for(const path of paths){
   const json=parseSmokeJson(path,res.status,body);
   liveBoardEvidence=validateLiveBoardContinuity(json,res.status);
   if(!Object.hasOwn(json,'priceReview')||(res.status===200&&json.priceReview===null))throw new Error('live board did not expose independent price review');
-  liveBoardEvidence.priceReview=json.priceReview===null?null:validateSportsbookPriceReview(json.priceReview);
+  liveBoardEvidence.priceReview=json.priceReview===null?null:validateSportsbookPriceReview(json.priceReview,json.generatedAt);
   if(!json.coreStatus.ok)result.degraded={code:json.coreStatus.code,schemaVersion:json.schema};
  }
 }

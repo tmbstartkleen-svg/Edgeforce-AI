@@ -30,6 +30,9 @@ export async function GET(req:Request){
   // Reuse this isolate's existing observations; status inspection adds no score requests.
   const cachedScores=readCachedLiveScoreMesh();
   const observedOdds=mergeObservedOddsSnapshots([buildObservedOddsSnapshot(ingestion.referenceMarkets||[]),cachedScores.observedOdds]);
+  const publishedAt=Date.now();
+  const priceReview=ingestion.readPriceReview?.(publishedAt)??ingestion.priceReview;
+  const priceReviewAvailable=Boolean(priceReview?.corroboratedMarkets);
   const usable=ingestion.source==='live'||ingestion.source==='stored'||pulseUsable;
   const effectiveSource=ingestion.source==='unavailable'&&pulseUsable?'pulse':ingestion.source;
   return Response.json({
@@ -71,11 +74,12 @@ export async function GET(req:Request){
    }),
    credentialConfigured:Boolean(process.env.THE_ODDS_API_KEY)||oddsProviders.some(x=>Boolean(x.apiKey)),
    marketCount:ingestion.markets.length,
-   priceReview:ingestion.priceReview,
+   priceReview,
+   priceReviewAvailable,
    observedReferenceCount:observedOdds.referenceCount,
    normalizedMarketsAvailable:ingestion.markets.length>0,
-   observationOnly:ingestion.markets.length===0&&(observedOdds.referenceCount>0||pulseUsable),
-   observationsAvailable:observedOdds.referenceCount>0||pulseUsable,
+   observationOnly:ingestion.markets.length===0&&(observedOdds.referenceCount>0||pulseUsable||priceReviewAvailable),
+   observationsAvailable:observedOdds.referenceCount>0||pulseUsable||priceReviewAvailable,
    observedOdds,
    pulseMarketRows:pulseRows.length,
    pulsePriceCount,
@@ -91,8 +95,8 @@ export async function GET(req:Request){
       :[])
    ],
    attempts:ingestion.attempts,
-   generatedAt:new Date().toISOString(),
-  },{status:(requireLive&&ingestion.source!=='live')||(requireUsable&&!usable)||(ingestion.source==='unavailable'&&!pulseUsable)?503:200,headers:{'Cache-Control':'no-store'}});
+   generatedAt:new Date(publishedAt).toISOString(),
+  },{status:(requireLive&&ingestion.source!=='live')||(requireUsable&&!usable)||(ingestion.source==='unavailable'&&!pulseUsable&&!priceReviewAvailable)?503:200,headers:{'Cache-Control':'no-store'}});
  }catch(error){
   console.error('live-data-status failed',error);
   return Response.json({

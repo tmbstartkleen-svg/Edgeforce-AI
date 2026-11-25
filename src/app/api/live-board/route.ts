@@ -155,10 +155,11 @@ export async function GET(req:Request){
 
   const degradedResponse=async(coreStatus:LiveBoardCoreStatus)=>{
     await withTimeout(recordPerformance('/api/live-board',Date.now()-started,503,coreStatus.code),1000,'performance logging').catch(()=>undefined);
-    return Response.json(unavailableLiveBoard({view,limit,risk,coreStatus,
+    const now=Date.now();
+    return Response.json(unavailableLiveBoard({view,limit,risk,coreStatus,now,
       liveScores,fanduelPulse,predictions,ledgerHistory,
       referenceOdds:acquired?buildObservedOddsSnapshot(acquired.referenceMarkets||[]):undefined,
-      providerAttempts:acquired?.attempts,priceReview:acquired?.priceReview}),{
+      providerAttempts:acquired?.attempts,priceReview:acquired?.readPriceReview?.(now)??acquired?.priceReview}),{
       status:503,
       headers:{'Cache-Control':'no-store, max-age=0'}
     });
@@ -249,11 +250,13 @@ export async function GET(req:Request){
   const coreStatus:LiveBoardCoreStatus=ingestion.markets.length
     ?{ok:true,code:'READY'}
     :{ok:false,code:'NO_ELIGIBLE_MARKETS',error:'No eligible sportsbook markets are available for model recommendations.'};
+  const publishedAt=Date.now();
+  const priceReview=ingestion.readPriceReview?.(publishedAt)??ingestion.priceReview;
   return Response.json({
     schema:LIVE_BOARD_SCHEMA,
     coreStatus,
-    observationOnly:!ingestion.markets.length&&(observedOdds.referenceCount>0||evaluatePulseEvidence(fanduelPulse).usable),
-    generatedAt:new Date().toISOString(),
+    observationOnly:!ingestion.markets.length&&(observedOdds.referenceCount>0||evaluatePulseEvidence(fanduelPulse).usable||Boolean(priceReview?.corroboratedMarkets)),
+    generatedAt:new Date(publishedAt).toISOString(),
     uiRefreshMs:1000,
     sourceRefreshMs:ingestion.liveRefreshMs??SOURCE_TTL_MS,
     nextLiveRefreshMs:ingestion.nextLiveRefreshMs??0,
@@ -268,7 +271,7 @@ export async function GET(req:Request){
     providerDegraded:ingestion.degraded,
     providerQuality:ingestion.quality||null,
     providerAttempts:ingestion.attempts,
-    priceReview:ingestion.priceReview,
+    priceReview,
     targetBook:ingestion.targetBook,
     providerPanel:ingestion.providerPanel,
     consensusCoverage,

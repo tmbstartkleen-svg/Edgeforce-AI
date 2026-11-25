@@ -165,3 +165,119 @@ test('a newer withdrawal for the same sportsbook suppresses a lagging syndicated
  assert.equal(outcome.corroboratedMarkets,0);
  assert.equal(outcome.rejections.BOOKMAKER_REVISION_WITHHELD,1);
 });
+
+test('pilot approval scopes all configured feeds to one exact sport and league',()=>{
+ const pilotScope={sport:' BASKETBALL ',league:'NBA'};
+ const config=priceReviewApproval(configs[0],JSON.stringify({...approved,pilotScope}));
+ assert.deepEqual(config.pilotScope,{sport:'basketball',league:'nba'});
+ const rows=[...sourceRows(0),...sourceRows(0,{league:'NCAAB',sourceEventId:'college'})];
+ const result=source(0,rows,config);
+ assert.equal(result.rejections.OUTSIDE_PILOT_SCOPE,2);
+ assert.equal(result.eligibleMarkets.length,1);
+ assert.equal(priceReviewApproval(configs[0],JSON.stringify({...approved,pilotScope:{sport:'basketball'}})),undefined);
+ assert.equal(priceReviewApproval(configs[0],JSON.stringify({...approved,pilotScope:null})),undefined);
+});
+
+test('a withdrawal survives an author outage and only a later revision can reopen the book',()=>{
+ const tracker=loadProvider('priceReview').createPriceReviewTracker();
+ const older=source(0), foil=source(1);
+ const copyApproval=approval(2,{books:['draftkings']});
+ const timestamp=iso(-10000);
+ const withdrawal=source(2,sourceRows(2,{bookmaker:'DraftKings',status:'SUSPENDED',sourceTimestamp:timestamp}),copyApproval);
+ assert.equal(tracker.build(3,[older,foil],now).corroboratedMarkets,1);
+ assert.equal(tracker.build(3,[older,foil,withdrawal],now+1000).corroboratedMarkets,0);
+ const unavailable=tracker.build(3,[older,foil],now+2000);
+ assert.equal(unavailable.respondedFeeds,2);
+ assert.equal(unavailable.rejections.BOOKMAKER_REVISION_WITHHELD,1);
+ assert.equal(unavailable.corroboratedMarkets,0);
+ const atSameTime=source(0,sourceRows(0,{sourceTimestamp:timestamp}));
+ assert.equal(tracker.build(3,[atSameTime,foil],now+3000).corroboratedMarkets,0);
+ const reopened=source(0,sourceRows(0,{sourceTimestamp:iso(-9000)}));
+ assert.equal(tracker.build(3,[reopened,foil],now+4000).corroboratedMarkets,1);
+});
+
+test('the newest sportsbook revision fences older copies across outcome shapes and per-feed freshness limits',()=>{
+ const drawRows=i=>[...sourceRows(i,{outcomeCount:3}),sourceRows(i,{outcomeCount:3,selection:'Draw',odds:250})[0]];
+ const copyApproval={...approval(2,{books:['draftkings']}),maxAgeMs:1000};
+ const newer=source(2,sourceRows(2,{bookmaker:'DraftKings',sourceTimestamp:iso(-10000)}),copyApproval);
+ assert.equal(newer.eligibleMarkets.length,0);
+ assert.equal(newer.rejections.BOOK_UPDATE_EXPIRED,1);
+ const outcome=review(source(0,drawRows(0)),source(1,drawRows(1)),newer);
+ assert.equal(outcome.rejections.BOOKMAKER_REVISION_WITHHELD,1);
+ assert.equal(outcome.eligibleBookMarkets,1);
+ assert.equal(outcome.corroboratedMarkets,0);
+});
+
+test('a same-time price conflict remains withheld even after the conflicting feed is unavailable',()=>{
+ const tracker=loadProvider('priceReview').createPriceReviewTracker();
+ const duplicate=source(2,sourceRows(2,{bookmaker:'DraftKings',odds:120}),approval(2,{books:['draftkings']}));
+ const active=[source(0),source(1)];
+ assert.equal(tracker.build(3,[...active,duplicate],now).rejections.BOOKMAKER_PRICE_CONFLICT,1);
+ const next=tracker.build(3,active,now+1000);
+ assert.equal(next.rejections.BOOKMAKER_PRICE_CONFLICT,1);
+ assert.equal(next.corroboratedMarkets,0);
+});
+
+test('a cached publication removes exact expiries and retains another independent pair when available',()=>{
+ const tracker=loadProvider('priceReview').createPriceReviewTracker();
+ const short=source(0,sourceRows(0),{...approval(0),maxAgeMs:61000});
+ const snapshot=tracker.capture(3,[short,source(1),source(2)],now);
+ assert.equal(snapshot.read(now).markets[0].sources.length,3);
+ const later=snapshot.read(now+1000);
+ assert.equal(later.markets[0].sources.length,2);
+ assert.equal(later.rejections.EXPIRED_BEFORE_PUBLICATION,1);
+ assert.ok(later.markets[0].sources.every(s=>s.bookmaker!=='DraftKings'));
+ const expired=snapshot.read(now+240000);
+ assert.equal(expired.corroboratedMarkets,0);
+ assert.equal(expired.eligibleBookMarkets,0);
+ assert.equal(expired.status,'NO_ELIGIBLE_MARKETS');
+ assert.equal(snapshot.read(now+1000),expired,'clock rollback cannot revive expired evidence');
+});
+
+test('unparseable and oversized payloads are reported but do not count as responding feeds',()=>{
+ const invalid=normalizePriceReviewSource({prices:[]},configs[0].id,approval(0),now);
+ const oversized=source(1,Array(4001).fill(sourceRows(1)[0]));
+ const result=review(invalid,oversized);
+ assert.equal(result.respondedFeeds,0);
+ assert.equal(result.status,'APPROVED_FEEDS_UNAVAILABLE');
+ assert.equal(result.inputTruncated,true);
+ assert.equal(result.rejections.INVALID_FEED_CONTRACT,1);
+});
+
+test('revision history fails closed on capacity rather than dropping a protective entry',()=>{
+ const tracker=loadProvider('priceReview').createPriceReviewTracker(2);
+ const pair=[source(0),source(1)];
+ const overflow=tracker.build(3,[...pair,source(2)],now);
+ assert.equal(overflow.corroboratedMarkets,0);
+ assert.equal(overflow.rejections.REVISION_HISTORY_CAPACITY,1);
+ assert.equal(tracker.build(2,pair,now+239999).corroboratedMarkets,0);
+ const at=now+250000;
+ const fresh=configs.slice(0,2).map((c,i)=>normalizePriceReviewSource(
+  sourceRows(i,{sourceTimestamp:new Date(at-1000).toISOString()}),c.id,approval(i),at));
+ assert.equal(tracker.build(2,fresh,at).corroboratedMarkets,1);
+});
+
+test('cached odds responses publish expiry without making new provider requests',async t=>{
+ let clock=now;
+ t.mock.method(Date,'now',()=>clock);
+ const original=process.env.ODDS_PRICE_REVIEW_APPROVALS;
+ process.env.ODDS_PRICE_REVIEW_APPROVALS=JSON.stringify(approved);
+ t.after(()=>{ if(original===undefined)delete process.env.ODDS_PRICE_REVIEW_APPROVALS; else process.env.ODDS_PRICE_REVIEW_APPROVALS=original; });
+ let calls=0;
+ const {fetchNormalizedOdds}=loadProvider('odds',{
+  './config':{configuredProviders:()=>configs.slice(0,2)},
+  './http':{fetchProviderJson:async config=>{
+   calls++;
+   return {ok:true,data:sourceRows(configs.indexOf(config),{sourceTimestamp:iso(-299000)}),latencyMs:10};
+  }},
+  './healthStore':{loadProviderHealthStates:async()=>new Map(),recordProviderResult:async()=>{}},
+  '../marketConsensus':{buildConsensusMarkets:()=>assert.fail('price-review quotes entered consensus')}
+ });
+ const initial=await fetchNormalizedOdds();
+ assert.equal(initial.priceReview.corroboratedMarkets,1);
+ clock+=1000;
+ const published=await fetchNormalizedOdds();
+ assert.equal(published.priceReview.corroboratedMarkets,0);
+ assert.equal(initial.readPriceReview().corroboratedMarkets,0);
+ assert.equal(calls,2);
+});
