@@ -78,7 +78,7 @@
     "test:polymarket-us-readiness": "node --test tests/polymarket-us-readiness.test.mjs",
     "test:daily-weekly-research": "node --test tests/daily-weekly-research-cockpit.test.mjs",
     "test:d1-verified-edge-review": "node --test tests/d1-verified-edge-join.test.mjs tests/d1-verified-edge-review-contract.test.mjs tests/d1-sportsbook-opportunities.test.mjs",
-    "test:odds-recovery": "node --test tests/espn-core-odds.test.mjs tests/the-odds-api-budget.test.mjs tests/observed-odds-pipeline.test.mjs tests/pulse-evidence.test.mjs tests/observed-odds-panel.test.mjs tests/odds-pulse-readiness.test.mjs"
+    "test:odds-recovery": "node --test tests/espn-core-odds.test.mjs tests/the-odds-api-budget.test.mjs tests/observed-odds-pipeline.test.mjs tests/pulse-evidence.test.mjs tests/observed-odds-panel.test.mjs tests/odds-pulse-readiness.test.mjs tests/live-score-mesh.test.mjs tests/observation-continuity.test.mjs tests/provider-diagnostics-propagation.test.mjs tests/remote-smoke-response.test.mjs"
   },
   "dependencies": {
     "@vinext/cloudflare": "1.0.1",

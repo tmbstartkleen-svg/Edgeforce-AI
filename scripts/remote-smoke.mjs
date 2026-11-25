@@ -1,5 +1,5 @@
 import {setTimeout as delay} from 'node:timers/promises';
-import {parseSmokeJson,shouldRetryDegradedHttp} from './remote-smoke-response.mjs';
+import {parseSmokeJson,shouldRetryDegradedHttp,validateObservedOddsSnapshot,validateLiveBoardContinuity} from './remote-smoke-response.mjs';
 import {createSmokeFetch} from './smoke-transport.mjs';
 const base=(process.env.SMOKE_BASE_URL||'').replace(/\/$/,'');
 const expected=process.env.EXPECTED_APP_VERSION||'119.0.0';
@@ -8,12 +8,15 @@ if(!base)throw new Error('SMOKE_BASE_URL is required');
 const paths=['/api/release/error-budget','/api/release/deployment-guard','/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
 let observedOddsEvidence=null;
-paths.splice(paths.length-1,0,'/api/live-scores');
+let liveBoardEvidence=null;
+const liveBoardPath='/api/live-board?view=today&limit=30&risk=Moderate';
+paths.splice(paths.length-1,0,'/api/live-scores',liveBoardPath);
 const degradedAllowedPaths=new Set([
  '/api/intelligence/expert-models',
  '/api/live-comeback',
  '/api/intelligence/context',
- '/api/parlays?size=2&view=today'
+ '/api/parlays?size=2&view=today',
+ liveBoardPath
 ]);
 
 const protectedFetch=createSmokeFetch({
@@ -40,7 +43,8 @@ for(const path of paths){
   }
   break;
  }
- results.push({path,status:res.status,attempts:res.attempts,httpAttempts:httpAttempt,durationMs:Date.now()-started});
+ const result={path,status:res.status,attempts:res.attempts,httpAttempts:httpAttempt,durationMs:Date.now()-started};
+ results.push(result);
  console.error(`[remote-smoke] ${path}: HTTP ${res.status}, transport ${res.attempts} attempt(s), HTTP ${httpAttempt} attempt(s)`);
  if(!res.ok&&!degradedAllowedPaths.has(path))throw new Error(path+' failed with '+res.status);
  if(path==='/api/release/error-budget'){
@@ -116,6 +120,7 @@ for(const path of paths){
   const degradedValid=json.ok===false&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog)&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
   const liveValid=json.ok===true&&json.schemaVersion==='v61-expert-models-1'&&Array.isArray(json.catalog);
   if(!(liveValid||degradedValid))throw new Error('expert model API mismatch');
+  if(degradedValid)result.degraded={code:'NO_CURRENT_SPORTSBOOK_MARKETS',schemaVersion:json.schemaVersion};
  }
  if(path==='/api/testing/live-comeback'){
   const json=parseSmokeJson(path,res.status,body);
@@ -126,6 +131,7 @@ for(const path of paths){
   const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v52-live-comeback-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
   const liveValid=json.ok===true&&json.schemaVersion==='v52-live-comeback-1'&&json.gameStateVerified===false;
   if(!(liveValid||degradedValid))throw new Error('live comeback API mismatch');
+  if(degradedValid)result.degraded={code:'NO_CURRENT_SPORTSBOOK_MARKETS',schemaVersion:json.schemaVersion};
  }
  if(path==='/api/intelligence/validation-lab'){
   const json=parseSmokeJson(path,res.status,body);
@@ -136,11 +142,12 @@ for(const path of paths){
   const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-context-intelligence-1'&&/No live or stored markets available/i.test(String(json.error||''));
   const liveValid=json.ok===true&&Boolean(json.diagnostics?.qualitySummary)&&Boolean(json.diagnostics?.publicNetwork);
   if(!(liveValid||degradedValid))throw new Error('context intelligence mismatch');
+  if(degradedValid)result.degraded={code:'NO_CURRENT_SPORTSBOOK_MARKETS',schemaVersion:json.schemaVersion};
  }
  if(path==='/api/parlays?size=2&view=today'){
   const json=parseSmokeJson(path,res.status,body);
   const degradedValid=json.ok===false&&json.degraded===true&&json.schemaVersion==='v51-prediction-validation-1'&&/No live or fresh stored sportsbook markets/i.test(String(json.error||''));
-  if(degradedValid)continue;
+  if(degradedValid){result.degraded={code:'NO_CURRENT_SPORTSBOOK_MARKETS',schemaVersion:json.schemaVersion};continue;}
   if(json.schemaVersion!=='v51-prediction-validation-1')throw new Error('parlay route schema mismatch');
   if(Number(json.thresholds?.recommendedMinJoint)!==0.52)throw new Error('parlay recommendation threshold mismatch');
   if(!Array.isArray(json.recommended)||!Array.isArray(json.valueWatchlist)||!Array.isArray(json.hailMary))throw new Error('parlay recommendation boards missing');
@@ -163,23 +170,15 @@ for(const path of paths){
  }
  if(path==='/api/live-scores'){
   const json=parseSmokeJson(path,res.status,body);
-  const observed=json.observedOdds;
-  if(json.ok!==true||observed?.recommendationsAuthorized!==false||observed?.coverage!=='PARTIAL'||
-   !Array.isArray(observed.referenceQuotes)||observed.referenceCount!==observed.referenceQuotes.length){
-   throw new Error('observed sportsbook reference contract mismatch');
-  }
-  for(const quote of observed.referenceQuotes){
-   if(quote.evidenceClass!=='OBSERVED_REFERENCE'||!quote.sourceEventId||!quote.selection||!quote.bookmaker||
-    !Number.isFinite(quote.odds)||Math.abs(quote.odds)<100||!Number.isFinite(Date.parse(quote.quoteObservedAt))||
-    ['modelProb','expectedValue','recommendedStake','confidence'].some(key=>Object.hasOwn(quote,key))){
-    throw new Error('observed sportsbook quote escaped its evidence boundary');
-   }
-  }
-  observedOddsEvidence={referenceCount:observed.referenceCount,sports:[...new Set(observed.referenceQuotes.map(x=>x.sport))].sort(),
-   bookmakers:[...new Set(observed.referenceQuotes.map(x=>x.bookmaker))].sort(),
-   recommendationsAuthorized:observed.recommendationsAuthorized,generatedAt:json.generatedAt,
-   sourceTimestampKnown:observed.referenceQuotes.filter(x=>Boolean(x.sourceTimestamp)).length};
+  if(json.ok!==true)throw new Error('live score response unavailable');
+  observedOddsEvidence={...validateObservedOddsSnapshot(json.observedOdds),generatedAt:json.generatedAt,
+   collection:json.collection??null};
+ }
+ if(path===liveBoardPath){
+  const json=parseSmokeJson(path,res.status,body);
+  liveBoardEvidence=validateLiveBoardContinuity(json,res.status);
+  if(!json.coreStatus.ok)result.degraded={code:json.coreStatus.code,schemaVersion:json.schema};
  }
 }
 
-console.log(JSON.stringify({ok:true,base,expected,results,observedOddsEvidence}));
+console.log(JSON.stringify({ok:true,base,expected,results,observedOddsEvidence,liveBoardEvidence}));

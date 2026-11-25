@@ -17,9 +17,11 @@ import {loadLineMovement} from '@/lib/lineMovement';
 import {steamAlert} from '@/lib/alerts';
 import {loadLearnedSgpCorrelations} from '@/lib/learnedSgpCorrelation';
 import {loadDynamicCalibrationProfiles} from '@/lib/regimeConfidence';
-import {fetchLiveScoreMesh} from '@/lib/liveScoreMesh';
+import {fetchLiveScoreMesh,readCachedLiveScoreMesh} from '@/lib/liveScoreMesh';
 import {fetchFanDuelOddsPulse} from '@/lib/providers/fanLineWire';
 import {buildObservedOddsSnapshot,mergeObservedOddsSnapshots} from '@/lib/observedOdds';
+import {LIVE_BOARD_SCHEMA,unavailableLiveBoard,type LiveBoardCoreStatus} from '@/lib/liveBoardContinuity';
+import {evaluatePulseEvidence} from '@/lib/pulseEvidence';
 import {soccerBoardEvidence} from '@/lib/intelligence-core/soccer-board-evidence.mjs';
 import {resolveSoccerBoardMarkets} from '@/lib/intelligence-core/soccer-board-identity-adapter.mjs';
 
@@ -40,10 +42,10 @@ async function withTimeout<T>(promise:Promise<T>,timeoutMs:number,label:string):
     return await Promise.race([
       promise,
       new Promise<T>((_,reject)=>{
-        timer=setTimeout(
-          ()=>reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
-          timeoutMs
-        );
+        timer=setTimeout(()=>{
+          const error=new Error(`${label} timed out after ${timeoutMs}ms`);
+          error.name='BoardDeadlineError';reject(error);
+        },timeoutMs);
       })
     ]);
   }finally{
@@ -122,12 +124,17 @@ export async function GET(req:Request){
     return Response.json({ok:false,error:'unauthorized forced refresh'},{status:401});
   }
 
+  let coreFailure:LiveBoardCoreStatus={ok:false,code:'CORE_FAILED',error:'The model-data pipeline failed. Independent source observations remain available when current.'};
   const [cached,predictions,learnedWeights,ledgerHistory,learnedSgpCorrelations,dynamicCalibrationProfiles,liveScores,fanduelPulse]=await Promise.all([
     withTimeout(
       cachedOdds(forceRefresh),
       Math.max(12000,Number(process.env.LIVE_BOARD_CORE_TIMEOUT_MS||24000)),
       'live-board odds/context pipeline'
-    ).catch(()=>null),
+    ).catch(error=>{
+      if(error instanceof Error&&error.name==='BoardDeadlineError')coreFailure={ok:false,code:'CORE_TIMEOUT',
+        error:'The model-data pipeline exceeded its deadline. Independent source observations retain their original observation times.'};
+      return null;
+    }),
     withTimeout(
       fetchPredictionMarkets(),
       Math.max(2000,Number(process.env.LIVE_BOARD_PREDICTION_TIMEOUT_MS||6000)),
@@ -137,23 +144,23 @@ export async function GET(req:Request){
     withTimeout(loadLedgerHistory(),4000,'ledger history').catch(()=>([] as Awaited<ReturnType<typeof loadLedgerHistory>>)),
     withTimeout(loadLearnedSgpCorrelations(),4000,'SGP correlations').catch(()=>({} as Awaited<ReturnType<typeof loadLearnedSgpCorrelations>>)),
     withTimeout(loadDynamicCalibrationProfiles(),4000,'dynamic calibration').catch(()=>({} as Awaited<ReturnType<typeof loadDynamicCalibrationProfiles>>)),
-    withTimeout(fetchLiveScoreMesh(),6000,'live score mesh').catch(()=>({ok:false,generatedAt:new Date().toISOString(),refreshMs:5000,sourceMode:'unavailable',sources:[],liveGames:0,games:[],warnings:['live score mesh timed out']} as unknown as Awaited<ReturnType<typeof fetchLiveScoreMesh>>)),
+    withTimeout(fetchLiveScoreMesh(),6000,'live score mesh').catch(()=>readCachedLiveScoreMesh()),
     withTimeout(fetchFanDuelOddsPulse(),6000,'FanDuel pulse').catch(()=>({ok:false,source:'fanlinewire',mode:'keyless-public-snapshot',generatedAt:null,sequence:null,liveTotal:0,prematchTotal:0,rows:[],drops:[],latencyMs:0,fresh:false,ageMs:null,warning:'FanDuel pulse timed out'} as Awaited<ReturnType<typeof fetchFanDuelOddsPulse>>))
   ]);
 
-  if(!cached){
-    await withTimeout(recordPerformance('/api/live-board',Date.now()-started,503,'timeout'),1000,'performance logging').catch(()=>undefined);
-    return Response.json({
-      ok:false,
-      error:'LIVE_BOARD_CORE_TIMEOUT',
-      message:'The odds/context pipeline exceeded its deadline. EdgeForce returned control instead of hanging.',
-      generatedAt:new Date().toISOString()
-    },{
+  const degradedResponse=async(coreStatus:LiveBoardCoreStatus)=>{
+    await withTimeout(recordPerformance('/api/live-board',Date.now()-started,503,coreStatus.code),1000,'performance logging').catch(()=>undefined);
+    return Response.json(unavailableLiveBoard({view,limit,risk,coreStatus,
+      liveScores,fanduelPulse,predictions,ledgerHistory,
+      referenceOdds:cached?buildObservedOddsSnapshot(cached.ingestion.referenceMarkets||[]):undefined,
+      providerAttempts:cached?.ingestion.attempts}),{
       status:503,
       headers:{'Cache-Control':'no-store, max-age=0'}
     });
-  }
+  };
+  if(!cached)return degradedResponse(coreFailure);
 
+  try{
   const ingestion=cached.ingestion;
   const [scanned,lineMovement]=await Promise.all([
     Promise.resolve(scanMarkets(ingestion.markets,risk,new Date(),learnedWeights,dynamicCalibrationProfiles)),
@@ -233,7 +240,14 @@ export async function GET(req:Request){
   };
 
   await withTimeout(recordPerformance('/api/live-board',Date.now()-started,200,ingestion.providerId),1000,'performance logging').catch(()=>undefined);
+  const observedOdds=mergeObservedOddsSnapshots([buildObservedOddsSnapshot(ingestion.referenceMarkets||[]),liveScores.observedOdds]);
+  const coreStatus:LiveBoardCoreStatus=ingestion.markets.length
+    ?{ok:true,code:'READY'}
+    :{ok:false,code:'NO_ELIGIBLE_MARKETS',error:'No eligible sportsbook markets are available for model recommendations.'};
   return Response.json({
+    schema:LIVE_BOARD_SCHEMA,
+    coreStatus,
+    observationOnly:!ingestion.markets.length&&(observedOdds.referenceCount>0||evaluatePulseEvidence(fanduelPulse).usable),
     generatedAt:new Date().toISOString(),
     uiRefreshMs:1000,
     sourceRefreshMs:ingestion.liveRefreshMs??SOURCE_TTL_MS,
@@ -266,7 +280,7 @@ export async function GET(req:Request){
     warnings:ingestion.warnings,
     liveScores,
     fanduelPulse,
-    observedOdds:mergeObservedOddsSnapshots([buildObservedOddsSnapshot(ingestion.referenceMarkets||[]),liveScores.observedOdds]),
+    observedOdds,
     topBoardQualification:{
       requested:limit,
       candidates:boardCandidates.length,
@@ -294,4 +308,7 @@ export async function GET(req:Request){
   },{
     headers:{'Cache-Control':'no-store, max-age=0'}
   });
+  }catch{
+    return degradedResponse({ok:false,code:'CORE_FAILED',error:'Model-board processing failed. Current source observations remain available for reference.'});
+  }
 }

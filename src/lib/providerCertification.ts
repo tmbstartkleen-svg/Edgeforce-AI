@@ -4,7 +4,7 @@ import {fetchProviderJson} from './providers/http';
 import {inspectProviderPayload} from './providers/payloadQuality';
 import {eligibleOddsPayload,normalizeOddsPayload} from './providers/normalizeOdds';
 import type {ProviderCapability} from './providerRegistry';
-import type {ProviderConfig} from './providers/types';
+import type {ProviderConfig,ProviderDiagnostics} from './providers/types';
 import {RELEASE} from './releaseManifest';
 import {latestStoredMarkets} from './persistence';
 import {auditMarketBatch} from './dataQuality';
@@ -33,6 +33,7 @@ export type ProviderCertification={
  maxAgeMin:number;
  reasons:string[];
  error?:string;
+ diagnostics?:ProviderDiagnostics;
 };
 
 export type LatestProviderCertification={
@@ -108,12 +109,14 @@ function capabilityCoverage(results:ProviderCertification[]):CapabilityCoverage[
 
 export async function certifyProvider(config:ProviderConfig):Promise<ProviderCertification>{
  const raw=await fetchProviderJson(config);
+ const lastRequest=raw.diagnostics?.requests.filter(request=>request.attempted).at(-1);
+ const httpStatus=raw.diagnostics?lastRequest?.httpStatus:raw.status;
  if(!raw.ok){
   return {
    providerId:config.id,providerName:config.name,capability:config.capability,status:'FAILED',
-   priority:config.priority,latencyMs:raw.latencyMs,httpStatus:raw.status,rowCount:0,
+   priority:config.priority,latencyMs:raw.latencyMs,httpStatus,rowCount:0,
    freshnessScore:0,qualityScore:0,qualityGrade:'REJECT',authConfigured:Boolean(config.apiKey),
-   maxAgeMin:config.maxAgeMin,reasons:[raw.error||'Provider request failed'],error:raw.error
+   maxAgeMin:config.maxAgeMin,reasons:[raw.error||'Provider request failed'],error:raw.error,diagnostics:raw.diagnostics
   };
  }
 
@@ -148,12 +151,12 @@ export async function certifyProvider(config:ProviderConfig):Promise<ProviderCer
 
  return {
   providerId:config.id,providerName:config.name,capability:config.capability,status,
-  priority:config.priority,latencyMs:raw.latencyMs,httpStatus:raw.status,rowCount:quality.rowCount,
+  priority:config.priority,latencyMs:raw.latencyMs,httpStatus,rowCount:quality.rowCount,
   normalizedCount,referenceCount,payloadAgeMin:referenceOnly?undefined:quality.payloadAgeMin,
   freshnessScore:referenceOnly ? .35 : quality.freshnessScore,
   qualityScore:referenceOnly?Math.min(.6,quality.qualityScore):quality.qualityScore,
   qualityGrade:referenceOnly?'CAUTION':quality.grade,authConfigured:Boolean(config.apiKey),
-  maxAgeMin:config.maxAgeMin,reasons,error:status==='FAILED'?reasons.join('; '):undefined
+  maxAgeMin:config.maxAgeMin,reasons,error:status==='FAILED'?reasons.join('; '):undefined,diagnostics:raw.diagnostics
  };
 }
 
@@ -183,6 +186,16 @@ export function evaluateCertificationResults(results:ProviderCertification[]){
  return {configuredCount,certifiedCount,cautionCount,failedCount,coverageScore,launchReady,blockers,warnings,coverage};
 }
 
+export function providerHasCreditBlock(provider:ProviderCertification){
+ if(provider.capability!=='ODDS'||provider.status!=='FAILED')return false;
+ const kind=provider.diagnostics?.failureKind;
+ if(kind)return ['QUOTA_EXHAUSTED','CREDIT_RESERVE','QUOTA_UNVERIFIED'].includes(kind);
+ // Older adapters may only expose a reason string. A reference to the free
+ // quota preflight alone is not evidence that a network failure exhausted credits.
+ return /OUT_OF_USAGE_CREDITS|quota has been reached|quota (?:is )?exhausted|THE_ODDS_API_(?:CREDIT_RESERVE|QUOTA_UNVERIFIED)|remaining=(?:0|1)(?:\D|$)/i
+  .test([provider.error,...provider.reasons].filter(Boolean).join(' '));
+}
+
 export async function certifyConfiguredProviders(){
  const providers=configuredProviders();
  const startedAt=new Date().toISOString();
@@ -194,10 +207,7 @@ export async function certifyConfiguredProviders(){
  }
 
  const oddsReady=results.some(x=>x.capability==='ODDS'&&x.status==='CERTIFIED');
- const quotaFailure=results.some(x=>
-  x.capability==='ODDS'&&x.status==='FAILED'&&
-  /quota|usage quota|credit|requests remaining|remaining=0|remaining=1/i.test([x.error,...x.reasons].filter(Boolean).join(' '))
- );
+ const quotaFailure=results.some(providerHasCreditBlock);
  if(!oddsReady&&quotaFailure){
   const maxAgeMin=Math.max(5,Number(process.env.ODDS_CERTIFICATION_STORED_MAX_AGE_MIN||90));
   const stored=(await latestStoredMarkets().catch(()=>[])).filter(x=>Number(x.sourceAgeMin)<=maxAgeMin);
@@ -221,12 +231,12 @@ export async function certifyConfiguredProviders(){
    maxAgeMin,
    reasons:acceptable
     ?[
-      `Live odds provider quota is exhausted; certified ${stored.length} persisted real market rows as degraded launch continuity`,
+      `Live odds collection is blocked by its credit policy; certified ${stored.length} persisted real market rows as degraded launch continuity`,
       `Stored odds maximum age ${(age??0).toFixed(1)}m within ${maxAgeMin}m quota-fallback limit`,
-      'Fallback is production real-data only and remains explicitly degraded until live quota recovers'
+      'Fallback is production real-data only and remains explicitly degraded until live odds collection recovers'
      ]
     :[
-      'Live odds provider quota is exhausted and no acceptable persisted real-odds snapshot is available',
+      'Live odds collection is blocked by its credit policy and no acceptable persisted real-odds snapshot is available',
       ...audit.blockers,
       ...audit.warnings.slice(0,3)
      ],
@@ -262,7 +272,7 @@ export async function certifyConfiguredProviders(){
        'Simulation recommendations remain blocked until a certified normalized odds provider or persisted slate is available'
       ]
      :[
-       'The primary odds provider is quota exhausted and the FanDuel pulse did not provide a fresh usable price tape',
+       'Live odds collection is blocked by its credit policy and the FanDuel pulse did not provide a fresh usable price tape',
        pulse?.warning||'FanDuel pulse unavailable'
       ],
     error:pulseAcceptable?undefined:'FanDuel pulse continuity could not be certified'

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
+import {setTimeout as delay} from 'node:timers/promises';
 import {loadProvider} from './helpers/load-provider.mjs';
 
 const registrySource=readFileSync(new URL('../src/lib/sportRegistry.ts',import.meta.url),'utf8');
@@ -10,6 +11,27 @@ const runtime=loadProvider('../liveScoreMesh',{
  './providers/sportScore':{fetchSportScoreBackup:async()=>({enabled:false,games:[],warnings:[],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}})},
  './providers/communityScoreBackups':{fetchCommunityScoreBackups:async()=>({games:[],warnings:[],sourceState:[]})}
 });
+
+const acquisitionFixture=JSON.parse(readFileSync(new URL('./fixtures/espn-scoreboard-modern-odds.json',import.meta.url),'utf8'));
+function acquisitionRuntime(ids,overrides={}){
+ return loadProvider('../liveScoreMesh',{
+  './sportRegistry':{...registry,ESPN_SCOREBOARD_FEEDS:registry.ESPN_SCOREBOARD_FEEDS.filter(feed=>ids.includes(feed.id))},
+  './providers/sportScore':{fetchSportScoreBackup:async()=>({enabled:false,games:[]})},
+  './providers/communityScoreBackups':{fetchCommunityScoreBackups:async()=>({games:[],warnings:[],sourceState:[]})},
+  ...overrides
+ });
+}
+function futureScoreboard(now=Date.now()){
+ const event=structuredClone(acquisitionFixture.events[0]);
+ event.date=new Date(now+3600000).toISOString();event.competitions[0].date=event.date;
+ return {events:[event]};
+}
+function response(payload){return new Response(JSON.stringify(payload),{status:200})}
+function nativeResponse(url){
+ if(url.includes('/v1/score/now'))return response({games:[]});
+ if(url.includes('statsapi.mlb.com'))return response({dates:[]});
+ return null;
+}
 
 test('ESPN site scoreboard parser retains live clock and teams',()=>{
  const rows=runtime.parseEspnLiveGames({events:[{
@@ -224,4 +246,173 @@ test('V166 malformed backup-provider scores cannot count toward freshness or con
   const item={...bad,away:{...bad.away,score:invalid}};
   assert.equal(runtime.evaluateLiveScoreFreshness([item],now).scoreCoverage,0);
  }
+});
+
+test('score acquisition coalesces callers and retains completed observations through a deadline and late failure',async t=>{
+ const savedFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=savedFetch});
+ const api=acquisitionRuntime(['nba','nfl']);
+ const calls=[];let rejectLate;
+ globalThis.fetch=async url=>{
+  url=String(url);calls.push(url);
+  const native=nativeResponse(url);if(native)return native;
+  if(url.includes('/basketball/nba/scoreboard'))return response(futureScoreboard());
+  if(url.includes('/football/nfl/scoreboard'))return new Promise((_,reject)=>{rejectLate=reject});
+  throw new Error('Unexpected request '+url);
+ };
+ const started=Date.now(),first=api.fetchLiveScoreMesh({deadlineMs:80});
+ const concurrent=api.fetchLiveScoreMesh({deadlineMs:80});
+ assert.equal(first,concurrent,'one acquisition promise is shared by concurrent callers');
+ await delay(10);
+ const progress=api.readCachedLiveScoreMesh();
+ assert.equal(progress.observedOdds.referenceCount,6,'successful league is readable before another league finishes');
+ const originalTime=progress.observedOdds.referenceQuotes[0].quoteObservedAt;
+ const result=await first;
+ assert.ok(Date.now()-started<600,'deadline bounds even a transport that ignores abort');
+ assert.equal(calls.length,4);
+ assert.equal(result.observedOdds.referenceCount,6);
+ assert.equal(result.collection.deadlineReached,true);
+ assert.equal(result.collection.sources.find(source=>source.label==='NFL').status,'FAILED');
+ rejectLate(new Error('late transport failure'));await delay(0);
+ const retained=api.readCachedLiveScoreMesh();
+ assert.equal(retained.observedOdds.referenceCount,6);
+ assert.equal(retained.observedOdds.referenceQuotes[0].quoteObservedAt,originalTime);
+ assert.equal(retained.generatedAt,progress.generatedAt,'cache reads do not renew the evidence publication time');
+});
+
+test('slow optional backups cannot discard completed scoreboards and cached reads expire reference observations',async t=>{
+ const savedFetch=globalThis.fetch,SavedDate=Date;t.after(()=>{globalThis.fetch=savedFetch;globalThis.Date=SavedDate});
+ let calls=0;
+ const api=acquisitionRuntime(['nba'],{
+  './providers/communityScoreBackups':{fetchCommunityScoreBackups:()=>new Promise(()=>{})}
+ });
+ globalThis.fetch=async url=>{calls++;return nativeResponse(String(url))||response(futureScoreboard())};
+ const result=await api.fetchLiveScoreMesh({deadlineMs:60});
+ assert.equal(result.observedOdds.referenceCount,6);
+ assert.equal(calls,3,'only existing primary requests are made');
+ assert.ok(result.warnings.some(warning=>warning.includes('Community score backup')));
+ const originalTime=result.observedOdds.referenceQuotes[0].quoteObservedAt;
+ const future=SavedDate.parse(originalTime)+300001;
+ globalThis.Date=class extends SavedDate{
+  constructor(...args){super(...(args.length?args:[future]))}
+  static now(){return future}
+ };
+ assert.equal(api.readCachedLiveScoreMesh().observedOdds.referenceCount,0);
+ assert.equal(calls,3,'the cache reader does not initiate refreshes');
+});
+
+test('bounded primary queue gives deferred leagues the next opportunity without increasing concurrency',{timeout:5000},async t=>{
+ const savedFetch=globalThis.fetch,SavedDate=Date,savedConcurrency=process.env.LIVE_SCORE_FETCH_CONCURRENCY;
+ let clock=SavedDate.now();
+ t.after(()=>{globalThis.fetch=savedFetch;globalThis.Date=SavedDate;if(savedConcurrency===undefined)delete process.env.LIVE_SCORE_FETCH_CONCURRENCY;else process.env.LIVE_SCORE_FETCH_CONCURRENCY=savedConcurrency});
+ globalThis.Date=class extends SavedDate{
+  constructor(...args){super(...(args.length?args:[clock]))}
+  static now(){return clock}
+ };
+ process.env.LIVE_SCORE_FETCH_CONCURRENCY='2';
+ const api=acquisitionRuntime(['nfl','nba','mlb','nhl','epl','wnba']);
+ const calls=[];let active=0,peak=0;
+ const createBatch=()=>({requests:[],waiters:[]});
+ let batch=createBatch();
+ const waitForStarts=count=>batch.requests.length>=count?Promise.resolve():new Promise(resolve=>batch.waiters.push({count,resolve}));
+ globalThis.fetch=(url,options)=>{
+  url=String(url);calls.push(url);active++;peak=Math.max(peak,active);
+  const native=nativeResponse(url);
+  const pending=native?Promise.resolve(native):new Promise((_,reject)=>{
+   batch.requests.push({url,signal:options.signal,fail:()=>reject(new Error('controlled transport failure'))});
+   options.signal.addEventListener('abort',()=>reject(new Error('mock aborted')),{once:true});
+   for(const waiter of batch.waiters)if(batch.requests.length>=waiter.count)waiter.resolve();
+  });
+  return pending.finally(()=>active--);
+ };
+ const firstStarted=clock,firstPromise=api.fetchLiveScoreMesh({deadlineMs:1000});
+ await waitForStarts(2);
+ assert.equal(active,2);
+ // A failed request just before the deadline can legitimately free a lane.
+ // Total attempts therefore do not measure simultaneous concurrency.
+ clock=firstStarted+999;
+ batch.requests[0].fail();
+ await waitForStarts(3);
+ assert.equal(active,2);
+ clock=firstStarted+1000;
+ for(const request of batch.requests)request.fail();
+ const first=await firstPromise;
+ const firstLeagues=calls.filter(url=>url.includes('/scoreboard'));
+ assert.equal(firstLeagues.length,3,'one replacement starts before the controlled deadline, none after');
+ assert.ok(batch.requests.every(request=>request.signal.aborted),'all started transports are cleaned up');
+ assert.equal(first.collection.deadlineReached,true);
+ assert.ok(first.collection.sources.some(source=>source.status==='DEFERRED'));
+ assert.equal(active,0);
+ const split=calls.length;
+ batch=createBatch();
+ const secondStarted=clock,secondPromise=api.fetchLiveScoreMesh({deadlineMs:1000});
+ await waitForStarts(2);
+ assert.equal(active,2);
+ clock=secondStarted+1000;
+ for(const request of batch.requests)request.fail();
+ const second=await secondPromise;
+ const secondLeagues=calls.slice(split).filter(url=>url.includes('/scoreboard'));
+ assert.equal(secondLeagues.length,2);
+ assert.ok(secondLeagues.every(url=>!firstLeagues.includes(url)),'unfinished tail leagues are served before prior failures retry');
+ assert.ok(batch.requests.every(request=>request.signal.aborted));
+ assert.equal(second.collection.deadlineReached,true);
+ assert.ok(peak<=2);
+ assert.equal(active,0);
+});
+
+test('all primary scoreboards precede optional CDN details and the bounded detail queue rotates',async t=>{
+ const savedFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=savedFetch});
+ const api=acquisitionRuntime(['nba','nfl']),calls=[];
+ const board=futureScoreboard();
+ board.events=Array.from({length:20},(_,i)=>{
+  const event=structuredClone(board.events[0]);event.id='live-'+i;event.competitions[0].id=event.id;
+  event.status={type:{state:'in'}};event.competitions[0].status={type:{state:'in'}};
+  return event;
+ });
+ globalThis.fetch=async url=>{
+  url=String(url);calls.push(url);
+  const native=nativeResponse(url);if(native)return native;
+  if(url.includes('/basketball/nba/scoreboard'))return response(board);
+  if(url.includes('/football/nfl/scoreboard'))return response({events:[]});
+  if(url.includes('cdn.espn.com')){
+   assert.ok(calls.some(value=>value.includes('/football/nfl/scoreboard')));
+   return response({});
+  }
+  throw new Error('Unexpected request '+url);
+ };
+ await api.fetchLiveScoreMesh({deadlineMs:300});
+ const firstDetails=calls.filter(url=>url.includes('cdn.espn.com'));
+ assert.equal(firstDetails.length,12);
+ assert.equal(calls.findIndex(url=>url.includes('cdn.espn.com')),4);
+ const split=calls.length;
+ const next=await api.fetchLiveScoreMesh({deadlineMs:300});
+ const newDetails=calls.slice(split).filter(url=>url.includes('cdn.espn.com'));
+ assert.equal(newDetails.length,8,'previously deferred details receive the next user-requested refresh');
+ assert.ok(newDetails.every(url=>!firstDetails.includes(url)));
+ assert.ok(next.collection.sources.every(source=>source.status==='CACHED'));
+});
+
+test('failed league refresh retains original references but a successful empty response clears that league',async t=>{
+ const savedFetch=globalThis.fetch,SavedDate=Date;let clock=Date.now(),mode='valid';
+ t.after(()=>{globalThis.fetch=savedFetch;globalThis.Date=SavedDate});
+ globalThis.Date=class extends SavedDate{
+  constructor(...args){super(...(args.length?args:[clock]))}
+  static now(){return clock}
+ };
+ const api=acquisitionRuntime(['nba']);
+ globalThis.fetch=async url=>{
+  const native=nativeResponse(String(url));if(native)return native;
+  if(mode==='failed')throw new Error('mock network unavailable');
+  return response(mode==='valid'?futureScoreboard(clock):{events:[]});
+ };
+ const first=await api.fetchLiveScoreMesh();const originalTime=first.observedOdds.referenceQuotes[0].quoteObservedAt;
+ clock+=31000;mode='failed';
+ const failed=await api.fetchLiveScoreMesh();
+ assert.equal(failed.observedOdds.referenceCount,6);
+ assert.equal(failed.observedOdds.referenceQuotes[0].quoteObservedAt,originalTime);
+ const status=failed.collection.sources.find(source=>source.label==='NBA');
+ assert.equal(status.status,'CACHED');assert.match(status.error,/network unavailable/);
+ clock+=1000;mode='empty';
+ const cleared=await api.fetchLiveScoreMesh();
+ assert.equal(cleared.observedOdds.referenceCount,0);
+ assert.equal(cleared.collection.sources.find(source=>source.label==='NBA').status,'FETCHED');
 });

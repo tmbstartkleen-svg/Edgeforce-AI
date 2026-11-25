@@ -39,6 +39,20 @@ type Cached={at:number;games:LiveGameState[]};
 const cache=new Map<string,Cached>();
 const inFlight=new Map<string,Promise<LiveGameState[]>>();
 const observedOddsByLeague=new Map<string,ObservedOddsSnapshot>();
+type CollectionSource={
+ id:string;label:string;status:'FETCHED'|'CACHED'|'FAILED'|'DEFERRED';
+ gameCount:number;referenceCount:number;observedAt?:string;error?:string;
+};
+type MeshCollection={
+ partial:boolean;deadlineReached:boolean;deadlineMs:number;concurrency:number;sources:CollectionSource[];
+};
+const sourceAttempts=new Map<string,number>();
+const sourceErrors=new Map<string,string>();
+let attemptSequence=0;
+let collection:MeshCollection|null=null;
+let meshInFlight:Promise<ReturnType<typeof readCachedLiveScoreMesh>>|null=null;
+let sportScoreSnapshot:Awaited<ReturnType<typeof fetchSportScoreBackup>>|null=null;
+let communitySnapshot:Awaited<ReturnType<typeof fetchCommunityScoreBackups>>|null=null;
 const nativeLiveTtlMs=()=>Math.max(1000,Number(process.env.LIVE_SCORE_NATIVE_LIVE_CACHE_MS||1000));
 const nativeIdleTtlMs=()=>Math.max(nativeLiveTtlMs(),Number(process.env.LIVE_SCORE_NATIVE_IDLE_CACHE_MS||15000));
 const espnCdnLiveTtlMs=()=>Math.max(750,Number(process.env.LIVE_SCORE_ESPN_CDN_LIVE_CACHE_MS||750));
@@ -46,10 +60,12 @@ const espnLiveTtlMs=()=>Math.max(1500,Number(process.env.LIVE_SCORE_ESPN_LIVE_CA
 const espnIdleTtlMs=()=>Math.max(espnLiveTtlMs(),Number(process.env.LIVE_SCORE_ESPN_IDLE_CACHE_MS||30000));
 const staleFallbackMs=()=>Math.max(30000,Number(process.env.LIVE_SCORE_STALE_FALLBACK_MS||120000));
 const timeoutMs=()=>Math.max(1500,Number(process.env.LIVE_SCORE_TIMEOUT_MS||5000));
+const meshConcurrency=()=>Math.floor(clampMs(Number(process.env.LIVE_SCORE_FETCH_CONCURRENCY||6),6,1,6));
+const meshDeadlineMs=(value?:number)=>clampMs(value??Number(process.env.LIVE_SCORE_BATCH_TIMEOUT_MS||4500),4500,50,5500);
 
 const ESPN_LEAGUES=ESPN_SCOREBOARD_FEEDS
  .filter(x=>x.sportSlug&&x.leagueSlug)
- .map(x=>[x.sportSlug!,x.leagueSlug!,x.label] as const);
+ .map(x=>[x.sportSlug!,x.leagueSlug!,x.label,x.family] as const);
 
 
 const ESPN_CDN_SLUG:Record<string,string>={
@@ -262,14 +278,29 @@ export function evaluateLiveScoreFreshness(games:LiveGameState[],now=Date.now())
   recommendedUiRefreshMs
  };
 }
-async function json(url:string){
- const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),timeoutMs());
+async function withinDeadline<T>(request:Promise<T>,deadline:number,label:string):Promise<T>{
+ let timer:ReturnType<typeof setTimeout>|undefined;
  try{
-  const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/114 live-score-mesh'}});
-  if(!res.ok)throw new Error('HTTP '+res.status);
-  return await res.json() as unknown;
- }finally{clearTimeout(timer)}
+  return await Promise.race([request,new Promise<T>((_,reject)=>{
+   timer=setTimeout(()=>reject(new Error(`${label} deadline reached`)),Math.max(0,deadline-Date.now()));
+  })]);
+ }finally{if(timer)clearTimeout(timer)}
+}
+
+async function json(url:string,deadline:number){
+ const remaining=deadline-Date.now();
+ if(remaining<=0)throw new Error('Score source deadline reached');
+ const controller=new AbortController();
+ const requestDeadline=Math.min(deadline,Date.now()+timeoutMs());
+ const timer=setTimeout(()=>controller.abort(),Math.max(0,requestDeadline-Date.now()));
+ try{
+  // Bound body parsing as well as fetch, even if a transport ignores abort.
+  return await withinDeadline((async()=>{
+   const res=await fetch(url,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json','User-Agent':'Edgeforce-AI/114 live-score-mesh'}});
+   if(!res.ok)throw new Error('HTTP '+res.status);
+   return await res.json() as unknown;
+  })(),requestDeadline,'Score source');
+ }finally{clearTimeout(timer);controller.abort()}
 }
 
 export function parseEspnLiveGames(payload:unknown,league:string):LiveGameState[]{
@@ -378,17 +409,19 @@ async function cached(
  const now=Date.now();
  const hit=cache.get(key);
  const ttl=hit?.games.some(x=>x.status==='LIVE')?liveTtl:idleTtl;
- if(hit&&now-hit.at<ttl)return hit.games;
+ if(hit&&now>=hit.at&&now-hit.at<ttl)return hit.games;
  const pending=inFlight.get(key);
  if(pending)return pending;
  const request=(async()=>{
   try{
    const games=await load();
    cache.set(key,{at:Date.now(),games});
+   sourceErrors.delete(key);
    return games;
   }catch(error){
+   sourceErrors.set(key,error instanceof Error?error.message:'request failed');
    const stale=cache.get(key);
-   if(stale&&Date.now()-stale.at<=staleFallbackMs())return stale.games;
+   if(stale&&Date.now()>=stale.at&&Date.now()-stale.at<=staleFallbackMs())return stale.games;
    throw error;
   }finally{
    inFlight.delete(key);
@@ -398,24 +431,24 @@ async function cached(
  return request;
 }
 
-async function espnCdn(base:LiveGameState,label:string,league:string){
+async function espnCdn(base:LiveGameState,label:string,league:string,deadline:number){
  const slug=ESPN_CDN_SLUG[label];
  if(!slug||base.status!=='LIVE')return base;
  const key='espn-cdn:'+label+':'+base.id;
  const games=await cached(key,espnCdnLiveTtlMs(),espnCdnLiveTtlMs(),async()=>{
   const suffix=slug==='soccer'?`&league=${encodeURIComponent(league)}`:'';
-  const payload=await json(`https://cdn.espn.com/core/${slug}/game?xhr=1&gameId=${encodeURIComponent(base.id)}${suffix}`);
+  const payload=await json(`https://cdn.espn.com/core/${slug}/game?xhr=1&gameId=${encodeURIComponent(base.id)}${suffix}`,deadline);
   const parsed=parseEspnCdnGame(payload,base);
   return parsed?[parsed]:[];
  });
  return games[0]||base;
 }
 
-async function espn(sport:string,league:string,label:string){
- const key='espn:'+league;
- const board=await cached(key,espnLiveTtlMs(),espnIdleTtlMs(),async()=>{
+async function espn(sport:string,league:string,label:string,deadline:number){
+ const key='espn:'+sport+':'+league;
+ return cached(key,espnLiveTtlMs(),espnIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10).replaceAll('-','');
-  const payload=await json(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${date}`);
+  const payload=await json(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${league}/scoreboard?dates=${date}`,deadline);
   // Reuse the exact scoreboard response. No odds request, source-time inference,
   // model calculation or persistence occurs on this display-only path.
   const observedAt=new Date().toISOString();
@@ -426,39 +459,66 @@ async function espn(sport:string,league:string,label:string){
   observedOddsByLeague.set(key,buildObservedOddsSnapshot(referenceMarkets));
   return parseEspnLiveGames(payload,label);
  });
- return Promise.all(board.map(game=>espnCdn(game,label,league).catch(()=>game)));
 }
-async function nhl(){
- return cached('nhl-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>parseNhlGames(await json('https://api-web.nhle.com/v1/score/now')));
+async function nhl(deadline:number){
+ return cached('nhl-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>parseNhlGames(await json('https://api-web.nhle.com/v1/score/now',deadline)));
 }
-async function mlb(){
+async function mlb(deadline:number){
  return cached('mlb-native',nativeLiveTtlMs(),nativeIdleTtlMs(),async()=>{
   const date=new Date().toISOString().slice(0,10);
-  return parseMlbSchedule(await json(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=linescore`));
+  return parseMlbSchedule(await json(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=linescore`,deadline));
  });
 }
 
-export async function fetchLiveScoreMesh(){
- const settled=await Promise.allSettled([
-  nhl(),mlb(),
-  ...ESPN_LEAGUES.map(([sport,league,label])=>espn(sport,league,label))
- ]);
- const [sportScore,community]=await Promise.all([
-  fetchSportScoreBackup().catch(()=>({enabled:false,games:[],warnings:['SportScore request failed'],attribution:{required:true,label:'Powered by SportScore',url:'https://sportscore.com/'}})),
-  fetchCommunityScoreBackups().catch(()=>({games:[] as LiveGameState[],warnings:['Community score backups unavailable'],sourceState:[]}))
- ]);
- const warnings:string[]=[];
- const batches:LiveGameState[][]=[];
- settled.forEach((r,i)=>{
-  if(r.status==='fulfilled')batches.push(r.value);
-  else warnings.push(`source-${i}: ${r.reason instanceof Error?r.reason.message:'request failed'}`);
- });
- const nhlNative=batches.find(x=>x.some(g=>g.source==='nhl-web'))||[];
- const mlbNative=batches.find(x=>x.some(g=>g.source==='mlb-statsapi'))||[];
+type PrimarySource={id:string;label:string;liveTtl:number;idleTtl:number;load:(deadline:number)=>Promise<LiveGameState[]>};
+let collectionWarnings:string[]=[];
+
+function primarySources():PrimarySource[]{
+ // Interleave families on a cold start; later batches first visit sources
+ // that did not receive an opportunity in the previous bounded batch.
+ const pending=[...ESPN_LEAGUES],leagues:typeof pending=[];
+ while(pending.length){
+  const families=new Set<string|undefined>();
+  for(let i=0;i<pending.length;){
+   const family=pending[i][3];
+   if(families.has(family)){i++;continue;}
+   families.add(family);leagues.push(pending.splice(i,1)[0]);
+  }
+ }
+ return [
+  {id:'nhl-native',label:'NHL native',liveTtl:nativeLiveTtlMs(),idleTtl:nativeIdleTtlMs(),load:nhl},
+  {id:'mlb-native',label:'MLB native',liveTtl:nativeLiveTtlMs(),idleTtl:nativeIdleTtlMs(),load:mlb},
+  ...leagues.map(([sport,league,label])=>({id:'espn:'+sport+':'+league,label,
+   liveTtl:espnLiveTtlMs(),idleTtl:espnIdleTtlMs(),load:(deadline:number)=>espn(sport,league,label,deadline)}))
+ ];
+}
+
+async function boundedWork<T>(items:T[],deadline:number,concurrency:number,run:(item:T)=>Promise<unknown>){
+ let next=0;
+ await Promise.all(Array.from({length:Math.min(concurrency,items.length)},async()=>{
+  while(next<items.length&&Date.now()<deadline)await run(items[next++]);
+ }));
+ return next;
+}
+
+function recentGames(games:LiveGameState[],now:number){
+ return games.filter(game=>{const at=Date.parse(game.observedAt);return Number.isFinite(at)&&at<=now&&now-at<=staleFallbackMs()});
+}
+
+// Pure cache read: callers can preserve observations already acquired before
+// an unrelated route deadline. Original observation times are never renewed.
+export function readCachedLiveScoreMesh(){
+ const now=Date.now();
+ const entries=[...cache.values()].filter(value=>now>=value.at&&now-value.at<=staleFallbackMs());
+ const batches=entries.map(value=>recentGames(value.games,now));
+ const nhlNative=batches.flat().filter(g=>g.source==='nhl-web');
+ const mlbNative=batches.flat().filter(g=>g.source==='mlb-statsapi');
  const espnGames=batches.flat().filter(g=>g.source==='espn-public'||g.source==='espn-cdn');
  const specialized=[...nhlNative,...mlbNative];
- const sportScoreGames=Array.isArray(sportScore.games)?sportScore.games:[];
- const communityGames=Array.isArray(community.games)?community.games:[];
+ const sportScore=sportScoreSnapshot||{enabled:false,games:[]};
+ const community=communitySnapshot||{games:[],warnings:[],sourceState:[]};
+ const sportScoreGames=recentGames(Array.isArray(sportScore.games)?sportScore.games:[],now);
+ const communityGames=recentGames(Array.isArray(community.games)?community.games:[],now);
  const games=reconcileLiveGames(specialized,espnGames,sportScoreGames as LiveGameState[],communityGames as LiveGameState[])
   .sort((a,b)=>(a.status==='LIVE'?0:a.status==='SCHEDULED'?1:2)-(b.status==='LIVE'?0:b.status==='SCHEDULED'?1:2)||new Date(a.startTime||0).getTime()-new Date(b.startTime||0).getTime());
  const freshness=evaluateLiveScoreFreshness(games);
@@ -467,9 +527,21 @@ export async function fetchLiveScoreMesh(){
   .filter(x=>x.status==='LIVE'&&x.consensus?.activeConflict)
   .slice(0,8)
   .map(x=>`live score conflict ${x.away.name} @ ${x.home.name}: selected ${x.source}; ${x.consensus?.reasons.join('; ')}`);
+ const sourceState=(collection?.sources||primarySources().map(source=>({id:source.id,label:source.label,status:'DEFERRED' as const,gameCount:0,referenceCount:0})))
+  .map(source=>{
+   const hit=cache.get(source.id);
+   const referenceCount=mergeObservedOddsSnapshots([observedOddsByLeague.get(source.id)],now).referenceCount;
+   return {...source,gameCount:hit?recentGames(hit.games,now).length:0,referenceCount,
+    ...(hit?{observedAt:new Date(hit.at).toISOString()}:{})};
+  });
+ const acquisition:MeshCollection={partial:!collection||collection.partial||sourceState.some(s=>s.status==='FAILED'||s.status==='DEFERRED'),
+  deadlineReached:collection?.deadlineReached||false,deadlineMs:collection?.deadlineMs??meshDeadlineMs(),
+  concurrency:collection?.concurrency??meshConcurrency(),sources:sourceState};
+ const evidenceTimes=[...entries.map(value=>value.at),...sportScoreGames.map(game=>Date.parse(game.observedAt)),...communityGames.map(game=>Date.parse(game.observedAt)),
+  ...[...observedOddsByLeague.values()].flatMap(snapshot=>snapshot.referenceQuotes.map(quote=>Date.parse(quote.quoteObservedAt)))].filter(at=>Number.isFinite(at)&&at<=now);
  return {
   ok:true,
-  generatedAt:new Date().toISOString(),
+  generatedAt:new Date(evidenceTimes.length?Math.max(...evidenceTimes):now).toISOString(),
   refreshMs:games.some(x=>x.status==='LIVE')?Math.min(nativeLiveTtlMs(),espnCdnLiveTtlMs()):Math.min(nativeIdleTtlMs(),espnIdleTtlMs()),
   uiRefreshMs:freshness.recommendedUiRefreshMs,
   freshness,
@@ -477,7 +549,8 @@ export async function fetchLiveScoreMesh(){
   sourceMode:'adaptive-multi-source-free-first-consensus',
   coverage:sportCoverageSummary(),
   transport:{requestCoalescing:true,staleIfErrorMs:staleFallbackMs(),inFlight:inFlight.size,cacheEntries:cache.size},
-  attribution:sportScore.enabled?sportScore.attribution:null,
+  collection:acquisition,
+  attribution:sportScore.enabled&&'attribution' in sportScore?sportScore.attribution:null,
   sources:[
    {id:'nhl-web',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
    {id:'mlb-statsapi',auth:'none',priority:'league-native',liveRefreshMs:nativeLiveTtlMs(),idleRefreshMs:nativeIdleTtlMs()},
@@ -489,6 +562,63 @@ export async function fetchLiveScoreMesh(){
   liveGames:games.filter(x=>x.status==='LIVE').length,
   observedOdds:mergeObservedOddsSnapshots([...observedOddsByLeague.values()]),
   games,
-  warnings:[...new Set([...consensusWarnings,...warnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
+  warnings:[...new Set([...consensusWarnings,...collectionWarnings,...((sportScore as any).warnings||[]),...(community.warnings||[])])].slice(0,30)
  };
+}
+
+async function acquireLiveScoreMesh(options:{deadlineMs?:number}){
+ const budget=meshDeadlineMs(options.deadlineMs),deadline=Date.now()+budget,concurrency=meshConcurrency();
+ const sources=primarySources();
+ collection={partial:false,deadlineReached:false,deadlineMs:budget,concurrency,
+  sources:sources.map(source=>({id:source.id,label:source.label,status:'DEFERRED',gameCount:0,referenceCount:0}))};
+ collectionWarnings=[];
+ const pending=sources.filter(source=>{
+  const hit=cache.get(source.id),now=Date.now();
+  const ttl=hit?.games.some(game=>game.status==='LIVE')?source.liveTtl:source.idleTtl;
+  if(hit&&now>=hit.at&&now-hit.at<ttl){
+   collection!.sources.find(row=>row.id===source.id)!.status='CACHED';return false;
+  }
+  return true;
+ }).sort((a,b)=>(sourceAttempts.get(a.id)||0)-(sourceAttempts.get(b.id)||0));
+ await boundedWork(pending,deadline,concurrency,async source=>{
+  sourceAttempts.set(source.id,++attemptSequence);
+  const state=collection!.sources.find(row=>row.id===source.id)!;
+  try{
+   await source.load(deadline);
+   const error=sourceErrors.get(source.id);
+   state.status=error?'CACHED':'FETCHED';
+   if(error){state.error=error;collectionWarnings.push(`${source.label}: ${error}; original cached observation retained`);}
+  }catch(error){
+   state.status='FAILED';state.error=error instanceof Error?error.message:'request failed';
+   collectionWarnings.push(`${source.label}: ${state.error}`);
+  }
+ });
+
+ // Primary leagues get their opportunity before optional game detail or backup
+ // work. This also bounds the formerly unbounded per-game CDN fan-out.
+ const upgrades=ESPN_LEAGUES.flatMap(([sport,league,label])=>recentGames(cache.get('espn:'+sport+':'+league)?.games||[],Date.now())
+  .filter(game=>game.status==='LIVE'&&ESPN_CDN_SLUG[label])
+  .map(game=>({game,league,label,id:'espn-cdn:'+label+':'+game.id})))
+  .sort((a,b)=>(sourceAttempts.get(a.id)||0)-(sourceAttempts.get(b.id)||0)).slice(0,12);
+ const optional:Array<()=>Promise<unknown>>=upgrades.map(row=>async()=>{
+  sourceAttempts.set(row.id,++attemptSequence);
+  await espnCdn(row.game,row.label,row.league,deadline).catch(error=>collectionWarnings.push(`${row.label} game detail: ${error instanceof Error?error.message:'unavailable'}`));
+ });
+ optional.push(async()=>{
+  try{sportScoreSnapshot=await withinDeadline(fetchSportScoreBackup(),deadline,'SportScore backup');}
+  catch{collectionWarnings.push('SportScore backup deadline or request failure; primary observations retained');}
+ },async()=>{
+  try{communitySnapshot=await withinDeadline(fetchCommunityScoreBackups(),deadline,'Community score backup');}
+  catch{collectionWarnings.push('Community score backup deadline or request failure; primary observations retained');}
+ });
+ await boundedWork(optional,deadline,concurrency,run=>run());
+ collection.deadlineReached=Date.now()>=deadline;
+ collection.partial=collection.deadlineReached||collection.sources.some(source=>source.status==='FAILED'||source.status==='DEFERRED'||source.error);
+ if(collection.deadlineReached)collectionWarnings.push('Score collection deadline reached; completed sources and age-bounded cached observations are shown');
+ return readCachedLiveScoreMesh();
+}
+
+export function fetchLiveScoreMesh(options:{deadlineMs?:number}={}){
+ if(!meshInFlight)meshInFlight=acquireLiveScoreMesh(options).finally(()=>{meshInFlight=null});
+ return meshInFlight;
 }
