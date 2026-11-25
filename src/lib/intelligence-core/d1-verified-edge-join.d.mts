@@ -3,6 +3,7 @@ export type D1ModelEdgeCandidate={
  modelProbability:number;breakEvenProbability:number;edgePercentagePoints:number;expectedRoi:number;
  status:'CANDIDATE_FOR_FURTHER_REVIEW';modelRunId:number|null;modelVersion:string;modelCreatedAt:string;
  storedRunCount:number;validationEvidenceGrade:'QUALIFIED'|'VERIFIED';validationEvidenceId:string;
+ validationEvidenceSource:'MODEL_FEATURE_ASSERTION';validationEvidenceIndependentlyVerified:false;
  calibration:{id:unknown;sampleSize:number;brierScore:number;logLoss:number;calibrationError:number;periodEnd:string;createdAt:string};
  evidenceJoin:'D1_STORED_QUOTE_MODEL_CALIBRATION';approvalScope:'REVIEW_ONLY';
  upstreamIdentityIndependentlyAuthenticated:false;productionBetRecommendationAuthorized:false;
@@ -13,6 +14,7 @@ export type D1ModelEdgeReview={
  modelsExamined:number;eligibleModels:number;calibrationMatched:number;exactQuoteMatches:number;
  candidateCount:number;candidates:D1ModelEdgeCandidate[];rejectionReasons:Record<string,number>;
  probabilitiesInvented:0;pricesInvented:0;networkRequests:0;ordersPlaced:0;
+ validationEvidenceIndependentlyVerified:false;
  upstreamIdentityIndependentlyAuthenticated:false;productionBetRecommendationAuthorized:false;
 };
 export function reviewD1ModelEdges(

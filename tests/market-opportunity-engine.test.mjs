@@ -45,3 +45,67 @@ test('verified independent sources with calibrated model can become review candi
  const a=screenValueEdges(quotes,[{...base,selection:'Home',probability:.5,modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true}],{now});
  assert.equal(a.results[0].status,'CANDIDATE_FOR_FURTHER_REVIEW');assert.equal(a.networkRequests,0);
 });
+
+const calibratedForecast={...base,selection:'Home',probability:.5,modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true};
+const corroboratingQuote=()=>quote('Home','FanDuel',135,{upstreamId:'operatorB',providerId:'pB'});
+
+test('conflicting latest target quotes withhold the price and edge regardless of input order',()=>{
+ const quotes=[quote('Home','DraftKings',150),quote('Home','draftkings',-200),corroboratingQuote()];
+ const forward=screenValueEdges(quotes,[calibratedForecast],{now});
+ const reverse=screenValueEdges([...quotes].reverse(),[calibratedForecast],{now});
+ assert.deepEqual(forward,reverse);
+ assert.equal(forward.results.length,1);
+ const result=forward.results[0];
+ assert.equal(result.status,'NOT_ACTIONABLE');
+ assert.deepEqual(result.blockers,['CONFLICTING_LATEST_TARGET_QUOTES']);
+ for(const field of ['odds','breakEvenProbability','edgePercentagePoints','expectedRoi'])assert.equal(result[field],null);
+ assert.equal(result.sourceObservedAt,now);
+ assert.equal(result.execution,'NONE');
+ assert.equal(result.productionBetRecommendationAuthorized,false);
+});
+
+test('identical latest target prices remain usable across repeated observations',()=>{
+ const target=quote('Home','DraftKings',150);
+ const result=screenValueEdges([target,{...target},corroboratingQuote()],[calibratedForecast],{now}).results[0];
+ assert.equal(result.status,'CANDIDATE_FOR_FURTHER_REVIEW');
+ assert.equal(result.odds,150);
+ assert.equal(result.expectedRoi,25);
+});
+
+test('older target conflicts do not replace or invalidate a newer undisputed quote',()=>{
+ const quotes=[quote('Home','DraftKings',150),quote('Home','DraftKings',-200,{observedAt:now-1000}),
+  quote('Home','DraftKings',200,{observedAt:now-1000}),corroboratingQuote()];
+ for(const ordered of [quotes,[...quotes].reverse()]){
+  const result=screenValueEdges(ordered,[calibratedForecast],{now}).results[0];
+  assert.equal(result.status,'CANDIDATE_FOR_FURTHER_REVIEW');
+  assert.equal(result.odds,150);
+  assert.equal(result.sourceObservedAt,now);
+ }
+});
+
+test('invalid and stale conflicting prices cannot invalidate a valid target quote',()=>{
+ const valid=[quote('Home','DraftKings',150),corroboratingQuote()];
+ const invalid=[quote('Home','DraftKings',-200,{observedAt:now-1200001}),
+  quote('Home','DraftKings',-200,{observedAt:now+60001}),
+  quote('Home','DraftKings',-200,{providerId:''}),quote('Home','DraftKings',-80)];
+ assert.deepEqual(screenValueEdges([...invalid,...valid],[calibratedForecast],{now}),
+  screenValueEdges(valid,[calibratedForecast],{now}));
+});
+
+test('latest target conflicts are isolated to the exact player prop line',()=>{
+ const prop={marketKey:'player_points',settlementKey:'NBA_PLAYER_POINTS_FULL_GAME',outcomes:['Over','Under'],
+  lineKey:'24.5',periodKey:'FULL',playerId:'player-1',statKey:'points'};
+ const forecast={...calibratedForecast,...prop,selection:'Over'};
+ const quotes=[quote('Over','DraftKings',150,prop),
+  quote('Over','FanDuel',135,{...prop,upstreamId:'operatorB',providerId:'pB'}),
+  quote('Over','DraftKings',150,{...prop,lineKey:'25.5'}),
+  quote('Over','DraftKings',-200,{...prop,lineKey:'25.5'})];
+ for(const ordered of [quotes,[...quotes].reverse()]){
+  const result=screenValueEdges(ordered,[forecast],{now}).results[0];
+  assert.equal(result.status,'CANDIDATE_FOR_FURTHER_REVIEW');
+  assert.equal(result.odds,150);
+  const conflicting=screenValueEdges(ordered,[{...forecast,lineKey:'25.5'}],{now}).results[0];
+  assert.equal(conflicting.status,'NOT_ACTIONABLE');
+  assert.deepEqual(conflicting.blockers,['CONFLICTING_LATEST_TARGET_QUOTES']);
+ }
+});

@@ -2,7 +2,9 @@ import {screenValueEdges} from './market-opportunity-engine.mjs';
 
 const text=value=>typeof value==='string'&&value.trim().length>0;
 const time=value=>typeof value==='string'?Date.parse(value):NaN;
-const finite=value=>Number.isFinite(Number(value));
+// D1 numeric columns return numbers. Missing values must never become perfect scores.
+const finite=value=>typeof value==='number'&&Number.isFinite(value);
+const recordId=value=>Number.isSafeInteger(value)&&value>0?value:0;
 const count=(map,key)=>{map[key]=(map[key]||0)+1};
 
 function snapshot(row){
@@ -14,16 +16,18 @@ function snapshot(row){
 
 function validatedCalibration(row,feature,calibrations,modelCreatedAt){
  const matches=(Array.isArray(calibrations)?calibrations:[]).filter(cal=>
-  cal?.model_version===row.model_version&&cal?.market_key===row.market_key&&
-  (!text(cal.sport)||cal.sport===feature.sport)
+  cal?.model_version===row.model_version&&cal?.market_key===row.market_key&&cal?.sport===feature.sport
  ).filter(cal=>{
-  const created=time(cal.created_at),periodEnd=time(cal.period_end);
-  return Number.isFinite(created)&&Number.isFinite(periodEnd)&&created<=modelCreatedAt&&periodEnd<=modelCreatedAt;
- }).sort((a,b)=>time(b.created_at)-time(a.created_at));
+  const created=time(cal.created_at);
+  return Number.isFinite(created)&&created<=modelCreatedAt;
+ }).sort((a,b)=>time(b.created_at)-time(a.created_at)||recordId(b.id)-recordId(a.id));
  const cal=matches[0];
  if(!cal)return {ok:false,reason:'NO_PRIOR_CALIBRATION_EVIDENCE'};
- const sample=Number(cal.sample_size),brier=Number(cal.brier_score),logLoss=Number(cal.log_loss),error=Number(cal.calibration_error);
- if(!Number.isInteger(sample)||sample<75)return {ok:false,reason:'CALIBRATION_SAMPLE_INSUFFICIENT'};
+ const periodEnd=time(cal.period_end);
+ if(!Number.isFinite(periodEnd)||periodEnd>time(cal.created_at))
+  return {ok:false,reason:'INVALID_CALIBRATION_PERIOD'};
+ const sample=cal.sample_size,brier=cal.brier_score,logLoss=cal.log_loss,error=cal.calibration_error;
+ if(!Number.isSafeInteger(sample)||sample<75)return {ok:false,reason:'CALIBRATION_SAMPLE_INSUFFICIENT'};
  if(!finite(brier)||brier<0||brier>.28)return {ok:false,reason:'CALIBRATION_BRIER_FAILED'};
  if(!finite(logLoss)||logLoss<0||logLoss>.78)return {ok:false,reason:'CALIBRATION_LOG_LOSS_FAILED'};
  if(!finite(error)||error<0||error>.10)return {ok:false,reason:'CALIBRATION_ERROR_FAILED'};
@@ -34,7 +38,7 @@ function validatedCalibration(row,feature,calibrations,modelCreatedAt){
 function forecastFrom(row,feature){
  return {
   eventId:row.event_id,marketKey:row.market_key,selection:row.selection_key,
-  probability:Number(row.model_probability),modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true,
+  probability:row.model_probability,modelType:'CALIBRATED',outOfSampleVerified:true,sourceAudited:true,
   sport:feature.sport,settlementKey:feature.settlementKey,currency:feature.currency,outcomes:feature.outcomes,
   side:'BACK',outcomeSetType:feature.outcomes.length===2?'TWO_WAY':'THREE_WAY',
   ...(text(feature.lineKey)?{lineKey:feature.lineKey}:{}),
@@ -63,10 +67,10 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
   const reasons=[];
   if(!row||!text(row.event_id)||!text(row.market_key)||!text(row.selection_key)||!text(row.model_version))
    reasons.push('INVALID_MODEL_IDENTITY');
-  if(!Number.isSafeInteger(Number(row?.run_count))||Number(row?.run_count)<1)
+  if(!Number.isSafeInteger(row?.run_count)||row?.run_count<1)
    reasons.push('INVALID_STORED_RUN_COUNT');
-  const probability=Number(row?.model_probability);
-  if(!Number.isFinite(probability)||probability<=0||probability>=1)reasons.push('INVALID_MODEL_PROBABILITY');
+  const probability=row?.model_probability;
+  if(!finite(probability)||probability<=0||probability>=1)reasons.push('INVALID_MODEL_PROBABILITY');
   const createdAt=time(row?.created_at);
   if(!Number.isFinite(createdAt)||createdAt>now+30000||now-createdAt>maxModelAgeMs)reasons.push('STALE_OR_INVALID_MODEL_RUN');
 
@@ -75,7 +79,7 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
   if(feature){
    if(feature.probabilityOrigin!=='INDEPENDENT_MODEL')reasons.push('MODEL_ORIGIN_NOT_INDEPENDENT');
    if(feature.outOfSampleVerified!==true)reasons.push('OUT_OF_SAMPLE_EVIDENCE_MISSING');
-   if(!['QUALIFIED','VERIFIED'].includes(String(feature.validationEvidenceGrade||''))||feature.promotionEligible!==true)
+   if(!['QUALIFIED','VERIFIED'].includes(feature.validationEvidenceGrade)||feature.promotionEligible!==true)
     reasons.push('VALIDATION_LAB_PROMOTION_NOT_EVIDENCED');
    if(!text(feature.validationEvidenceId))reasons.push('VALIDATION_EVIDENCE_ID_MISSING');
    if(!text(feature.sport)||!text(feature.settlementKey)||!text(feature.currency)||
@@ -84,6 +88,7 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
   }
   const start=feature?time(feature.eventStartTime):NaN;
   if(!Number.isFinite(start)||!Number.isFinite(createdAt)||createdAt>=start)reasons.push('MODEL_NOT_PREGAME');
+  if(Number.isFinite(start)&&start<=now)reasons.push('EVENT_ALREADY_STARTED');
 
   if(reasons.length){
    for(const reason of new Set(reasons))count(rejectionReasons,reason);
@@ -99,9 +104,10 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
    if(!q||q.eventId!==row.event_id||q.marketKey!==row.market_key||q.selection!==row.selection_key)return false;
    if(q.sport!==feature.sport||q.settlementKey!==feature.settlementKey||q.currency!==feature.currency)return false;
    if(JSON.stringify(q.outcomes)!==JSON.stringify(feature.outcomes))return false;
-   const qStart=Number(q.eventStartTime);
-   if(!Number.isFinite(qStart)||Math.abs(qStart-start)>60000)return false;
-   if(q.observedAt<createdAt||q.observedAt>=start)return false;
+   const qStart=q.eventStartTime;
+   if(!finite(qStart)||qStart<=now||Math.abs(qStart-start)>60000)return false;
+   if(!finite(q.observedAt))return false;
+   if(q.observedAt<createdAt||q.observedAt>=start||q.observedAt>=qStart)return false;
    return true;
   });
   if(!compatible.length){count(rejectionReasons,'NO_POST_FORECAST_EXACT_QUOTES');continue}
@@ -121,8 +127,9 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
   }
   candidates.push({...edge,
    modelRunId:row.id??null,modelVersion:row.model_version,modelCreatedAt:row.created_at,
-   storedRunCount:Number(row.run_count),validationEvidenceGrade:feature.validationEvidenceGrade,
+   storedRunCount:row.run_count,validationEvidenceGrade:feature.validationEvidenceGrade,
    validationEvidenceId:feature.validationEvidenceId,calibration:cal.calibration,
+   validationEvidenceSource:'MODEL_FEATURE_ASSERTION',validationEvidenceIndependentlyVerified:false,
    evidenceJoin:'D1_STORED_QUOTE_MODEL_CALIBRATION',approvalScope:'REVIEW_ONLY',
    upstreamIdentityIndependentlyAuthenticated:false,productionBetRecommendationAuthorized:false});
  }
@@ -132,6 +139,7 @@ export function reviewD1ModelEdges(quotes,modelRuns,calibrations,{
   modelsExamined:Math.min(modelRuns.length,1000),eligibleModels,calibrationMatched,exactQuoteMatches,
   candidateCount:candidates.length,candidates:candidates.sort((a,b)=>b.expectedRoi-a.expectedRoi),
   rejectionReasons,probabilitiesInvented:0,pricesInvented:0,networkRequests:0,ordersPlaced:0,
+  validationEvidenceIndependentlyVerified:false,
   upstreamIdentityIndependentlyAuthenticated:false,productionBetRecommendationAuthorized:false
  };
 }

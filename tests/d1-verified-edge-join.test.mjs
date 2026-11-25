@@ -29,6 +29,9 @@ test('exact stored quote + independent model + prior calibration yields review c
  assert.equal(x.productionBetRecommendationAuthorized,false);
  assert.equal(x.upstreamIdentityIndependentlyAuthenticated,false);
  assert.equal(x.validationEvidenceGrade,'QUALIFIED');
+ assert.equal(x.validationEvidenceSource,'MODEL_FEATURE_ASSERTION');
+ assert.equal(x.validationEvidenceIndependentlyVerified,false);
+ assert.equal(r.validationEvidenceIndependentlyVerified,false);
  assert.ok(x.expectedRoi>0);
  assert.equal(r.ordersPlaced,0);assert.equal(r.networkRequests,0);
 });
@@ -64,4 +67,124 @@ test('derivative identity mismatch cannot be silently joined',()=>{
  const r=reviewD1ModelEdges([propQuote('DraftKings'),propQuote('FanDuel')],[propModel],[{...calibration,market_key:'player_points'}],{now});
  assert.equal(r.candidateCount,0);
  assert.equal(r.rejectionReasons.CANONICAL_MARKET_IDENTITY_OR_QUOTE_MISMATCH,1);
+});
+
+const review=(models=[model],calibrations=[calibration],quotes=[quote('DraftKings','ownerA'),quote('FanDuel','ownerB')])=>
+ reviewD1ModelEdges(quotes,models,calibrations,{now});
+
+test('missing, coerced and non-finite calibration scores cannot become perfect calibration',()=>{
+ for(const [field,reason] of [
+  ['brier_score','CALIBRATION_BRIER_FAILED'],['log_loss','CALIBRATION_LOG_LOSS_FAILED'],
+  ['calibration_error','CALIBRATION_ERROR_FAILED']
+ ]){
+  for(const invalid of [null,undefined,'',' ',false,true,[],[0],'0','0.05',NaN,Infinity,-Infinity]){
+   const r=review([model],[{...calibration,[field]:invalid}]);
+   assert.equal(r.candidateCount,0,`${field} must reject ${String(invalid)}`);
+   assert.equal(r.rejectionReasons[reason],1);
+  }
+ }
+ // An actual numeric zero remains valid; an absent score is a different state.
+ assert.equal(review([model],[{...calibration,brier_score:0,log_loss:0,calibration_error:0}]).candidateCount,1);
+});
+
+test('calibration thresholds use finite scores and a safe integer sample count',()=>{
+ const boundary={...calibration,sample_size:75,brier_score:.28,log_loss:.78,calibration_error:.10};
+ assert.equal(review([model],[boundary]).candidateCount,1);
+ for(const [field,value] of [
+  ['sample_size',74],['sample_size',75.5],['sample_size','120'],['sample_size',Number.MAX_SAFE_INTEGER+1],
+  ['brier_score',.280001],['log_loss',.780001],['calibration_error',.100001],
+  ['brier_score',-.01],['log_loss',-.01],['calibration_error',-.01]
+ ])assert.equal(review([model],[{...boundary,[field]:value}]).candidateCount,0,`${field}=${value}`);
+});
+
+test('calibration must explicitly match the model sport',()=>{
+ for(const sport of [null,undefined,'','NFL']){
+  const r=review([model],[{...calibration,sport}]);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.NO_PRIOR_CALIBRATION_EVIDENCE,1);
+ }
+});
+
+test('calibration period must exist and end before its record was created',()=>{
+ for(const period_end of [null,'','not-a-date','2026-11-24T12:00:00Z']){
+  const r=review([model],[{...calibration,period_end}]);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.INVALID_CALIBRATION_PERIOD,1);
+ }
+ // An invalid newest record cannot be bypassed by choosing an older favorable score.
+ const latest={...calibration,id:3,created_at:'2026-11-24T12:00:00Z',period_end:'2026-11-24T13:00:00Z'};
+ assert.equal(review([model],[calibration,latest]).candidateCount,0);
+ assert.equal(review([model],[latest,calibration]).candidateCount,0);
+});
+
+test('timestamp-tied calibration records follow the latest stored ID without cherry-picking',()=>{
+ const newer={...calibration,id:3,brier_score:.4};
+ for(const rows of [[calibration,newer],[newer,calibration]]){
+  const r=review([model],rows);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.CALIBRATION_BRIER_FAILED,1);
+ }
+});
+
+test('pregame observations expire when the event begins even inside quote freshness window',()=>{
+ for(const eventStartTime of [now-30000,now]){
+  const pastModel={...model,created_at:new Date(now-90000).toISOString(),
+   feature_snapshot:JSON.stringify({...feature,eventStartTime:new Date(eventStartTime).toISOString()})};
+  const quotes=[quote('DraftKings','ownerA',120,{observedAt:now-60000,eventStartTime}),
+   quote('FanDuel','ownerB',115,{observedAt:now-60000,eventStartTime})];
+  const r=review([pastModel],[calibration],quotes);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.EVENT_ALREADY_STARTED,1);
+ }
+});
+
+test('a started quote event cannot borrow the model schedule tolerance to stay eligible',()=>{
+ const futureModel={...model,feature_snapshot:JSON.stringify({...feature,eventStartTime:new Date(now+30000).toISOString()})};
+ const quotes=[quote('DraftKings','ownerA',120,{eventStartTime:now}),quote('FanDuel','ownerB',115,{eventStartTime:now})];
+ assert.equal(review([futureModel],[calibration],quotes).candidateCount,0);
+});
+
+test('schedule and clock skew cannot make a post-start quote appear pregame',()=>{
+ const futureModel={...model,feature_snapshot:JSON.stringify({...feature,eventStartTime:new Date(now+40000).toISOString()})};
+ const qStart=now+10000;
+ for(const observedAt of [qStart,qStart+10000]){
+  const quotes=[quote('DraftKings','ownerA',120,{eventStartTime:qStart,observedAt}),
+   quote('FanDuel','ownerB',115,{eventStartTime:qStart,observedAt})];
+  const r=review([futureModel],[calibration],quotes);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.NO_POST_FORECAST_EXACT_QUOTES,1);
+ }
+ const pregame=[quote('DraftKings','ownerA',120,{eventStartTime:qStart,observedAt:now-1}),
+  quote('FanDuel','ownerB',115,{eventStartTime:qStart,observedAt:now-1})];
+ assert.equal(review([futureModel],[calibration],pregame).candidateCount,1);
+});
+
+test('model numeric evidence does not coerce booleans, arrays or strings',()=>{
+ for(const run_count of [true,[500000],'500000',Number.MAX_SAFE_INTEGER+1]){
+  const r=review([{...model,run_count}]);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.INVALID_STORED_RUN_COUNT,1);
+ }
+ for(const model_probability of [[.52],'.52',null,false,NaN]){
+  const r=review([{...model,model_probability}]);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.INVALID_MODEL_PROBABILITY,1);
+ }
+});
+
+test('validation assertion grade must be an exact supported string',()=>{
+ for(const validationEvidenceGrade of [null,['QUALIFIED'],['VERIFIED'],true,{},'QUALIFIED ']){
+  const r=review([{...model,feature_snapshot:JSON.stringify({...feature,validationEvidenceGrade})}]);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.VALIDATION_LAB_PROMOTION_NOT_EVIDENCED,1);
+ }
+});
+
+test('conflicting latest target prices are rejected by the complete D1 evidence join',()=>{
+ const quotes=[quote('DraftKings','ownerA',120),quote('DraftKings','ownerA',-200),quote('FanDuel','ownerB')];
+ for(const input of [quotes,[...quotes].reverse()]){
+  const r=review([model],[calibration],input);
+  assert.equal(r.candidateCount,0);
+  assert.equal(r.rejectionReasons.CONFLICTING_LATEST_TARGET_QUOTES,1);
+ }
 });

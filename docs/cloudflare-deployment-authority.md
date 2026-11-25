@@ -2,7 +2,7 @@
 
 ## Canonical production deployment
 
-The **only supported Cloudflare production deployment authority** is the manually dispatched GitHub Actions workflow **Deploy Edgeforce to Cloudflare** (`.github/workflows/deploy-cloudflare.yml`) on `main`. It requires successful exact-SHA runs of **Verify Edgeforce** and **Verify Edgeforce Cloudflare**, validates the Vinext artifact, checks production prerequisites and migrations, and deploys with managed runtime secrets using `dist/server/wrangler.json`. It also performs hosted identity/health checks.
+The **canonical Cloudflare production deployment authority** is the GitHub Actions workflow **Deploy Edgeforce to Cloudflare** (`.github/workflows/deploy-cloudflare.yml`) on `main`. A successful **Verify Edgeforce** run on `main` starts it automatically; manual dispatch on `main` remains available for recovery. It waits for successful exact-SHA runs of both **Verify Edgeforce** and **Verify Edgeforce Cloudflare**, validates the Vinext artifact, checks production prerequisites and migrations, and rejects a commit if `main` has advanced before deployment. Production deployments are serialized with cancellation disabled. This workflow deploys with managed runtime secrets using `dist/server/wrangler.json` and performs hosted identity/health checks at the production Worker, `https://edgeforce-ai.tmbstartkleen.workers.dev`.
 
 Do not replace this path with a direct Mac `wrangler deploy` or a separate Cloudflare Git build: that bypasses the repository's production release controls.
 
@@ -36,9 +36,11 @@ Check `dist/server/wrangler.json` exists after the build. `npm run typecheck` in
 1. Ensure the canonical build and smoke checks are green for the exact target commit.
 2. Resolve the duplicate Cloudflare Git Builds integration and distinguish its check from **Verify Edgeforce Cloudflare**.
 3. Review and merge PRs normally only after required checks and merge policies are satisfied.
-4. Dispatch the protected `Deploy Edgeforce to Cloudflare` workflow on the certified **main** commit.
+4. Follow the automatically triggered `Deploy Edgeforce to Cloudflare` run for the certified **main** commit. If recovery requires manual dispatch, use this same workflow on `main` and retain both exact-SHA certification gates.
 5. Verify runtime identity, health, data provenance, sportsbook freshness and rollback readiness. Successful compilation is not evidence that odds/provider coverage is live.
 
 ## Database caveat
 
-The canonical production workflow currently applies Neon/PostgreSQL migrations. The separate D1 pilot is not proof that a complete storage migration has occurred. Do not remove Neon configuration, migration steps or historical data until runtime cutover and data parity are verified.
+The canonical production workflow still requires a Neon/PostgreSQL connection, checks it with a read-only preflight and applies PostgreSQL migrations. The production Worker also binds D1 databases and serves D1-backed operations routes, including the archived sportsbook evidence review. These routes and the separate D1 pilot do not establish a complete storage migration. The separately gated manual D1-native dashboard workflow is not a replacement for the canonical feature-release path above. Do not remove Neon configuration, migration steps or historical data until runtime cutover and data parity are verified.
+
+For a bounded read-only post-release check, `/api/health` reports the deployment commit and tests the PostgreSQL connection, while `/api/operations/d1-pilot/health` performs only a D1 `SELECT 1`. Their success establishes runtime identity and database connectivity; capability flags in `/api/health` do not certify current quotes or model calibration. `/api/live-data/status` calls provider ingestion, and the full remote smoke script exercises provider-backed routes, so neither is a database-only diagnostic.

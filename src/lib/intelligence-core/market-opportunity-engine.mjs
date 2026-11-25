@@ -98,17 +98,27 @@ export function screenValueEdges(quotes,forecasts,{now=Date.now(),targetBook='Dr
   if(typeof forecast.currency!=='string'||!Array.isArray(forecast.outcomes))continue;
   const group=groups.get(keyFor({...forecast,marketIdentity:identity.identity}));
   if(!group)continue;
-  const target=group.filter(q=>q.bookmaker.toLowerCase()===targetBook.toLowerCase())
-   .sort((a,b)=>b.observedAt-a.observedAt)[0];
+  const targets=group.filter(q=>q.bookmaker.toLowerCase()===targetBook.toLowerCase())
+   .sort((a,b)=>b.observedAt-a.observedAt);
+  const target=targets[0];
   if(!target)continue;
+  const result={eventId:forecast.eventId,marketKey:forecast.marketKey,selection:forecast.selection,
+   marketIdentity:identity.identity,currency:target.currency,
+   targetBook,sourceObservedAt:target.observedAt,odds:target.odds,
+   sourceAuthenticityCertified:false,productionBetRecommendationAuthorized:false};
+  // A timestamp tie cannot choose a price by database or array order. Keep the
+  // conflict visible, but do not calculate an edge from either disputed quote.
+  if(targets.some(q=>q.observedAt===target.observedAt&&q.odds!==target.odds)){
+   results.push({...result,odds:null,status:'NOT_ACTIONABLE',blockers:['CONFLICTING_LATEST_TARGET_QUOTES'],
+    breakEvenProbability:null,modelProbability:forecast.probability,edgePercentagePoints:null,expectedRoi:null,
+    simulationCountVerified:0,execution:'NONE'});
+   continue;
+  }
   const edge=evaluateVerifiedEdge({americanOdds:target.odds,modelProbability:forecast.probability,
    modelCalibrated:forecast.modelType==='CALIBRATED'&&forecast.outOfSampleVerified===true,
    sourceAudited:forecast.sourceAudited===true,
    independentUpstreams:new Set(group.map(q=>q.upstreamId)).size,targetBookObserved:true});
-  results.push({eventId:forecast.eventId,marketKey:forecast.marketKey,selection:forecast.selection,
-   marketIdentity:identity.identity,currency:target.currency,
-   targetBook,sourceObservedAt:target.observedAt,odds:target.odds,...edge,
-   sourceAuthenticityCertified:false,productionBetRecommendationAuthorized:false});
+  results.push({...result,...edge});
  }
  return {mode:'VERIFIED_PRICE_MODEL_SCREEN',results:results.sort((a,b)=>(b.expectedRoi??-Infinity)-(a.expectedRoi??-Infinity)),
   pricesInvented:0,modelProbabilitiesInvented:0,networkRequests:0};
