@@ -1,3 +1,5 @@
+import {buildPriceReview,priceReviewApproval} from './priceReview';
+import {configuredProviders} from './config';
 import {fetchNormalizedOdds} from './odds';
 import {saveMarketSnapshots,saveConsensusMarketSnapshots} from '../persistence';
 import {latestStoredMarkets} from '../persistence';
@@ -64,7 +66,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
   ?Math.max(0,Math.min(...stored.filter(x=>Number.isFinite(x.sourceAgeMin)).map(x=>x.sourceAgeMin))*60000)
   :Number.POSITIVE_INFINITY;
 
- if(!options.forceLive&&reusableStored.length&&freshestStoredAgeMs<liveRefreshMs){
+ if(!options.forceLive&&!configuredProviders('ODDS').some(config=>priceReviewApproval(config))&&reusableStored.length&&freshestStoredAgeMs<liveRefreshMs){
   return {
    mode:'stored' as const,
    providerId:'stored-live-snapshot',
@@ -80,6 +82,7 @@ export async function ingestOdds(options:IngestOddsOptions={}){
    degraded:false,
    targetBook:process.env.TARGET_BOOKMAKER||'DraftKings',
    providerPanel:[],
+   priceReview:buildPriceReview(0,[]),
    source:'stored' as const,
    reuseAgeMin:reuseAge,
    liveRefreshMs,

@@ -6,6 +6,7 @@ import type {RiskProfile} from './types';
 import type {fetchLiveScoreMesh} from './liveScoreMesh';
 import type {fetchFanDuelOddsPulse} from './providers/fanLineWire';
 import type {fetchPredictionMarkets} from './predictionMarkets';
+import type {PriceReview} from './providers/priceReview';
 import type {OddsAttempt} from './providers/odds';
 
 export const LIVE_BOARD_SCHEMA='edgeforce-live-board-v199';
@@ -23,6 +24,7 @@ export function unavailableLiveBoard(input:{
  predictions:Awaited<ReturnType<typeof fetchPredictionMarkets>>;
  referenceOdds?:ObservedOddsSnapshot;
  providerAttempts?:OddsAttempt[];
+ priceReview?:PriceReview;
  ledgerHistory:HistoricalBet[];
  now?:number;
 }){
@@ -37,7 +39,7 @@ export function unavailableLiveBoard(input:{
   generatedAt:new Date(now).toISOString(),uiRefreshMs:1000,sourceRefreshMs:10000,nextLiveRefreshMs:0,
   view:input.view,limit:input.limit,risk:input.risk,
   source:'unavailable',providerMode:'failed',providerDegraded:true,
-  providerAttempts:input.providerAttempts||[],providerPanel:[],providerQuality:null,
+  providerAttempts:input.providerAttempts||[],providerPanel:[],providerQuality:null,priceReview:input.priceReview??null,
   contextChanges:[],resimulationTriggered:false,resimulatedMarketIds:[],resimulationResults:[],
   warnings:[input.coreStatus.error||'The model-data pipeline is unavailable.'],
   liveScores:input.liveScores,fanduelPulse:input.fanduelPulse,observedOdds,observationOnly,

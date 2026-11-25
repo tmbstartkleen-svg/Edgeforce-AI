@@ -124,6 +124,13 @@ jobs:
         shell: bash
         env:
           DATABASE_URL: ${{ secrets.EDGEFORCE_DATABASE_URL || secrets.DATABASE_URL }}
+          ODDS_PRICE_REVIEW_APPROVALS: ${{ secrets.ODDS_PRICE_REVIEW_APPROVALS }}
+          ODDS_PROVIDER_PRIMARY_URL: ${{ secrets.ODDS_PROVIDER_PRIMARY_URL }}
+          ODDS_PROVIDER_PRIMARY_KEY: ${{ secrets.ODDS_PROVIDER_PRIMARY_KEY }}
+          ODDS_PROVIDER_SECONDARY_URL: ${{ secrets.ODDS_PROVIDER_SECONDARY_URL }}
+          ODDS_PROVIDER_SECONDARY_KEY: ${{ secrets.ODDS_PROVIDER_SECONDARY_KEY }}
+          ODDS_PROVIDER_TERTIARY_URL: ${{ secrets.ODDS_PROVIDER_TERTIARY_URL }}
+          ODDS_PROVIDER_TERTIARY_KEY: ${{ secrets.ODDS_PROVIDER_TERTIARY_KEY }}
         run: |
           umask 077
           SECRET_DIR=$(mktemp -d "$RUNNER_TEMP/edgeforce-runtime.XXXXXX")

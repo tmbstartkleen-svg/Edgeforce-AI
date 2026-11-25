@@ -3,7 +3,9 @@ import {isAbsolute,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const required=['DATABASE_URL','INGEST_SECRET','CRON_SECRET'];
-const optional=['THE_ODDS_API_KEY','SPORTS_GAME_ODDS_API_KEY','FOOTBALL_DATA_API_KEY','API_SPORTS_KEY','BIGBALLS_API_KEY'];
+const optional=['THE_ODDS_API_KEY','SPORTS_GAME_ODDS_API_KEY','FOOTBALL_DATA_API_KEY','API_SPORTS_KEY','BIGBALLS_API_KEY',
+ 'ODDS_PRICE_REVIEW_APPROVALS','ODDS_PROVIDER_PRIMARY_URL','ODDS_PROVIDER_PRIMARY_KEY',
+ 'ODDS_PROVIDER_SECONDARY_URL','ODDS_PROVIDER_SECONDARY_KEY','ODDS_PROVIDER_TERTIARY_URL','ODDS_PROVIDER_TERTIARY_KEY'];
 
 export function runtimeSecrets(env){
  const secrets={};
@@ -21,6 +23,9 @@ export function runtimeSecrets(env){
    throw new Error('Optional Cloudflare runtime secret is invalid');
   }
   secrets[key]=value;
+ }
+ if(['PRIMARY','SECONDARY','TERTIARY'].some(slot=>secrets[`ODDS_PROVIDER_${slot}_URL`])&&!secrets.ODDS_PRICE_REVIEW_APPROVALS){
+  throw new Error('Generic price review connections require source approvals');
  }
  return secrets;
 }

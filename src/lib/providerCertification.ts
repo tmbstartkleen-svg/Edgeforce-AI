@@ -1,3 +1,4 @@
+import {normalizePriceReviewSource,priceReviewApproval} from './providers/priceReview';
 import {db} from './db';
 import {configuredProviders} from './providers/config';
 import {fetchProviderJson} from './providers/http';
@@ -120,6 +121,20 @@ export async function certifyProvider(config:ProviderConfig):Promise<ProviderCer
   };
  }
 
+ const approval=config.capability==='ODDS'?priceReviewApproval(config):undefined;
+ if(approval){
+  const review=normalizePriceReviewSource(raw.data,config.id,approval);
+  return {
+   providerId:config.id,providerName:config.name,capability:'ODDS',status:review.eligibleMarkets.length?'CAUTION':'FAILED',
+   priority:config.priority,latencyMs:raw.latencyMs,httpStatus,rowCount:review.rowsExamined,normalizedCount:0,
+   freshnessScore:review.eligibleMarkets.length?1:0,qualityScore:0,qualityGrade:review.eligibleMarkets.length?'CAUTION':'REJECT',
+   authConfigured:Boolean(config.apiKey),maxAgeMin:Math.min(5,config.maxAgeMin),
+   reasons:[`${review.eligibleMarkets.length} complete book markets sent to independent price review`,
+    'Price review evidence does not satisfy model or recommendation readiness'],
+   diagnostics:raw.diagnostics
+  };
+ }
+
  const quality=inspectProviderPayload(config.capability==='ODDS'?eligibleOddsPayload(raw.data):raw.data,config.capability,config.maxAgeMin);
  let normalizedCount: number|undefined;
  let referenceCount: number|undefined;
@@ -189,7 +204,7 @@ export function evaluateCertificationResults(results:ProviderCertification[]){
 export function providerHasCreditBlock(provider:ProviderCertification){
  if(provider.capability!=='ODDS'||provider.status!=='FAILED')return false;
  const kind=provider.diagnostics?.failureKind;
- if(kind)return ['QUOTA_EXHAUSTED','CREDIT_RESERVE','QUOTA_UNVERIFIED'].includes(kind);
+ if(kind)return ['QUOTA_EXHAUSTED','CREDIT_RESERVE','QUOTA_UNVERIFIED','CREDIT_PAUSED'].includes(kind);
  // Older adapters may only expose a reason string. A reference to the free
  // quota preflight alone is not evidence that a network failure exhausted credits.
  return /OUT_OF_USAGE_CREDITS|quota has been reached|quota (?:is )?exhausted|THE_ODDS_API_(?:CREDIT_RESERVE|QUOTA_UNVERIFIED)|remaining=(?:0|1)(?:\D|$)/i

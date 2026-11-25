@@ -1,3 +1,4 @@
+import {isPriceReviewSlot,priceReviewApproval} from './priceReview';
 import type {ProviderConfig,ProviderFetchResult} from './types';
 import {fetchTheOddsApiBoard} from './theOddsApi';
 import {fetchSportsGameOddsBoard} from './sportsGameOdds';
@@ -7,6 +8,30 @@ import {fetchOddsApi2Board} from './oddsApi2';
 import {fetchTheRundownBoard} from './theRundown';
 import {fetchTheRundownResults} from './theRundownResults';
 import {fetchEspnCoreOdds} from './espnCoreOdds';
+
+const REVIEW_BODY_LIMIT=4*1024*1024;
+
+async function readPriceReviewJson(response:Response):Promise<unknown>{
+ const length=Number(response.headers.get('content-length'));
+ if(length>REVIEW_BODY_LIMIT||!response.body)throw new Error('Invalid price review response size');
+ const reader=response.body.getReader();
+ const decoder=new TextDecoder('utf-8',{fatal:true});
+ let bytes=0;
+ let content='';
+ try{
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   bytes+=value.byteLength;
+   if(bytes>REVIEW_BODY_LIMIT)throw new Error('Price review response exceeded size limit');
+   content+=decoder.decode(value,{stream:true});
+  }
+  return JSON.parse(content+decoder.decode());
+ }catch(error){
+  void reader.cancel().catch(()=>undefined);
+  throw error;
+ }finally{reader.releaseLock();}
+}
 
 const untilNextMonthMs=()=>{const now=new Date();const next=Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1,0,5,0);return Math.max(3600000,next-Date.now());};
 
@@ -56,8 +81,13 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
     result.retryAfterMs??(result.attempts.some(x=>x.status===429)?300000:undefined)
   };
  }
+ const reviewOnly=isPriceReviewSlot(config);
+ let observedStatus:number|undefined;
+ const failure=(error:string):ProviderFetchResult<T>=>({ok:false,providerId:config.id,providerName:config.name,
+  capability:config.capability,latencyMs:Date.now()-started,receivedAt:new Date().toISOString(),status:observedStatus,error});
+ if(reviewOnly&&!priceReviewApproval(config))return failure('Price review source approval is missing or invalid');
  const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),config.timeoutMs);
+ const timer=setTimeout(()=>controller.abort(),reviewOnly?Math.min(6500,config.timeoutMs):config.timeoutMs);
  try{
   const headers:Record<string,string>={'Accept':'application/json'};
   if(config.apiKey){
@@ -65,16 +95,18 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
     ?`${config.authScheme} ${config.apiKey}`
     :config.apiKey;
   }
-  const res=await fetch(config.url,{headers,cache:'no-store',signal:controller.signal});
+  const res=await fetch(config.url,{headers,cache:'no-store',signal:controller.signal,...(reviewOnly?{redirect:'error'}:{})});
   const latencyMs=Date.now()-started;
+  observedStatus=res.status||undefined;
   if(!res.ok){
    const retry=Number(res.headers.get('retry-after'));
    return {ok:false,providerId:config.id,providerName:config.name,capability:config.capability,latencyMs,receivedAt:new Date().toISOString(),status:res.status,error:`HTTP ${res.status}`,
     retryAfterMs:res.status===429?(Number.isFinite(retry)&&retry>0?retry*1000:300000):undefined};
   }
-  const data=await res.json() as T;
+  const data=(reviewOnly?await readPriceReviewJson(res):await res.json()) as T;
   return {ok:true,providerId:config.id,providerName:config.name,capability:config.capability,latencyMs,receivedAt:new Date().toISOString(),status:res.status,data};
  }catch(error){
+  if(reviewOnly)return failure(controller.signal.aborted?'Price review source deadline reached':'Price review source request or payload failed');
   return {
    ok:false,
    providerId:config.id,

@@ -358,3 +358,15 @@ test('invalid local configuration produces a diagnostic without dispatching or e
   assert.ok(!JSON.stringify(result).includes(config.apiKey));assert.ok(!JSON.stringify(result).includes('private.invalid'));
  }
 });
+
+test('production and explicit preflight-only mode never dispatch paid requests even after a quota reset',async()=>{
+ for(const mode of [{DEPLOYMENT_ENV:'production'},{VERCEL_ENV:'production'},{THE_ODDS_API_PREFLIGHT_ONLY:'true'}]){
+  const r=runtime(()=>response(catalog,500,200,{'x-requests-used':'0','x-requests-last':'0'}),mode);
+  const result=await r.fetch(config);
+  assert.equal(result.ok,false);
+  assert.equal(result.quota.remaining,500);
+  assert.equal(result.diagnostics.failureKind,'CREDIT_PAUSED');
+  assert.equal(result.diagnostics.requests[1].attempted,false);
+  assert.deepEqual(r.calls.map(call=>call.url.pathname),['/v4/sports/']);
+ }
+});
