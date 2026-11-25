@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import OpponentMatchupPanel from '@/components/OpponentMatchupPanel';
 import ForecastResearchLabPanel from '@/components/ForecastResearchLabPanel';
+import DailyWeeklyResearchCockpit from '@/components/DailyWeeklyResearchCockpit';
 
 export const metadata={
  title:'Sports Research & Matchup Intelligence | EdgeForce',
@@ -35,6 +36,7 @@ export default function SportsResearchPage(){
    <article><small>03 / MATCHUP HISTORY</small><h2>Head-to-head context</h2><p>Review prior meetings, player-versus-opponent samples, pace and style, venue context, and comparable-favorite performance. Show the actual sample and uncertainty, not just a headline percentage.</p></article>
    <article><small>04 / PRICE & EDGE</small><h2>Odds-aware simulations</h2><p>Compare model probability to current, timestamped prices; remove vig where possible; report expected value, line movement, market availability, and missing-book coverage.</p></article>
   </section>
+  <DailyWeeklyResearchCockpit/>
   <section className="sportsResearchSection">
    <div className="sportsResearchSectionHead"><div><div className="eyebrow">MATCHUP LAB</div><h2>Opponent & player trends</h2></div><span>Live API data • source-dependent</span></div>
    <OpponentMatchupPanel/>
