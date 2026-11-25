@@ -181,3 +181,30 @@ test('core degradation cannot renew expired source observations',()=>{
  assert.equal(result.observationOnly,false);
  assert.equal(result.observedOdds.recommendationsAuthorized,false);
 });
+
+test('the live and degraded board publish current price review from the same clock as generation',async()=>{
+ for(const degraded of [false,true]){
+  let acquisitions=0, publishedAt;
+  const acquire=async()=>{
+   acquisitions++;
+   return {source:'unavailable',mode:'failed',degraded:true,markets:[],referenceMarkets:[],warnings:[],attempts:[],providerPanel:[],
+    priceReview:{corroboratedMarkets:1},readPriceReview:clock=>{
+     publishedAt=clock;
+     return {corroboratedMarkets:0,status:'NO_ELIGIBLE_MARKETS'};
+    }};
+  };
+  const runtime=routeRuntime({ingestOdds:acquire,
+   fetchScores:async()=>({...scoreSnapshot(),observedOdds:buildObservedOddsSnapshot([],now)}),
+   scanMarkets:()=>{if(degraded)throw new Error('model processing failed');return [];}});
+  const req=new Request('https://edgeforce.test/api/live-board');
+  for(let i=0;i<2;i++){
+   const response=await runtime.GET(req);
+   const body=await response.json();
+   assert.equal(response.status,degraded?503:200);
+   assert.equal(body.priceReview.corroboratedMarkets,0);
+   assert.equal(body.observationOnly,false);
+   assert.equal(Date.parse(body.generatedAt),publishedAt);
+  }
+  assert.equal(acquisitions,1);
+ }
+});

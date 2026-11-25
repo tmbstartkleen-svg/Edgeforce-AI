@@ -30,7 +30,7 @@ export function unavailableLiveBoard(input:{
 }){
  const now=input.now??Date.now();
  const observedOdds=mergeObservedOddsSnapshots([input.referenceOdds,input.liveScores.observedOdds],now);
- const observationOnly=observedOdds.referenceCount>0||evaluatePulseEvidence(input.fanduelPulse,now).usable;
+ const observationOnly=observedOdds.referenceCount>0||evaluatePulseEvidence(input.fanduelPulse,now).usable||Boolean(input.priceReview?.corroboratedMarkets);
  return {
   schema:LIVE_BOARD_SCHEMA,ok:false,degraded:true,
   coreStatus:{...input.coreStatus,ok:false},

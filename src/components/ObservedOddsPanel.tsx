@@ -144,7 +144,7 @@ function SportsbookPriceReview({review,now}:{review:PriceReview|null;now:number}
   <p className="historyNote" role="status">{review.status==='CORROBORATED'&&!markets.length
    ?'The returned matched prices have expired.' : priceReviewStatus[review.status]}</p>
   <p className="historyNote">{review.respondedFeeds} of {review.approvedFeeds} approved feeds responded.
-   {' '}{review.eligibleBookMarkets} complete book markets and {review.corroboratedMarkets} matching markets at collection.
+   {' '}{review.eligibleBookMarkets} complete book markets and {review.corroboratedMarkets} matching markets in this snapshot.
    {review.omittedMarkets>0&&` ${review.omittedMarkets} omitted by the display limit.`}
    {expired>0&&` ${expired} returned markets have expired.`}
    {review.inputTruncated&&' A feed exceeded the input limit and was withheld.'}</p>

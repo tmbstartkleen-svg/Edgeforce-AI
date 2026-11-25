@@ -1,4 +1,4 @@
-import {normalizePriceReviewSource,priceReviewApproval} from './providers/priceReview';
+import {isPriceReviewSlot,normalizePriceReviewSource,priceReviewApproval} from './providers/priceReview';
 import {db} from './db';
 import {configuredProviders} from './providers/config';
 import {fetchProviderJson} from './providers/http';
@@ -109,19 +109,22 @@ function capabilityCoverage(results:ProviderCertification[]):CapabilityCoverage[
 }
 
 export async function certifyProvider(config:ProviderConfig):Promise<ProviderCertification>{
- const raw=await fetchProviderJson(config);
- const lastRequest=raw.diagnostics?.requests.filter(request=>request.attempted).at(-1);
- const httpStatus=raw.diagnostics?lastRequest?.httpStatus:raw.status;
- if(!raw.ok){
+ const reviewOnly=isPriceReviewSlot(config);
+ const approval=reviewOnly?priceReviewApproval(config):undefined;
+ const raw=reviewOnly&&!approval?undefined:await fetchProviderJson(config);
+ const lastRequest=raw?.diagnostics?.requests.filter(request=>request.attempted).at(-1);
+ const httpStatus=raw?.diagnostics?lastRequest?.httpStatus:raw?.status;
+ if(!raw?.ok){
+  const error=raw?raw.error:'Price review source approval is missing or invalid';
   return {
    providerId:config.id,providerName:config.name,capability:config.capability,status:'FAILED',
-   priority:config.priority,latencyMs:raw.latencyMs,httpStatus,rowCount:0,
+   priority:config.priority,latencyMs:raw?.latencyMs??0,httpStatus,rowCount:0,
+   ...(reviewOnly?{normalizedCount:0}:{}),
    freshnessScore:0,qualityScore:0,qualityGrade:'REJECT',authConfigured:Boolean(config.apiKey),
-   maxAgeMin:config.maxAgeMin,reasons:[raw.error||'Provider request failed'],error:raw.error,diagnostics:raw.diagnostics
+   maxAgeMin:config.maxAgeMin,reasons:[error||'Provider request failed'],error,diagnostics:raw?.diagnostics
   };
  }
 
- const approval=config.capability==='ODDS'?priceReviewApproval(config):undefined;
  if(approval){
   const review=normalizePriceReviewSource(raw.data,config.id,approval);
   return {

@@ -1,4 +1,4 @@
-import {isPriceReviewSlot,priceReviewApproval} from './priceReview';
+import {isGenericOddsSlot,isPriceReviewSlot,priceReviewApproval} from './priceReview';
 import type {ProviderConfig,ProviderFetchResult} from './types';
 import {fetchTheOddsApiBoard} from './theOddsApi';
 import {fetchSportsGameOddsBoard} from './sportsGameOdds';
@@ -37,6 +37,12 @@ const untilNextMonthMs=()=>{const now=new Date();const next=Date.UTC(now.getUTCF
 
 export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promise<ProviderFetchResult<T>>{
  const started=Date.now();
+ const reviewOnly=isPriceReviewSlot(config);
+ let observedStatus:number|undefined;
+ const failure=(error:string):ProviderFetchResult<T>=>({ok:false,providerId:config.id,providerName:config.name,
+  capability:config.capability,latencyMs:Date.now()-started,receivedAt:new Date().toISOString(),status:observedStatus,error});
+ if(reviewOnly&&!priceReviewApproval(config))return failure('Price review source approval is missing or invalid');
+ if(isGenericOddsSlot(config)&&!/^https?:\/\//i.test(config.url))return failure('Generic odds feeds require an HTTP or HTTPS endpoint');
  if(config.url==='espn-core://odds'){
   return fetchEspnCoreOdds(config) as Promise<ProviderFetchResult<T>>;
  }
@@ -81,11 +87,6 @@ export async function fetchProviderJson<T=unknown>(config:ProviderConfig):Promis
     result.retryAfterMs??(result.attempts.some(x=>x.status===429)?300000:undefined)
   };
  }
- const reviewOnly=isPriceReviewSlot(config);
- let observedStatus:number|undefined;
- const failure=(error:string):ProviderFetchResult<T>=>({ok:false,providerId:config.id,providerName:config.name,
-  capability:config.capability,latencyMs:Date.now()-started,receivedAt:new Date().toISOString(),status:observedStatus,error});
- if(reviewOnly&&!priceReviewApproval(config))return failure('Price review source approval is missing or invalid');
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),reviewOnly?Math.min(6500,config.timeoutMs):config.timeoutMs);
  try{

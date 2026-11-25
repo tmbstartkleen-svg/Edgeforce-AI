@@ -2,6 +2,7 @@ import type {ProviderConfig} from './types';
 
 const MAX_ROWS = 4000;
 const MAX_DISPLAY = 100;
+const MAX_TRACKED_GROUPS = 24_000;
 const MAX_AGE_MS = 5 * 60_000;
 const MAX_SOURCE_SKEW_MS = 2 * 60_000;
 const genericSlots = new Set(['odds-provider-primary', 'odds-provider-secondary', 'odds-provider-tertiary']);
@@ -30,11 +31,14 @@ const append = <T>(map: Map<string,T[]>, id: string, value: T) => {
 };
 const count = (counts: Record<string,number>, reason: string) => { counts[reason] = (counts[reason] || 0) + 1; };
 
+export const isGenericOddsSlot = (config: ProviderConfig) => genericSlots.has(config.id);
+
 export function isPriceReviewSlot(config: ProviderConfig, approvals = process.env.ODDS_PRICE_REVIEW_APPROVALS) {
- return approvals !== undefined && genericSlots.has(config.id);
+ return approvals !== undefined && isGenericOddsSlot(config);
 }
 
-export type PriceReviewApproval = {operator: string; host: string; books: Set<string>; maxAgeMs: number};
+type PilotScope = {sport: string; league: string};
+export type PriceReviewApproval = {operator: string; host: string; books: Set<string>; maxAgeMs: number; pilotScope?: PilotScope};
 
 // Only administrator-configured generic connections participate. Feed data cannot declare
 // its own permissions, bookmaker list, operator or transport identity.
@@ -42,13 +46,18 @@ export function priceReviewApproval(config: ProviderConfig, json = process.env.O
  if (!isPriceReviewSlot(config, json) || !json || json.length > 8192) return;
  try {
   const target = new URL(config.url);
-  const entry = record(record(JSON.parse(json))[config.id]);
+  const catalog = record(JSON.parse(json));
+  const entry = record(catalog[config.id]);
+  const scope = record(catalog.pilotScope);
+  const sport = key(scope.sport), league = key(scope.league);
+  if (Object.hasOwn(catalog, 'pilotScope') && (!sport || !league)) return;
   const operator = identifier(entry.operator);
   if (target.protocol !== 'https:' || target.username || target.password || target.port ||
    target.origin !== entry.origin || !operator || !Array.isArray(entry.books) || !entry.books.length ||
    !entry.books.every(book => typeof book === 'string' && sportsbookNames.has(book)) ||
    !Number.isFinite(config.maxAgeMin) || config.maxAgeMin <= 0) return;
-  return {operator, host: target.hostname, books: new Set(entry.books), maxAgeMs: Math.min(MAX_AGE_MS, config.maxAgeMin * 60_000)};
+  return {operator, host: target.hostname, books: new Set(entry.books),
+   maxAgeMs: Math.min(MAX_AGE_MS, config.maxAgeMin * 60_000), ...(sport && league ? {pilotScope: {sport, league}} : {})};
  } catch { return; }
 }
 
@@ -61,9 +70,14 @@ type BookMarket = {
  identity: MarketIdentity; groupKey: string; marketKey: string; providerId: string; bookId: string; sourceEventId: string;
  operator: string; host: string; sourceUpdatedAt: string; expiresAt: string; quotes: Quote[];
 };
+type BookRevision = {at: number; state: 'WITHHELD'|'CONFLICT'} | {at: number; state: 'OPEN'; fingerprint: string};
 export type PriceReviewSource = {
- rowsExamined: number; eligibleMarkets: BookMarket[]; withheld: {groupKey: string; at: number}[]; rejections: Record<string,number>; truncated: boolean;
+ rowsExamined: number; eligibleMarkets: BookMarket[]; revisions: Map<string,BookRevision>;
+ rejections: Record<string,number>; truncated: boolean;
 };
+export const validPriceReviewResponse = (source: PriceReviewSource) =>
+ !source.truncated && !source.rejections.INVALID_FEED_CONTRACT;
+export type PriceReviewSnapshot = {read(now?: number): PriceReview};
 export type PriceReviewStatus = 'NO_APPROVED_FEEDS'|'APPROVED_FEEDS_UNAVAILABLE'|'NO_ELIGIBLE_MARKETS'|'NO_INDEPENDENT_MATCH'|'CORROBORATED';
 type ReviewedMarket = MarketIdentity & {
  id: string; expiresAt: string; sources: {
@@ -106,7 +120,7 @@ function allowedSelections(market: MarketIdentity, outcomeCount: unknown) {
 export function normalizePriceReviewSource(payload: unknown, providerId: string, approval: PriceReviewApproval,
  now = Date.now()): PriceReviewSource {
  const rows = Array.isArray(payload) ? payload : record(payload).markets;
- const result: PriceReviewSource = {rowsExamined: 0, eligibleMarkets: [], withheld: [], rejections: {}, truncated: false};
+ const result: PriceReviewSource = {rowsExamined: 0, eligibleMarkets: [], revisions: new Map(), rejections: {}, truncated: false};
  if (!Array.isArray(rows)) {
   count(result.rejections, 'INVALID_FEED_CONTRACT');
   return result;
@@ -132,6 +146,9 @@ export function normalizePriceReviewSource(payload: unknown, providerId: string,
   if (!approval.books.has(bookId)) {
    count(result.rejections, 'BOOKMAKER_NOT_APPROVED'); continue;
   }
+  if (approval.pilotScope && (key(row.sport) !== approval.pilotScope.sport || key(row.league) !== approval.pilotScope.league)) {
+   count(result.rejections, 'OUTSIDE_PILOT_SCOPE'); continue;
+  }
   const axis = marketIdentity(row), sourceEventId = text(row.sourceEventId);
   if (!axis || !sourceEventId) {
    count(result.rejections, 'INVALID_EVENT_OR_MARKET_IDENTITY'); continue;
@@ -149,7 +166,7 @@ export function normalizePriceReviewSource(payload: unknown, providerId: string,
  for (const [groupKey, {identity, identityKey, start, bookId, revisions}] of groups) {
   const withhold = (reason: string, at: number) => {
    count(result.rejections, reason);
-   result.withheld.push({groupKey, at});
+   result.revisions.set(groupKey, {at, state: 'WITHHELD'});
   };
   const fixture = JSON.stringify([key(identity.sport), key(identity.league), key(identity.home), key(identity.away), identity.startTime]);
   if (idsByFixture.get(fixture)!.size !== 1 || revisions.some(revision => fixturesById.get(revision.sourceEventId)!.size !== 1)) {
@@ -162,7 +179,7 @@ export function normalizePriceReviewSource(payload: unknown, providerId: string,
   }
   const latest = Math.max(...revisions.map(({at}) => at));
   const expires = Math.min(latest + approval.maxAgeMs, start);
-  if (now >= expires) {
+  if (start <= now || latest + MAX_AGE_MS <= now) {
    count(result.rejections, start <= now ? 'EVENT_STARTED' : 'BOOK_UPDATE_EXPIRED'); continue;
   }
   const current = revisions.filter(({at}) => at === latest);
@@ -184,66 +201,130 @@ export function normalizePriceReviewSource(payload: unknown, providerId: string,
   if (invalid || prices.size !== selections.length) {
    withhold('INCOMPLETE_OR_CONFLICTING_OUTCOMES', latest); continue;
   }
-  result.eligibleMarkets.push({identity, groupKey, marketKey: JSON.stringify([identityKey, selections.sort()]),
+  selections.sort();
+  const market = {identity, groupKey, marketKey: JSON.stringify([identityKey, selections]),
    providerId, bookId, sourceEventId: current[0].sourceEventId, operator: approval.operator, host: approval.host,
    sourceUpdatedAt: new Date(latest).toISOString(), expiresAt: new Date(expires).toISOString(),
-   quotes: selections.map(selection => prices.get(selection)!)});
+   quotes: selections.map(selection => prices.get(selection)!)};
+  result.revisions.set(groupKey, {at: latest, state: 'OPEN', fingerprint: quoteFingerprint(market)});
+  if (now >= expires) {
+   count(result.rejections, 'BOOK_UPDATE_EXPIRED'); continue;
+  }
+  result.eligibleMarkets.push(market);
  }
  return result;
 }
 
-export function buildPriceReview(approvedFeeds: number, sources: PriceReviewSource[], now = Date.now()): PriceReview {
+const quoteFingerprint = (market: BookMarket) =>
+ JSON.stringify([market.marketKey, market.quotes.map(quote => quote.americanOdds)]);
+
+function newestRevision(current: BookRevision|undefined, incoming: BookRevision): BookRevision {
+ if (!current || incoming.at > current.at) return incoming;
+ if (incoming.at < current.at) return current;
+ if (current.state === 'WITHHELD' || incoming.state === 'WITHHELD') return {at: current.at, state: 'WITHHELD'};
+ if (current.state === 'OPEN' && incoming.state === 'OPEN' && current.fingerprint === incoming.fingerprint) return current;
+ return {at: current.at, state: 'CONFLICT'};
+}
+
+function projectPriceReview(approvedFeeds: number, sources: PriceReviewSource[], publishable: BookMarket[],
+ rejectionCounts: Record<string,number>, now: number): PriceReview {
+ const rejections = {...rejectionCounts};
  const byMarket = new Map<string,BookMarket[]>();
- const rejections: Record<string,number> = {};
- const withdrawnAt = new Map<string,number>();
- for (const source of sources) {
-  for (const {groupKey, at} of source.withheld) {
-   withdrawnAt.set(groupKey, Math.max(at, withdrawnAt.get(groupKey) ?? 0));
-  }
- }
  let eligibleBookMarkets = 0;
- for (const source of sources) {
-  for (const [reason, total] of Object.entries(source.rejections)) rejections[reason] = (rejections[reason] || 0) + total;
-  for (const market of source.eligibleMarkets) {
-   if (Date.parse(market.expiresAt) <= now) {
-    count(rejections, 'EXPIRED_BEFORE_PUBLICATION'); continue;
-   }
-   if ((withdrawnAt.get(market.groupKey) ?? 0) >= Date.parse(market.sourceUpdatedAt)) {
-    count(rejections, 'BOOKMAKER_REVISION_WITHHELD'); continue;
-   }
-   eligibleBookMarkets++;
-   append(byMarket, market.marketKey, market);
+ for (const market of publishable) {
+  if (Date.parse(market.expiresAt) <= now) {
+   count(rejections, 'EXPIRED_BEFORE_PUBLICATION'); continue;
   }
+  eligibleBookMarkets++;
+  append(byMarket, market.marketKey, market);
  }
  const corroborated: ReviewedMarket[] = [];
  for (const [id, markets] of byMarket) {
-  // Contradictory current quotes at the same book and update time cannot corroborate any source.
-  const conflictedBooks = new Set<string>();
-  for (const a of markets) {
-   if (markets.some(b => a.bookId === b.bookId && a.sourceUpdatedAt === b.sourceUpdatedAt &&
-    a.quotes.some((q, i) => q.americanOdds !== b.quotes[i].americanOdds))) conflictedBooks.add(a.bookId);
-  }
-  const unambiguous = markets.filter(a => !conflictedBooks.has(a.bookId) &&
-   !markets.some(b => b.bookId === a.bookId && b.sourceUpdatedAt > a.sourceUpdatedAt));
-  if (conflictedBooks.size) count(rejections, 'BOOKMAKER_PRICE_CONFLICT');
-  const participating = unambiguous.filter(a => unambiguous.some(b =>
+  const participating = markets.filter(a => markets.some(b =>
    a.providerId !== b.providerId && a.host !== b.host && a.operator !== b.operator && a.bookId !== b.bookId &&
    Math.abs(Date.parse(a.sourceUpdatedAt) - Date.parse(b.sourceUpdatedAt)) <= MAX_SOURCE_SKEW_MS));
   if (participating.length < 2) {
    count(rejections, 'NO_INDEPENDENT_COMPLETE_MARKET'); continue;
   }
   corroborated.push({...participating[0].identity, id,
-   // Conservative shared expiry. A cached response expires at its first contributing source expiry.
    expiresAt: participating.map(x => x.expiresAt).sort()[0],
    sources: participating.map(x => ({bookmaker: sportsbookNames.get(x.bookId)!, providerId: x.providerId,
     sourceEventId: x.sourceEventId, sourceUpdatedAt: x.sourceUpdatedAt, expiresAt: x.expiresAt, quotes: x.quotes}))});
  }
  corroborated.sort((a,b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id));
- const status = !approvedFeeds ? 'NO_APPROVED_FEEDS' : !sources.length ? 'APPROVED_FEEDS_UNAVAILABLE' :
+ const respondedFeeds = sources.filter(validPriceReviewResponse).length;
+ const status = !approvedFeeds ? 'NO_APPROVED_FEEDS' : !respondedFeeds ? 'APPROVED_FEEDS_UNAVAILABLE' :
   corroborated.length ? 'CORROBORATED' : eligibleBookMarkets ? 'NO_INDEPENDENT_MATCH' : 'NO_ELIGIBLE_MARKETS';
- return {schema: 'edgeforce-sportsbook-price-review-v1', status, approvedFeeds, respondedFeeds: sources.length,
+ return {schema: 'edgeforce-sportsbook-price-review-v1', status, approvedFeeds, respondedFeeds,
   rowsExamined: sources.reduce((sum, source) => sum + source.rowsExamined, 0), eligibleBookMarkets,
   corroboratedMarkets: corroborated.length, omittedMarkets: Math.max(0, corroborated.length - MAX_DISPLAY),
   inputTruncated: sources.some(source => source.truncated), rejections, markets: corroborated.slice(0, MAX_DISPLAY),
   recommendationsAuthorized: false};
+}
+
+// Keep revision fences, never publish prices carried over from an older poll.
+// Entries expire once anything older than the fence falls outside the longest source window.
+export function createPriceReviewTracker(maxGroups = MAX_TRACKED_GROUPS) {
+ const history = new Map<string,BookRevision>();
+ let saturatedUntil = 0;
+
+ function capture(approvedFeeds: number, sources: PriceReviewSource[], now = Date.now()): PriceReviewSnapshot {
+  const rejections: Record<string,number> = {};
+  const publishable: BookMarket[] = [];
+  for (const [group, revision] of history) {
+   if (revision.at + MAX_AGE_MS <= now) history.delete(group);
+  }
+  for (const source of sources) {
+   for (const [reason, total] of Object.entries(source.rejections)) rejections[reason] = (rejections[reason] || 0) + total;
+   for (const [group, revision] of source.revisions) {
+    if (revision.at + MAX_AGE_MS <= now) continue;
+    const prior = history.get(group);
+    if (!prior && history.size >= maxGroups) {
+     saturatedUntil = Math.max(saturatedUntil, revision.at + MAX_AGE_MS);
+     continue;
+    }
+    history.set(group, newestRevision(prior, revision));
+   }
+  }
+  const conflictGroups = new Set<string>();
+  if (now < saturatedUntil) count(rejections, 'REVISION_HISTORY_CAPACITY');
+  else for (const source of sources) {
+   for (const market of source.eligibleMarkets) {
+    const latest = history.get(market.groupKey);
+    if (!latest) continue;
+    if (latest.state === 'CONFLICT') {
+     conflictGroups.add(market.groupKey); continue;
+    }
+    if (latest.at !== Date.parse(market.sourceUpdatedAt) || latest.state !== 'OPEN') {
+     count(rejections, 'BOOKMAKER_REVISION_WITHHELD'); continue;
+    }
+    publishable.push(market);
+   }
+  }
+  if (conflictGroups.size) rejections.BOOKMAKER_PRICE_CONFLICT = conflictGroups.size;
+
+  // Re-evaluate at the next expiry. A cached request never republishes expired
+  // prices, and a surviving pair can still corroborate after a third source expires.
+  const expiries = [...new Set(publishable.map(market => Date.parse(market.expiresAt)))].sort((a,b) => a-b);
+  let expiryIndex = 0;
+  let projectedAt = now;
+  let value = projectPriceReview(approvedFeeds, sources, publishable, rejections, now);
+  return {read(at = Date.now()) {
+   const time = Math.max(now, at, projectedAt);
+   if (time >= (expiries[expiryIndex] ?? Infinity)) {
+    while (expiryIndex < expiries.length && expiries[expiryIndex] <= time) expiryIndex++;
+    value = projectPriceReview(approvedFeeds, sources, publishable, rejections, time);
+   }
+   projectedAt = time;
+   return value;
+  }};
+ }
+
+ return {capture, build(approvedFeeds: number, sources: PriceReviewSource[], now = Date.now()) {
+  return capture(approvedFeeds, sources, now).read(now);
+ }};
+}
+
+export function buildPriceReview(approvedFeeds: number, sources: PriceReviewSource[], now = Date.now()): PriceReview {
+ return createPriceReviewTracker().build(approvedFeeds, sources, now);
 }
