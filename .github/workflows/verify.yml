@@ -41,6 +41,8 @@ jobs:
         run: npm run test:research-pipeline
       - name: Verify Polymarket US read-only readiness
         run: npm run test:polymarket-us-readiness
+      - name: Verify V196 D1 verified edge evidence join
+        run: npm run test:d1-verified-edge-review
       - name: Verify prediction persistence against PostgreSQL
         run: node --test tests/prediction-persistence.postgres.mjs
         env:
