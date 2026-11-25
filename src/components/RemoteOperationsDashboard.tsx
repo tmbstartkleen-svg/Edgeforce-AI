@@ -8,11 +8,20 @@ import PredictionArbitrageStudio from './PredictionArbitrageStudio';
 type Summary={total:number;recent:number;draftKingsRecent:number;independentProvidersRecent:number;mostRecentAt?:string|null};
 type MarketRow={sport:string;bookmaker:string;provider:string;quote_count:number;most_recent_at:string};
 type AgentRow={agent_id:string;status:string;count:number;most_recent_at:string};
-type OpportunityReview={ok:boolean;status?:string;error?:string;verified?:{acceptedQuotes:number;rowsExamined:number;rejections:Record<string,number>};opportunities?:{opportunities:{eventId:string;marketKey:string;theoreticalRoiPct:number;status:string;stakes:{bookmaker:string;selection:string;odds:number}[]}[];evaluatedGroups:number};modelVerifiedEdges?:unknown[]};
+type ModelEdgeCandidate={eventId:string;marketKey:string;selection:string;targetBook:string;odds:number;
+ modelProbability:number;breakEvenProbability:number;edgePercentagePoints:number;expectedRoi:number;status:string;
+ modelVersion:string;modelCreatedAt:string;validationEvidenceGrade:string;validationEvidenceId:string;sourceObservedAt:number;
+ calibration:{sampleSize:number;brierScore:number;logLoss:number;calibrationError:number};
+ productionBetRecommendationAuthorized:false};
+type ModelEdgeReview={mode:string;modelsExamined:number;eligibleModels:number;calibrationMatched:number;exactQuoteMatches:number;
+ candidateCount:number;candidates:ModelEdgeCandidate[];rejectionReasons:Record<string,number>;productionBetRecommendationAuthorized:false};
+type OpportunityReview={ok:boolean;status?:string;error?:string;verified?:{acceptedQuotes:number;rowsExamined:number;rejections:Record<string,number>};
+ opportunities?:{opportunities:{eventId:string;marketKey:string;theoreticalRoiPct:number;status:string;stakes:{bookmaker:string;selection:string;odds:number}[]}[];evaluatedGroups:number};
+ modelEdgeReview?:ModelEdgeReview;modelVerifiedEdges?:unknown[]};
 type Snapshot={ok:boolean;status:string;reason?:string;error?:string;generatedAt?:string;build?:string|number;
  blockers?:string[];summary?:Summary;providers?:{id:string;name:string;bookmaker:string;enabled:boolean;credentialConfigured:boolean|null}[];
  marketSummary?:MarketRow[];agentSummary?:AgentRow[];readOnly?:boolean;oddsApiCalls?:number;notes?:string[]};
-function displayTime(s?:string|null){if(!s)return 'Unavailable';const d=new Date(s);return Number.isFinite(d.getTime())?d.toLocaleString():'Unavailable'}
+function displayTime(s?:string|number|null){if(s===undefined||s===null||s==='')return 'Unavailable';const d=new Date(s);return Number.isFinite(d.getTime())?d.toLocaleString():'Unavailable'}
 export default function RemoteOperationsDashboard(){
  const [token,setToken]=useState('');const [snapshot,setSnapshot]=useState<Snapshot|null>(null);
  const [error,setError]=useState('');const [loading,setLoading]=useState(false);
@@ -84,7 +93,33 @@ export default function RemoteOperationsDashboard(){
     </div><div className="efops-panel"><h2>Launch blockers</h2>{snapshot.blockers?.length?<ul>{snapshot.blockers.map(x=><li key={x}>{x.replaceAll('_',' ')}</li>)}</ul>:<p>No basic storage-count blockers detected. Provider authenticity, full market coverage and independent model calibration are still unverified.</p>}</div><div className="efops-panel"><h2>Configured odds providers</h2><div className="efops-tablebox"><table><thead><tr><th>Provider</th><th>Book label</th><th>Enabled</th><th>Credential</th></tr></thead><tbody>{(snapshot.providers||[]).map(x=><tr key={x.id}><td>{x.name}</td><td>{x.bookmaker}</td><td>{x.enabled?'Yes':'No'}</td><td>{x.credentialConfigured===null?'Not disclosed':x.credentialConfigured?'Configured':'Missing'}</td></tr>)}</tbody></table></div></div></>}
     {view==='markets'&&<SportsEvidencePanel token={token}/>}
     {view==='markets'&&<div className="efops-panel"><div className="efops-panel-head"><h2>Stored bookmaker coverage — 20 minutes</h2><label>Sport <select value={sport} onChange={e=>setSport(e.target.value)}><option value="ALL">All sports</option>{sports.map(x=><option key={x}>{x}</option>)}</select></label></div><div className="efops-tablebox"><table><thead><tr><th>Sport</th><th>Bookmaker</th><th>Provider</th><th>Quotes</th><th>Last stored</th></tr></thead><tbody>{markets.map((x,i)=><tr key={i}><td>{x.sport}</td><td>{x.bookmaker}</td><td>{x.provider}</td><td>{x.quote_count}</td><td>{displayTime(x.most_recent_at)}</td></tr>)}</tbody></table>{!markets.length&&<p>No stored bookmaker observations match this filter.</p>}</div></div>}
-    {view==='opportunities'&&<div className="efops-panel"><div className="efops-panel-head"><h2>Archived-odds opportunity review</h2><button className="efops-tab" style={{width:'auto'}} disabled={opportunityLoading} onClick={()=>void loadOpportunities()}>{opportunityLoading?'Reviewing…':'Refresh evidence'}</button></div><p>Only verified, source-dated D1 sportsbook observations are evaluated. These calculations are theoretical and do not certify executable bets or independent model edges.</p>{opportunityError&&<p className="efops-error" role="alert">{opportunityError}</p>}{opportunityData&&<><div className="efops-grid"><div className="efops-stat"><span>Source-validated quotes</span><strong>{opportunityData.verified?.acceptedQuotes??0}</strong><small>Last 20 minutes</small></div><div className="efops-stat"><span>Theoretical opportunities</span><strong>{opportunityData.opportunities?.opportunities.length??0}</strong><small>Not executable confirmation</small></div><div className="efops-stat"><span>Reviewed groups</span><strong>{opportunityData.opportunities?.evaluatedGroups??0}</strong><small>Compatible markets only</small></div><div className="efops-stat"><span>Calibrated +EV picks</span><strong>0</strong><small>Independent models not certified</small></div></div><div className="efops-tablebox"><table><thead><tr><th>Event / market</th><th>Theoretical ROI</th><th>Books and quotes</th><th>Status</th></tr></thead><tbody>{(opportunityData.opportunities?.opportunities||[]).map((o,i)=><tr key={i}><td>{o.eventId} · {o.marketKey}</td><td>{o.theoreticalRoiPct.toFixed(2)}%</td><td>{o.stakes.map(x=>`${x.bookmaker}: ${x.selection} (${x.odds>0?'+':''}${x.odds})`).join(' / ')}</td><td>{o.status.replaceAll('_',' ')}</td></tr>)}</tbody></table>{!opportunityData.opportunities?.opportunities.length&&<p>No source-verified theoretical opportunities available from archived quotes. No prices or model probabilities were invented.</p>}</div></>}</div>}
+    {view==='opportunities'&&<div className="efops-panel"><div className="efops-panel-head"><h2>Archived-odds opportunity review</h2><button className="efops-tab" style={{width:'auto'}} disabled={opportunityLoading} onClick={()=>void loadOpportunities()}>{opportunityLoading?'Reviewing…':'Refresh evidence'}</button></div>
+     <p>Only source-dated D1 sportsbook observations are evaluated. Arbitrage remains theoretical, while model +EV rows appear only when stored independent-model, validation, calibration and exact post-forecast quote evidence join successfully.</p>
+     {opportunityError&&<p className="efops-error" role="alert">{opportunityError}</p>}
+     {opportunityData&&<><div className="efops-grid">
+      <div className="efops-stat"><span>Source-validated quotes</span><strong>{opportunityData.verified?.acceptedQuotes??0}</strong><small>Last 20 minutes</small></div>
+      <div className="efops-stat"><span>Theoretical opportunities</span><strong>{opportunityData.opportunities?.opportunities.length??0}</strong><small>Not executable confirmation</small></div>
+      <div className="efops-stat"><span>Reviewed groups</span><strong>{opportunityData.opportunities?.evaluatedGroups??0}</strong><small>Compatible markets only</small></div>
+      <div className="efops-stat"><span>Model +EV review</span><strong>{opportunityData.modelEdgeReview?.candidateCount??0}</strong><small>Review only · never auto-authorized</small></div>
+     </div>
+     <div className="efops-tablebox"><h3>Theoretical cross-book pricing</h3><table><thead><tr><th>Event / market</th><th>Theoretical ROI</th><th>Books and quotes</th><th>Status</th></tr></thead><tbody>{(opportunityData.opportunities?.opportunities||[]).map((o,i)=><tr key={i}><td>{o.eventId} · {o.marketKey}</td><td>{o.theoreticalRoiPct.toFixed(2)}%</td><td>{o.stakes.map(x=>`${x.bookmaker}: ${x.selection} (${x.odds>0?'+':''}${x.odds})`).join(' / ')}</td><td>{o.status.replaceAll('_',' ')}</td></tr>)}</tbody></table>{!opportunityData.opportunities?.opportunities.length&&<p>No source-verified theoretical opportunities available from archived quotes. No prices were invented.</p>}</div>
+     <div className="efops-tablebox"><h3>Independent-model edge review</h3>
+      <p>Candidate rows require exact market identity, a pregame stored model run marked independent/out-of-sample, prior validation-lab promotion evidence, prior calibration evidence, DraftKings price evidence and at least two upstream IDs. Upstream ownership is still not independently authenticated and no candidate is an authorized wager.</p>
+      <table><thead><tr><th>Event / market / selection</th><th>Target price</th><th>Model / break-even</th><th>Edge</th><th>Expected ROI</th><th>Validation</th><th>Status</th></tr></thead>
+       <tbody>{(opportunityData.modelEdgeReview?.candidates||[]).map((x,i)=><tr key={x.eventId+'|'+x.marketKey+'|'+x.selection+'|'+i}>
+        <td>{x.eventId} · {x.marketKey}<br/><small>{x.selection} · model {x.modelVersion}</small></td>
+        <td>{x.targetBook} {x.odds>0?'+':''}{x.odds}<br/><small>{displayTime(x.sourceObservedAt)}</small></td>
+        <td>{(x.modelProbability*100).toFixed(1)}% / {(x.breakEvenProbability*100).toFixed(1)}%</td>
+        <td>{x.edgePercentagePoints>0?'+':''}{x.edgePercentagePoints.toFixed(2)} pp</td>
+        <td>{x.expectedRoi>0?'+':''}{x.expectedRoi.toFixed(2)}%</td>
+        <td>{x.validationEvidenceGrade}<br/><small>{x.calibration.sampleSize} samples · Brier {x.calibration.brierScore.toFixed(3)} · cal err {(x.calibration.calibrationError*100).toFixed(1)}%</small></td>
+        <td>{x.status.replaceAll('_',' ')}<br/><small>Review only · execution NONE</small></td>
+       </tr>)}</tbody>
+      </table>
+      {!opportunityData.modelEdgeReview?.candidateCount&&<p>No stored model/quote candidate passed every evidence gate. No model probability is inferred from sportsbook prices.</p>}
+      {!!Object.keys(opportunityData.modelEdgeReview?.rejectionReasons||{}).length&&<p><strong>Blocked evidence:</strong> {Object.entries(opportunityData.modelEdgeReview?.rejectionReasons||{}).slice(0,8).map(([reason,n])=>reason.replaceAll('_',' ')+' ('+n+')').join(' · ')}</p>}
+     </div></>}
+    </div>}
     {view==='prediction-arbs'&&<PredictionArbitrageStudio operatorToken={token}/>}
     {view==='agents'&&<div className="efops-panel"><h2>Recorded specialist execution</h2><div className="efops-tablebox"><table><thead><tr><th>Specialist</th><th>Status</th><th>Executions</th><th>Last scheduled</th></tr></thead><tbody>{(snapshot.agentSummary||[]).map((x,i)=><tr key={i}><td>{x.agent_id}</td><td>{x.status}</td><td>{x.count}</td><td>{displayTime(x.most_recent_at)}</td></tr>)}</tbody></table>{!snapshot.agentSummary?.length&&<p>No recorded specialist tasks in this period. Registered roles are not proof of running agents.</p>}</div></div>}
     <p className="efops-disclosure">Read-only database snapshot · Zero live sportsbook polling from this dashboard · The presence of a stored quote does not certify an executable offer or positive expected value.</p>
