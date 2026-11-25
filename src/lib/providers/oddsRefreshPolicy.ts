@@ -14,6 +14,17 @@ export type AdaptiveOddsPolicy={
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const lower=(s:string|undefined)=>String(s||'').toLowerCase();
+const uniqueCsv=(value:string|undefined)=>[...new Set(String(value||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean))];
+
+/** Conservative /odds cost: requested markets times regions, or groups of ten explicit books.
+ * Bookmakers take precedence over regions. https://the-odds-api.com/liveapi/guides/v4/
+ */
+export function estimateOddsRequestCost(input:{markets?:string;regions?:string;bookmakers?:string}):number{
+ const markets=Math.max(1,uniqueCsv(input.markets).length);
+ const books=uniqueCsv(input.bookmakers).length;
+ const regions=books?Math.ceil(books/10):Math.max(1,uniqueCsv(input.regions).length);
+ return markets*regions;
+}
 
 function sportScore(s:ActiveSport){
  const key=lower(s.key),title=lower(s.title),group=lower(s.group);
@@ -72,18 +83,23 @@ export function adaptiveOddsPolicy(input:{
  activeSports:ActiveSport[];
  nearestStartMinutes?:number;
  expansionMarkets?:string;
+ bootstrapMarkets?:string;
+ regions?:string;
+ bookmakers?:string;
  rotationOffset?:number;
 }):AdaptiveOddsPolicy{
  const {remaining,reserve,configuredMaxSports,alreadyCovered,activeSports}=input;
- const headroom=remaining===undefined?undefined:remaining-reserve;
+ const headroom=typeof remaining==='number'&&Number.isSafeInteger(remaining)&&remaining>=0?remaining-reserve:undefined;
  const expansionMarkets=input.expansionMarkets||'h2h';
- const marketCost=Math.max(1,expansionMarkets.split(',').map(x=>x.trim()).filter(Boolean).length);
+ const marketCost=estimateOddsRequestCost({markets:expansionMarkets,regions:input.regions,bookmakers:input.bookmakers});
 
  let mode:AdaptiveOddsPolicy['mode']='BALANCED';
  let maxExpansionSports=Math.max(0,configuredMaxSports);
  const reasons:string[]=[];
 
- if(headroom!==undefined&&headroom<=20){
+ if(remaining===undefined||!Number.isSafeInteger(remaining)||remaining<0){
+  mode='BOOTSTRAP_ONLY';maxExpansionSports=0;reasons.push('remaining quota is unverified; paid expansion is disabled');
+ }else if(headroom!==undefined&&headroom<=20){
   mode='BOOTSTRAP_ONLY';maxExpansionSports=0;reasons.push('quota headroom is near the configured reserve');
  }else if(headroom!==undefined&&headroom<75){
   mode='CONSERVE';maxExpansionSports=Math.min(maxExpansionSports,2);reasons.push('quota headroom is low');
@@ -113,13 +129,15 @@ export function adaptiveOddsPolicy(input:{
  if(mode==='CONSERVE')refreshMinutes=Math.max(refreshMinutes,360);
  if(mode==='BOOTSTRAP_ONLY')refreshMinutes=Math.max(refreshMinutes,720);
 
+ if(headroom!==undefined)maxExpansionSports=Math.min(maxExpansionSports,Math.max(0,Math.floor(headroom/marketCost)));
+
  const selectedSports=chooseExpansionSports(activeSports,alreadyCovered,maxExpansionSports,input.rotationOffset||0);
  return {
   mode,reserve,remaining,
   maxExpansionSports,
   selectedSports,
   expansionMarkets,
-  estimatedMaxCost:3+selectedSports.length*marketCost,
+  estimatedMaxCost:estimateOddsRequestCost({markets:input.bootstrapMarkets||'h2h,spreads,totals',regions:input.regions,bookmakers:input.bookmakers})+selectedSports.length*marketCost,
   refreshMinutes:clamp(refreshMinutes,60,720),
   reasons
  };

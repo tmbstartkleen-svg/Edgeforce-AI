@@ -4,6 +4,7 @@ import {loadProviderHealthStates} from './providers/healthStore';
 import {providerHealth} from './providerRegistry';
 import {RELEASE} from './releaseManifest';
 import {fetchFanDuelOddsPulse} from './providers/fanLineWire';
+import {evaluatePulseEvidence} from './pulseEvidence';
 
 export type ReadinessCheck={ok:boolean;required:boolean;detail:string};
 
@@ -33,8 +34,9 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
   const state=states.get(p.id);
   return !state||!providerHealth(state).quarantined;
  });
- const pulsePriceCount=pulse?.rows?.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0)||0;
- const pulseUsable=Boolean(pulse?.ok&&pulse.fresh&&pulsePriceCount>0);
+ const pulseEvidence=evaluatePulseEvidence(pulse);
+ const pulsePriceCount=pulseEvidence.priceCount;
+ const pulseUsable=pulseEvidence.usable;
 
  const checks:Record<string,ReadinessCheck>={
   modelVersion:{
@@ -108,7 +110,7 @@ export async function evaluateReadiness(options:{strict?:boolean}={}){
    quarantined:[...states.values()].filter(x=>providerHealth(x).quarantined).map(x=>x.id),
    pulseContinuity:pulseUsable,
    pulsePriceCount,
-   pulseAgeMs:pulse?.ageMs??null
+   pulseAgeMs:pulseEvidence.ageMs
   },
   deployment:{
    platform,

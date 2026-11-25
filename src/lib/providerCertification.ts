@@ -2,13 +2,15 @@ import {db} from './db';
 import {configuredProviders} from './providers/config';
 import {fetchProviderJson} from './providers/http';
 import {inspectProviderPayload} from './providers/payloadQuality';
-import {normalizeOddsPayload} from './providers/normalizeOdds';
+import {eligibleOddsPayload,normalizeOddsPayload} from './providers/normalizeOdds';
 import type {ProviderCapability} from './providerRegistry';
 import type {ProviderConfig} from './providers/types';
 import {RELEASE} from './releaseManifest';
 import {latestStoredMarkets} from './persistence';
 import {auditMarketBatch} from './dataQuality';
 import {fetchFanDuelOddsPulse} from './providers/fanLineWire';
+import {evaluatePulseEvidence} from './pulseEvidence';
+import {buildObservedOddsSnapshot} from './observedOdds';
 
 export type CertificationStatus='CERTIFIED'|'CAUTION'|'FAILED';
 
@@ -22,6 +24,7 @@ export type ProviderCertification={
  httpStatus?:number;
  rowCount:number;
  normalizedCount?:number;
+ referenceCount?:number;
  payloadAgeMin?:number;
  freshnessScore:number;
  qualityScore:number;
@@ -114,17 +117,22 @@ export async function certifyProvider(config:ProviderConfig):Promise<ProviderCer
   };
  }
 
- const quality=inspectProviderPayload(raw.data,config.capability,config.maxAgeMin);
+ const quality=inspectProviderPayload(config.capability==='ODDS'?eligibleOddsPayload(raw.data):raw.data,config.capability,config.maxAgeMin);
  let normalizedCount: number|undefined;
+ let referenceCount: number|undefined;
  const reasons=[...quality.reasons];
  let status:CertificationStatus=quality.ok?'CERTIFIED':'FAILED';
 
  if(config.capability==='ODDS'){
   const normalized=normalizeOddsPayload(raw.data);
-  normalizedCount=normalized.markets.length;
+  normalizedCount=normalized.markets.filter(m=>m.evidenceClass!=='OBSERVED_REFERENCE').length;
+  referenceCount=buildObservedOddsSnapshot(normalized.markets.map(m=>({...m,sourceProviderId:config.id}))).referenceCount;
   if(normalizedCount===0){
-   status='FAILED';
-   reasons.push('Odds payload produced zero normalized markets');
+   status=referenceCount>0?'CAUTION':'FAILED';
+   if(referenceCount>0){
+    reasons.splice(0,reasons.length,`Observed ${referenceCount} reference quotes with event and selection identity; bookmaker update time remains unverified`,
+     'Observed reference quotes are excluded from normalized recommendation markets and cannot satisfy the strict ODDS launch requirement');
+   }else reasons.push('Odds payload produced zero normalized markets');
   }else if(normalized.warnings.length){
    reasons.push(...normalized.warnings.slice(0,5));
   }
@@ -136,12 +144,15 @@ export async function certifyProvider(config:ProviderConfig):Promise<ProviderCer
  if(status==='CERTIFIED'&&!config.apiKey){
   reasons.push('No provider API key configured; accepted because endpoint responded successfully');
  }
+ const referenceOnly=Boolean(referenceCount&&normalizedCount===0);
 
  return {
   providerId:config.id,providerName:config.name,capability:config.capability,status,
   priority:config.priority,latencyMs:raw.latencyMs,httpStatus:raw.status,rowCount:quality.rowCount,
-  normalizedCount,payloadAgeMin:quality.payloadAgeMin,freshnessScore:quality.freshnessScore,
-  qualityScore:quality.qualityScore,qualityGrade:quality.grade,authConfigured:Boolean(config.apiKey),
+  normalizedCount,referenceCount,payloadAgeMin:referenceOnly?undefined:quality.payloadAgeMin,
+  freshnessScore:referenceOnly ? .35 : quality.freshnessScore,
+  qualityScore:referenceOnly?Math.min(.6,quality.qualityScore):quality.qualityScore,
+  qualityGrade:referenceOnly?'CAUTION':quality.grade,authConfigured:Boolean(config.apiKey),
   maxAgeMin:config.maxAgeMin,reasons,error:status==='FAILED'?reasons.join('; '):undefined
  };
 }
@@ -224,9 +235,10 @@ export async function certifyConfiguredProviders(){
 
   if(!acceptable){
    const pulse=await fetchFanDuelOddsPulse(true).catch(()=>null);
-   const pulseRows=pulse?.rows?.filter(x=>x.status==='OPEN'||x.inplay||x.prices.length>0)||[];
-   const pricedCount=pulseRows.reduce((sum,row)=>sum+row.prices.filter(p=>Number.isFinite(Number(p.american))).length,0);
-   const pulseAcceptable=Boolean(pulse?.ok&&pulse.fresh&&pulseRows.length>0&&pricedCount>0);
+   const pulseEvidence=evaluatePulseEvidence(pulse);
+   const pulseRows=pulseEvidence.rows;
+   const pricedCount=pulseEvidence.priceCount;
+   const pulseAcceptable=pulseEvidence.usable;
    results.push({
     providerId:'fanlinewire-fanduel-pulse',
     providerName:'FanLine Wire FanDuel Pulse',
@@ -236,7 +248,7 @@ export async function certifyConfiguredProviders(){
     latencyMs:Number(pulse?.latencyMs||0),
     rowCount:pulseRows.length,
     normalizedCount:0,
-    payloadAgeMin:pulse?.ageMs==null?undefined:Number(pulse.ageMs)/60000,
+    payloadAgeMin:pulseEvidence.ageMs===null?undefined:pulseEvidence.ageMs/60000,
     freshnessScore:pulseAcceptable?1:.25,
     qualityScore:pulseAcceptable ? .78 : .30,
     qualityGrade:pulseAcceptable?'CAUTION':'REJECT',

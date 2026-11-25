@@ -16,6 +16,14 @@ function rowsFromPayload(payload:unknown):unknown[]{
  return [];
 }
 
+export function eligibleOddsPayload(payload:unknown):unknown{
+ const rows=rowsFromPayload(payload);
+ const eligible=rows.filter(value=>obj(value).evidenceClass!=='OBSERVED_REFERENCE');
+ // Preserve existing envelope metadata for ordinary feeds. A mixed envelope's
+ // timestamp cannot establish freshness for its eligible subset.
+ return eligible.length===rows.length?payload:eligible;
+}
+
 function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number):Market|null{
  const odds=num(row.odds,num(row.americanOdds,num(row.price,0)));
  const home=str(row.home,str(row.homeTeam,str(row.home_team,'')));
@@ -28,9 +36,12 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
  const league=str(row.league,str(row.sportTitle,str(row.sport_title,sport)));
  const id=str(row.id,`${sport}-${index}-${startTime}`);
  const event=str(row.event,home&&away?`${away} @ ${home}`:selection);
- const sourceTimestamp=str(row.sourceTimestamp,str(row.source_timestamp,str(row.timestamp,str(row.updatedAt,str(row.updated_at,str(row.pulledAt,str(row.pulled_at,'')))))));
+ const referenceOnly=row.evidenceClass==='OBSERVED_REFERENCE';
+ const sourceTimestamp=referenceOnly
+  ?str(row.sourceTimestamp)
+  :str(row.sourceTimestamp,str(row.source_timestamp,str(row.timestamp,str(row.updatedAt,str(row.updated_at,str(row.pulledAt,str(row.pulled_at,'')))))));
  const sourceTimestampMs=sourceTimestamp?Date.parse(sourceTimestamp):Number.NaN;
- const ageTimestamp=str(row.pulledAt,str(row.pulled_at,sourceTimestamp));
+ const ageTimestamp=referenceOnly?sourceTimestamp:str(row.pulledAt,str(row.pulled_at,sourceTimestamp));
  const ageTimestampMs=ageTimestamp?Date.parse(ageTimestamp):Number.NaN;
  const sourceAgeMin=Number.isFinite(ageTimestampMs)?Math.max(0,(Date.now()-ageTimestampMs)/60000):Number.POSITIVE_INFINITY;
  const rawImpliedProb=impliedProbability(odds);
@@ -48,6 +59,7 @@ function normalizeFlat(row:Record<string,unknown>,receivedAt:string,index:number
   sourceAgeMin,
   sourceTimestamp:Number.isFinite(sourceTimestampMs)?new Date(sourceTimestampMs).toISOString():undefined,
   sourceEventId:str(row.sourceEventId,str(row.source_event_id,str(row.eventId,str(row.event_id,''))))||undefined,
+  ...(referenceOnly?{evidenceClass:'OBSERVED_REFERENCE' as const,quoteObservedAt:str(row.quoteObservedAt)||undefined}:{}),
   ...(row.liveEligible===false?{
    liveEligible:false,
    sourceDelaySeconds:Math.max(0,num(row.sourceDelaySeconds)),
@@ -104,6 +116,7 @@ function normalizeTheOddsEvent(row:Record<string,unknown>,receivedAt:string,even
 function deVigCompleteMarkets(markets:Market[]){
  const groups=new Map<string,Market[]>();
  for(const row of markets){
+  if(row.evidenceClass==='OBSERVED_REFERENCE')continue;
   const key=[row.sport,row.event,row.market,row.startTime,row.sourceBook||'provider'].join('|').toLowerCase();
   const group=groups.get(key)||[];
   group.push(row);

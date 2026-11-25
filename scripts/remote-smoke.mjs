@@ -7,6 +7,8 @@ if(!base)throw new Error('SMOKE_BASE_URL is required');
 
 const paths=['/api/release/error-budget','/api/release/deployment-guard','/api/testing/ml-shadow-recovery','/api/intelligence/ml-shadow-recovery','/api/testing/ml-champion-drift','/api/intelligence/ml-drift','/api/testing/ml-first-tournament','/api/intelligence/ml-champions','/api/testing/ml-deployment','/api/ml/deploy-attest','/api/testing/ml-activation','/api/intelligence/ml-service','/api/testing/ml-tournament','/api/intelligence/ml-tournament','/api/testing/trained-models','/api/intelligence/trained-models','/api/testing/expert-models','/api/intelligence/expert-models','/api/testing/live-comeback','/api/live-comeback','/api/intelligence/validation-lab','/api/intelligence/context','/api/parlays?size=2&view=today','/api/health/live','/api/health','/api/health/ready','/api/release/readiness','/api/deployment/smoke','/api/diagnostics','/api/ops/status','/'];
 const results=[];
+let observedOddsEvidence=null;
+paths.splice(paths.length-1,0,'/api/live-scores');
 const degradedAllowedPaths=new Set([
  '/api/intelligence/expert-models',
  '/api/live-comeback',
@@ -159,6 +161,25 @@ for(const path of paths){
   const json=parseSmokeJson(path,res.status,body);
   if(json.smoke!==true)throw new Error('deployment smoke mismatch');
  }
+ if(path==='/api/live-scores'){
+  const json=parseSmokeJson(path,res.status,body);
+  const observed=json.observedOdds;
+  if(json.ok!==true||observed?.recommendationsAuthorized!==false||observed?.coverage!=='PARTIAL'||
+   !Array.isArray(observed.referenceQuotes)||observed.referenceCount!==observed.referenceQuotes.length){
+   throw new Error('observed sportsbook reference contract mismatch');
+  }
+  for(const quote of observed.referenceQuotes){
+   if(quote.evidenceClass!=='OBSERVED_REFERENCE'||!quote.sourceEventId||!quote.selection||!quote.bookmaker||
+    !Number.isFinite(quote.odds)||Math.abs(quote.odds)<100||!Number.isFinite(Date.parse(quote.quoteObservedAt))||
+    ['modelProb','expectedValue','recommendedStake','confidence'].some(key=>Object.hasOwn(quote,key))){
+    throw new Error('observed sportsbook quote escaped its evidence boundary');
+   }
+  }
+  observedOddsEvidence={referenceCount:observed.referenceCount,sports:[...new Set(observed.referenceQuotes.map(x=>x.sport))].sort(),
+   bookmakers:[...new Set(observed.referenceQuotes.map(x=>x.bookmaker))].sort(),
+   recommendationsAuthorized:observed.recommendationsAuthorized,generatedAt:json.generatedAt,
+   sourceTimestampKnown:observed.referenceQuotes.filter(x=>Boolean(x.sourceTimestamp)).length};
+ }
 }
 
-console.log(JSON.stringify({ok:true,base,expected,results}));
+console.log(JSON.stringify({ok:true,base,expected,results,observedOddsEvidence}));

@@ -1,0 +1,1616 @@
+{
+  "events": [
+    {
+      "id": "401909317",
+      "date": "2026-11-25T22:00Z",
+      "name": "Miami Heat at Philadelphia 76ers",
+      "competitions": [
+        {
+          "id": "401909317",
+          "date": "2026-11-25T22:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 5:00 PM EST",
+              "shortDetail": "11/25 - 5:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "20",
+              "uid": "s:40~l:46~t:20",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "20",
+                "uid": "s:40~l:46~t:20",
+                "location": "Philadelphia",
+                "name": "76ers",
+                "abbreviation": "PHI",
+                "displayName": "Philadelphia 76ers",
+                "shortDisplayName": "76ers",
+                "color": "1d428a",
+                "alternateColor": "e01234",
+                "isActive": true,
+                "venue": {
+                  "id": "1845"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/phi.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "14",
+              "uid": "s:40~l:46~t:14",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "14",
+                "uid": "s:40~l:46~t:14",
+                "location": "Miami",
+                "name": "Heat",
+                "abbreviation": "MIA",
+                "displayName": "Miami Heat",
+                "shortDisplayName": "Heat",
+                "color": "98002e",
+                "alternateColor": "000000",
+                "isActive": true,
+                "venue": {
+                  "id": "3438"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mia.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1,
+                "displayName": "DraftKings"
+              },
+              "details": "PHI -1.5",
+              "overUnder": 236.5,
+              "spread": -1.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "14",
+                  "uid": "s:40~l:46~t:14",
+                  "abbreviation": "MIA",
+                  "name": "Heat",
+                  "displayName": "Miami Heat"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "20",
+                  "uid": "s:40~l:46~t:20",
+                  "abbreviation": "PHI",
+                  "name": "76ers",
+                  "displayName": "Philadelphia 76ers"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-116"
+                  },
+                  "open": {
+                    "odds": "-162"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "-102"
+                  },
+                  "open": {
+                    "odds": "+136"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-1.5",
+                    "odds": "-106"
+                  },
+                  "open": {
+                    "line": "-3.5",
+                    "odds": "-115"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+1.5",
+                    "odds": "-114"
+                  },
+                  "open": {
+                    "line": "+3.5",
+                    "odds": "-105"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o236.5",
+                    "odds": "-113"
+                  },
+                  "open": {
+                    "line": "o238.5",
+                    "odds": "-110"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u236.5",
+                    "odds": "-107"
+                  },
+                  "open": {
+                    "line": "u238.5",
+                    "odds": "-110"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909318",
+      "date": "2026-11-26T00:00Z",
+      "name": "Chicago Bulls at Charlotte Hornets",
+      "competitions": [
+        {
+          "id": "401909318",
+          "date": "2026-11-26T00:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 7:00 PM EST",
+              "shortDetail": "11/25 - 7:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "30",
+              "uid": "s:40~l:46~t:30",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "30",
+                "uid": "s:40~l:46~t:30",
+                "location": "Charlotte",
+                "name": "Hornets",
+                "abbreviation": "CHA",
+                "displayName": "Charlotte Hornets",
+                "shortDisplayName": "Hornets",
+                "color": "008ca8",
+                "alternateColor": "1d1060",
+                "isActive": true,
+                "venue": {
+                  "id": "1893"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/cha.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "4",
+              "uid": "s:40~l:46~t:4",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "4",
+                "uid": "s:40~l:46~t:4",
+                "location": "Chicago",
+                "name": "Bulls",
+                "abbreviation": "CHI",
+                "displayName": "Chicago Bulls",
+                "shortDisplayName": "Bulls",
+                "color": "ce1141",
+                "alternateColor": "000000",
+                "isActive": true,
+                "venue": {
+                  "id": "1847"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/chi.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "CHA -3.5",
+              "overUnder": 221.5,
+              "spread": -3.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "4",
+                  "uid": "s:40~l:46~t:4",
+                  "abbreviation": "CHI",
+                  "name": "Bulls",
+                  "displayName": "Chicago Bulls"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "30",
+                  "uid": "s:40~l:46~t:30",
+                  "abbreviation": "CHA",
+                  "name": "Hornets",
+                  "displayName": "Charlotte Hornets"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-155"
+                  },
+                  "open": {
+                    "odds": "-163"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "+130"
+                  },
+                  "open": {
+                    "odds": "+137"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-3.5",
+                    "odds": "-105"
+                  },
+                  "open": {
+                    "line": "-3.5",
+                    "odds": "-110"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+3.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "+3.5",
+                    "odds": "-110"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o221.5",
+                    "odds": "-113"
+                  },
+                  "open": {
+                    "line": "o222.5",
+                    "odds": "-105"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u221.5",
+                    "odds": "-107"
+                  },
+                  "open": {
+                    "line": "u222.5",
+                    "odds": "-115"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909319",
+      "date": "2026-11-26T00:30Z",
+      "name": "Cleveland Cavaliers at New York Knicks",
+      "competitions": [
+        {
+          "id": "401909319",
+          "date": "2026-11-26T00:30Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 7:30 PM EST",
+              "shortDetail": "11/25 - 7:30 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "18",
+              "uid": "s:40~l:46~t:18",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "18",
+                "uid": "s:40~l:46~t:18",
+                "location": "New York",
+                "name": "Knicks",
+                "abbreviation": "NY",
+                "displayName": "New York Knicks",
+                "shortDisplayName": "Knicks",
+                "color": "1d428a",
+                "alternateColor": "f58426",
+                "isActive": true,
+                "venue": {
+                  "id": "1830"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ny.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "5",
+              "uid": "s:40~l:46~t:5",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "5",
+                "uid": "s:40~l:46~t:5",
+                "location": "Cleveland",
+                "name": "Cavaliers",
+                "abbreviation": "CLE",
+                "displayName": "Cleveland Cavaliers",
+                "shortDisplayName": "Cavaliers",
+                "color": "860038",
+                "alternateColor": "bc945c",
+                "isActive": true,
+                "venue": {
+                  "id": "3417"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/cle.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "NY -3.5",
+              "overUnder": 218.5,
+              "spread": -3.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "5",
+                  "uid": "s:40~l:46~t:5",
+                  "abbreviation": "CLE",
+                  "name": "Cavaliers",
+                  "displayName": "Cleveland Cavaliers"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "18",
+                  "uid": "s:40~l:46~t:18",
+                  "abbreviation": "NY",
+                  "name": "Knicks",
+                  "displayName": "New York Knicks"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-155"
+                  },
+                  "open": {
+                    "odds": "-224"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "+130"
+                  },
+                  "open": {
+                    "odds": "+186"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-3.5",
+                    "odds": "-105"
+                  },
+                  "open": {
+                    "line": "-5.5",
+                    "odds": "-115"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+3.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "+5.5",
+                    "odds": "-105"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o218.5",
+                    "odds": "-105"
+                  },
+                  "open": {
+                    "line": "o220.5",
+                    "odds": "-110"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u218.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "u220.5",
+                    "odds": "-110"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909320",
+      "date": "2026-11-26T00:30Z",
+      "name": "Minnesota Timberwolves at Oklahoma City Thunder",
+      "competitions": [
+        {
+          "id": "401909320",
+          "date": "2026-11-26T00:30Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 7:30 PM EST",
+              "shortDetail": "11/25 - 7:30 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "25",
+              "uid": "s:40~l:46~t:25",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "25",
+                "uid": "s:40~l:46~t:25",
+                "location": "Oklahoma City",
+                "name": "Thunder",
+                "abbreviation": "OKC",
+                "displayName": "Oklahoma City Thunder",
+                "shortDisplayName": "Thunder",
+                "color": "007ac1",
+                "alternateColor": "ef3b24",
+                "isActive": true,
+                "venue": {
+                  "id": "2559"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/okc.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "16",
+              "uid": "s:40~l:46~t:16",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "16",
+                "uid": "s:40~l:46~t:16",
+                "location": "Minnesota",
+                "name": "Timberwolves",
+                "abbreviation": "MIN",
+                "displayName": "Minnesota Timberwolves",
+                "shortDisplayName": "Timberwolves",
+                "color": "266092",
+                "alternateColor": "79bc43",
+                "isActive": true,
+                "venue": {
+                  "id": "2029"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/min.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "OKC -1.5",
+              "overUnder": 225.5,
+              "spread": -1.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "16",
+                  "uid": "s:40~l:46~t:16",
+                  "abbreviation": "MIN",
+                  "name": "Timberwolves",
+                  "displayName": "Minnesota Timberwolves"
+                },
+                "favoriteAtOpen": true
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "25",
+                  "uid": "s:40~l:46~t:25",
+                  "abbreviation": "OKC",
+                  "name": "Thunder",
+                  "displayName": "Oklahoma City Thunder"
+                },
+                "favoriteAtOpen": false
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-119"
+                  },
+                  "open": {
+                    "odds": "-345"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "+101"
+                  },
+                  "open": {
+                    "odds": "+275"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-1.5",
+                    "odds": "-110"
+                  },
+                  "open": {
+                    "line": "+9.5",
+                    "odds": "-102"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+1.5",
+                    "odds": "-110"
+                  },
+                  "open": {
+                    "line": "-9.5",
+                    "odds": "-118"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o225.5",
+                    "odds": "-107"
+                  },
+                  "open": {
+                    "line": "o232.5",
+                    "odds": "-115"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u225.5",
+                    "odds": "-113"
+                  },
+                  "open": {
+                    "line": "u232.5",
+                    "odds": "-105"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909321",
+      "date": "2026-11-26T01:00Z",
+      "name": "LA Clippers at Memphis Grizzlies",
+      "competitions": [
+        {
+          "id": "401909321",
+          "date": "2026-11-26T01:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 8:00 PM EST",
+              "shortDetail": "11/25 - 8:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "29",
+              "uid": "s:40~l:46~t:29",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "29",
+                "uid": "s:40~l:46~t:29",
+                "location": "Memphis",
+                "name": "Grizzlies",
+                "abbreviation": "MEM",
+                "displayName": "Memphis Grizzlies",
+                "shortDisplayName": "Grizzlies",
+                "color": "5d76a9",
+                "alternateColor": "12173f",
+                "isActive": true,
+                "venue": {
+                  "id": "1392"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mem.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "12",
+              "uid": "s:40~l:46~t:12",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "12",
+                "uid": "s:40~l:46~t:12",
+                "location": "LA",
+                "name": "Clippers",
+                "abbreviation": "LAC",
+                "displayName": "LA Clippers",
+                "shortDisplayName": "Clippers",
+                "color": "12173f",
+                "alternateColor": "c8102e",
+                "isActive": true,
+                "venue": {
+                  "id": "1841"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/lac.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "MEM -6.5",
+              "overUnder": 229.5,
+              "spread": -6.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "12",
+                  "uid": "s:40~l:46~t:12",
+                  "abbreviation": "LAC",
+                  "name": "Clippers",
+                  "displayName": "LA Clippers"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "29",
+                  "uid": "s:40~l:46~t:29",
+                  "abbreviation": "MEM",
+                  "name": "Grizzlies",
+                  "displayName": "Memphis Grizzlies"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-249"
+                  },
+                  "open": {
+                    "odds": "-276"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "+205"
+                  },
+                  "open": {
+                    "odds": "+226"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-6.5",
+                    "odds": "-110"
+                  },
+                  "open": {
+                    "line": "-6.5",
+                    "odds": "-110"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+6.5",
+                    "odds": "-110"
+                  },
+                  "open": {
+                    "line": "+6.5",
+                    "odds": "-110"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o229.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "o229.5",
+                    "odds": "-110"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u229.5",
+                    "odds": "-105"
+                  },
+                  "open": {
+                    "line": "u229.5",
+                    "odds": "-110"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909322",
+      "date": "2026-11-26T01:00Z",
+      "name": "Brooklyn Nets at Milwaukee Bucks",
+      "competitions": [
+        {
+          "id": "401909322",
+          "date": "2026-11-26T01:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 8:00 PM EST",
+              "shortDetail": "11/25 - 8:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "15",
+              "uid": "s:40~l:46~t:15",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "15",
+                "uid": "s:40~l:46~t:15",
+                "location": "Milwaukee",
+                "name": "Bucks",
+                "abbreviation": "MIL",
+                "displayName": "Milwaukee Bucks",
+                "shortDisplayName": "Bucks",
+                "color": "00471b",
+                "alternateColor": "eee1c6",
+                "isActive": true,
+                "venue": {
+                  "id": "2099"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mil.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "17",
+              "uid": "s:40~l:46~t:17",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "17",
+                "uid": "s:40~l:46~t:17",
+                "location": "Brooklyn",
+                "name": "Nets",
+                "abbreviation": "BKN",
+                "displayName": "Brooklyn Nets",
+                "shortDisplayName": "Nets",
+                "color": "000000",
+                "alternateColor": "ffffff",
+                "isActive": true,
+                "venue": {
+                  "id": "1826"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/bkn.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "MIL -1.5",
+              "overUnder": 233.5,
+              "spread": -1.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "17",
+                  "uid": "s:40~l:46~t:17",
+                  "abbreviation": "BKN",
+                  "name": "Nets",
+                  "displayName": "Brooklyn Nets"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "15",
+                  "uid": "s:40~l:46~t:15",
+                  "abbreviation": "MIL",
+                  "name": "Bucks",
+                  "displayName": "Milwaukee Bucks"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-111"
+                  },
+                  "open": {
+                    "odds": "-119"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "-106"
+                  },
+                  "open": {
+                    "odds": "+101"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-1.5",
+                    "odds": "-102"
+                  },
+                  "open": {
+                    "line": "-1.5",
+                    "odds": "-110"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+1.5",
+                    "odds": "-118"
+                  },
+                  "open": {
+                    "line": "+1.5",
+                    "odds": "-110"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o233.5",
+                    "odds": "-107"
+                  },
+                  "open": {
+                    "line": "o229.5",
+                    "odds": "-110"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u233.5",
+                    "odds": "-113"
+                  },
+                  "open": {
+                    "line": "u229.5",
+                    "odds": "-110"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909323",
+      "date": "2026-11-26T01:30Z",
+      "name": "Phoenix Suns at Houston Rockets",
+      "competitions": [
+        {
+          "id": "401909323",
+          "date": "2026-11-26T01:30Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 8:30 PM EST",
+              "shortDetail": "11/25 - 8:30 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "10",
+              "uid": "s:40~l:46~t:10",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "10",
+                "uid": "s:40~l:46~t:10",
+                "location": "Houston",
+                "name": "Rockets",
+                "abbreviation": "HOU",
+                "displayName": "Houston Rockets",
+                "shortDisplayName": "Rockets",
+                "color": "ce0e2d",
+                "alternateColor": "000000",
+                "isActive": true,
+                "venue": {
+                  "id": "1394"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/hou.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "21",
+              "uid": "s:40~l:46~t:21",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "21",
+                "uid": "s:40~l:46~t:21",
+                "location": "Phoenix",
+                "name": "Suns",
+                "abbreviation": "PHX",
+                "displayName": "Phoenix Suns",
+                "shortDisplayName": "Suns",
+                "color": "29127a",
+                "alternateColor": "e56020",
+                "isActive": true,
+                "venue": {
+                  "id": "1949"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/phx.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "HOU -9.5",
+              "overUnder": 223.5,
+              "spread": -9.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "21",
+                  "uid": "s:40~l:46~t:21",
+                  "abbreviation": "PHX",
+                  "name": "Suns",
+                  "displayName": "Phoenix Suns"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "10",
+                  "uid": "s:40~l:46~t:10",
+                  "abbreviation": "HOU",
+                  "name": "Rockets",
+                  "displayName": "Houston Rockets"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-406"
+                  },
+                  "open": {
+                    "odds": "-369"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "+319"
+                  },
+                  "open": {
+                    "odds": "+294"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-9.5",
+                    "odds": "-105"
+                  },
+                  "open": {
+                    "line": "-10.5",
+                    "odds": "-110"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+9.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "+10.5",
+                    "odds": "-110"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o223.5",
+                    "odds": "-110"
+                  },
+                  "open": {
+                    "line": "o223.5",
+                    "odds": "-110"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u223.5",
+                    "odds": "-110"
+                  },
+                  "open": {
+                    "line": "u223.5",
+                    "odds": "-110"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909324",
+      "date": "2026-11-26T03:00Z",
+      "name": "Sacramento Kings at Golden State Warriors",
+      "competitions": [
+        {
+          "id": "401909324",
+          "date": "2026-11-26T03:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 10:00 PM EST",
+              "shortDetail": "11/25 - 10:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "9",
+              "uid": "s:40~l:46~t:9",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "9",
+                "uid": "s:40~l:46~t:9",
+                "location": "Golden State",
+                "name": "Warriors",
+                "abbreviation": "GS",
+                "displayName": "Golden State Warriors",
+                "shortDisplayName": "Warriors",
+                "color": "fdb927",
+                "alternateColor": "1d428a",
+                "isActive": true,
+                "venue": {
+                  "id": "2465"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/gs.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "23",
+              "uid": "s:40~l:46~t:23",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "23",
+                "uid": "s:40~l:46~t:23",
+                "location": "Sacramento",
+                "name": "Kings",
+                "abbreviation": "SAC",
+                "displayName": "Sacramento Kings",
+                "shortDisplayName": "Kings",
+                "color": "5a2d81",
+                "alternateColor": "6a7a82",
+                "isActive": true,
+                "venue": {
+                  "id": "2247"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/sac.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "GS -5.5",
+              "overUnder": 217.5,
+              "spread": -5.5,
+              "awayTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "23",
+                  "uid": "s:40~l:46~t:23",
+                  "abbreviation": "SAC",
+                  "name": "Kings",
+                  "displayName": "Sacramento Kings"
+                },
+                "favoriteAtOpen": false
+              },
+              "homeTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "9",
+                  "uid": "s:40~l:46~t:9",
+                  "abbreviation": "GS",
+                  "name": "Warriors",
+                  "displayName": "Golden State Warriors"
+                },
+                "favoriteAtOpen": true
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "-241"
+                  },
+                  "open": {
+                    "odds": "-241"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "+199"
+                  },
+                  "open": {
+                    "odds": "+199"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "-5.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "-5.5",
+                    "odds": "-111"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "+5.5",
+                    "odds": "-105"
+                  },
+                  "open": {
+                    "line": "+5.5",
+                    "odds": "-109"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o217.5",
+                    "odds": "-107"
+                  },
+                  "open": {
+                    "line": "o218.5",
+                    "odds": "-110"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u217.5",
+                    "odds": "-113"
+                  },
+                  "open": {
+                    "line": "u218.5",
+                    "odds": "-110"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401909325",
+      "date": "2026-11-26T03:00Z",
+      "name": "San Antonio Spurs at Portland Trail Blazers",
+      "competitions": [
+        {
+          "id": "401909325",
+          "date": "2026-11-26T03:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0.0",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Wed, November 25th at 10:00 PM EST",
+              "shortDetail": "11/25 - 10:00 PM EST"
+            }
+          },
+          "competitors": [
+            {
+              "id": "22",
+              "uid": "s:40~l:46~t:22",
+              "type": "team",
+              "order": 0,
+              "homeAway": "home",
+              "team": {
+                "id": "22",
+                "uid": "s:40~l:46~t:22",
+                "location": "Portland",
+                "name": "Trail Blazers",
+                "abbreviation": "POR",
+                "displayName": "Portland Trail Blazers",
+                "shortDisplayName": "Trail Blazers",
+                "color": "e03a3e",
+                "alternateColor": "000000",
+                "isActive": true,
+                "venue": {
+                  "id": "3423"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/por.png"
+              },
+              "score": "0"
+            },
+            {
+              "id": "24",
+              "uid": "s:40~l:46~t:24",
+              "type": "team",
+              "order": 1,
+              "homeAway": "away",
+              "team": {
+                "id": "24",
+                "uid": "s:40~l:46~t:24",
+                "location": "San Antonio",
+                "name": "Spurs",
+                "abbreviation": "SA",
+                "displayName": "San Antonio Spurs",
+                "shortDisplayName": "Spurs",
+                "color": "000000",
+                "alternateColor": "c4ced4",
+                "isActive": true,
+                "venue": {
+                  "id": "780"
+                },
+                "logoDark": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/sa.png"
+              },
+              "score": "0"
+            }
+          ],
+          "odds": [
+            {
+              "provider": {
+                "id": "100",
+                "name": "DraftKings",
+                "priority": 1
+              },
+              "details": "SA -2.5",
+              "overUnder": 225.5,
+              "spread": 2.5,
+              "awayTeamOdds": {
+                "favorite": true,
+                "underdog": false,
+                "team": {
+                  "id": "24",
+                  "uid": "s:40~l:46~t:24",
+                  "abbreviation": "SA",
+                  "name": "Spurs",
+                  "displayName": "San Antonio Spurs"
+                },
+                "favoriteAtOpen": true
+              },
+              "homeTeamOdds": {
+                "favorite": false,
+                "underdog": true,
+                "team": {
+                  "id": "22",
+                  "uid": "s:40~l:46~t:22",
+                  "abbreviation": "POR",
+                  "name": "Trail Blazers",
+                  "displayName": "Portland Trail Blazers"
+                },
+                "favoriteAtOpen": false
+              },
+              "moneyline": {
+                "displayName": "Moneyline",
+                "shortDisplayName": "ML",
+                "home": {
+                  "close": {
+                    "odds": "+124"
+                  },
+                  "open": {
+                    "odds": "+142"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "odds": "-148"
+                  },
+                  "open": {
+                    "odds": "-170"
+                  }
+                }
+              },
+              "pointSpread": {
+                "displayName": "Spread",
+                "shortDisplayName": "Spread",
+                "home": {
+                  "close": {
+                    "line": "+2.5",
+                    "odds": "-106"
+                  },
+                  "open": {
+                    "line": "+4.5",
+                    "odds": "-110"
+                  }
+                },
+                "away": {
+                  "close": {
+                    "line": "-2.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "-4.5",
+                    "odds": "-110"
+                  }
+                }
+              },
+              "total": {
+                "displayName": "Total",
+                "shortDisplayName": "Total",
+                "over": {
+                  "close": {
+                    "line": "o225.5",
+                    "odds": "-115"
+                  },
+                  "open": {
+                    "line": "o237.5",
+                    "odds": "-115"
+                  }
+                },
+                "under": {
+                  "close": {
+                    "line": "u225.5",
+                    "odds": "-106"
+                  },
+                  "open": {
+                    "line": "u237.5",
+                    "odds": "-105"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

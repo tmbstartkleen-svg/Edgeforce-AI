@@ -1,7 +1,8 @@
 import {configuredProviders} from './config';
 import {fetchProviderJson} from './http';
 import {inspectProviderPayload,type PayloadQuality} from './payloadQuality';
-import {normalizeOddsPayload} from './normalizeOdds';
+import {eligibleOddsPayload,normalizeOddsPayload} from './normalizeOdds';
+import {buildObservedOddsSnapshot} from '../observedOdds';
 import {loadProviderHealthStates,recordProviderResult} from './healthStore';
 import {providerHealth} from '../providerRegistry';
 import {buildConsensusMarkets} from '../marketConsensus';
@@ -24,6 +25,7 @@ export type OddsAttempt={
  providerId:string;ok:boolean;latencyMs:number;error?:string;status?:number;
  skipped?:boolean;circuitState?:string;qualityGrade?:string;qualityScore?:number;
  rowCount?:number;payloadAgeMin?:number;acceptedMarkets?:number;
+ observedReferenceMarkets?:number;
 };
 
 export type OddsIngestionResult={
@@ -32,6 +34,7 @@ export type OddsIngestionResult={
  providerName?:string;
  markets:Market[];
  panelMarkets:Market[];
+ referenceMarkets:Market[];
  rawCount:number;
  warnings:string[];
  attempts:OddsAttempt[];
@@ -45,6 +48,7 @@ export type OddsIngestionResult={
   sportCounts:Record<string,number>;
   playerPropRows:number;
   teamMarketRows:number;
+  observedReferenceMarkets?:number;
   qualityGrade?:string;qualityScore?:number;latencyMs?:number;freshnessFactor?:number;transportScore?:number;
  }>;
  error?:string;
@@ -79,6 +83,7 @@ type PanelResult={
  attempt:OddsAttempt;
  quality?:PayloadQuality;
  markets:Market[];
+ referenceMarkets:Market[];
  rawCount:number;
  warnings:string[];
  effectiveWeight:number;
@@ -89,7 +94,7 @@ type PanelResult={
 async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circuitState:string|undefined,quarantined:boolean):Promise<PanelResult>{
  if(quarantined){
   return {
-   config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
+   config,markets:[],referenceMarkets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
    attempt:{providerId:config.id,ok:false,latencyMs:0,skipped:true,circuitState:'OPEN',error:'Provider circuit is quarantined'}
   };
  }
@@ -116,24 +121,35 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  }
  let quality:PayloadQuality|undefined;
  let markets:Market[]=[];
+ let referenceMarkets:Market[]=[];
  let rawCount=0;
  let warnings:string[]=[];
  let accepted=raw.ok;
  let error=raw.error;
 
  if(raw.ok){
-  quality=inspectProviderPayload(raw.data,'ODDS',config.maxAgeMin);
+  quality=inspectProviderPayload(eligibleOddsPayload(raw.data),'ODDS',config.maxAgeMin);
   const normalized=normalizeOddsPayload(raw.data);
-  markets=normalized.markets;
+  referenceMarkets=normalized.markets.filter(m=>m.evidenceClass==='OBSERVED_REFERENCE')
+   .map(m=>({...m,sourceProviderId:config.id}));
+  markets=normalized.markets.filter(m=>m.evidenceClass!=='OBSERVED_REFERENCE');
   rawCount=normalized.rawCount;
   warnings=normalized.warnings;
   accepted=quality.ok&&markets.length>0;
-  if(!quality.ok)error=`Payload rejected: ${quality.reasons.join('; ')}`;
-  else if(!markets.length)error='Odds payload produced zero normalized markets';
+  if(!markets.length&&referenceMarkets.length)error=`Observed ${referenceMarkets.length} reference quotes; bookmaker update time is unverified and recommendation eligibility remains blocked`;
+  else if(!quality.ok)error=`Payload rejected: ${quality.reasons.join('; ')}`;
+  else if(!markets.length)error=referenceMarkets.length
+   ?`Observed ${referenceMarkets.length} reference quotes; bookmaker update time is unverified and recommendation eligibility remains blocked`
+   :'Odds payload produced zero normalized markets';
+  if(referenceMarkets.length)warnings.push(`${referenceMarkets.length} observed reference quotes are excluded from consensus, simulation and certified odds`);
  }
 
+ const referenceOnly=markets.length===0&&buildObservedOddsSnapshot(referenceMarkets).referenceCount>0;
+ const transportQuality=referenceOnly&&quality?{...quality,ok:true,grade:'CAUTION' as const,
+  qualityScore:.6,freshnessScore:.35,newestTimestamp:undefined,payloadAgeMin:undefined,
+  reasons:['Reference observations available; bookmaker source update time is unverified']}:quality;
  await withDeadline(
-  recordProviderResult(config,{...raw,ok:accepted,error} as typeof raw,quality),
+  recordProviderResult(config,{...raw,ok:accepted||referenceOnly,error} as typeof raw,transportQuality),
   1000,
   `${config.id} provider health write`
  ).catch(()=>undefined);
@@ -165,14 +181,15 @@ async function fetchPanelProvider(config:ProviderConfig,healthScore:number,circu
  }
 
  return {
-  config,markets,rawCount,warnings,effectiveWeight:accepted?effectiveWeight:0,
+  config,markets,referenceMarkets,rawCount,warnings,effectiveWeight:accepted?effectiveWeight:0,
   freshnessFactor:accepted?freshnessFactor:0,
   transportScore:accepted?transportScore:0,
   quality,
   attempt:{
    providerId:config.id,ok:accepted,latencyMs:raw.latencyMs,error,status:raw.status,
    circuitState:circuitState||'CLOSED',qualityGrade:quality?.grade,qualityScore:quality?.qualityScore,
-   rowCount:quality?.rowCount,payloadAgeMin:quality?.payloadAgeMin,acceptedMarkets:markets.length
+   rowCount:quality?.rowCount,payloadAgeMin:quality?.payloadAgeMin,acceptedMarkets:markets.length,
+   observedReferenceMarkets:referenceMarkets.length
   }
  };
 }
@@ -212,7 +229,7 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
  const targetBook=process.env.TARGET_BOOKMAKER||'DraftKings';
  if(!configured.length){
   return {
-   mode:'unconfigured',markets:[],panelMarkets:[],rawCount:0,warnings:[],attempts:[],degraded:true,
+   mode:'unconfigured',markets:[],panelMarkets:[],referenceMarkets:[],rawCount:0,warnings:[],attempts:[],degraded:true,
    targetBook,providerPanel:[],error:'No ODDS providers configured'
   };
  }
@@ -230,7 +247,7 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
    return await fetchPanelProvider(config,health.score,stored?.circuitState,health.quarantined);
   }catch(error){
    return {
-    config,markets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
+    config,markets:[],referenceMarkets:[],rawCount:0,warnings:[],effectiveWeight:0,freshnessFactor:0,transportScore:0,
     attempt:{
      providerId:config.id,ok:false,latencyMs:0,circuitState:stored?.circuitState||'CLOSED',
      error:error instanceof Error?error.name:'provider exception'
@@ -240,16 +257,17 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
  }));
 
  const panelMarkets=panel.flatMap(x=>x.markets);
+ const referenceMarkets=panel.flatMap(x=>x.referenceMarkets);
  const attempts=panel.map(x=>x.attempt);
  const accepted=panel.filter(x=>x.attempt.ok);
  if(!panelMarkets.length){
   return {
-   mode:'failed',markets:[],panelMarkets:[],rawCount:panel.reduce((s,x)=>s+x.rawCount,0),
+   mode:'failed',markets:[],panelMarkets:[],referenceMarkets,rawCount:panel.reduce((s,x)=>s+x.rawCount,0),
    warnings:panel.flatMap(x=>x.warnings),attempts,degraded:true,targetBook,
    providerPanel:panel.map(x=>({
     providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
     marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-    acceptedMarkets:x.markets.length,...coverageForMarkets(x.markets),
+    acceptedMarkets:x.markets.length,...coverageForMarkets(x.markets),observedReferenceMarkets:x.referenceMarkets.length,
     qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
     latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
    })),
@@ -272,7 +290,7 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
   mode:'live',
   providerId:accepted.length>1?'consensus-panel':accepted[0].config.id,
   providerName:accepted.length>1?`Consensus Panel (${accepted.length} feeds)`:accepted[0].config.name,
-  markets,panelMarkets,
+  markets,panelMarkets,referenceMarkets,
   rawCount:panel.reduce((s,x)=>s+x.rawCount,0),
   warnings,attempts,quality,
   degraded:attempts.some(x=>!x.ok)||accepted.length<2||targetCoverage<.8,
@@ -280,7 +298,7 @@ async function fetchNormalizedOddsUncached():Promise<OddsIngestionResult>{
   providerPanel:panel.map(x=>({
    providerId:x.config.id,providerName:x.config.name,bookmaker:x.config.bookmaker||x.config.name,
    marketRole:x.config.marketRole,configuredWeight:x.config.consensusWeight,effectiveWeight:x.effectiveWeight,
-   acceptedMarkets:x.markets.length,...coverageForMarkets(x.markets),
+   acceptedMarkets:x.markets.length,...coverageForMarkets(x.markets),observedReferenceMarkets:x.referenceMarkets.length,
    qualityGrade:x.quality?.grade,qualityScore:x.quality?.qualityScore,
    latencyMs:x.attempt.latencyMs,freshnessFactor:x.freshnessFactor,transportScore:x.transportScore
   }))

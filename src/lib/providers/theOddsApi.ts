@@ -1,47 +1,82 @@
+import {createHash} from 'node:crypto';
 import type {ProviderConfig} from './types';
-import {adaptiveOddsPolicy,type ActiveSport,type AdaptiveOddsPolicy} from './oddsRefreshPolicy';
+import {adaptiveOddsPolicy,estimateOddsRequestCost,type ActiveSport,type AdaptiveOddsPolicy} from './oddsRefreshPolicy';
 
 type OddsEventRow={id?:string;sport_key?:string;sport_title?:string;commence_time?:string;[key:string]:unknown};
+type Quota={remaining?:number;used?:number;last?:number};
+type JsonResult<T>=Quota & {ok:boolean;status:number;data?:T;error?:string};
 
 export type TheOddsApiAttempt={
- sportKey:string;
- events:number;
- oddsEvents:number;
- ok:boolean;
- status?:number;
- error?:string;
- cost?:number;
- remaining?:number;
+ sportKey:string;events:number;oddsEvents:number;ok:boolean;status?:number;error?:string;
+ cost?:number;estimatedCost?:number;remaining?:number;
 };
-
 export type TheOddsApiResult={
- ok:boolean;
- data:unknown[];
- attempts:TheOddsApiAttempt[];
- warnings:string[];
- discoveredSports:number;
- sportsWithEvents:number;
- fetchedSports:number;
- quota:{remaining?:number;used?:number;last?:number};
- policy?:AdaptiveOddsPolicy;
- error?:string;
+ ok:boolean;data:unknown[];attempts:TheOddsApiAttempt[];warnings:string[];
+ discoveredSports:number;sportsWithEvents:number;fetchedSports:number;quota:Quota;
+ policy?:AdaptiveOddsPolicy;error?:string;status?:number;retryAfterMs?:number;
+ snapshotAt?:string;cacheAgeMs?:number;
 };
 
-const base=()=>String(process.env.THE_ODDS_API_BASE_URL||'https://api.the-odds-api.com/v4').replace(/\/$/,'');
-let cache:{at:number;ttlMs:number;value:TheOddsApiResult}|null=null;
-const failureCacheMs=()=>Math.max(5000,int(process.env.THE_ODDS_API_FAILURE_CACHE_MS,60000));
-const int=(v:string|undefined,fallback:number)=>{const n=Number(v);return Number.isFinite(n)?Math.floor(n):fallback};
-const headerNum=(res:Response,name:string)=>{
- const n=Number(res.headers.get(name));
- return Number.isFinite(n)?n:undefined;
+type Settings={
+ baseUrl:string;apiKey:string;timeoutMs:number;batchBudgetMs:number;cacheMs:number;failureCacheMs:number;
+ reserve:number;maxSports:number;markets:string;expansionMarkets:string;bookmakers:string;regions:string;maxAgeMin:number;
 };
+type Cached={at:number;ttlMs:number;value:TheOddsApiResult};
+const caches=new Map<string,Cached>();
+const inFlight=new Map<string,Promise<TheOddsApiResult>>();
+// This serializes one account within an isolate. It is not a distributed quota reservation.
+const accountWork=new Map<string,Promise<TheOddsApiResult>>();
+const MAX_CACHE_SCOPES=16;
+const MIN_REQUEST_BUDGET_MS=250;
+const int=(v:string|undefined,fallback:number)=>{
+ const n=typeof v==='string'&&v.trim()?Number(v):NaN;
+ return Number.isSafeInteger(n)&&n>=0?n:fallback;
+};
+const csv=(value:string)=>[...new Set(value.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean))].join(',');
 const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
+const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-async function jsonRequest<T>(url:string,timeoutMs=10000):Promise<{ok:boolean;status:number;data?:T;error?:string;remaining?:number;used?:number;last?:number}>{
+function settings(config:ProviderConfig):Settings{
+ return {
+  baseUrl:String(process.env.THE_ODDS_API_BASE_URL||'https://api.the-odds-api.com/v4').replace(/\/$/,''),
+  apiKey:config.apiKey||process.env.THE_ODDS_API_KEY||'',
+  timeoutMs:Math.max(1000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000)),
+  // Finish before the odds panel's existing seven-second deadline; no late paid fan-out.
+  batchBudgetMs:Math.max(1000,Math.min(6500,int(process.env.THE_ODDS_API_BATCH_BUDGET_MS,6500),
+   Math.max(2500,Math.min(7000,config.timeoutMs||7000))-250)),
+  cacheMs:Math.max(60000,Math.min(31*86400000,int(process.env.THE_ODDS_API_CACHE_MS,600000))),
+  failureCacheMs:Math.max(5000,Math.min(3600000,int(process.env.THE_ODDS_API_FAILURE_CACHE_MS,60000))),
+  reserve:int(process.env.THE_ODDS_API_CREDIT_RESERVE,25),
+  maxSports:Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)),
+  markets:csv(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals'),
+  expansionMarkets:csv(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h'),
+  bookmakers:csv(process.env.THE_ODDS_API_BOOKMAKERS??'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us'),
+  regions:csv(process.env.THE_ODDS_API_REGIONS||'us'),
+  maxAgeMin:Number.isFinite(config.maxAgeMin)&&config.maxAgeMin>0?config.maxAgeMin:20
+ };
+}
+
+function headerNum(res:Response,name:string):number|undefined{
+ const raw=res.headers.get(name);
+ if(raw===null||!/^\d+$/.test(raw.trim()))return undefined;
+ const n=Number(raw);
+ return Number.isSafeInteger(n)&&n>=0?n:undefined;
+}
+
+function endpoint(options:Settings,path:string,params:Record<string,string>={}){
+ const url=new URL(options.baseUrl+path);
+ // Official v4 also accepts x-api-key; keep credentials out of URLs and diagnostics.
+ for(const [key,value] of Object.entries(params))if(value)url.searchParams.set(key,value);
+ return url.toString();
+}
+
+async function jsonRequest<T>(options:Settings,url:string,deadline:number):Promise<JsonResult<T>>{
+ const budget=Math.min(options.timeoutMs,deadline-Date.now());
+ if(budget<MIN_REQUEST_BUDGET_MS)return {ok:false,status:504,error:'The Odds API batch deadline reached; no request started'};
  const controller=new AbortController();
- const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ const timer=setTimeout(()=>controller.abort(),budget);
  try{
-  const res=await fetch(url,{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});
+  const res=await fetch(url,{headers:{Accept:'application/json','x-api-key':options.apiKey},cache:'no-store',redirect:'error',signal:controller.signal});
   const quota={remaining:headerNum(res,'x-requests-remaining'),used:headerNum(res,'x-requests-used'),last:headerNum(res,'x-requests-last')};
   if(!res.ok){
    let detail='';
@@ -50,200 +85,146 @@ async function jsonRequest<T>(url:string,timeoutMs=10000):Promise<{ok:boolean;st
     if(body){
      try{
       const parsed=JSON.parse(body) as Record<string,unknown>;
-      const candidate=parsed.message??parsed.error??parsed.error_code;
-      detail=typeof candidate==='string'?candidate:body;
-     }catch{
-      detail=body;
-     }
+      detail=[parsed.message,parsed.error,parsed.error_code].filter(x=>typeof x==='string').join(' | ');
+     }catch{detail='Provider returned a non-JSON error';}
     }
    }catch{}
-   detail=detail.replace(/\s+/g,' ').trim().slice(0,400);
+   detail=detail.split(options.apiKey).join('[REDACTED]').split(encodeURIComponent(options.apiKey)).join('[REDACTED]')
+    .replace(/\s+/g,' ').trim().slice(0,400);
    return {ok:false,status:res.status,error:detail?`HTTP ${res.status}: ${detail}`:`HTTP ${res.status}`,...quota};
   }
   return {ok:true,status:res.status,data:await res.json() as T,...quota};
- }catch(error){
-  return {ok:false,status:0,error:error instanceof Error?error.message:'request failed'};
- }finally{clearTimeout(timer)}
-}
-
-async function jsonRequestWith429Retry<T>(url:string,timeoutMs=10000){
- let result=await jsonRequest<T>(url,timeoutMs);
- if(result.status===429){
-  await sleep(2500);
-  result=await jsonRequest<T>(url,timeoutMs);
- }
- return result;
-}
-
-function withKey(path:string,key:string,params:Record<string,string>={}){
- const url=new URL(base()+path);
- url.searchParams.set('apiKey',key);
- for(const [k,v] of Object.entries(params))if(v)url.searchParams.set(k,v);
- return url.toString();
+ }catch{
+  return {ok:false,status:controller.signal.aborted?504:502,error:controller.signal.aborted?'The Odds API request timed out':'The Odds API transport or response failed'};
+ }finally{clearTimeout(timer);}
 }
 
 function uniqueEvents(rows:unknown[]){
  const seen=new Set<string>();
- const out:unknown[]=[];
- for(const raw of rows){
-  const row=raw as OddsEventRow;
-  const key=String(row.id||JSON.stringify(raw));
-  if(seen.has(key))continue;
-  seen.add(key);
-  out.push(raw);
- }
- return out;
+ return rows.filter(raw=>{
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return false;
+  const row=raw as OddsEventRow,key=String(row.id||JSON.stringify(raw));
+  if(seen.has(key))return false;seen.add(key);return true;
+ });
 }
-
 function nearestStartMinutes(rows:unknown[]){
  const now=Date.now();
- const times=rows.map(x=>new Date(String((x as OddsEventRow).commence_time||'')).getTime())
-  .filter(x=>Number.isFinite(x)&&x>=now);
- if(!times.length)return undefined;
- return Math.max(0,(Math.min(...times)-now)/60000);
+ const times=rows.map(x=>Date.parse(String((x as OddsEventRow).commence_time||''))).filter(x=>Number.isFinite(x)&&x>=now);
+ return times.length?Math.max(0,(Math.min(...times)-now)/60000):undefined;
+}
+
+async function loadBoard(options:Settings,deadline:number):Promise<TheOddsApiResult>{
+ const warnings:string[]=[],attempts:TheOddsApiAttempt[]=[];
+ let quota:Quota={};
+ const fail=(error:string,status=503,retryAfterMs=options.failureCacheMs):TheOddsApiResult=>({
+  ok:false,data:[],attempts,warnings,discoveredSports:0,sportsWithEvents:0,fetchedSports:attempts.length,
+  quota,error,status,retryAfterMs
+ });
+ const updateQuota=(result:Quota)=>{quota={remaining:result.remaining,used:result.used,last:result.last};};
+ const guard=(cost:number)=>{
+  if(deadline-Date.now()<MIN_REQUEST_BUDGET_MS)return 'The Odds API batch deadline reached; no further paid request started';
+  if(quota.remaining===undefined)return 'THE_ODDS_API_QUOTA_UNVERIFIED: no paid request permitted without a valid remaining-credit header';
+  if(quota.remaining-cost<options.reserve)return `THE_ODDS_API_CREDIT_RESERVE: ${quota.remaining} remaining cannot cover estimated cost ${cost} and preserve ${options.reserve} reserved credits`;
+  return null;
+ };
+ const paid=async(sportKey:string,path:string,params:Record<string,string>)=>{
+  const cost=estimateOddsRequestCost(params),blocked=guard(cost);
+  if(blocked)return {ok:false,status:503,error:blocked,blocked:true} as JsonResult<unknown[]> & {blocked:boolean};
+  const result=await jsonRequest<unknown[]>(options,endpoint(options,path,params),deadline);
+  updateQuota(result);
+  const data=Array.isArray(result.data)?result.data:[];
+  attempts.push({sportKey,events:data.length,oddsEvents:data.length,ok:result.ok,status:result.status,
+   error:result.error,cost:result.last,estimatedCost:cost,remaining:result.remaining});
+  return {...result,blocked:false};
+ };
+
+ // /sports is quota-free and returns the same quota headers. Never bootstrap paid odds first.
+ const catalog=await jsonRequest<ActiveSport[]>(options,endpoint(options,'/sports/'),deadline);
+ updateQuota(catalog);
+ if(!catalog.ok||!Array.isArray(catalog.data))return fail(catalog.error||'The Odds API quota preflight returned an invalid sports catalog',catalog.ok?502:catalog.status||502,
+  catalog.status===429?300000:options.failureCacheMs);
+ if(quota.remaining===undefined)return fail('THE_ODDS_API_QUOTA_UNVERIFIED: free catalog did not provide a valid remaining-credit header; no paid request made',503,Math.max(options.cacheMs,options.failureCacheMs));
+ const activeSports=catalog.data.filter(x=>x&&typeof x==='object'&&typeof x.key==='string'&&x.key.trim()&&x.active!==false&&!x.has_outrights);
+ const params={regions:options.regions,bookmakers:options.bookmakers,markets:options.markets,oddsFormat:'american',dateFormat:'iso'};
+ let bootstrap=await paid('upcoming','/sports/upcoming/odds',params);
+ let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
+ if(bootstrap.ok&&!Array.isArray(bootstrap.data))return fail('The Odds API returned an invalid odds array',502);
+
+ if(!bootstrap.blocked&&((!bootstrap.ok&&(bootstrap.status===400||bootstrap.status===422))||(bootstrap.ok&&bootstrapData.length===0))){
+  warnings.push('Primary upcoming-odds bootstrap was rejected or empty; considering the provider-safe US h2h baseline within the remaining budget');
+  const fallback=await paid('upcoming-us-h2h','/sports/upcoming/odds',{regions:'us',markets:'h2h',oddsFormat:'american',dateFormat:'iso'});
+  bootstrap=fallback;bootstrapData=Array.isArray(fallback.data)?fallback.data:[];
+  if(fallback.ok&&bootstrapData.length)warnings.push(`Provider-safe bootstrap recovered ${bootstrapData.length} live event(s)`);
+ }
+ if(!bootstrap.ok||bootstrapData.length===0){
+  const cooldown=bootstrap.blocked?Math.max(options.cacheMs,options.failureCacheMs):bootstrap.status===429?300000:options.failureCacheMs;
+  return fail(bootstrap.error||'No live sportsbook odds returned',bootstrap.status||502,cooldown);
+ }
+ bootstrapData=uniqueEvents(bootstrapData);
+ const covered=new Set(bootstrapData.map(x=>String((x as OddsEventRow).sport_key||'')).filter(Boolean));
+ const policy=adaptiveOddsPolicy({remaining:quota.remaining,reserve:options.reserve,configuredMaxSports:options.maxSports,
+  alreadyCovered:covered,activeSports,nearestStartMinutes:nearestStartMinutes(bootstrapData),
+  expansionMarkets:options.expansionMarkets,bootstrapMarkets:options.markets,regions:options.regions,bookmakers:options.bookmakers,
+  rotationOffset:Math.floor(Date.now()/3600000)});
+ const expanded:unknown[]=[];
+ const expansionSports:string[]=[];
+ for(const sportKey of policy.selectedSports){
+  const expansionParams={...params,markets:options.expansionMarkets};
+  const blocked=guard(estimateOddsRequestCost(expansionParams));
+  if(blocked){warnings.push(blocked);break;}
+  // Preserve serialized pacing, but do not start work that outlives the panel's deadline.
+  if(deadline-Date.now()<650+MIN_REQUEST_BUDGET_MS){warnings.push('The Odds API batch deadline prevents further sport expansion');break;}
+  await sleep(650);
+  const result=await paid(sportKey,`/sports/${encodeURIComponent(sportKey)}/odds`,expansionParams);
+  if(result.blocked){warnings.push(result.error||'Paid expansion blocked');break;}
+  expansionSports.push(sportKey);
+  if(result.ok&&Array.isArray(result.data))expanded.push(...result.data);
+  if(!result.ok){warnings.push(result.error||`Expansion failed for ${sportKey}`);break;}
+ }
+ const data=uniqueEvents([...bootstrapData,...expanded]);
+ warnings.unshift(`Adaptive full-slate ${policy.mode}: bootstrap ${bootstrapData.length} event(s) + ${expansionSports.length} sport expansion request(s) (${options.expansionMarkets}); refresh target ${policy.refreshMinutes}m`);
+ if(policy.reasons.length)warnings.push(`Refresh policy: ${policy.reasons.join('; ')}`);
+ if(quota.remaining===undefined)warnings.push('Remaining quota is unverified after the last response; no additional paid requests permitted');
+ return {ok:data.length>0,status:200,data,attempts,warnings,discoveredSports:activeSports.length,
+  sportsWithEvents:new Set(data.map(x=>String((x as OddsEventRow).sport_key||'')).filter(Boolean)).size,
+  fetchedSports:attempts.length,quota,policy:{...policy,selectedSports:expansionSports},
+  error:data.length?undefined:'No live sportsbook odds returned'};
+}
+
+function cachedResult(cache:Cached,options:Settings):TheOddsApiResult{
+ const ageMs=Math.max(0,Date.now()-cache.at);
+ const stale=cache.value.ok&&ageMs>options.maxAgeMin*60000;
+ return {...cache.value,snapshotAt:new Date(cache.at).toISOString(),cacheAgeMs:ageMs,
+  ...(stale?{ok:false,status:503,error:`THE_ODDS_API_CACHE_STALE: stored response is ${(ageMs/60000).toFixed(1)}m old; original quote timestamps are preserved and the configured paid refresh cadence has not been accelerated`,
+   retryAfterMs:Math.max(0,cache.at+cache.ttlMs-Date.now())}:{}),
+  ...(!cache.value.ok?{retryAfterMs:Math.max(0,cache.at+cache.ttlMs-Date.now())}:{})};
 }
 
 export async function fetchTheOddsApiBoard(config:ProviderConfig):Promise<TheOddsApiResult>{
- if(cache&&Date.now()-cache.at<cache.ttlMs)return cache.value;
-
- const key=config.apiKey||process.env.THE_ODDS_API_KEY;
- if(!key)return {ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{},error:'THE_ODDS_API_KEY is not configured'};
-
- const timeoutMs=Math.max(3000,int(process.env.THE_ODDS_API_TIMEOUT_MS,10000));
- const configuredCacheMs=Math.max(60000,int(process.env.THE_ODDS_API_CACHE_MS,600000));
- const reserve=Math.max(0,int(process.env.THE_ODDS_API_CREDIT_RESERVE,25));
- const configuredMaxSports=Math.max(0,Math.min(20,int(process.env.THE_ODDS_API_EXPANSION_SPORTS,8)));
- const expansionMarkets=String(process.env.THE_ODDS_API_EXPANSION_MARKETS||'h2h');
- const markets=String(process.env.THE_ODDS_API_MARKETS||'h2h,spreads,totals');
- const bookmakers=String(process.env.THE_ODDS_API_BOOKMAKERS||'draftkings,fanduel,kalshi,polymarket,betmgm,williamhill_us');
- const regions=String(process.env.THE_ODDS_API_REGIONS||'us');
- const warnings:string[]=[];
- const attempts:TheOddsApiAttempt[]=[];
-
- // One paid bootstrap call establishes immediate live connectivity and the nearest 8 events.
- const bootstrapUrl=withKey('/sports/upcoming/odds',key,{
-  regions,bookmakers,markets,oddsFormat:'american',dateFormat:'iso'
- });
- let bootstrap=await jsonRequestWith429Retry<unknown[]>(bootstrapUrl,timeoutMs);
- let bootstrapData=Array.isArray(bootstrap.data)?bootstrap.data:[];
- let bootstrapError=bootstrap.error;
- attempts.push({
-  sportKey:'upcoming',events:bootstrapData.length,oddsEvents:bootstrapData.length,ok:bootstrap.ok,
-  status:bootstrap.status,error:bootstrap.error,cost:bootstrap.last,remaining:bootstrap.remaining
- });
-
- if((!bootstrap.ok&&(bootstrap.status===400||bootstrap.status===422))||(bootstrap.ok&&bootstrapData.length===0)){
-  warnings.push('Primary upcoming-odds bootstrap was rejected or empty; retrying with the provider-safe US h2h baseline');
-  const fallbackUrl=withKey('/sports/upcoming/odds',key,{
-   regions:'us',markets:'h2h',oddsFormat:'american',dateFormat:'iso'
-  });
-  const fallback=await jsonRequestWith429Retry<unknown[]>(fallbackUrl,timeoutMs);
-  const fallbackData=Array.isArray(fallback.data)?fallback.data:[];
-  attempts.push({
-   sportKey:'upcoming-us-h2h',events:fallbackData.length,oddsEvents:fallbackData.length,ok:fallback.ok,
-   status:fallback.status,error:fallback.error,cost:fallback.last,remaining:fallback.remaining
-  });
-  if(fallback.ok&&fallbackData.length){
-   bootstrap=fallback;
-   bootstrapData=fallbackData;
-   bootstrapError=undefined;
-   warnings.push(`Provider-safe bootstrap recovered ${fallbackData.length} live event(s)`);
-  }else{
-   bootstrapError=fallback.error||bootstrapError;
-  }
- }
-
- if(!bootstrap.ok||bootstrapData.length===0){
-  const value:TheOddsApiResult={
-   ok:false,data:[],attempts,warnings:['Adaptive full-slate bootstrap failed',...warnings],discoveredSports:0,
-   sportsWithEvents:0,fetchedSports:attempts.length,
-   quota:{remaining:bootstrap.remaining,used:bootstrap.used,last:bootstrap.last},
-   error:bootstrapError||'No live sportsbook odds returned'
-  };
-  cache={at:Date.now(),ttlMs:failureCacheMs(),value};
-  return value;
- }
-
- let remaining=bootstrap.remaining;
- let used=bootstrap.used;
- let last=bootstrap.last;
- const covered=new Set(bootstrapData.map(x=>String((x as OddsEventRow).sport_key||'')).filter(Boolean));
-
- // /sports is free. If it fails, the verified upcoming feed still remains usable.
- const sportsResponse=await jsonRequestWith429Retry<ActiveSport[]>(withKey('/sports/',key),timeoutMs);
- const activeSports=Array.isArray(sportsResponse.data)
-  ?sportsResponse.data.filter(x=>x.active!==false&&!x.has_outrights)
-  :[];
-
- const policy=adaptiveOddsPolicy({
-  remaining,
-  reserve,
-  configuredMaxSports,
-  alreadyCovered:covered,
-  activeSports,
-  nearestStartMinutes:nearestStartMinutes(bootstrapData),
-  expansionMarkets,
-  rotationOffset:Math.floor(Date.now()/3600000)
- });
-
- const expanded:unknown[]=[];
- if(!sportsResponse.ok)warnings.push(`Free active-sports discovery failed: ${sportsResponse.error||sportsResponse.status}`);
-
- for(const sportKey of policy.selectedSports){
-  if(remaining!==undefined&&remaining<=reserve){
-   warnings.push(`Expansion stopped at the configured reserve of ${reserve} credits`);
-   break;
-  }
-
-  const url=withKey(`/sports/${encodeURIComponent(sportKey)}/odds`,key,{
-   regions,bookmakers,markets:expansionMarkets,oddsFormat:'american',dateFormat:'iso'
-  });
-  const result=await jsonRequestWith429Retry<unknown[]>(url,timeoutMs);
-  const data=Array.isArray(result.data)?result.data:[];
-
-  attempts.push({
-   sportKey,events:data.length,oddsEvents:data.length,ok:result.ok,status:result.status,error:result.error,
-   cost:result.last,remaining:result.remaining
-  });
-
-  if(result.remaining!==undefined)remaining=result.remaining;
-  if(result.used!==undefined)used=result.used;
-  if(result.last!==undefined)last=result.last;
-
-  if(result.ok&&data.length)expanded.push(...data);
-  if(result.status===429){
-   warnings.push(`Expansion paused after ${sportKey} remained rate limited after retry`);
-   break;
-  }
-
-  // Paid expansion is deliberately serialized to avoid provider bursts.
-  await sleep(650);
- }
-
- const data=uniqueEvents([...bootstrapData,...expanded]);
- const expandedWithEvents=attempts.slice(1).filter(x=>x.ok&&x.oddsEvents>0).length;
- const actualExpansionSports=attempts.slice(1).map(x=>x.sportKey);
-
- warnings.unshift(
-  `Adaptive full-slate ${policy.mode}: bootstrap ${bootstrapData.length} event(s) + ${actualExpansionSports.length} sport expansion request(s) (${expansionMarkets}); refresh target ${policy.refreshMinutes}m`
- );
- if(data.length)warnings.push(`Live board contains ${data.length} unique event(s) across bootstrap and prioritized expansion`);
- if(policy.reasons.length)warnings.push(`Refresh policy: ${policy.reasons.join('; ')}`);
-
- const value:TheOddsApiResult={
-  ok:data.length>0,
-  data,
-  attempts,
-  warnings,
-  discoveredSports:activeSports.length,
-  sportsWithEvents:(bootstrapData.length?1:0)+expandedWithEvents,
-  fetchedSports:attempts.length,
-  quota:{remaining,used,last},
-  policy:{...policy,selectedSports:actualExpansionSports},
-  error:data.length?undefined:'No live sportsbook odds returned'
+ const options=settings(config);
+ if(!options.apiKey||options.apiKey==='[SENSITIVE]'||/[\s\u0000-\u001f\u007f]/.test(options.apiKey))return {
+  ok:false,data:[],attempts:[],warnings:[],discoveredSports:0,sportsWithEvents:0,fetchedSports:0,quota:{},status:503,error:'THE_ODDS_API_KEY is not configured or valid'
  };
-
- const policyTtlMs=Math.max(configuredCacheMs,policy.refreshMinutes*60000);
- cache={at:Date.now(),ttlMs:value.ok?policyTtlMs:failureCacheMs(),value};
- return value;
+ const account=digest([options.baseUrl,options.apiKey]);
+ const scope=digest([config.id,options]);
+ const stored=caches.get(scope);
+ if(stored&&Date.now()-stored.at>=0&&Date.now()-stored.at<stored.ttlMs)return cachedResult(stored,options);
+ const existing=inFlight.get(scope);
+ if(existing)return existing;
+ const deadline=Date.now()+options.batchBudgetMs;
+ const previous=accountWork.get(account);
+ const request=(async()=>{
+  if(previous)await previous.catch(()=>undefined);
+  const value=await loadBoard(options,deadline);
+  const ttlMs=value.ok?Math.max(options.cacheMs,(value.policy?.refreshMinutes||0)*60000):Math.max(options.failureCacheMs,value.retryAfterMs||0);
+  const cached={at:Date.now(),ttlMs,value};
+  caches.delete(scope);caches.set(scope,cached);
+  while(caches.size>MAX_CACHE_SCOPES)caches.delete(caches.keys().next().value!);
+  return cachedResult(cached,options);
+ })();
+ inFlight.set(scope,request);accountWork.set(account,request);
+ try{return await request;}finally{
+  if(inFlight.get(scope)===request)inFlight.delete(scope);
+  if(accountWork.get(account)===request)accountWork.delete(account);
+ }
 }
