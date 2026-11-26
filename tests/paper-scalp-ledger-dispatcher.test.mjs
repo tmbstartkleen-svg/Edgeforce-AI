@@ -32,3 +32,36 @@ test('stale revision and tampered inventory prevent dispatch',()=>{
  const corrupt=state();corrupt.book.owned=2;
  assert.equal(dispatchPaperScalpWithLedger(corrupt,0,[quote()],settings(),Date.now()).reason,'invalid_recovery_snapshot');
 });
+
+const durable=mod('paperScalpDurableStorage',{paperScalpLedger:ledger});
+const tick=mod('persistentPaperScalpTick',{paperScalpLedger:ledger,paperScalpLedgerDispatcher:bridge,paperScalpDurableStorage:durable});
+const {runPersistentPaperTick}=await import(tick);
+const memoryStorage=()=>{
+ let saved=state();
+ return {async read(){return structuredClone(saved);},
+ async compareAndSwap(id,revision,next){
+  if(saved.marketId!==id||saved.revision!==revision)return false;
+  saved=structuredClone(next);return true;
+ }};
+};
+test('concurrent persistent ticks acknowledge only one order and recover without duplication',async()=>{
+ const storage=memoryStorage();
+ const run=()=>runPersistentPaperTick(storage,'m1',[quote()],settings(),Date.now());
+ const results=await Promise.all([run(),run()]);
+ assert.equal(results.filter(r=>r.status==='paper_order_created').length,1);
+ assert.equal(results.filter(r=>r.orderId!==null).length,1);
+ const recovered=await storage.read('m1');
+ assert.equal(recovered.revision,1);
+ assert.equal(recovered.book.orders.length,1);
+ assert.equal((await run()).status,'waiting');
+});
+test('persistent tick never acknowledges failed writes or unavailable storage',async()=>{
+ for(const storage of [
+  {async read(){throw Error('offline');},async compareAndSwap(){return true;}},
+  {async read(){return state();},async compareAndSwap(){throw Error('offline');}},
+  {async read(){return state();},async compareAndSwap(){return false;}}
+ ]){
+  const r=await runPersistentPaperTick(storage,'m1',[quote()],settings(),Date.now());
+  assert.equal(r.status,'blocked');assert.equal(r.orderId,null);
+ }
+});
